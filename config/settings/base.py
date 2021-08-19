@@ -32,7 +32,7 @@ ALLOWED_HOSTS = []
 
 # Application definition
 
-INSTALLED_APPS = [
+DANGO_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -40,6 +40,18 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 ]
+
+THIRD_PARTY_APPS = [
+    "rest_framework",
+    "django_rest_passwordreset",
+]
+
+ORDO_APPS = [
+    "apps.accounts.apps.AccountsConfig",
+    "apps.common.apps.CommonConfig",
+]
+
+INSTALLED_APPS = DANGO_APPS + THIRD_PARTY_APPS + ORDO_APPS
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -128,3 +140,17 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 STAGE = os.environ.get("STAGE")
+
+# Email Settings
+DEFAULT_FROM_EMAIL = "bignewhope1994@gmail.com"
+
+# Frontend Settings
+SITE_URL = os.getenv("SITE_URL", "http://localhost:8000")
+
+# Celery Settings
+CELERY_BROKER_URL = (os.getenv("REDIS_URL"),)
+CELERY_RESULT_BACKEND = os.getenv("REDIS_URL")
+CELERY_ACCEPT_CONTENT = ["application/json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
