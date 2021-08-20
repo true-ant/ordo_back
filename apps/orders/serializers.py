@@ -6,7 +6,7 @@ from . import models as m
 class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.OrderItem
-        exclude = ("order",)
+        fields = "__all__"
 
 
 class OrderSerializer(serializers.ModelSerializer):
@@ -14,4 +14,4 @@ class OrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = m.Order
-        field = "__all__"
+        fields = "__all__"
