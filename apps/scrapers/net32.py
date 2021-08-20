@@ -1,5 +1,6 @@
 from typing import List, Optional
 
+from aiohttp import ClientResponse
 from aiohttp.typedefs import LooseCookies
 from django.utils.dateparse import parse_datetime
 
@@ -26,6 +27,13 @@ HEADERS = {
 
 
 class Net32Scraper(Scraper):
+    async def _check_authenticated(self, response: ClientResponse) -> bool:
+        res = await response.json()
+        return (
+            res.get("CallHeader", {}).get("StatusCode")
+            and res["CallHeader"]["StatusCode"] != "SC_ERROR_BAD_LOGIN_CREDENTIALS"
+        )
+
     def _get_login_data(self, username: str, password: str) -> LoginInformation:
         return {
             "url": "https://www.net32.com/rest/user/login",
@@ -57,6 +65,7 @@ class Net32Scraper(Scraper):
 
         try:
             orders = []
+            print(res)
             for order in res["Payload"]["orders"]:
                 orders.append(
                     Order.from_dict(

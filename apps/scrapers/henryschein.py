@@ -3,6 +3,7 @@ import re
 from datetime import datetime
 from typing import Optional
 
+from aiohttp import ClientResponse
 from aiohttp.typedefs import LooseCookies
 from scrapy import Selector
 
@@ -30,6 +31,10 @@ HEADERS = {
 
 
 class HenryScheinScraper(Scraper):
+    async def _check_authenticated(self, response: ClientResponse) -> bool:
+        res = await response.json()
+        return res.get("IsAuthenticated", False)
+
     def _get_login_data(self, username: str, password: str) -> LoginInformation:
         return {
             "url": "https://www.henryschein.com/webservices/LoginRequestHandler.ashx",

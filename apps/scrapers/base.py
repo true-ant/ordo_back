@@ -1,6 +1,6 @@
 from typing import Optional
 
-from aiohttp import ClientSession
+from aiohttp import ClientResponse, ClientSession
 from aiohttp.typedefs import LooseCookies
 
 from apps.scrapers.errors import VendorAuthenticationFailed
@@ -22,7 +22,15 @@ class Scraper:
         ) as resp:
             if resp.status != 200:
                 raise VendorAuthenticationFailed()
+
+            is_authenticated = await self._check_authenticated(resp)
+            if not is_authenticated:
+                raise VendorAuthenticationFailed()
+
         return resp.cookies
+
+    async def _check_authenticated(self, response: ClientResponse) -> bool:
+        return True
 
     def _get_login_data(self, username: str, password: str) -> LoginInformation:
         pass
