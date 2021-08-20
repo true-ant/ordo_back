@@ -62,7 +62,7 @@ class Office(TimeStampedModel):
     vendors = models.ManyToManyField(Vendor, through="OfficeVendor")
 
     def __str__(self):
-        return self.company
+        return f"{self.company} -> {self.name}"
 
 
 class OfficeVendor(models.Model):
