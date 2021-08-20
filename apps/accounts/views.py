@@ -19,7 +19,7 @@ from apps.scrapers.scraper_factory import ScraperFactory
 
 from . import models as m
 from . import serializers as s
-from .tasks import send_office_invite_email
+from .tasks import fetch_orders_from_vendor, send_office_invite_email
 
 
 class UserSignupAPIView(APIView):
@@ -176,6 +176,7 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
     async def create(self, request, *args, **kwargs):
         serializer = await self._validate(request.data)
         session = apps.get_app_config("accounts").session
+        session._cookie_jar.clear()
         try:
             scraper = ScraperFactory.create_scraper(
                 scraper_name=serializer.validated_data["vendor"].slug,
@@ -183,9 +184,12 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
                 password=serializer.validated_data["password"],
                 session=session,
             )
-            await scraper.login()
-            await self._save(serializer)
-            session._cookie_jar.clear()
+            login_cookies = await scraper.login()
+            office_vendor = await self._save(serializer)
+            fetch_orders_from_vendor.delay(
+                office_vendor_id=office_vendor.id,
+                login_cookies=login_cookies.output(),
+            )
         except VendorNotSupported:
             return Response(
                 {

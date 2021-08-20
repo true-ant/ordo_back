@@ -1,13 +1,17 @@
+import asyncio
 from collections import defaultdict
+from http.cookies import SimpleCookie
 from typing import List
 
+from aiohttp import ClientSession
 from celery import shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 
-from apps.accounts.models import Office
+from apps.accounts.models import Office, OfficeVendor
+from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import OfficeInvite
 
 UserModel = get_user_model()
@@ -56,3 +60,23 @@ def send_office_invite_email(office_email_invites: List[OfficeInvite]):
             recipient_list=emails,
             html_message=htm_content,
         )
+
+
+async def get_orders(office_vendor, login_cookies):
+    async with ClientSession(cookies=login_cookies) as session:
+        scraper = ScraperFactory.create_scraper(
+            scraper_name=office_vendor.vendor.slug,
+            session=session,
+        )
+        return await scraper.get_orders()
+
+
+@shared_task
+def fetch_orders_from_vendor(office_vendor_id, login_cookies):
+    cookie = SimpleCookie()
+    for login_cookie in login_cookies.split("\r\n"):
+        login_cookie = login_cookie.replace("Set-Cookie: ", "")
+        cookie.load(login_cookie)
+    office_vendor = OfficeVendor.objects.select_related("office", "vendor").get(id=office_vendor_id)
+    results = asyncio.run(get_orders(office_vendor, cookie))
+    print(results)

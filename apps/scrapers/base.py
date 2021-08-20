@@ -1,7 +1,7 @@
+from http.cookies import SimpleCookie
 from typing import Optional
 
 from aiohttp import ClientResponse, ClientSession
-from aiohttp.typedefs import LooseCookies
 
 from apps.scrapers.errors import VendorAuthenticationFailed
 from apps.types.scraper import LoginInformation
@@ -13,7 +13,7 @@ class Scraper:
         self.username = username
         self.password = password
 
-    async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> LooseCookies:
+    async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> SimpleCookie:
         username = username if username else self.username
         password = password if password else self.password
         login_info = self._get_login_data(username, password)

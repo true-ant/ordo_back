@@ -1,10 +1,8 @@
 import asyncio
 import re
 from datetime import datetime
-from typing import Optional
 
 from aiohttp import ClientResponse
-from aiohttp.typedefs import LooseCookies
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
@@ -87,13 +85,10 @@ class HenryScheinScraper(Scraper):
 
         return Order.from_dict(order)
 
-    async def get_orders(self, login_cookies: Optional[LooseCookies] = None):
+    async def get_orders(self):
         url = "https://www.henryschein.com/us-en/Orders/OrderStatus.aspx"
 
-        if not login_cookies:
-            login_cookies = await self.login()
-
-        async with self.session.get(url, cookies=login_cookies) as resp:
+        async with self.session.get(url) as resp:
             text = await resp.text()
             response_dom = Selector(text=text)
             orders_dom = response_dom.xpath(

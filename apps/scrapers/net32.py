@@ -1,7 +1,6 @@
-from typing import List, Optional
+from typing import List
 
 from aiohttp import ClientResponse
-from aiohttp.typedefs import LooseCookies
 from django.utils.dateparse import parse_datetime
 
 from apps.scrapers.base import Scraper
@@ -45,7 +44,7 @@ class Net32Scraper(Scraper):
             },
         }
 
-    async def get_orders(self, login_cookies: Optional[LooseCookies] = None) -> List[Order]:
+    async def get_orders(self) -> List[Order]:
         url = "https://www.net32.com/rest/order/orderHistory"
         headers = HEADERS.copy()
         headers["Referer"] = "https://www.net32.com/account/orders"
@@ -57,15 +56,11 @@ class Net32Scraper(Scraper):
             "completeSw": "true",
         }
 
-        if not login_cookies:
-            login_cookies = await self.login()
-
-        async with self.session.get(url, headers=headers, params=params, cookies=login_cookies) as resp:
+        async with self.session.get(url, headers=headers, params=params) as resp:
             res = await resp.json()
 
         try:
             orders = []
-            print(res)
             for order in res["Payload"]["orders"]:
                 orders.append(
                     Order.from_dict(
