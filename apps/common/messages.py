@@ -7,4 +7,5 @@ INVITE_NOT_ACCEPTABLE = "You can accept only once the onboarding process if fini
 
 # Scraper
 VENDOR_SCRAPER_IMPROPERLY_CONFIGURED = "Vendor scraper improperly configured"
-VENDOR_WRONG_INFORMATION = "Scraper improperly configured"
+VENDOR_WRONG_INFORMATION = "Wrong Vendor credential provided"
+VENDOR_CONNECTED = "Successfully connected"

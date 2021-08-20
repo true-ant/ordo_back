@@ -1,5 +1,7 @@
 from datetime import timedelta
 
+from asgiref.sync import sync_to_async
+from django.apps import apps
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.decorators import action
@@ -11,6 +13,9 @@ from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 from rest_framework_jwt.serializers import jwt_encode_handler, jwt_payload_handler
 
 from apps.common import messages as msgs
+from apps.common.asyncdrf import AsyncMixin
+from apps.scrapers.errors import VendorAuthenticationFailed, VendorNotSupported
+from apps.scrapers.scraper_factory import ScraperFactory
 
 from . import models as m
 from . import serializers as s
@@ -150,3 +155,46 @@ class VendorViewSet(ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = s.VendorSerializer
     queryset = m.Vendor.objects.all()
+
+
+class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return m.OfficeVendor.objects.filter(office_id=self.kwargs["office_pk"])
+
+    @sync_to_async
+    def _validate(self, data):
+        serializer = s.OfficeVendorSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        return serializer
+
+    @sync_to_async
+    def _save(self, serializer):
+        return serializer.save()
+
+    async def create(self, request, *args, **kwargs):
+        serializer = await self._validate(request.data)
+        session = apps.get_app_config("accounts").session
+        try:
+            scraper = ScraperFactory.create_scraper(
+                scraper_name=serializer.validated_data["vendor"].slug,
+                username=serializer.validated_data["username"],
+                password=serializer.validated_data["password"],
+                session=session,
+            )
+            await scraper.login()
+            await self._save(serializer)
+            session._cookie_jar.clear()
+        except VendorNotSupported:
+            return Response(
+                {
+                    "success": False,
+                    "message": msgs.VENDOR_SCRAPER_IMPROPERLY_CONFIGURED,
+                },
+                status=HTTP_400_BAD_REQUEST,
+            )
+        except VendorAuthenticationFailed:
+            return Response({"success": False, "message": msgs.VENDOR_WRONG_INFORMATION}, status=HTTP_400_BAD_REQUEST)
+
+        return Response({"success": True, "message": msgs.VENDOR_CONNECTED})

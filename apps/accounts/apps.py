@@ -7,3 +7,11 @@ class AccountsConfig(AppConfig):
 
     def ready(self):
         import apps.accounts.signals  # noqa
+
+    async def initialize(self):
+        from aiohttp import ClientSession
+
+        self.session = ClientSession()
+
+    async def finalize(self):
+        await self.session.close()

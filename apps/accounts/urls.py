@@ -6,6 +6,7 @@ from . import views as v
 router = SimpleRouter(trailing_slash=False)
 router.register(r"companies", v.CompanyViewSet, basename="companies")
 router.register(r"vendors", v.VendorViewSet, basename="vendors")
+router.register(r"office-vendors", v.OfficeVendorViewSet, basename="office-vendors")
 
 company_router = NestedSimpleRouter(router, r"companies", lookup="company")
 company_router.register(r"members", v.CompanyMemberViewSet, basename="members")
