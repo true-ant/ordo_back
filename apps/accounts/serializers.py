@@ -12,9 +12,16 @@ class CompanyMemberSerializer(serializers.ModelSerializer):
         exclude = ("company",)
 
 
+class VendorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.Vendor
+        fields = "__all__"
+
+
 class OfficeSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
     company = serializers.PrimaryKeyRelatedField(queryset=m.Company.objects.all(), required=False)
+    vendors = VendorSerializer(many=True, required=False)
 
     class Meta:
         model = m.Office
@@ -82,13 +89,19 @@ class CompanyMemberBulkInviteSerializer(serializers.Serializer):
     members = serializers.ListField(child=CompanyMemberSerializer(), allow_empty=False)
 
 
-class VendorSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = m.Vendor
-        fields = "__all__"
-
-
 class OfficeVendorSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.OfficeVendor
         fields = "__all__"
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.User
+        fields = (
+            "first_name",
+            "last_name",
+            "email",
+            "username",
+            "role",
+        )

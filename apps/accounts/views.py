@@ -77,6 +77,7 @@ class CompanyViewSet(ModelViewSet):
 
 class OfficeViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
+    serializer_class = s.OfficeSerializer
 
     def get_queryset(self):
         return m.Office.objects.filter(company_id=self.kwargs["company_pk"])
@@ -202,3 +203,18 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
             return Response({"success": False, "message": msgs.VENDOR_WRONG_INFORMATION}, status=HTTP_400_BAD_REQUEST)
 
         return Response({"success": True, "message": msgs.VENDOR_CONNECTED})
+
+
+class UserViewSet(ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = s.UserSerializer
+    queryset = m.User.objects.all()
+
+    def get_object(self):
+        if self.kwargs["pk"] == "me":
+            self.kwargs["pk"] = self.request.user.id
+        return super().get_object()
+
+    def update(self, request, *args, **kwargs):
+        kwargs.setdefault("partial", True)
+        return super().update(request, *args, **kwargs)
