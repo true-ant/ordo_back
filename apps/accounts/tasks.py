@@ -8,9 +8,11 @@ from celery import shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
+from django.db import transaction
 from django.template.loader import render_to_string
 
 from apps.accounts.models import Office, OfficeVendor
+from apps.orders.models import Order, OrderItem
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import OfficeInvite
 
@@ -78,5 +80,11 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies):
         login_cookie = login_cookie.replace("Set-Cookie: ", "")
         cookie.load(login_cookie)
     office_vendor = OfficeVendor.objects.select_related("office", "vendor").get(id=office_vendor_id)
-    results = asyncio.run(get_orders(office_vendor, cookie))
-    print(results)
+    orders = asyncio.run(get_orders(office_vendor, cookie))
+    with transaction.atomic():
+        for order_data_cls in orders:
+            order_data = order_data_cls.to_dict()
+            order_items_data = order_data.pop("items")
+            order = Order.from_dataclass(office_vendor, order_data)
+            objs = (OrderItem(order=order, **order_item_data) for order_item_data in order_items_data)
+            OrderItem.objects.bulk_create(objs)

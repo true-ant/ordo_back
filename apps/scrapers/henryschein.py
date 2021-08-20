@@ -59,7 +59,7 @@ class HenryScheinScraper(Scraper):
         }
         async with self.session.get(link) as resp:
             order_detail_response = Selector(text=await resp.text())
-            order["id"] = (
+            order["order_id"] = (
                 order_detail_response.xpath("//span[@id='ctl00_cphMainContent_referenceNbLbl']//text()").get().strip()
             )
             order["items"] = []

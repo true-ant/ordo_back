@@ -49,6 +49,7 @@ THIRD_PARTY_APPS = [
 ORDO_APPS = [
     "apps.accounts.apps.AccountsConfig",
     "apps.common.apps.CommonConfig",
+    "apps.orders.apps.OrdersConfig",
 ]
 
 INSTALLED_APPS = DANGO_APPS + THIRD_PARTY_APPS + ORDO_APPS

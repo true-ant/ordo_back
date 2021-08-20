@@ -53,7 +53,7 @@ class OrderItem(BaseDataClass):
 
 @dataclass(frozen=True)
 class Order(BaseDataClass):
-    id: str
+    order_id: str
     total_amount: Decimal
     currency: str
     order_date: date

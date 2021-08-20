@@ -65,7 +65,7 @@ class Net32Scraper(Scraper):
                 orders.append(
                     Order.from_dict(
                         {
-                            "id": order["id"],
+                            "order_id": order["id"],
                             "total_amount": order["orderTotal"],
                             "currency": "USD",
                             "order_date": parse_datetime(order["coTime"]).date(),
