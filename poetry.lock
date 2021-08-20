@@ -311,6 +311,18 @@ python-versions = "*"
 PyJWT = ">=1.5.2,<2.0.0"
 
 [[package]]
+name = "drf-nested-routers"
+version = "0.93.3"
+description = "Nested resources for the Django Rest Framework"
+category = "main"
+optional = false
+python-versions = ">=3.5"
+
+[package.dependencies]
+Django = ">=1.11"
+djangorestframework = ">=3.6.0"
+
+[[package]]
 name = "filelock"
 version = "3.0.12"
 description = "A platform independent file lock."
@@ -901,7 +913,7 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "31e6139b16e6981bad9a37cf63db11af73436070b8ff8dba2aa8e736109bc0e8"
+content-hash = "1a70047569958f56231f26e5d1a724f11c6f759b216fc68d1103162232bf2a07"
 
 [metadata.files]
 aiohttp = [
@@ -1088,6 +1100,10 @@ djangorestframework = [
 djangorestframework-jwt = [
     {file = "djangorestframework-jwt-1.11.0.tar.gz", hash = "sha256:5efe33032f3a4518a300dc51a51c92145ad95fb6f4b272e5aa24701db67936a7"},
     {file = "djangorestframework_jwt-1.11.0-py2.py3-none-any.whl", hash = "sha256:ab15dfbbe535eede8e2e53adaf52ef0cf018ee27dbfad10cbc4cbec2ab63d38c"},
+]
+drf-nested-routers = [
+    {file = "drf-nested-routers-0.93.3.tar.gz", hash = "sha256:5bbb394ce382d8392cb7eb1e24eb8ad169bf095b22b8275b8f0f1e6697000434"},
+    {file = "drf_nested_routers-0.93.3-py2.py3-none-any.whl", hash = "sha256:84e946cd486e9ec1fea12a6ca114adc0c68389ccc66e55f6c0c23ce31362485d"},
 ]
 filelock = [
     {file = "filelock-3.0.12-py3-none-any.whl", hash = "sha256:929b7d63ec5b7d6b71b0fa5ac14e030b3f70b75747cef1b10da9b879fef15836"},
