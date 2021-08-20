@@ -30,13 +30,13 @@ HEADERS = {
 
 
 class HenryScheinScraper(Scraper):
-    def _get_login_data(self) -> LoginInformation:
+    def _get_login_data(self, username: str, password: str) -> LoginInformation:
         return {
             "url": "https://www.henryschein.com/webservices/LoginRequestHandler.ashx",
             "headers": HEADERS,
             "data": {
-                "username": self.username,
-                "password": self.password,
+                "username": username,
+                "password": password,
                 "did": "dental",
                 "searchType": "authenticateuser",
                 "culture": "us-en",

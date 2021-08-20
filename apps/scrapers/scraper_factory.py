@@ -1,4 +1,5 @@
 import asyncio
+from typing import Optional
 
 from aiohttp import ClientSession
 
@@ -14,21 +15,28 @@ SCRAPERS = {
 
 class ScraperFactory:
     @classmethod
-    def create_scraper(cls, *, scraper_name: str, username: str, password: str, session: ClientSession):
+    def create_scraper(
+        cls,
+        *,
+        scraper_name: str,
+        session: ClientSession,
+        username: Optional[str] = None,
+        password: Optional[str] = None
+    ):
         if scraper_name not in SCRAPERS:
             raise VendorNotSupported(scraper_name)
 
-        return SCRAPERS[scraper_name](username, password, session)
+        return SCRAPERS[scraper_name](session, username, password)
 
 
 async def main():
     async with ClientSession() as session:
-        scraper = ScraperFactory.create_scraper(
-            scraper_name="henry_schein", username="Alextkantor1", password="co80128", session=session
-        )
         # scraper = ScraperFactory.create_scraper(
-        #     scraper_name="net_32", username="Info@glacierpeakdentistry.com", password="Glacier19!", session=session
+        #     scraper_name="henry_schein", session=session, username="Alextkantor1", password="co80128"
         # )
+        scraper = ScraperFactory.create_scraper(
+            scraper_name="net_32", session=session, username="Info@glacierpeakdentistry.com", password="Glacier19!"
+        )
         orders = await scraper.get_orders()
         print(orders)
 

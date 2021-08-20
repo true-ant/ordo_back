@@ -38,7 +38,9 @@ class Command(BaseCommand):
         df = pd.read_csv(file_path)
         json_data = []
         for i, row in df.iterrows():
-            json_data.append({"model": app_model, "pk": i + 1, "fields": {"slug": slugify(row["name"]), **row}})
+            json_data.append(
+                {"model": app_model, "pk": i + 1, "fields": {"slug": slugify(row["name"], separator="_"), **row}}
+            )
         app_model = app_model.replace(".", "_")
         with open(f"{os.path.join(BASE_PATH, app_model)}.json", "w") as f:
             json.dump(json_data, f, indent=4)

@@ -26,13 +26,13 @@ HEADERS = {
 
 
 class Net32Scraper(Scraper):
-    def _get_login_data(self) -> LoginInformation:
+    def _get_login_data(self, username: str, password: str) -> LoginInformation:
         return {
             "url": "https://www.net32.com/rest/user/login",
             "headers": HEADERS,
             "data": {
-                "userName": self.username,
-                "password": self.password,
+                "userName": username,
+                "password": password,
                 "latestTosVersion": "1",
             },
         }

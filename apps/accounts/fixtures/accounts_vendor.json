@@ -3,7 +3,7 @@
         "model": "accounts.vendor",
         "pk": 1,
         "fields": {
-            "slug": "henry-schein",
+            "slug": "henry_schein",
             "name": "Henry Schein",
             "url": "https://www.henryschein.com/"
         }
@@ -12,7 +12,7 @@
         "model": "accounts.vendor",
         "pk": 2,
         "fields": {
-            "slug": "net-32",
+            "slug": "net_32",
             "name": "Net 32",
             "url": "https://www.net32.com/"
         }
