@@ -90,8 +90,12 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": os.environ.get("RDS_DB_ENGINE", "django.db.backends.sqlite3"),
+        "NAME": os.environ.get("RDS_DB_NAME", os.path.join(BASE_DIR, "db.sqlite3")),
+        "USER": os.environ.get("RDS_USERNAME", "user"),
+        "PASSWORD": os.environ.get("RDS_PASSWORD", "password"),
+        "HOST": os.environ.get("RDS_HOSTNAME", "localhost"),
+        "PORT": os.environ.get("RDS_PORT", "5432"),
     }
 }
 
