@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-x^xwu4f6z*j91km*w)i#kdp#@tcq(17&(y06+0s3hr!p_1lmzj"
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 ALLOWED_HOSTS = []
@@ -153,6 +153,7 @@ DEFAULT_FROM_EMAIL = "bignewhope1994@gmail.com"
 SITE_URL = os.getenv("SITE_URL", "http://localhost:8000")
 
 # Celery Settings
+CELERY_DEFAULT_QUEUE = os.getenv('CELERY_DEFAULT_QUEUE')
 CELERY_BROKER_URL = (os.getenv("REDIS_URL"),)
 CELERY_RESULT_BACKEND = os.getenv("REDIS_URL")
 CELERY_ACCEPT_CONTENT = ["application/json"]

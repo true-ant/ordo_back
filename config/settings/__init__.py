@@ -1,5 +1,7 @@
-from .base import *  # noqa
+import os
 
+
+STAGE = os.environ.get("STAGE")
 if STAGE == "production":  # noqa
     from .production import *  # noqa
 elif STAGE == "staging":  # noqa
