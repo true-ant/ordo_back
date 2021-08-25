@@ -30,7 +30,7 @@ class UserSignupAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         with transaction.atomic():
             if m.User.objects.filter(email=serializer.validated_data["email"]).exists():
-                return Response({"email": msgs.SIGNUP_DUPLICATE_EMAIL})
+                return Response({"message": msgs.SIGNUP_DUPLICATE_EMAIL}, status=HTTP_400_BAD_REQUEST)
 
             user = m.User.objects.create_user(
                 first_name=serializer.validated_data["first_name"],
@@ -51,8 +51,8 @@ class UserSignupAPIView(APIView):
             payload = jwt_payload_handler(user)
             return Response(
                 {
-                    "success": True,
-                    "data": {"token": jwt_encode_handler(payload), "company": s.CompanySerializer(company).data},
+                    "token": jwt_encode_handler(payload),
+                    "company": s.CompanySerializer(company).data,
                 }
             )
 
@@ -70,9 +70,9 @@ class CompanyViewSet(ModelViewSet):
     def get_company_on_boarding_step(self, request):
         company_member = m.CompanyMember.objects.filter(user=request.user).first()
         if company_member:
-            return Response({"success": True, "on_boarding_step": company_member.company.on_boarding_step})
+            return Response({"on_boarding_step": company_member.company.on_boarding_step})
         else:
-            return Response({"success": False, "message": ""})
+            return Response({"message": ""})
 
 
 class OfficeViewSet(ModelViewSet):
@@ -117,7 +117,7 @@ class CompanyMemberViewSet(ModelViewSet):
                     for member in serializer.validated_data["members"]
                 ]
             )
-        return Response({"success": True})
+        return Response({})
 
 
 class CompanyMemberInvitationCheckAPIView(APIView):
@@ -130,7 +130,7 @@ class CompanyMemberInvitationCheckAPIView(APIView):
 
         company = invite.company
         if company.on_boarding_step < 5:
-            return Response({"message": msgs.INVITE_NOT_ACCEPTABLE})
+            return Response({"message": msgs.INVITE_NOT_ACCEPTABLE}, status=HTTP_400_BAD_REQUEST)
 
         now = timezone.now()
         if invite.token_expires_at > now:
@@ -194,15 +194,14 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
         except VendorNotSupported:
             return Response(
                 {
-                    "success": False,
                     "message": msgs.VENDOR_SCRAPER_IMPROPERLY_CONFIGURED,
                 },
                 status=HTTP_400_BAD_REQUEST,
             )
         except VendorAuthenticationFailed:
-            return Response({"success": False, "message": msgs.VENDOR_WRONG_INFORMATION}, status=HTTP_400_BAD_REQUEST)
+            return Response({"message": msgs.VENDOR_WRONG_INFORMATION}, status=HTTP_400_BAD_REQUEST)
 
-        return Response({"success": True, "message": msgs.VENDOR_CONNECTED})
+        return Response({"message": msgs.VENDOR_CONNECTED})
 
 
 class UserViewSet(ModelViewSet):
