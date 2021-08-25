@@ -44,6 +44,7 @@ DANGO_APPS = [
 THIRD_PARTY_APPS = [
     "rest_framework",
     "django_rest_passwordreset",
+    "corsheaders",
 ]
 
 ORDO_APPS = [
@@ -57,6 +58,7 @@ INSTALLED_APPS = DANGO_APPS + THIRD_PARTY_APPS + ORDO_APPS
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -153,7 +155,7 @@ DEFAULT_FROM_EMAIL = "bignewhope1994@gmail.com"
 SITE_URL = os.getenv("SITE_URL", "http://localhost:8000")
 
 # Celery Settings
-CELERY_DEFAULT_QUEUE = os.getenv('CELERY_DEFAULT_QUEUE')
+CELERY_DEFAULT_QUEUE = os.getenv("CELERY_DEFAULT_QUEUE")
 CELERY_BROKER_URL = (os.getenv("REDIS_URL"),)
 CELERY_RESULT_BACKEND = os.getenv("REDIS_URL")
 CELERY_ACCEPT_CONTENT = ["application/json"]
