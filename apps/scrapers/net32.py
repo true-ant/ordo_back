@@ -33,7 +33,7 @@ class Net32Scraper(Scraper):
             and res["CallHeader"]["StatusCode"] != "SC_ERROR_BAD_LOGIN_CREDENTIALS"
         )
 
-    def _get_login_data(self, username: str, password: str) -> LoginInformation:
+    async def _get_login_data(self, username: str, password: str) -> LoginInformation:
         return {
             "url": "https://www.net32.com/rest/user/login",
             "headers": HEADERS,
@@ -44,7 +44,7 @@ class Net32Scraper(Scraper):
             },
         }
 
-    async def get_orders(self) -> List[Order]:
+    async def get_orders(self, perform_login=False) -> List[Order]:
         url = "https://www.net32.com/rest/order/orderHistory"
         headers = HEADERS.copy()
         headers["Referer"] = "https://www.net32.com/account/orders"
@@ -55,6 +55,9 @@ class Net32Scraper(Scraper):
             "pendingSw": "true",
             "completeSw": "true",
         }
+
+        if perform_login:
+            await self.login()
 
         async with self.session.get(url, headers=headers, params=params) as resp:
             res = await resp.json()

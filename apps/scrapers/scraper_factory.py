@@ -37,7 +37,7 @@ async def main():
         scraper = ScraperFactory.create_scraper(
             scraper_name="net_32", session=session, username="Info@glacierpeakdentistry.com", password="Glacier19!"
         )
-        orders = await scraper.get_orders()
+        orders = await scraper.get_orders(perform_login=True)
         print(orders)
 
 

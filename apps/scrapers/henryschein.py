@@ -33,7 +33,7 @@ class HenryScheinScraper(Scraper):
         res = await response.json()
         return res.get("IsAuthenticated", False)
 
-    def _get_login_data(self, username: str, password: str) -> LoginInformation:
+    async def _get_login_data(self, username: str, password: str) -> LoginInformation:
         return {
             "url": "https://www.henryschein.com/webservices/LoginRequestHandler.ashx",
             "headers": HEADERS,
@@ -71,13 +71,13 @@ class HenryScheinScraper(Scraper):
                     xpath="./td[1]//table[@id='tblProduct']//span[@class='ProductDisplayName']//text()",
                 )
                 quantity_price = self.extract_strip_value(
-                    dom=detail_row, xpath="./td[@colspan='4']//table//tr[1]//td[1]//text()", delimeter=";"
+                    dom=detail_row, xpath=".//td[@id='QtyRow']//text()", delimeter=";"
                 )
                 quantity, _, unit_price = quantity_price.split(";")
                 unit_price = re.search(r"\$(.*)/", unit_price)
 
                 status = self.extract_strip_value(
-                    dom=detail_row, xpath="./td[@colspan='4']//table//tr[1]//td[3]//text()"
+                    dom=detail_row, xpath=".//span[contains(@id, 'itemStatusLbl')]//text()"
                 )
                 order["items"].append(
                     {"name": item_name, "quantity": quantity, "unit_price": unit_price.group(1), "status": status}
@@ -85,8 +85,11 @@ class HenryScheinScraper(Scraper):
 
         return Order.from_dict(order)
 
-    async def get_orders(self):
+    async def get_orders(self, perform_login=False):
         url = "https://www.henryschein.com/us-en/Orders/OrderStatus.aspx"
+
+        if perform_login:
+            await self.login()
 
         async with self.session.get(url) as resp:
             text = await resp.text()
