@@ -3,6 +3,7 @@ from typing import Optional
 
 from aiohttp import ClientSession
 
+from apps.scrapers.darby import DarbyScraper
 from apps.scrapers.errors import VendorNotSupported
 from apps.scrapers.henryschein import HenryScheinScraper
 from apps.scrapers.net32 import Net32Scraper
@@ -12,6 +13,7 @@ SCRAPERS = {
     "henry_schein": HenryScheinScraper,
     "net_32": Net32Scraper,
     "ultradent": UltraDentScraper,
+    "darby": DarbyScraper,
 }
 
 
@@ -32,11 +34,12 @@ class ScraperFactory:
 
 
 async def main():
-    scraper_name = "ultradent"
+    scraper_name = "darby"
     credentials = {
         "henry_schein": {"username": "Alextkantor1", "password": "co80128"},
         "net_32": {"username": "Info@glacierpeakdentistry.com", "password": "Glacier19!"},
         "ultradent": {"username": "info@columbinecreekdentistry.com", "password": "co80128!"},
+        "darby": {"username": "whale5310*", "password": "co80128"},
     }
     credential = credentials[scraper_name]
     async with ClientSession() as session:
