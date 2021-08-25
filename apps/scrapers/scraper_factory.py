@@ -6,10 +6,12 @@ from aiohttp import ClientSession
 from apps.scrapers.errors import VendorNotSupported
 from apps.scrapers.henryschein import HenryScheinScraper
 from apps.scrapers.net32 import Net32Scraper
+from apps.scrapers.ultradent import UltraDentScraper
 
 SCRAPERS = {
     "henry_schein": HenryScheinScraper,
     "net_32": Net32Scraper,
+    "ultradent": UltraDentScraper,
 }
 
 
@@ -30,12 +32,19 @@ class ScraperFactory:
 
 
 async def main():
+    scraper_name = "ultradent"
+    credentials = {
+        "henry_schein": {"username": "Alextkantor1", "password": "co80128"},
+        "net_32": {"username": "Info@glacierpeakdentistry.com", "password": "Glacier19!"},
+        "ultradent": {"username": "info@columbinecreekdentistry.com", "password": "co80128!"},
+    }
+    credential = credentials[scraper_name]
     async with ClientSession() as session:
-        # scraper = ScraperFactory.create_scraper(
-        #     scraper_name="henry_schein", session=session, username="Alextkantor1", password="co80128"
-        # )
         scraper = ScraperFactory.create_scraper(
-            scraper_name="net_32", session=session, username="Info@glacierpeakdentistry.com", password="Glacier19!"
+            scraper_name=scraper_name,
+            session=session,
+            username=credential["username"],
+            password=credential["password"],
         )
         orders = await scraper.get_orders(perform_login=True)
         print(orders)

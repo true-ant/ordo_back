@@ -3,7 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import List, get_args, get_origin
 
-from django.utils.dateparse import parse_datetime
+from django.utils.dateparse import parse_date, parse_datetime
 
 
 def from_dict(cls, dict_data):
@@ -14,6 +14,8 @@ def from_dict(cls, dict_data):
             return field_type(v)
         elif field_type is Decimal:
             return Decimal(str(v).strip("$"))
+        elif field_type is date:
+            return parse_date(v)
         elif field_type is datetime:
             return parse_datetime(v)
         else:

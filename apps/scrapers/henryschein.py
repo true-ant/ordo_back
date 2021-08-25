@@ -33,13 +33,13 @@ class HenryScheinScraper(Scraper):
         res = await response.json()
         return res.get("IsAuthenticated", False)
 
-    async def _get_login_data(self, username: str, password: str) -> LoginInformation:
+    async def _get_login_data(self) -> LoginInformation:
         return {
             "url": "https://www.henryschein.com/webservices/LoginRequestHandler.ashx",
             "headers": HEADERS,
             "data": {
-                "username": username,
-                "password": password,
+                "username": self.username,
+                "password": self.password,
                 "did": "dental",
                 "searchType": "authenticateuser",
                 "culture": "us-en",

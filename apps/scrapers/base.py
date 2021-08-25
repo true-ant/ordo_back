@@ -14,9 +14,12 @@ class Scraper:
         self.password = password
 
     async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> SimpleCookie:
-        username = username if username else self.username
-        password = password if password else self.password
-        login_info = await self._get_login_data(username, password)
+        if username:
+            self.username = username
+        if password:
+            self.password = password
+
+        login_info = await self._get_login_data()
         async with self.session.post(
             login_info["url"], headers=login_info["headers"], data=login_info["data"]
         ) as resp:
@@ -32,5 +35,8 @@ class Scraper:
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         return True
 
-    async def _get_login_data(self, username: str, password: str) -> LoginInformation:
+    async def _get_login_data(self) -> LoginInformation:
         pass
+
+    def extract_first(self, dom, xpath):
+        return dom.xpath(xpath).extract_first().strip()

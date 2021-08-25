@@ -33,13 +33,13 @@ class Net32Scraper(Scraper):
             and res["CallHeader"]["StatusCode"] != "SC_ERROR_BAD_LOGIN_CREDENTIALS"
         )
 
-    async def _get_login_data(self, username: str, password: str) -> LoginInformation:
+    async def _get_login_data(self) -> LoginInformation:
         return {
             "url": "https://www.net32.com/rest/user/login",
             "headers": HEADERS,
             "data": {
-                "userName": username,
-                "password": password,
+                "userName": self.username,
+                "password": self.password,
                 "latestTosVersion": "1",
             },
         }
