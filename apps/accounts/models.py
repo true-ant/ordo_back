@@ -25,6 +25,7 @@ class User(AbstractUser):
 class Company(TimeStampedModel):
     name = models.CharField(max_length=100)
     on_boarding_step = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return self.name
@@ -44,6 +45,8 @@ class Vendor(models.Model):
 
 class Office(TimeStampedModel):
     company = FlexibleForeignKey(Company, related_name="offices")
+    is_active = models.BooleanField(default=True)
+
     # Basic Information
     name = models.CharField(max_length=100)
     address = models.CharField(max_length=100, null=True, blank=True)

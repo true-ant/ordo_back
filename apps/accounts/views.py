@@ -18,6 +18,7 @@ from apps.scrapers.errors import VendorAuthenticationFailed, VendorNotSupported
 from apps.scrapers.scraper_factory import ScraperFactory
 
 from . import models as m
+from . import permissions as p
 from . import serializers as s
 from .tasks import fetch_orders_from_vendor, send_office_invite_email
 
@@ -58,7 +59,7 @@ class UserSignupAPIView(APIView):
 
 
 class CompanyViewSet(ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [p.CompanyPermission]
     serializer_class = s.CompanySerializer
     queryset = m.Company.objects.all()
 
@@ -74,6 +75,10 @@ class CompanyViewSet(ModelViewSet):
         else:
             return Response({"message": ""})
 
+    def perform_destroy(self, instance):
+        instance.is_active = False
+        instance.save()
+
 
 class OfficeViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -81,6 +86,10 @@ class OfficeViewSet(ModelViewSet):
 
     def get_queryset(self):
         return m.Office.objects.filter(company_id=self.kwargs["company_pk"])
+
+    def perform_destroy(self, instance):
+        instance.is_active = False
+        instance.save()
 
 
 class CompanyMemberViewSet(ModelViewSet):
