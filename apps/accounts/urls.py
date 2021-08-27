@@ -16,6 +16,6 @@ company_router.register(r"offices", v.OfficeViewSet, basename="offices")
 urlpatterns = [
     path("", include(router.urls)),
     path("", include(company_router.urls)),
-    path("auth/signup", v.UserSignupAPIView.as_view()),
+    path("auth/signup", v.UserSignupAPIView.as_view(), name="signup"),
     path("check-invite", v.CompanyMemberInvitationCheckAPIView.as_view()),
 ]

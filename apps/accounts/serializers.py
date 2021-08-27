@@ -81,7 +81,7 @@ class UserSignupSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField()
     company_name = serializers.CharField()
-    role = serializers.ChoiceField(choices=m.User.Role.choices)
+    role = serializers.ChoiceField(choices=(m.User.Role.ADMIN,))
 
 
 class CompanyMemberBulkInviteSerializer(serializers.Serializer):

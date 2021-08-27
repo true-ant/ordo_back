@@ -33,14 +33,12 @@ class UserSignupAPIView(APIView):
             if m.User.objects.filter(email=serializer.validated_data["email"]).exists():
                 return Response({"message": msgs.SIGNUP_DUPLICATE_EMAIL}, status=HTTP_400_BAD_REQUEST)
 
+            company_name = serializer.validated_data.pop("company_name")
             user = m.User.objects.create_user(
-                first_name=serializer.validated_data["first_name"],
-                last_name=serializer.validated_data["last_name"],
-                password=serializer.validated_data["password"],
-                email=serializer.validated_data["email"],
                 username=serializer.validated_data["email"],
+                **serializer.validated_data,
             )
-            company = m.Company.objects.create(name=serializer.validated_data["company_name"], on_boarding_step=0)
+            company = m.Company.objects.create(name=company_name, on_boarding_step=0)
             m.CompanyMember.objects.create(
                 company=company,
                 user=user,
@@ -59,7 +57,7 @@ class UserSignupAPIView(APIView):
 
 
 class CompanyViewSet(ModelViewSet):
-    permission_classes = [p.CompanyPermission]
+    permission_classes = [p.CompanyOfficePermission]
     serializer_class = s.CompanySerializer
     queryset = m.Company.objects.all()
 
@@ -81,7 +79,7 @@ class CompanyViewSet(ModelViewSet):
 
 
 class OfficeViewSet(ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [p.CompanyOfficePermission]
     serializer_class = s.OfficeSerializer
 
     def get_queryset(self):
