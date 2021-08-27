@@ -178,7 +178,10 @@ REST_FRAMEWORK = {
 }
 
 # DRF-JWT
-JWT_EXPIRATION_DELTA = datetime.timedelta(days=3)
+JWT_AUTH = {
+    "JWT_EXPIRATION_DELTA": datetime.timedelta(days=3),
+    "JWT_RESPONSE_PAYLOAD_HANDLER": "apps.accounts.utils.jwt_response_payload_handler",
+}
 
 # AWS
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")

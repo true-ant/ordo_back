@@ -27,6 +27,12 @@ class OfficeSerializer(serializers.ModelSerializer):
         model = m.Office
         fields = "__all__"
 
+    def to_representation(self, instance):
+        res = super().to_representation(instance)
+        if self.context.get("exclude_vendors"):
+            res.pop("vendors")
+        return res
+
 
 class CompanySerializer(serializers.ModelSerializer):
     offices = OfficeSerializer(many=True)
@@ -74,6 +80,12 @@ class CompanySerializer(serializers.ModelSerializer):
 
         return instance
 
+    def to_representation(self, instance):
+        res = super().to_representation(instance)
+        if self.context.get("exclude_offices"):
+            res.pop("offices")
+        return res
+
 
 class UserSignupSerializer(serializers.Serializer):
     first_name = serializers.CharField()
@@ -81,7 +93,7 @@ class UserSignupSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField()
     company_name = serializers.CharField()
-    role = serializers.ChoiceField(choices=m.User.Role.choices)
+    role = serializers.ChoiceField(choices=(m.User.Role.ADMIN.value,))
 
 
 class CompanyMemberBulkInviteSerializer(serializers.Serializer):
@@ -96,12 +108,19 @@ class OfficeVendorSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    company = serializers.SerializerMethodField()
+
     class Meta:
         model = m.User
-        fields = (
-            "first_name",
-            "last_name",
-            "email",
-            "username",
-            "role",
+        exclude = (
+            "password",
+            "is_superuser",
+            "is_staff",
+            "groups",
+            "user_permissions",
         )
+
+    def get_company(self, instance):
+        company_member = m.CompanyMember.objects.select_related("company").filter(user=instance).first()
+        if company_member:
+            return CompanySerializer(company_member.company, context=self.context).data
