@@ -20,6 +20,7 @@ class User(AbstractUser):
         USER = 2
 
     role = models.IntegerField(choices=Role.choices, default=Role.USER)
+    avatar = models.ImageField(null=True, blank=True)
 
 
 class Company(TimeStampedModel):
@@ -52,6 +53,7 @@ class Office(TimeStampedModel):
     address = models.CharField(max_length=100, null=True, blank=True)
     phone_number = models.CharField(max_length=100, null=True, blank=True)
     website = models.CharField(max_length=100, null=True, blank=True)
+    logo = models.ImageField(null=True, blank=True)
     # Budget & Card Information
     budget = models.PositiveIntegerField(default=0)
     cc_number = models.CharField(max_length=20, null=True, blank=True)

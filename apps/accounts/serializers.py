@@ -1,6 +1,8 @@
 from django.db import transaction
 from rest_framework import serializers
 
+from apps.common.serializers import Base64ImageField
+
 from . import models as m
 
 
@@ -21,6 +23,7 @@ class VendorSerializer(serializers.ModelSerializer):
 class OfficeSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
     company = serializers.PrimaryKeyRelatedField(queryset=m.Company.objects.all(), required=False)
+    logo = Base64ImageField()
     vendors = VendorSerializer(many=True, required=False)
 
     class Meta:
@@ -109,6 +112,7 @@ class OfficeVendorSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     company = serializers.SerializerMethodField()
+    avatar = Base64ImageField()
 
     class Meta:
         model = m.User
