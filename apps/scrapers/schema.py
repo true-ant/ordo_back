@@ -61,3 +61,15 @@ class Order(BaseDataClass):
     order_date: date
     status: str
     items: List[OrderItem]
+
+
+@dataclass(frozen=True)
+class Product(BaseDataClass):
+    name: str
+    link: str
+    description: str
+    image: str
+    price: str  # Decimal
+    retail_price: str  # Decimal
+    stars: Decimal
+    ratings: Decimal

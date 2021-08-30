@@ -39,4 +39,4 @@ class Scraper:
         pass
 
     def extract_first(self, dom, xpath):
-        return dom.xpath(xpath).extract_first().strip()
+        return x.strip() if (x := dom.xpath(xpath).extract_first()) else x

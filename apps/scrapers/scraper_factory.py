@@ -1,7 +1,9 @@
 import asyncio
+import os
 from typing import Optional
 
 from aiohttp import ClientSession
+from dotenv import load_dotenv
 
 from apps.scrapers.darby import DarbyScraper
 from apps.scrapers.errors import VendorNotSupported
@@ -34,12 +36,26 @@ class ScraperFactory:
 
 
 async def main():
-    scraper_name = "darby"
+
+    load_dotenv()
+    scraper_name = "net_32"
     credentials = {
-        "henry_schein": {"username": "Alextkantor1", "password": "co80128"},
-        "net_32": {"username": "Info@glacierpeakdentistry.com", "password": "Glacier19!"},
-        "ultradent": {"username": "info@columbinecreekdentistry.com", "password": "co80128!"},
-        "darby": {"username": "whale5310*", "password": "co80128"},
+        "henry_schein": {
+            "username": os.getenv("HENRY_SCHEIN_USERNAME"),
+            "password": os.getenv("HENRY_SCHEIN_PASSWORD"),
+        },
+        "net_32": {
+            "username": os.getenv("NET32_USERNAME"),
+            "password": os.getenv("NET32_PASSWORD"),
+        },
+        "ultradent": {
+            "username": os.getenv("ULTRADENT_SCHEIN_USERNAME"),
+            "password": os.getenv("ULTRADENT_SCHEIN_PASSWORD"),
+        },
+        "darby": {
+            "username": os.getenv("DARBY_SCHEIN_USERNAME"),
+            "password": os.getenv("DARBY_SCHEIN_PASSWORD"),
+        },
     }
     credential = credentials[scraper_name]
     async with ClientSession() as session:
@@ -49,8 +65,9 @@ async def main():
             username=credential["username"],
             password=credential["password"],
         )
-        orders = await scraper.get_orders(perform_login=True)
-        print(orders)
+        # results = await scraper.get_orders(perform_login=True)
+        results = await scraper.search_products(query="tooth brush")
+        print(results)
 
 
 if __name__ == "__main__":
