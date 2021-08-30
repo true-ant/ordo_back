@@ -21,7 +21,7 @@ class Order(TimeStampedModel):
         return self.order_id
 
     class Meta:
-        pass
+        ordering = ["-order_date"]
 
     @classmethod
     def from_dataclass(cls, office_vendor, dict_data):

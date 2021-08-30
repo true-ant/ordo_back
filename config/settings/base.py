@@ -46,6 +46,7 @@ THIRD_PARTY_APPS = [
     "rest_framework",
     "django_rest_passwordreset",
     "corsheaders",
+    "django_filters",
 ]
 
 ORDO_APPS = [
@@ -167,6 +168,7 @@ CELERY_TIMEZONE = TIME_ZONE
 # Django Rest Framework
 REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    "DEFAULT_FILTER_BACKENDS": ("django_filters.rest_framework.DjangoFilterBackend",),
     "DEFAULT_RENDERER_CLASSES": [
         "apps.common.renders.APIRenderer",
     ],
