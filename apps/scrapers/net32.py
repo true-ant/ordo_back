@@ -42,6 +42,8 @@ SEARCH_HEADERS = {
 
 
 class Net32Scraper(Scraper):
+    BASE_URL = "https://www.net32.com"
+
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         res = await response.json()
         return (
@@ -51,7 +53,7 @@ class Net32Scraper(Scraper):
 
     async def _get_login_data(self) -> LoginInformation:
         return {
-            "url": "https://www.net32.com/rest/user/login",
+            "url": f"{self.BASE_URL}/rest/user/login",
             "headers": HEADERS,
             "data": {
                 "userName": self.username,
@@ -61,9 +63,9 @@ class Net32Scraper(Scraper):
         }
 
     async def get_orders(self, perform_login=False) -> List[Order]:
-        url = "https://www.net32.com/rest/order/orderHistory"
+        url = f"{self.BASE_URL}/rest/order/orderHistory"
         headers = HEADERS.copy()
-        headers["Referer"] = "https://www.net32.com/account/orders"
+        headers["Referer"] = f"{self.BASE_URL}/account/orders"
         params = {
             "paymentSystemId": "1",
             "startPoint": "0",
@@ -89,9 +91,17 @@ class Net32Scraper(Scraper):
                             "currency": "USD",
                             "order_date": parse_datetime(order["coTime"]).date(),
                             "status": order["status"],
-                            "items": [
+                            "products": [
                                 {
-                                    "name": line_item["title"],
+                                    "product": {
+                                        "id": line_item["id"],
+                                        "name": line_item["mpName"],
+                                        "description": line_item["description"],
+                                        "url": f"{self.BASE_URL}/{line_item['detailLink']}",
+                                        "image": f"{self.BASE_URL}/media/{line_item['mediaPath']}",
+                                        "price": line_item["oliProdPrice"],
+                                        "retail_price": line_item["oliProdRetailPrice"],
+                                    },
                                     "quantity": line_item["quantity"],
                                     "unit_price": line_item["oliProdPrice"],
                                     "status": line_item["status"],
@@ -107,7 +117,7 @@ class Net32Scraper(Scraper):
             raise OrderFetchException()
 
     async def search_products(self, query: str, perform_login: bool = False) -> List[Product]:
-        url = "https://www.net32.com/search"
+        url = f"{self.BASE_URL}/search"
         params = {
             "q": query,
             "page": 1,
@@ -124,12 +134,12 @@ class Net32Scraper(Scraper):
                 products.append(
                     Product(
                         name=self.extract_first(product_dom, ".//a[@class='localsearch-result-product-name']//text()"),
-                        link="https://www.net32.com"
+                        link=self.BASE_URL
                         + self.extract_first(product_dom, ".//a[@class='localsearch-result-product-name']/@href"),
                         description=self.extract_first(
                             product_dom, ".//div[@class='localsearch-result-product-packaging-container']//text()"
                         ),
-                        image="https://www.net32.com"
+                        image=self.BASE_URL
                         + self.extract_first(
                             product_dom, ".//img[@class='localsearch-result-product-thumbnail']/@src"
                         ),
