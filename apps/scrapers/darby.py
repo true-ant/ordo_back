@@ -26,13 +26,15 @@ HEADERS = {
 
 
 class DarbyScraper(Scraper):
+    BASE_URL = "https://www.darbydental.com"
+
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         res = await response.json()
         return res["m_Item2"] and res["m_Item2"]["username"] == self.username
 
     async def _get_login_data(self) -> LoginInformation:
         return {
-            "url": "https://www.darbydental.com/api/Login/Login",
+            "url": f"{self.BASE_URL}/api/Login/Login",
             "headers": HEADERS,
             "data": {"username": self.username, "password": self.password, "next": ""},
         }
@@ -50,15 +52,21 @@ class DarbyScraper(Scraper):
                 self.extract_strip_value(order_dom, ".//td[2]//text()"), "%m/%d/%Y"
             ).date(),
         }
-        async with self.session.get(f"https://www.darbydental.com/Scripts/{link}", headers=HEADERS) as resp:
+        async with self.session.get(f"{self.BASE_URL}/Scripts/{link}", headers=HEADERS) as resp:
             order_detail_response = Selector(text=await resp.text())
-            order["items"] = []
+            order["products"] = []
             for detail_row in order_detail_response.xpath(
                 "//table[@id='MainContent_gvInvoiceDetail']//tr[@class='pdpHelltPrimary']"  # noqa
             ):
-                order["items"].append(
+                order["products"].append(
                     {
-                        "name": self.extract_strip_value(detail_row, "./td[2]//text()"),
+                        "product": {
+                            "id": self.extract_strip_value(detail_row, "./td[1]/a//text()"),
+                            "name": self.extract_strip_value(detail_row, "./td[2]//text()"),
+                            "url": self.BASE_URL + self.extract_strip_value(detail_row, "./td[1]/a//@href"),
+                            "image": self.BASE_URL + self.extract_strip_value(detail_row, "./td[1]/input//@src"),
+                            "price": self.extract_strip_value(detail_row, "./td[4]//text()"),
+                        },
                         "quantity": self.extract_strip_value(detail_row, "./td[5]//text()"),
                         "unit_price": self.extract_strip_value(detail_row, "./td[4]//text()"),
                         # "status": status
@@ -68,7 +76,7 @@ class DarbyScraper(Scraper):
         return Order.from_dict(order)
 
     async def get_orders(self, perform_login=False):
-        url = "https://www.darbydental.com/Scripts/InvoiceHistory.aspx"
+        url = f"{self.BASE_URL}/Scripts/InvoiceHistory.aspx"
 
         if perform_login:
             await self.login()
