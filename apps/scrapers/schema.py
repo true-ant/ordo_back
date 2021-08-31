@@ -1,6 +1,6 @@
 from dataclasses import asdict, dataclass, fields
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import List, get_args, get_origin
 
 from django.utils.dateparse import parse_date, parse_datetime
@@ -13,7 +13,11 @@ def from_dict(cls, dict_data):
         elif field_type in (int, float, str):
             return field_type(v)
         elif field_type is Decimal:
-            return Decimal(str(v).strip("$"))
+            try:
+                v = Decimal(str(v).strip("$"))
+            except InvalidOperation:
+                v = Decimal("0")
+            return v
         elif field_type is date:
             return parse_date(v)
         elif field_type is datetime:

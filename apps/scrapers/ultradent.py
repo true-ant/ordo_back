@@ -76,10 +76,10 @@ class UltraDentScraper(Scraper):
                 }
             """,
         }
-        order["order_id"] = order["id"]
+        order["order_id"] = order["orderNumber"]
         order["status"] = order["orderStatus"]
         order["order_date"] = order["orderDate"]
-        order["items"] = []
+        order["products"] = []
         async with self.session.post(
             "https://www.ultradent.com/api/ecommerce", headers=ORDER_HEADERS, json=json_data
         ) as resp:
@@ -87,7 +87,6 @@ class UltraDentScraper(Scraper):
             order_dom = Selector(text=oder_html)
 
             for order_detail in order_dom.xpath("//section[@class='order-details']/ul[@class='odr-line-list']/li"):
-                order_item = dict()
                 if order_detail.xpath("./@class").get() == "odr-line-header":
                     continue
                 elif order_detail.xpath("./@class").get() == "odr-line-footer":
@@ -107,10 +106,16 @@ class UltraDentScraper(Scraper):
                         "//div[@class='odr-total']/span[contains(@class, 'value')]//text()",
                     )
                 else:
-                    order_item["name"] = self.extract_first(order_detail, "./span[@class='sku-product-name']//text()")
-                    order_item["quantity"] = self.extract_first(order_detail, "./span[@class='sku-qty']//text()")
-                    order_item["unit_price"] = self.extract_first(order_detail, "./span[@class='sku-price']//text()")
-                    order["items"].append(order_item)
+                    order["products"].append(
+                        {
+                            "product": {
+                                "id": self.extract_first(order_detail, "./span[@class='sku-id']//text()").strip("#"),
+                                "name": self.extract_first(order_detail, "./span[@class='sku-product-name']//text()"),
+                            },
+                            "quantity": self.extract_first(order_detail, "./span[@class='sku-qty']//text()"),
+                            "unit_price": self.extract_first(order_detail, "./span[@class='sku-price']//text()"),
+                        }
+                    )
 
         return Order.from_dict(order)
 
