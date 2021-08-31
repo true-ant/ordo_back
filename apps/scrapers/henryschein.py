@@ -1,4 +1,5 @@
 import asyncio
+import json
 import re
 from datetime import datetime
 
@@ -62,28 +63,56 @@ class HenryScheinScraper(Scraper):
             order["order_id"] = (
                 order_detail_response.xpath("//span[@id='ctl00_cphMainContent_referenceNbLbl']//text()").get().strip()
             )
-            order["items"] = []
-            for detail_row in order_detail_response.xpath(
-                "//table[contains(@class, 'tblOrderableProducts')]//tr//table[@class='SimpleList']//tr[@class='ItemRow' or @class='AlternateItemRow']"  # noqa
-            ):
-                item_name = self.extract_strip_value(
-                    dom=detail_row,
-                    xpath="./td[1]//table[@id='tblProduct']//span[@class='ProductDisplayName']//text()",
-                )
-                quantity_price = self.extract_strip_value(
-                    dom=detail_row, xpath=".//td[@id='QtyRow']//text()", delimeter=";"
-                )
-                quantity, _, unit_price = quantity_price.split(";")
-                unit_price = re.search(r"\$(.*)/", unit_price)
 
-                status = self.extract_strip_value(
-                    dom=detail_row, xpath=".//span[contains(@id, 'itemStatusLbl')]//text()"
+            tasks = (
+                self.get_product(
+                    product_link=self.extract_strip_value(
+                        dom=order_product_dom,
+                        xpath="./td[1]//table[@id='tblProduct']//span[@class='ProductDisplayName']//a/@href",
+                    ),
+                    order_product_dom=order_product_dom,
                 )
-                order["items"].append(
-                    {"name": item_name, "quantity": quantity, "unit_price": unit_price.group(1), "status": status}
+                for order_product_dom in order_detail_response.xpath(
+                    "//table[contains(@class, 'tblOrderableProducts')]//tr//table[@class='SimpleList']//tr[@class='ItemRow' or @class='AlternateItemRow']"  # noqa
                 )
+            )
+
+            order["products"] = await asyncio.gather(*tasks)
 
         return Order.from_dict(order)
+
+    async def get_product(self, product_link, order_product_dom):
+        async with self.session.get(product_link) as resp:
+            res = Selector(text=await resp.text())
+            product_detail = res.xpath("//script[@type='application/ld+json']//text()").extract_first()
+            product_detail = json.loads(product_detail)
+
+        quantity_price = self.extract_strip_value(
+            dom=order_product_dom, xpath=".//td[@id='QtyRow']//text()", delimeter=";"
+        )
+        quantity, _, unit_price = quantity_price.split(";")
+        unit_price = re.search(r"\$(.*)/", unit_price)
+
+        status = self.extract_strip_value(
+            dom=order_product_dom, xpath=".//span[contains(@id, 'itemStatusLbl')]//text()"
+        )
+        order_product = {
+            "quantity": quantity,
+            "unit_price": unit_price.group(1),
+            "status": status,
+            "product": {
+                "id": product_detail["sku"],
+                "name": product_detail["name"],
+                "description": product_detail["description"],
+                "url": product_detail["url"],
+                "image": product_detail["image"],
+                # "price": product_detail["price"],
+                # "retail_price": product_detail["price"],
+                # stars
+                # ratings
+            },
+        }
+        return order_product
 
     async def get_orders(self, perform_login=False):
         url = "https://www.henryschein.com/us-en/Orders/OrderStatus.aspx"

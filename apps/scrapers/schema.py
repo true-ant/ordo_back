@@ -46,8 +46,21 @@ class BaseDataClass:
 
 
 @dataclass(frozen=True)
-class OrderItem(BaseDataClass):
+class Product(BaseDataClass):
+    id: str
     name: str
+    description: str
+    url: str
+    image: str
+    price: str  # Decimal
+    retail_price: str  # Decimal
+    stars: Decimal
+    ratings: Decimal
+
+
+@dataclass(frozen=True)
+class OrderProduct(BaseDataClass):
+    product: Product
     quantity: int
     unit_price: Decimal
     status: str
@@ -60,16 +73,4 @@ class Order(BaseDataClass):
     currency: str
     order_date: date
     status: str
-    items: List[OrderItem]
-
-
-@dataclass(frozen=True)
-class Product(BaseDataClass):
-    name: str
-    link: str
-    description: str
-    image: str
-    price: str  # Decimal
-    retail_price: str  # Decimal
-    stars: Decimal
-    ratings: Decimal
+    products: List[OrderProduct]
