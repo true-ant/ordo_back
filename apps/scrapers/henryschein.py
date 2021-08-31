@@ -101,7 +101,7 @@ class HenryScheinScraper(Scraper):
             "unit_price": unit_price.group(1),
             "status": status,
             "product": {
-                "id": product_detail["sku"],
+                "product_id": product_detail["sku"],
                 "name": product_detail["name"],
                 "description": product_detail["description"],
                 "url": product_detail["url"],

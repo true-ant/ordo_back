@@ -12,7 +12,7 @@ from django.db import transaction
 from django.template.loader import render_to_string
 
 from apps.accounts.models import Office, OfficeVendor
-from apps.orders.models import Order, OrderItem
+from apps.orders.models import Order, OrderProduct, Product
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import OfficeInvite
 
@@ -84,7 +84,14 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies):
     with transaction.atomic():
         for order_data_cls in orders:
             order_data = order_data_cls.to_dict()
-            order_items_data = order_data.pop("items")
+            order_products_data = order_data.pop("products")
             order = Order.from_dataclass(office_vendor, order_data)
-            objs = (OrderItem(order=order, **order_item_data) for order_item_data in order_items_data)
-            OrderItem.objects.bulk_create(objs)
+            for order_product_data in order_products_data:
+                product = Product.from_dataclass(office_vendor.vendor, order_product_data["product"])
+                OrderProduct.objects.create(
+                    order=order,
+                    product=product,
+                    quantity=order_product_data["quantity"],
+                    unit_price=order_product_data["unit_price"],
+                    status=order_product_data["status"],
+                )

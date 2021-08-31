@@ -109,7 +109,9 @@ class UltraDentScraper(Scraper):
                     order["products"].append(
                         {
                             "product": {
-                                "id": self.extract_first(order_detail, "./span[@class='sku-id']//text()").strip("#"),
+                                "product_id": self.extract_first(
+                                    order_detail, "./span[@class='sku-id']//text()"
+                                ).strip("#"),
                                 "name": self.extract_first(order_detail, "./span[@class='sku-product-name']//text()"),
                             },
                             "quantity": self.extract_first(order_detail, "./span[@class='sku-qty']//text()"),

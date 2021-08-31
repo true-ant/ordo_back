@@ -94,7 +94,7 @@ class Net32Scraper(Scraper):
                             "products": [
                                 {
                                     "product": {
-                                        "id": line_item["id"],
+                                        "product_id": line_item["id"],
                                         "name": line_item["mpName"],
                                         "description": line_item["description"],
                                         "url": f"{self.BASE_URL}/{line_item['detailLink']}",

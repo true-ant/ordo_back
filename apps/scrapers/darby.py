@@ -61,7 +61,7 @@ class DarbyScraper(Scraper):
                 order["products"].append(
                     {
                         "product": {
-                            "id": self.extract_strip_value(detail_row, "./td[1]/a//text()"),
+                            "product_id": self.extract_strip_value(detail_row, "./td[1]/a//text()"),
                             "name": self.extract_strip_value(detail_row, "./td[2]//text()"),
                             "url": self.BASE_URL + self.extract_strip_value(detail_row, "./td[1]/a//@href"),
                             "image": self.BASE_URL + self.extract_strip_value(detail_row, "./td[1]/input//@src"),

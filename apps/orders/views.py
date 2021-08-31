@@ -29,9 +29,10 @@ class OrderViewSet(ModelViewSet):
         return Response(qs)
 
 
-class OrderItemViewSet(ModelViewSet):
-    permission_classes = [IsAuthenticated]
-    serializer_class = s.OrderItemSerializer
-
-    def get_queryset(self):
-        return m.OrderItem.objects.filter(order_id=self.kwargs["order__pk"])
+#
+# class OrderItemViewSet(ModelViewSet):
+#     permission_classes = [IsAuthenticated]
+#     serializer_class = s.OrderItemSerializer
+#
+#     def get_queryset(self):
+#         return m.OrderItem.objects.filter(order_id=self.kwargs["order__pk"])

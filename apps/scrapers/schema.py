@@ -51,15 +51,15 @@ class BaseDataClass:
 
 @dataclass(frozen=True)
 class Product(BaseDataClass):
-    id: str
+    product_id: str
     name: str
     description: str
     url: str
     image: str
     price: str  # Decimal
     retail_price: str  # Decimal
-    stars: Decimal
-    ratings: Decimal
+    # stars: Decimal
+    # ratings: Decimal
 
 
 @dataclass(frozen=True)

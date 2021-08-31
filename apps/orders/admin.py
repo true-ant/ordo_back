@@ -8,6 +8,6 @@ class OrderAdmin(admin.ModelAdmin):
     pass
 
 
-@admin.register(m.OrderItem)
-class OrderItem(admin.ModelAdmin):
+@admin.register(m.Product)
+class ProductAdmin(admin.ModelAdmin):
     pass
