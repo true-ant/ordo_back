@@ -1,11 +1,12 @@
 import asyncio
 from datetime import datetime
+from typing import List
 
 from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
-from apps.scrapers.schema import Order
+from apps.scrapers.schema import Order, Product
 from apps.types.scraper import LoginInformation
 
 HEADERS = {
@@ -21,6 +22,25 @@ HEADERS = {
     "Sec-Fetch-Mode": "cors",
     "Sec-Fetch-Dest": "empty",
     "Referer": "https://www.darbydental.com/DarbyHome.aspx",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+
+SEARCH_HEADERS = {
+    "Connection": "keep-alive",
+    "sec-ch-ua": '"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"',
+    "sec-ch-ua-mobile": "?0",
+    "Upgrade-Insecure-Requests": "1",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/92.0.4515.159 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml; q=0.9,image/avif,"
+    "image/webp,image/apng,*/*; q=0.8,application/signed-exchange;v=b3;q=0.9",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-User": "?1",
+    "Sec-Fetch-Dest": "document",
+    "Referer": "https://www.darbydental.com/",
     "Accept-Language": "en-US,en;q=0.9",
 }
 
@@ -89,3 +109,52 @@ class DarbyScraper(Scraper):
             )
             tasks = (self.get_order(order_dom) for order_dom in orders_dom)
             return await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def search_products(self, query: str, page: int = 1, per_page: int = 30) -> List[Product]:
+        url = "https://www.darbydental.com/scripts/productlistview.aspx"
+        params = {
+            "term": query,
+        }
+        data = {
+            "ctl00$masterSM": f"ctl00$MainContent$UpdatePanel1|ctl00$MainContent$ppager$ctl{page - 1:02}$pagelink",
+            "ctl00$logonControl$txtUsername": "",
+            "ctl00$logonControl$txtPassword": "",
+            "ctl00$bigSearchTerm": query,
+            "ctl00$searchSmall": query,
+            # "ctl00$MainContent$currentPage": f"{current_page}",
+            # "ctl00$MainContent$pageCount": clean_text(
+            #     response, "//input[@name='ctl00$MainContent$pageCount']/@value"
+            # ),
+            "ctl00$MainContent$currentSort": "score",
+            "ctl00$MainContent$selPerPage": f"{per_page}",
+            "ctl00$MainContent$sorter": "score",
+            # "ctl00$serverTime": clean_text(response, "//input[@name='ctl00$serverTime']/@value"),
+            "__EVENTTARGET": f"ctl00$MainContent$ppager$ctl{page - 1:02}$pagelink",
+            "__EVENTARGUMENT": "",
+            "__LASTFOCUS": "",
+            "__VIEWSTATE": "",
+            "__VIEWSTATEGENERATOR": "A1889DD4",
+            "__ASYNCPOST": "true",
+        }
+        products = []
+
+        await self.login()
+
+        async with self.session.post(url, headers=SEARCH_HEADERS, data=data, params=params) as resp:
+            response_dom = Selector(text=await resp.text())
+
+            for product_dom in response_dom.xpath("//div[@id='productContainer']//div[contains(@class, 'prodcard')]"):
+                price = self.extract_first(product_dom, ".//div[contains(@class, 'prod-price')]//text()")
+                _, price = price.split("@")
+                products.append(
+                    Product(
+                        product_id=self.extract_first(product_dom, ".//div[@class='prodno']/label//text()"),
+                        name=self.extract_first(product_dom, ".//div[@class='prod-title']//text()"),
+                        description="",
+                        url=self.BASE_URL + self.extract_first(product_dom, ".//a[@href]/@href"),
+                        image=self.extract_first(product_dom, ".//img[@class='card-img-top']/@src"),
+                        price=price,
+                        retail_price=price,
+                    )
+                )
+        return products
