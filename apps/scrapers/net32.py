@@ -116,29 +116,30 @@ class Net32Scraper(Scraper):
         except KeyError:
             raise OrderFetchException()
 
-    async def search_products(self, query: str, perform_login: bool = False) -> List[Product]:
+    async def search_products(self, query: str, page: int = 1, per_page: int = 30) -> List[Product]:
         url = f"{self.BASE_URL}/search"
         params = {
             "q": query,
-            "page": 1,
+            "page": page,
         }
         async with self.session.get(url, headers=SEARCH_HEADERS, params=params) as resp:
             response_dom = Selector(text=await resp.text())
 
             products = []
             products_dom = response_dom.xpath(
-                "//div[@class='localsearch-results-container']//div[@class='localsearch-result-container']"
+                "//div[@class='localsearch-results-container']//div[contains(@class, 'localsearch-result-wrapper')]"
             )
 
             for product_dom in products_dom:
                 products.append(
                     Product(
+                        product_id=product_dom.attrib["data-mpid"],
                         name=self.extract_first(product_dom, ".//a[@class='localsearch-result-product-name']//text()"),
-                        link=self.BASE_URL
-                        + self.extract_first(product_dom, ".//a[@class='localsearch-result-product-name']/@href"),
                         description=self.extract_first(
                             product_dom, ".//div[@class='localsearch-result-product-packaging-container']//text()"
                         ),
+                        url=self.BASE_URL
+                        + self.extract_first(product_dom, ".//a[@class='localsearch-result-product-name']/@href"),
                         image=self.BASE_URL
                         + self.extract_first(
                             product_dom, ".//img[@class='localsearch-result-product-thumbnail']/@src"
@@ -150,16 +151,7 @@ class Net32Scraper(Scraper):
                             )
                         )
                         else "Currently out of stock",
-                        retail_price=self.extract_first(
-                            product_dom, ".//del[@class='localsearch-result-retail-price']//text()"
-                        ),
-                        stars=self.extract_first(
-                            product_dom,
-                            ".//span[contains(@class, 'star-rating localsearch-result-star-rating')]//text()",
-                        ),
-                        ratings=self.extract_first(
-                            product_dom, ".//span[@class='localsearch-result-star-rating-count-container']//text()"
-                        ),
+                        retail_price="",
                     )
                 )
 
