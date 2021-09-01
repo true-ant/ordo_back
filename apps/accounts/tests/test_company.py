@@ -9,13 +9,20 @@ from apps.accounts.models import User
 class CompanyTests(APITestCase):
     def setUp(self) -> None:
         self.company = f.CompanyFactory()
-        self.office1 = f.OfficeFactory(company=self.company)
-        self.office2 = f.OfficeFactory(company=self.company)
-        self.admin = f.UserFactory(role=User.Role.ADMIN)
-        self.user = f.UserFactory(role=User.Role.USER)
+        self.company_office_1 = f.OfficeFactory(company=self.company)
+        self.company_office_2 = f.OfficeFactory(company=self.company)
+        self.company_admin = f.UserFactory(role=User.Role.ADMIN)
+        self.company_user = f.UserFactory(role=User.Role.USER)
 
-        f.CompanyMemberFactory(company=self.company, user=self.admin, email=self.admin.email)
-        f.CompanyMemberFactory(company=self.company, user=self.user, email=self.user.email)
+        self.firm = f.CompanyFactory()
+        self.firm_office = f.OfficeFactory(company=self.firm)
+        self.firm_admin = f.UserFactory(role=User.Role.ADMIN)
+        self.firm_user = f.UserFactory(role=User.Role.USER)
+
+        f.CompanyMemberFactory(company=self.company, user=self.company_admin, email=self.company_admin.email)
+        f.CompanyMemberFactory(company=self.company, user=self.company_user, email=self.company_user.email)
+        f.CompanyMemberFactory(company=self.firm, user=self.firm_admin, email=self.firm_admin.email)
+        f.CompanyMemberFactory(company=self.firm, user=self.firm_user, email=self.firm_user.email)
 
     def _check_edit_permission(self, *, method, link, data=None):
         """check create, update, delete permission"""
@@ -34,8 +41,8 @@ class CompanyTests(APITestCase):
         response = make_call()
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-        # admin
-        response = make_call(self.admin)
+        # company admin
+        response = make_call(self.company_admin)
         if method == "put":
             expected_status = status.HTTP_200_OK
         elif method == "post":
@@ -44,30 +51,46 @@ class CompanyTests(APITestCase):
             expected_status = status.HTTP_204_NO_CONTENT
         self.assertEqual(response.status_code, expected_status)
 
-        # user
-        response = make_call(self.user)
+        # company user
+        response = make_call(self.company_user)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def _check_view_permission(self, *, method, link):
+        # firm admin
+        response = make_call(self.firm_admin)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        response = make_call(self.firm_user)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def _check_view_permission(self, *, link):
         """check get, list permission"""
         pass
         # unauthorized user
         response = self.client.get(link)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-        # admin
-        self.client.force_authenticate(self.admin)
+        # company admin
+        self.client.force_authenticate(self.company_admin)
         response = self.client.get(link)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        # user
-        self.client.force_authenticate(self.user)
+        # company user
+        self.client.force_authenticate(self.company_user)
         response = self.client.get(link)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # firm admin
+        self.client.force_authenticate(self.firm_admin)
+        response = self.client.get(link)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # firm user
+        self.client.force_authenticate(self.firm_admin)
+        response = self.client.get(link)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_company_get_permission(self):
         self._check_view_permission(
-            method="get",
             link=reverse("companies-detail", kwargs={"pk": self.company.id}),
         )
 
@@ -90,15 +113,14 @@ class CompanyTests(APITestCase):
 
     def test_office_get_permission(self):
         self._check_view_permission(
-            method="get",
-            link=reverse("offices-detail", kwargs={"company_pk": self.company.id, "pk": self.office1.id}),
+            link=reverse("offices-detail", kwargs={"company_pk": self.company.id, "pk": self.company_office_1.id}),
         )
 
     def test_office_create_permission(self):
         data = {"name": "updated office name"}
         self._check_edit_permission(
             method="put",
-            link=reverse("offices-detail", kwargs={"company_pk": self.company.id, "pk": self.office1.id}),
+            link=reverse("offices-detail", kwargs={"company_pk": self.company.id, "pk": self.company_office_1.id}),
             data=data,
         )
 
@@ -106,12 +128,12 @@ class CompanyTests(APITestCase):
         data = {"name": "updated office name"}
         self._check_edit_permission(
             method="put",
-            link=reverse("offices-detail", kwargs={"company_pk": self.company.id, "pk": self.office1.id}),
+            link=reverse("offices-detail", kwargs={"company_pk": self.company.id, "pk": self.company_office_1.id}),
             data=data,
         )
 
     def test_office_delete_permission(self):
         self._check_edit_permission(
             method="delete",
-            link=reverse("offices-detail", kwargs={"company_pk": self.company.id, "pk": self.office1.id}),
+            link=reverse("offices-detail", kwargs={"company_pk": self.company.id, "pk": self.company_office_1.id}),
         )
