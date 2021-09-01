@@ -100,6 +100,9 @@ DATABASES = {
         "PASSWORD": os.environ.get("RDS_PASSWORD", "password"),
         "HOST": os.environ.get("RDS_HOSTNAME", "localhost"),
         "PORT": os.environ.get("RDS_PORT", "5432"),
+        "TEST": {
+            "NAME": "ordo_db_test",
+        },
     }
 }
 

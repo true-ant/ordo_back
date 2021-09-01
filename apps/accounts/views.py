@@ -57,7 +57,7 @@ class UserSignupAPIView(APIView):
 
 
 class CompanyViewSet(ModelViewSet):
-    permission_classes = [p.CompanyPermission]
+    permission_classes = [p.CompanyOfficePermission]
     serializer_class = s.CompanySerializer
     queryset = m.Company.objects.all()
 
@@ -79,11 +79,15 @@ class CompanyViewSet(ModelViewSet):
 
 
 class OfficeViewSet(ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [p.CompanyOfficePermission]
     serializer_class = s.OfficeSerializer
 
     def get_queryset(self):
         return m.Office.objects.filter(company_id=self.kwargs["company_pk"])
+
+    def update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return super().update(request, *args, **kwargs)
 
     def perform_destroy(self, instance):
         instance.is_active = False
