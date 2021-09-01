@@ -1,9 +1,13 @@
 from rest_framework import serializers
 
+from apps.accounts.serializers import VendorSerializer
+
 from . import models as m
 
 
 class ProductSerializer(serializers.ModelSerializer):
+    vendor = VendorSerializer()
+
     class Meta:
         model = m.Product
         fields = "__all__"
