@@ -29,6 +29,15 @@ class OrderViewSet(ModelViewSet):
         return Response(qs)
 
 
+class OrderProductViewSet(ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = m.OrderProduct.objects.all()
+    serializer_class = s.OrderProductSerializer
+
+    def get_queryset(self):
+        return super().get_queryset().filter(order__office_vendor__office__id=self.kwargs["office_pk"])
+
+
 #
 # class OrderItemViewSet(ModelViewSet):
 #     permission_classes = [IsAuthenticated]
