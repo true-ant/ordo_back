@@ -30,9 +30,11 @@ class OrderSerializer(serializers.ModelSerializer):
 
 
 class OrderListSerializer(serializers.ModelSerializer):
+    total_items = serializers.IntegerField(source="products.count", read_only=True)
+
     class Meta:
         model = m.Order
-        exclude = ("products",)
+        fields = ("id", "order_id", "total_amount", "currency", "order_date", "status", "total_items")
 
 
 class TotalSpendSerializer(serializers.Serializer):
