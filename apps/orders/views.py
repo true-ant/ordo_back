@@ -1,5 +1,6 @@
 from dateutil.relativedelta import relativedelta
 from django.db.models import F, Sum
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import IsAuthenticated
@@ -7,8 +8,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
+from apps.accounts.models import Company, Office
+
 from . import filters as f
 from . import models as m
+from . import permissions as p
 from . import serializers as s
 
 
@@ -57,12 +61,12 @@ def last_months_spending(queryset):
 
 
 class CompanySpendAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [p.CompanyOfficeReadPermission]
 
     def get(self, request, company_id):
-        queryset = m.Order.objects.select_related("office_vendor__vendor").filter(
-            office_vendor__office__company__id=company_id
-        )
+        obj = get_object_or_404(Company, id=company_id)
+        self.check_object_permissions(request, obj)
+        queryset = m.Order.objects.select_related("office_vendor__vendor").filter(office_vendor__office__company=obj)
         by = request.query_params.get("by", "vendor")
         if by == "month":
             qs = last_months_spending(queryset)
@@ -77,10 +81,12 @@ class CompanySpendAPIView(APIView):
 
 
 class OfficeSpendAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [p.CompanyOfficeReadPermission]
 
     def get(self, request, office_id):
-        queryset = m.Order.objects.select_related("office_vendor__vendor").filter(office_vendor__office__id=office_id)
+        obj = get_object_or_404(Office, id=office_id)
+        self.check_object_permissions(request, obj)
+        queryset = m.Order.objects.select_related("office_vendor__vendor").filter(office_vendor__office=obj)
         by = request.query_params.get("by", "vendor")
         if by == "month":
             qs = last_months_spending(queryset)

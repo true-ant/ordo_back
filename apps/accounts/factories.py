@@ -33,6 +33,9 @@ class OfficeVendorFactory(DjangoModelFactory):
     class Meta:
         model = m.OfficeVendor
 
+    vendor = VendorFactory()
+    office = OfficeFactory()
+
 
 class CompanyMemberFactory(DjangoModelFactory):
     class Meta:
