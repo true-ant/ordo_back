@@ -36,5 +36,6 @@ class OrderListSerializer(serializers.ModelSerializer):
 
 
 class TotalSpendSerializer(serializers.Serializer):
-    vendor = serializers.CharField()
+    month = serializers.CharField(read_only=True)
+    vendor = serializers.CharField(read_only=True)
     total_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
