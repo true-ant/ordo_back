@@ -1,3 +1,7 @@
+import datetime
+from decimal import Decimal
+
+from dateutil.relativedelta import relativedelta
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -6,9 +10,12 @@ from apps.accounts.factories import (
     CompanyFactory,
     CompanyMemberFactory,
     OfficeFactory,
+    OfficeVendorFactory,
     UserFactory,
+    VendorFactory,
 )
 from apps.accounts.models import User
+from apps.orders.factories import OrderFactory, OrderProductFactory, ProductFactory
 
 
 class DashboardAPIPermissionTests(APITestCase):
@@ -75,48 +82,99 @@ class DashboardAPIPermissionTests(APITestCase):
 
 
 class CompanyOfficeSpendTests(APITestCase):
+    def _create_orders(self, product: ProductFactory, office_vendor: OfficeVendorFactory):
+        for i in range(12):
+            order_date = datetime.date.today() - relativedelta(months=i)
+            order = OrderFactory(
+                office_vendor=office_vendor,
+                total_amount=product.price,
+                currency="USD",
+                order_date=order_date,
+                status="complete",
+            )
+            OrderProductFactory(
+                order=order,
+                product=product,
+                quantity=1,
+                unit_price=product.price,
+                status="complete",
+            )
+
     def setUp(self) -> None:
-        pass
-        # self.company = CompanyFactory()
-        # self.vendor = VendorFactory()
-        # self.office_1 = OfficeFactory(company=self.company)
-        # self.office_2 = OfficeFactory(company=self.company)
-        # self.admin = UserFactory(role=User.Role.ADMIN)
-        # CompanyMemberFactory(company=self.company, user=self.admin, email=self.admin.email)
+        self.company = CompanyFactory()
+        self.vendor1_name = "HenrySchien"
+        self.vendor2_name = "Net 32"
+        self.vendor1 = VendorFactory(name=self.vendor1_name, slug="henry_schein", url="https://www.henryschein.com/")
+        self.vendor2 = VendorFactory(name=self.vendor2_name, slug="net_32", url="https://www.net32.com/")
+        self.office1 = OfficeFactory(company=self.company)
+        self.office2 = OfficeFactory(company=self.company)
+        self.admin = UserFactory(role=User.Role.ADMIN)
+        CompanyMemberFactory(company=self.company, user=self.admin, email=self.admin.email)
 
-        # self.office1_vendor = OfficeVendorFactory(
-        #     vendor=self.vendor,
-        #     office=self.office_1,
-        #     username="username",
-        #     password="password",
-        # )
-        # self.office2_vendor = OfficeVendorFactory(
-        #     vendor=self.vendor,
-        #     office=self.office_2,
-        #     username="username",
-        #     password="password",
-        # )
+        self.product1_price = Decimal("10.00")
+        self.product2_price = Decimal("100.00")
+        self.product1 = ProductFactory(
+            vendor=self.vendor1, price=self.product1_price, retail_price=self.product1_price
+        )
+        self.product2 = ProductFactory(
+            vendor=self.vendor2, price=self.product2_price, retail_price=self.product2_price
+        )
+        self.office1_vendor1 = OfficeVendorFactory(office=self.office1, vendor=self.vendor1)
+        self.office2_vendor2 = OfficeVendorFactory(office=self.office2, vendor=self.vendor2)
 
-        # self.product = ProductFactory(price="100.00", retail="100.00")
+        # office1 vendors
+        self._create_orders(self.product1, self.office1_vendor1)
 
-        # self.order = OrderFactory(
-        #     office_vendor=self.office_vendor,
-        #     total_amount="100.00",
-        #     currency="USD",
-        #     order_date="2021-09-01",
-        #     status="complete"
-        # )
-
-        # self.order_product = OrderProductFactory(order=self.order, product=self.product)
+        # office2 vendors
+        self._create_orders(self.product2, self.office2_vendor2)
 
     def test_company_get_spending_by_vendor(self):
-        pass
+        link = reverse("company-spending", kwargs={"company_id": self.company.id})
+        link = f"{link}?by=vendor"
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(link)
+        result = sorted(response.data, key=lambda x: x["total_amount"])
+        for res, price, name in zip(
+            result, [self.product1_price, self.product2_price], [self.vendor1_name, self.vendor2_name]
+        ):
+            self.assertEqual(Decimal(res["total_amount"]), price * 12)
+            self.assertEqual(res["vendor"], name)
 
     def test_company_get_spending_by_month(self):
-        pass
+        link = reverse("company-spending", kwargs={"company_id": self.company.id})
+        link = f"{link}?by=month"
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(link)
+        result = response.data
+        for res in result:
+            self.assertEqual(Decimal(res["total_amount"]), self.product1_price + self.product2_price)
 
     def test_office_get_spending_by_vendor(self):
-        pass
+        self.client.force_authenticate(self.admin)
+        link = reverse("office-spending", kwargs={"office_id": self.office1.id})
+        link = f"{link}?by=vendor"
+        response = self.client.get(link)
+        response_data = response.data[0]
+        self.assertEqual(Decimal(response_data["total_amount"]), self.product1_price * 12)
+        self.assertEqual(response_data["vendor"], self.vendor1_name)
+
+        link = reverse("office-spending", kwargs={"office_id": self.office2.id})
+        link = f"{link}?by=vendor"
+        response = self.client.get(link)
+        response_data = response.data[0]
+        self.assertEqual(Decimal(response_data["total_amount"]), self.product2_price * 12)
+        self.assertEqual(response_data["vendor"], self.vendor2_name)
 
     def test_office_get_spending_by_month(self):
-        pass
+        self.client.force_authenticate(self.admin)
+        link = reverse("office-spending", kwargs={"office_id": self.office1.id})
+        link = f"{link}?by=month"
+        response = self.client.get(link)
+        for res in response.data:
+            self.assertEqual(Decimal(res["total_amount"]), self.product1_price)
+
+        link = reverse("office-spending", kwargs={"office_id": self.office2.id})
+        link = f"{link}?by=month"
+        response = self.client.get(link)
+        for res in response.data:
+            self.assertEqual(Decimal(res["total_amount"]), self.product2_price)
