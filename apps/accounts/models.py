@@ -7,6 +7,7 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
 
+from apps.accounts import managers
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
 from apps.common.utils import generate_token
 
@@ -21,12 +22,15 @@ class User(AbstractUser):
 
     role = models.IntegerField(choices=Role.choices, default=Role.USER)
     avatar = models.ImageField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
 
 
 class Company(TimeStampedModel):
     name = models.CharField(max_length=100)
     on_boarding_step = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
+
+    objects = managers.CompanyMemeberActiveManager()
 
     def __str__(self):
         return self.name
@@ -66,6 +70,8 @@ class Office(TimeStampedModel):
     shipping_address_zipcode = models.CharField(max_length=100, null=True, blank=True)
     vendors = models.ManyToManyField(Vendor, through="OfficeVendor")
 
+    objects = managers.CompanyMemeberActiveManager()
+
     def __str__(self):
         return f"{self.company} -> {self.name}"
 
@@ -94,9 +100,9 @@ class CompanyMember(TimeStampedModel):
     date_joined = models.DateTimeField(null=True, blank=True)
     token = models.CharField(max_length=64, default=generate_token, unique=True)
     token_expires_at = models.DateTimeField(default=None, null=True)
+    is_active = models.BooleanField(default=True)
 
-    class Meta:
-        unique_together = ["company", "email"]
+    objects = managers.CompanyMemeberActiveManager()
 
     def regenerate_token(self):
         self.key = generate_token()

@@ -81,8 +81,14 @@ class CompanyViewSet(
             return Response({"message": ""})
 
     def perform_destroy(self, instance):
-        instance.is_active = False
-        instance.save()
+        with transaction.atomic():
+            active_members = m.CompanyMember.objects.all()
+            for active_member in active_members:
+                active_member.is_active = False
+
+            m.CompanyMember.objects.bulk_update(active_members, ["is_active"])
+            instance.is_active = False
+            instance.save()
 
 
 class OfficeViewSet(ModelViewSet):
@@ -98,8 +104,14 @@ class OfficeViewSet(ModelViewSet):
         return super().update(request, *args, **kwargs)
 
     def perform_destroy(self, instance):
-        instance.is_active = False
-        instance.save()
+        with transaction.atomic():
+            active_members = m.CompanyMember.objects.filter(office=instance)
+            for active_member in active_members:
+                active_member.is_active = False
+
+            m.CompanyMember.objects.bulk_update(active_members, ["is_active"])
+            instance.is_active = False
+            instance.save()
 
 
 class CompanyMemberViewSet(ModelViewSet):
@@ -241,3 +253,11 @@ class UserViewSet(ModelViewSet):
     def update(self, request, *args, **kwargs):
         kwargs.setdefault("partial", True)
         return super().update(request, *args, **kwargs)
+
+    def perform_destroy(self, instance):
+        with transaction.atomic():
+            active_memberships = m.CompanyMember.objects.filter(user=instance)
+            for active_membership in active_memberships:
+                active_membership.is_active = False
+            instance.is_active = False
+            instance.save()
