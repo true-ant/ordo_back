@@ -4,12 +4,13 @@ from asgiref.sync import sync_to_async
 from django.apps import apps
 from django.db import transaction
 from django.utils import timezone
+from rest_framework import mixins
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.status import HTTP_400_BAD_REQUEST
 from rest_framework.views import APIView
-from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
+from rest_framework.viewsets import GenericViewSet, ModelViewSet, ReadOnlyModelViewSet
 from rest_framework_jwt.serializers import jwt_encode_handler, jwt_payload_handler
 
 from apps.common import messages as msgs
@@ -56,10 +57,16 @@ class UserSignupAPIView(APIView):
             )
 
 
-class CompanyViewSet(ModelViewSet):
+class CompanyViewSet(
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    GenericViewSet,
+):
     permission_classes = [p.CompanyOfficePermission]
     serializer_class = s.CompanySerializer
-    queryset = m.Company.objects.all()
+    queryset = m.Company.objects.filter(is_active=True)
 
     def update(self, request, *args, **kwargs):
         kwargs.setdefault("partial", True)
@@ -81,9 +88,10 @@ class CompanyViewSet(ModelViewSet):
 class OfficeViewSet(ModelViewSet):
     permission_classes = [p.CompanyOfficePermission]
     serializer_class = s.OfficeSerializer
+    queryset = m.Office.objects.filter(is_active=True)
 
     def get_queryset(self):
-        return m.Office.objects.filter(company_id=self.kwargs["company_pk"])
+        return super().get_queryset().filter(company_id=self.kwargs["company_pk"])
 
     def update(self, request, *args, **kwargs):
         kwargs["partial"] = True

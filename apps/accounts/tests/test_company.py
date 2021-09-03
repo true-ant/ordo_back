@@ -55,43 +55,53 @@ class CompanyTests(APITestCase):
         response = make_call(self.company_user)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-        # firm admin
-        response = make_call(self.firm_admin)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        if method != "delete":
+            # firm admin
+            response = make_call(self.firm_admin)
+            self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-        response = make_call(self.firm_user)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+            response = make_call(self.firm_user)
+            self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def _check_view_permission(self, *, link):
+    def _check_view_permission(self, *, method, link):
         """check get, list permission"""
-        pass
         # unauthorized user
         response = self.client.get(link)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
+        expected_status = status.HTTP_200_OK if method == "get" else status.HTTP_405_METHOD_NOT_ALLOWED
+
         # company admin
         self.client.force_authenticate(self.company_admin)
         response = self.client.get(link)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, expected_status)
 
         # company user
         self.client.force_authenticate(self.company_user)
         response = self.client.get(link)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, expected_status)
 
+        expected_status = status.HTTP_403_FORBIDDEN if method == "get" else status.HTTP_405_METHOD_NOT_ALLOWED
         # firm admin
         self.client.force_authenticate(self.firm_admin)
         response = self.client.get(link)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, expected_status)
 
         # firm user
         self.client.force_authenticate(self.firm_admin)
         response = self.client.get(link)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, expected_status)
 
     def test_company_get_permission(self):
         self._check_view_permission(
+            method="get",
             link=reverse("companies-detail", kwargs={"pk": self.company.id}),
+        )
+
+    def test_company_list_permission(self):
+        self._check_view_permission(
+            method="list",
+            link=reverse("companies-list"),
         )
 
     def test_company_create_permission(self):
@@ -113,6 +123,7 @@ class CompanyTests(APITestCase):
 
     def test_office_get_permission(self):
         self._check_view_permission(
+            method="get",
             link=reverse("offices-detail", kwargs={"company_pk": self.company.id, "pk": self.company_office_1.id}),
         )
 
