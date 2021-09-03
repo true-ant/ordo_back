@@ -72,3 +72,51 @@ class DashboardAPIPermissionTests(APITestCase):
         link = reverse("office-spending", kwargs={"office_id": self.company_office_1.id})
         self._check_get_spend_permission(method="get", link=f"{link}?by=vendor")
         self._check_get_spend_permission(method="get", link=f"{link}?by=month")
+
+
+class CompanyOfficeSpendTests(APITestCase):
+    def setUp(self) -> None:
+        pass
+        # self.company = CompanyFactory()
+        # self.vendor = VendorFactory()
+        # self.office_1 = OfficeFactory(company=self.company)
+        # self.office_2 = OfficeFactory(company=self.company)
+        # self.admin = UserFactory(role=User.Role.ADMIN)
+        # CompanyMemberFactory(company=self.company, user=self.admin, email=self.admin.email)
+
+        # self.office1_vendor = OfficeVendorFactory(
+        #     vendor=self.vendor,
+        #     office=self.office_1,
+        #     username="username",
+        #     password="password",
+        # )
+        # self.office2_vendor = OfficeVendorFactory(
+        #     vendor=self.vendor,
+        #     office=self.office_2,
+        #     username="username",
+        #     password="password",
+        # )
+
+        # self.product = ProductFactory(price="100.00", retail="100.00")
+
+        # self.order = OrderFactory(
+        #     office_vendor=self.office_vendor,
+        #     total_amount="100.00",
+        #     currency="USD",
+        #     order_date="2021-09-01",
+        #     status="complete"
+        # )
+
+        # self.order_product = OrderProductFactory(order=self.order, product=self.product)
+
+    def test_company_get_spending_by_vendor(self):
+        pass
+
+    def test_company_get_spending_by_month(self):
+        pass
+
+    def test_office_get_spending_by_vendor(self):
+        pass
+
+    def test_office_get_spending_by_month(self):
+        pass

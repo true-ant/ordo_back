@@ -1,7 +1,7 @@
 from factory import Sequence
 from factory.django import DjangoModelFactory
 
-from apps.accounts.factories import OfficeVendorFactory
+from apps.accounts.factories import OfficeVendorFactory, VendorFactory
 
 from . import models as m
 
@@ -9,6 +9,10 @@ from . import models as m
 class ProductFactory(DjangoModelFactory):
     class Meta:
         model = m.Product
+
+    vendor = VendorFactory()
+    product_id = Sequence(lambda n: f"test{n}")
+    name = Sequence(lambda n: f"Product {n}")
 
 
 class OrderFactory(DjangoModelFactory):
