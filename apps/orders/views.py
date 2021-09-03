@@ -1,7 +1,9 @@
 from django.db.models import F, Sum
 from rest_framework.decorators import action
+from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from . import filters as f
@@ -14,6 +16,9 @@ class OrderViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = s.OrderSerializer
     filterset_class = f.OrderFilter
+
+    def get_serializer_class(self):
+        return s.OrderListSerializer if self.action == "list" else self.serializer_class
 
     def get_queryset(self):
         return super().get_queryset().filter(office_vendor__office__id=self.kwargs["office_pk"])
@@ -45,3 +50,13 @@ class OrderProductViewSet(ModelViewSet):
 #
 #     def get_queryset(self):
 #         return m.OrderItem.objects.filter(order_id=self.kwargs["order__pk"])
+
+
+class CompanyOrderAPIView(APIView, LimitOffsetPagination):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, company_id):
+        queryset = m.Order.objects.filter(office_vendor__office__company__id=company_id)
+        paginate_queryset = self.paginate_queryset(queryset, request, view=self)
+        serializer = s.OrderListSerializer(paginate_queryset, many=True)
+        return self.get_paginated_response(serializer.data)

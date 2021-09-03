@@ -22,7 +22,6 @@ class User(AbstractUser):
 
     role = models.IntegerField(choices=Role.choices, default=Role.USER)
     avatar = models.ImageField(null=True, blank=True)
-    is_active = models.BooleanField(default=True)
 
 
 class Company(TimeStampedModel):

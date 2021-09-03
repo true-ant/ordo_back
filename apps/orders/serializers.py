@@ -27,3 +27,9 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.Order
         fields = "__all__"
+
+
+class OrderListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.Order
+        exclude = ("products",)
