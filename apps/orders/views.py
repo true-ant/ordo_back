@@ -31,7 +31,8 @@ class OrderViewSet(ModelViewSet):
             .order_by("office_vendor")
             .annotate(total_amount=Sum("total_amount"), vendor=F("office_vendor__vendor__name"))
         )
-        return Response(qs)
+        serializer = s.TotalSpendSerializer(qs, many=True)
+        return Response(serializer.data)
 
 
 class OrderProductViewSet(ModelViewSet):
@@ -43,15 +44,6 @@ class OrderProductViewSet(ModelViewSet):
         return super().get_queryset().filter(order__office_vendor__office__id=self.kwargs["office_pk"])
 
 
-#
-# class OrderItemViewSet(ModelViewSet):
-#     permission_classes = [IsAuthenticated]
-#     serializer_class = s.OrderItemSerializer
-#
-#     def get_queryset(self):
-#         return m.OrderItem.objects.filter(order_id=self.kwargs["order__pk"])
-
-
 class CompanyOrderAPIView(APIView, LimitOffsetPagination):
     permission_classes = [IsAuthenticated]
 
@@ -60,3 +52,17 @@ class CompanyOrderAPIView(APIView, LimitOffsetPagination):
         paginate_queryset = self.paginate_queryset(queryset, request, view=self)
         serializer = s.OrderListSerializer(paginate_queryset, many=True)
         return self.get_paginated_response(serializer.data)
+
+
+class CompanyTotalSpendAPIView(APIView):
+    def get(self, request, company_id):
+        queryset = m.Order.objects.select_related("office_vendor__vendor").filter(
+            office_vendor__office__company__id=company_id
+        )
+        qs = (
+            queryset.values("office_vendor__vendor")
+            .order_by("office_vendor__vendor")
+            .annotate(total_amount=Sum("total_amount"), vendor=F("office_vendor__vendor__name"))
+        )
+        serializer = s.TotalSpendSerializer(qs, many=True)
+        return Response(serializer.data)

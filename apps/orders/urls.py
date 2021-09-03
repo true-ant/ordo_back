@@ -12,4 +12,7 @@ offices_router.register(r"products", v.OrderProductViewSet, basename="products")
 urlpatterns = [
     path("", include(offices_router.urls)),
     path("companies/<int:company_id>/orders", v.CompanyOrderAPIView.as_view(), name="company-orders"),
+    path(
+        "companies/<int:company_id>/orders/total-spends", v.CompanyTotalSpendAPIView.as_view(), name="company-spends"
+    ),
 ]

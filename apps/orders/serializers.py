@@ -33,3 +33,8 @@ class OrderListSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.Order
         exclude = ("products",)
+
+
+class TotalSpendSerializer(serializers.Serializer):
+    vendor = serializers.CharField()
+    total_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
