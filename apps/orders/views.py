@@ -1,7 +1,6 @@
 from dateutil.relativedelta import relativedelta
-from django.db.models import DateField, F, Func, Sum
+from django.db.models import F, Sum
 from django.utils import timezone
-from rest_framework.decorators import action
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -25,17 +24,6 @@ class OrderViewSet(ModelViewSet):
     def get_queryset(self):
         return super().get_queryset().filter(office_vendor__office__id=self.kwargs["office_pk"])
 
-    @action(detail=False, methods=["get"], url_path="by-vendors")
-    def get_statics_by_vendor(self, request, *args, **kwargs):
-        qs = self.get_queryset()
-        qs = (
-            qs.values("office_vendor")
-            .order_by("office_vendor")
-            .annotate(total_amount=Sum("total_amount"), vendor=F("office_vendor__vendor__name"))
-        )
-        serializer = s.TotalSpendSerializer(qs, many=True)
-        return Response(serializer.data)
-
 
 class OrderProductViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -56,32 +44,51 @@ class CompanyOrderAPIView(APIView, LimitOffsetPagination):
         return self.get_paginated_response(serializer.data)
 
 
-class YearMonth(Func):
-    function = "TO_CHAR"
-    template = "%(function)s(%(expressions)s, 'YYYY-MM')"
-    output_field = DateField()
+def last_months_spending(queryset):
+    last_year_today = (timezone.now() - relativedelta(months=11)).date()
+    last_year_today.replace(day=1)
+    return (
+        queryset.filter(order_date__gte=last_year_today)
+        .annotate(month=m.YearMonth("order_date"))
+        .values("month")
+        .order_by("month")
+        .annotate(total_amount=Sum("total_amount"))
+    )
 
 
-class CompanyTotalSpendAPIView(APIView):
+class CompanySpendAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request, company_id):
         queryset = m.Order.objects.select_related("office_vendor__vendor").filter(
             office_vendor__office__company__id=company_id
         )
-        monthly = request.query_params.get("monthly", False)
-        if monthly:
-            last_year_today = (timezone.now() - relativedelta(months=11)).date()
-            last_year_today.replace(day=1)
-            qs = (
-                queryset.filter(order_date__gte=last_year_today)
-                .annotate(month=YearMonth("order_date"))
-                .values("month")
-                .order_by("month")
-                .annotate(total_amount=Sum("total_amount"))
-            )
+        by = request.query_params.get("by", "vendor")
+        if by == "month":
+            qs = last_months_spending(queryset)
         else:
             qs = (
                 queryset.values("office_vendor__vendor")
                 .order_by("office_vendor__vendor")
+                .annotate(total_amount=Sum("total_amount"), vendor=F("office_vendor__vendor__name"))
+            )
+        serializer = s.TotalSpendSerializer(qs, many=True)
+        return Response(serializer.data)
+
+
+class OfficeSpendAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, office_id):
+        queryset = m.Order.objects.select_related("office_vendor__vendor").filter(office_vendor__office__id=office_id)
+        by = request.query_params.get("by", "vendor")
+        if by == "month":
+            qs = last_months_spending(queryset)
+
+        else:
+            qs = (
+                queryset.values("office_vendor")
+                .order_by("office_vendor")
                 .annotate(total_amount=Sum("total_amount"), vendor=F("office_vendor__vendor__name"))
             )
         serializer = s.TotalSpendSerializer(qs, many=True)

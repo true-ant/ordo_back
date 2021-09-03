@@ -62,3 +62,9 @@ class OrderProduct(TimeStampedModel):
     @classmethod
     def from_dataclass(cls, order, dict_data):
         return cls.objects.create(order=order, **dict_data)
+
+
+class YearMonth(models.Func):
+    function = "TO_CHAR"
+    template = "%(function)s(%(expressions)s, 'YYYY-MM')"
+    output_field = models.DateField()
