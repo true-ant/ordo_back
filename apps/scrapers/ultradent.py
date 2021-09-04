@@ -85,7 +85,18 @@ class UltraDentScraper(Scraper):
         ) as resp:
             oder_html = (await resp.json())["data"]["orderHtml"]["orderDetailWithShippingHtml"]
             order_dom = Selector(text=oder_html)
+            shipping_dom = order_dom.xpath(
+                "//section[@class='order-details']/div[@class='odr-line-summary']"
+                "/div[@class='grid-unit'][last()]/div[@class='address']"
+            )
 
+            codes = self.extract_first(shipping_dom, "./span[@class='location']//text()").split(", ")[1]
+            region_code, postal_code, _ = codes.split()
+            order["shipping_address"] = {
+                "address": self.merge_strip_values(shipping_dom, "./span[@class='street1']//text()"),
+                "region_code": region_code,
+                "postal_code": postal_code,
+            }
             for order_detail in order_dom.xpath("//section[@class='order-details']/ul[@class='odr-line-list']/li"):
                 if order_detail.xpath("./@class").get() == "odr-line-header":
                     continue

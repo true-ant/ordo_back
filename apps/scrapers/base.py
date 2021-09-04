@@ -40,3 +40,6 @@ class Scraper:
 
     def extract_first(self, dom, xpath):
         return x.strip() if (x := dom.xpath(xpath).extract_first()) else x
+
+    def merge_strip_values(self, dom, xpath, delimeter=""):
+        return delimeter.join(filter(None, map(str.strip, dom.xpath(xpath).extract())))

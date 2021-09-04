@@ -91,6 +91,11 @@ class Net32Scraper(Scraper):
                             "currency": "USD",
                             "order_date": parse_datetime(order["coTime"]).date(),
                             "status": order["status"],
+                            "shipping_address": {
+                                "address": "".join([i for i in order["shippingAdress"]["Streets"] if i]),
+                                "region_code": order["shippingAdress"]["RegionCD"],
+                                "postal_code": order["shippingAdress"]["PostalCD"],
+                            },
                             "products": [
                                 {
                                     "product": {

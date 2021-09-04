@@ -71,10 +71,18 @@ class OrderProduct(BaseDataClass):
 
 
 @dataclass(frozen=True)
+class Address(BaseDataClass):
+    address: str
+    region_code: str
+    postal_code: str
+
+
+@dataclass(frozen=True)
 class Order(BaseDataClass):
     order_id: str
     total_amount: Decimal
     currency: str
     order_date: date
     status: str
+    shipping_address: Address
     products: List[OrderProduct]

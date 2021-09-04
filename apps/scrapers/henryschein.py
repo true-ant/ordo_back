@@ -68,9 +68,6 @@ class HenryScheinScraper(Scraper):
             },
         }
 
-    def extract_strip_value(self, dom, xpath, delimeter=""):
-        return delimeter.join(filter(None, map(str.strip, dom.xpath(xpath).extract())))
-
     async def get_order(self, order_dom):
         link = order_dom.xpath("./td[8]/a/@href").extract_first().strip()
         order = {
@@ -84,10 +81,20 @@ class HenryScheinScraper(Scraper):
             order["order_id"] = (
                 order_detail_response.xpath("//span[@id='ctl00_cphMainContent_referenceNbLbl']//text()").get().strip()
             )
+            addresses = order_detail_response.xpath(
+                "//span[@id='ctl00_cphMainContent_ucShippingAddr_lblAddress']//text()"
+            ).extract()
+            _, codes = addresses[2].split(",")
+            region_code, postal_code = codes.strip().split(" ")
+            order["shipping_address"] = {
+                "address": addresses[1],
+                "region_code": region_code,
+                "postal_code": postal_code,
+            }
 
             tasks = (
                 self.get_product(
-                    product_link=self.extract_strip_value(
+                    product_link=self.merge_strip_values(
                         dom=order_product_dom,
                         xpath="./td[1]//table[@id='tblProduct']//span[@class='ProductDisplayName']//a/@href",
                     ),
@@ -99,7 +106,6 @@ class HenryScheinScraper(Scraper):
             )
 
             order["products"] = await asyncio.gather(*tasks)
-
         return Order.from_dict(order)
 
     async def get_product(self, product_link, order_product_dom):
@@ -108,13 +114,13 @@ class HenryScheinScraper(Scraper):
             product_detail = res.xpath("//script[@type='application/ld+json']//text()").extract_first()
             product_detail = json.loads(product_detail)
 
-        quantity_price = self.extract_strip_value(
+        quantity_price = self.merge_strip_values(
             dom=order_product_dom, xpath=".//td[@id='QtyRow']//text()", delimeter=";"
         )
         quantity, _, unit_price = quantity_price.split(";")
         unit_price = re.search(r"\$(.*)/", unit_price)
 
-        status = self.extract_strip_value(
+        status = self.merge_strip_values(
             dom=order_product_dom, xpath=".//span[contains(@id, 'itemStatusLbl')]//text()"
         )
         order_product = {

@@ -65,8 +65,8 @@ async def main():
             username=credential["username"],
             password=credential["password"],
         )
-        # results = await scraper.get_orders(perform_login=True)
-        results = await scraper.search_products(query="tooth brush", per_page=10, page=1)
+        results = await scraper.get_orders(perform_login=True)
+        # results = await scraper.search_products(query="tooth brush", per_page=10, page=1)
         results = [r.to_dict() for r in results]
         print(results)
 

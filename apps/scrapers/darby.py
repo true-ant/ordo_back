@@ -59,18 +59,13 @@ class DarbyScraper(Scraper):
             "data": {"username": self.username, "password": self.password, "next": ""},
         }
 
-    def extract_strip_value(self, dom, xpath, delimeter=""):
-        return delimeter.join(filter(None, map(str.strip, dom.xpath(xpath).extract())))
-
     async def get_order(self, order_dom):
-        link = self.extract_strip_value(order_dom, "./td[1]/a/@href")
+        link = self.merge_strip_values(order_dom, "./td[1]/a/@href")
         order = {
-            "id": self.extract_strip_value(order_dom, "./td[1]//text()"),
-            "total_amount": self.extract_strip_value(order_dom, ".//td[8]//text()"),
+            "id": self.merge_strip_values(order_dom, "./td[1]//text()"),
+            "total_amount": self.merge_strip_values(order_dom, ".//td[8]//text()"),
             "currency": "USD",
-            "order_date": datetime.strptime(
-                self.extract_strip_value(order_dom, ".//td[2]//text()"), "%m/%d/%Y"
-            ).date(),
+            "order_date": datetime.strptime(self.merge_strip_values(order_dom, ".//td[2]//text()"), "%m/%d/%Y").date(),
         }
         async with self.session.get(f"{self.BASE_URL}/Scripts/{link}", headers=HEADERS) as resp:
             order_detail_response = Selector(text=await resp.text())
@@ -81,14 +76,14 @@ class DarbyScraper(Scraper):
                 order["products"].append(
                     {
                         "product": {
-                            "product_id": self.extract_strip_value(detail_row, "./td[1]/a//text()"),
-                            "name": self.extract_strip_value(detail_row, "./td[2]//text()"),
-                            "url": self.BASE_URL + self.extract_strip_value(detail_row, "./td[1]/a//@href"),
-                            "image": self.BASE_URL + self.extract_strip_value(detail_row, "./td[1]/input//@src"),
-                            "price": self.extract_strip_value(detail_row, "./td[4]//text()"),
+                            "product_id": self.merge_strip_values(detail_row, "./td[1]/a//text()"),
+                            "name": self.merge_strip_values(detail_row, "./td[2]//text()"),
+                            "url": self.BASE_URL + self.merge_strip_values(detail_row, "./td[1]/a//@href"),
+                            "image": self.BASE_URL + self.merge_strip_values(detail_row, "./td[1]/input//@src"),
+                            "price": self.merge_strip_values(detail_row, "./td[4]//text()"),
                         },
-                        "quantity": self.extract_strip_value(detail_row, "./td[5]//text()"),
-                        "unit_price": self.extract_strip_value(detail_row, "./td[4]//text()"),
+                        "quantity": self.merge_strip_values(detail_row, "./td[5]//text()"),
+                        "unit_price": self.merge_strip_values(detail_row, "./td[4]//text()"),
                         # "status": status
                     }
                 )
