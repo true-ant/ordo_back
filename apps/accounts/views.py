@@ -190,15 +190,15 @@ class VendorViewSet(ReadOnlyModelViewSet):
     queryset = m.Vendor.objects.all()
 
 
-class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
+class CompanyVendorViewSet(AsyncMixin, ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return m.OfficeVendor.objects.filter(office_id=self.kwargs["office_pk"])
+        return m.CompanyVendor.objects.filter(company_id=self.kwargs["company_pk"])
 
     @sync_to_async
     def _validate(self, data):
-        serializer = s.OfficeVendorSerializer(data=data)
+        serializer = s.CompanyVendorSerializer(data=data)
         serializer.is_valid(raise_exception=True)
         return serializer
 
@@ -207,7 +207,7 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
         return serializer.save()
 
     async def create(self, request, *args, **kwargs):
-        serializer = await self._validate(request.data)
+        serializer = await self._validate({**request.data, "company": kwargs["company_pk"]})
         session = apps.get_app_config("accounts").session
         session._cookie_jar.clear()
         try:
@@ -218,9 +218,9 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
                 session=session,
             )
             login_cookies = await scraper.login()
-            office_vendor = await self._save(serializer)
+            company_vendor = await self._save(serializer)
             fetch_orders_from_vendor.delay(
-                office_vendor_id=office_vendor.id,
+                company_vendor_id=company_vendor.id,
                 login_cookies=login_cookies.output(),
             )
         except VendorNotSupported:
@@ -234,6 +234,12 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
             return Response({"message": msgs.VENDOR_WRONG_INFORMATION}, status=HTTP_400_BAD_REQUEST)
 
         return Response({"message": msgs.VENDOR_CONNECTED})
+
+    @action(detail=True, methods=["post"], url_path="fetch")
+    def fetch_orders(self, request, *args, **kwargs):
+        instance = self.get_object()
+        fetch_orders_from_vendor.delay(company_vendor_id=instance.id, login_cookies=None, perform_login=True)
+        return Response({})
 
 
 class UserViewSet(ModelViewSet):

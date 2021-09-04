@@ -24,21 +24,15 @@ class OfficeSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
     company = serializers.PrimaryKeyRelatedField(queryset=m.Company.objects.all(), required=False)
     logo = Base64ImageField()
-    vendors = VendorSerializer(many=True, required=False)
 
     class Meta:
         model = m.Office
         fields = "__all__"
 
-    def to_representation(self, instance):
-        res = super().to_representation(instance)
-        if self.context.get("exclude_vendors"):
-            res.pop("vendors")
-        return res
-
 
 class CompanySerializer(serializers.ModelSerializer):
     offices = OfficeSerializer(many=True)
+    vendors = VendorSerializer(many=True)
 
     class Meta:
         model = m.Company
@@ -87,6 +81,8 @@ class CompanySerializer(serializers.ModelSerializer):
         res = super().to_representation(instance)
         if self.context.get("exclude_offices"):
             res.pop("offices")
+        if self.context.get("exclude_vendors"):
+            res.pop("vendors")
         return res
 
 
@@ -104,9 +100,11 @@ class CompanyMemberBulkInviteSerializer(serializers.Serializer):
     members = serializers.ListField(child=CompanyMemberSerializer(), allow_empty=False)
 
 
-class OfficeVendorSerializer(serializers.ModelSerializer):
+class CompanyVendorSerializer(serializers.ModelSerializer):
+    company = serializers.PrimaryKeyRelatedField(queryset=m.Company.objects.all(), allow_null=True)
+
     class Meta:
-        model = m.OfficeVendor
+        model = m.CompanyVendor
         fields = "__all__"
 
 

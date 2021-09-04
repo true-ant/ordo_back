@@ -11,7 +11,7 @@ from django.core.mail import send_mail
 from django.db import transaction
 from django.template.loader import render_to_string
 
-from apps.accounts.models import Office, OfficeVendor
+from apps.accounts.models import CompanyVendor, Office
 from apps.orders.models import Order, OrderProduct, Product
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import OfficeInvite
@@ -64,30 +64,51 @@ def send_office_invite_email(office_email_invites: List[OfficeInvite]):
         )
 
 
-async def get_orders(office_vendor, login_cookies):
+async def get_orders(company_vendor, login_cookies, perform_login):
     async with ClientSession(cookies=login_cookies) as session:
         scraper = ScraperFactory.create_scraper(
-            scraper_name=office_vendor.vendor.slug,
+            scraper_name=company_vendor.vendor.slug,
             session=session,
+            username=company_vendor.username,
+            password=company_vendor.password,
         )
-        return await scraper.get_orders()
+        return await scraper.get_orders(perform_login=perform_login)
 
 
 @shared_task
-def fetch_orders_from_vendor(office_vendor_id, login_cookies):
-    cookie = SimpleCookie()
-    for login_cookie in login_cookies.split("\r\n"):
-        login_cookie = login_cookie.replace("Set-Cookie: ", "")
-        cookie.load(login_cookie)
-    office_vendor = OfficeVendor.objects.select_related("office", "vendor").get(id=office_vendor_id)
-    orders = asyncio.run(get_orders(office_vendor, cookie))
+def fetch_orders_from_vendor(company_vendor_id, login_cookies=None, perform_login=False):
+    if login_cookies is None and perform_login is False:
+        return
+
+    company_vendor = CompanyVendor.objects.select_related("company", "vendor").get(id=company_vendor_id)
+    offices = company_vendor.company.offices.all()
+    print(offices)
+
+    if login_cookies:
+        cookie = SimpleCookie()
+        for login_cookie in login_cookies.split("\r\n"):
+            login_cookie = login_cookie.replace("Set-Cookie: ", "")
+            cookie.load(login_cookie)
+    else:
+        cookie = None
+    orders = asyncio.run(get_orders(company_vendor, cookie, perform_login))
+
     with transaction.atomic():
         for order_data_cls in orders:
             order_data = order_data_cls.to_dict()
             order_products_data = order_data.pop("products")
-            order = Order.from_dataclass(office_vendor, order_data)
+            shipping_address = order_data.pop("shipping_address")
+            print(order_data)
+            try:
+                office = [
+                    office for office in offices if office.postal_code[:5] == shipping_address["postal_code"][:5]
+                ][0]
+            except (TypeError, IndexError):
+                office = offices[0]
+
+            order = Order.from_dataclass(vendor=company_vendor.vendor, office=office, dict_data=order_data)
             for order_product_data in order_products_data:
-                product = Product.from_dataclass(office_vendor.vendor, order_product_data["product"])
+                product = Product.from_dataclass(company_vendor.vendor, order_product_data["product"])
                 OrderProduct.objects.create(
                     order=order,
                     product=product,

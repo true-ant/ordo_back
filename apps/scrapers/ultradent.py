@@ -76,10 +76,14 @@ class UltraDentScraper(Scraper):
                 }
             """,
         }
-        order["order_id"] = order["orderNumber"]
-        order["status"] = order["orderStatus"]
-        order["order_date"] = order["orderDate"]
-        order["products"] = []
+        order = {
+            "order_id": order["orderNumber"],
+            "status": order["orderStatus"],
+            "order_date": order["orderDate"],
+            "currency": "USD",
+            "products": [],
+        }
+
         async with self.session.post(
             "https://www.ultradent.com/api/ecommerce", headers=ORDER_HEADERS, json=json_data
         ) as resp:
@@ -127,6 +131,7 @@ class UltraDentScraper(Scraper):
                             },
                             "quantity": self.extract_first(order_detail, "./span[@class='sku-qty']//text()"),
                             "unit_price": self.extract_first(order_detail, "./span[@class='sku-price']//text()"),
+                            # "status": self.
                         }
                     )
 

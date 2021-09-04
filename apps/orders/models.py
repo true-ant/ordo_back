@@ -1,6 +1,6 @@
 from django.db import models
 
-from apps.accounts.models import OfficeVendor, Vendor
+from apps.accounts.models import Office, Vendor
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
 
 
@@ -11,8 +11,8 @@ class Product(TimeStampedModel):
     description = models.TextField(null=True, blank=True)
     url = models.URLField(null=True, blank=True)
     image = models.URLField(null=True, blank=True)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    retail_price = models.DecimalField(max_digits=10, decimal_places=2)
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    retail_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     # stars: Decimal
     # ratings: Decimal
 
@@ -26,10 +26,11 @@ class Order(TimeStampedModel):
         SHIPPED = 0
         PROCESSING = 1
 
-    office_vendor = FlexibleForeignKey(OfficeVendor, related_name="orders")
+    vendor = FlexibleForeignKey(Vendor)
+    office = FlexibleForeignKey(Office)
     order_id = models.CharField(max_length=100)
     total_amount = models.DecimalField(decimal_places=2, max_digits=10)
-    currency = models.CharField(max_length=100)
+    currency = models.CharField(max_length=100, default="USD")
     order_date = models.DateField()
     status = models.CharField(max_length=100)
     products = models.ManyToManyField(Product, through="OrderProduct")
@@ -42,8 +43,8 @@ class Order(TimeStampedModel):
         ordering = ["-order_date"]
 
     @classmethod
-    def from_dataclass(cls, office_vendor, dict_data):
-        return cls.objects.create(office_vendor=office_vendor, **dict_data)
+    def from_dataclass(cls, vendor, office, dict_data):
+        return cls.objects.create(vendor=vendor, office=office, **dict_data)
 
 
 class OrderProduct(TimeStampedModel):
@@ -56,7 +57,7 @@ class OrderProduct(TimeStampedModel):
     product = FlexibleForeignKey(Product)
     quantity = models.IntegerField(default=0)
     unit_price = models.DecimalField(decimal_places=2, max_digits=10)
-    status = models.CharField(max_length=100)
+    status = models.CharField(max_length=100, null=True, blank=True)
     # status = models.IntegerField(choices=Status.choices, default=Status.OPEN)
 
     @classmethod

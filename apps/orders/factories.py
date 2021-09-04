@@ -1,7 +1,7 @@
 from factory import Sequence
 from factory.django import DjangoModelFactory
 
-from apps.accounts.factories import OfficeVendorFactory, VendorFactory
+from apps.accounts.factories import OfficeFactory, VendorFactory
 
 from . import models as m
 
@@ -19,7 +19,8 @@ class OrderFactory(DjangoModelFactory):
     class Meta:
         model = m.Order
 
-    office_vendor = OfficeVendorFactory()
+    office = OfficeFactory()
+    vendor = VendorFactory()
     order_id = Sequence(lambda n: f"order_{n}")
 
 

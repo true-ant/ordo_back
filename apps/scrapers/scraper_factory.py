@@ -38,7 +38,7 @@ class ScraperFactory:
 async def main():
 
     load_dotenv()
-    scraper_name = "henry_schein"
+    scraper_name = "ultradent"
     credentials = {
         "henry_schein": {
             "username": os.getenv("HENRY_SCHEIN_USERNAME"),

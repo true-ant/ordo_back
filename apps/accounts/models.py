@@ -24,10 +24,20 @@ class User(AbstractUser):
     avatar = models.ImageField(null=True, blank=True)
 
 
+class Vendor(models.Model):
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=100)
+    url = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+
 class Company(TimeStampedModel):
     name = models.CharField(max_length=100)
     on_boarding_step = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    vendors = models.ManyToManyField(Vendor, through="CompanyVendor")
 
     objects = managers.CompanyMemeberActiveManager()
 
@@ -38,15 +48,6 @@ class Company(TimeStampedModel):
         verbose_name_plural = "Companies"
 
 
-class Vendor(models.Model):
-    name = models.CharField(max_length=100)
-    slug = models.SlugField(max_length=100)
-    url = models.CharField(max_length=100)
-
-    def __str__(self):
-        return self.name
-
-
 class Office(TimeStampedModel):
     company = FlexibleForeignKey(Company, related_name="offices")
     is_active = models.BooleanField(default=True)
@@ -54,6 +55,7 @@ class Office(TimeStampedModel):
     # Basic Information
     name = models.CharField(max_length=100)
     address = models.CharField(max_length=100, null=True, blank=True)
+    postal_code = models.CharField(max_length=100, null=True, blank=True)
     phone_number = models.CharField(max_length=100, null=True, blank=True)
     website = models.CharField(max_length=100, null=True, blank=True)
     logo = models.ImageField(null=True, blank=True)
@@ -62,12 +64,6 @@ class Office(TimeStampedModel):
     cc_number = models.CharField(max_length=20, null=True, blank=True)
     cc_expiry = models.CharField(max_length=20, null=True, blank=True)
     cc_code = models.CharField(max_length=20, null=True, blank=True)
-    # Billing address
-    billing_address = models.CharField(max_length=100, null=True, blank=True)
-    # Shipping Address
-    shipping_address = models.CharField(max_length=100, null=True, blank=True)
-    shipping_address_zipcode = models.CharField(max_length=100, null=True, blank=True)
-    vendors = models.ManyToManyField(Vendor, through="OfficeVendor")
 
     objects = managers.CompanyMemeberActiveManager()
 
@@ -75,14 +71,14 @@ class Office(TimeStampedModel):
         return f"{self.company} -> {self.name}"
 
 
-class OfficeVendor(models.Model):
+class CompanyVendor(models.Model):
     vendor = FlexibleForeignKey(Vendor, related_name="vendors")
-    office = FlexibleForeignKey(Office, related_name="offices")
+    company = FlexibleForeignKey(Company, related_name="companies")
     username = models.CharField(max_length=100)
     password = models.CharField(max_length=100)
 
     class Meta:
-        unique_together = ["office", "vendor"]
+        unique_together = ["company", "vendor"]
 
 
 class CompanyMember(TimeStampedModel):
