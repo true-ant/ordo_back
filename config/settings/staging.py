@@ -1,7 +1,10 @@
 from .base import *  # noqa
 
 EMAIL_BACKEND = "django_ses.SESBackend"
-ALLOWED_HOSTS = ["ordo-backend-dev.us-east-1.elasticbeanstalk.com"]
+ALLOWED_HOSTS = [
+    "ordo-backend-dev.us-east-1.elasticbeanstalk.com",
+    "api.staging.joinordo.com",
+]
 
 CELERY_RESULT_BACKEND = None
 
