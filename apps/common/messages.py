@@ -1,6 +1,7 @@
 SIGNUP_DUPLICATE_EMAIL = "Email existed"
 
 # Invite
+INVITE_EMAIL_EXIST = "Already exits"
 INVITE_TOKEN_WRONG = "Your token is wrong"
 INVITE_TOKEN_EXPIRED = "Your token is expired"
 INVITE_NOT_ACCEPTABLE = "You can accept only once the onboarding process if finished"

@@ -3,6 +3,7 @@ from datetime import timedelta
 from asgiref.sync import sync_to_async
 from django.apps import apps
 from django.db import transaction
+from django.db.utils import IntegrityError
 from django.utils import timezone
 from rest_framework import mixins
 from rest_framework.decorators import action
@@ -21,7 +22,7 @@ from apps.scrapers.scraper_factory import ScraperFactory
 from . import models as m
 from . import permissions as p
 from . import serializers as s
-from .tasks import fetch_orders_from_vendor, send_office_invite_email
+from .tasks import fetch_orders_from_vendor, send_company_invite_email
 
 
 class UserSignupAPIView(APIView):
@@ -43,6 +44,7 @@ class UserSignupAPIView(APIView):
             m.CompanyMember.objects.create(
                 company=company,
                 user=user,
+                role=m.User.Role.ADMIN,
                 office=None,
                 email=user.email,
                 invite_status=m.CompanyMember.InviteStatus.INVITE_APPROVED,
@@ -116,10 +118,28 @@ class OfficeViewSet(ModelViewSet):
 
 class CompanyMemberViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
-    serializer_class = s.CompanyMemberSerializer
 
     def get_queryset(self):
         return m.CompanyMember.objects.filter(company_id=self.kwargs["company_pk"])
+
+    def get_serializer_class(self):
+        if self.action == "update":
+            return s.CompanyMemberUpdateSerializer
+        else:
+            return s.CompanyMemberSerializer
+
+    def create(self, request, *args, **kwargs):
+        request.data.setdefault("company", int(self.kwargs["company_pk"]))
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer_class = self.get_serializer_class()
+        serializer = serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance.role = serializer.validated_data["role"]
+        instance.save()
+        return Response({"message": ""})
 
     @action(detail=False, methods=["post"], url_path="bulk")
     def bulk_invite(self, request, *args, **kwargs):
@@ -134,17 +154,25 @@ class CompanyMemberViewSet(ModelViewSet):
             members = (
                 m.CompanyMember(
                     company_id=kwargs["company_pk"],
-                    office=member["office"],
+                    office=member.get("office", None),
                     email=member["email"],
+                    role=member["role"],
                     user=users.get(member["email"], None),
                     token_expires_at=timezone.now() + timedelta(m.INVITE_EXPIRES_DAYS),
                 )
                 for member in serializer.validated_data["members"]
             )
-            m.CompanyMember.objects.bulk_create(members, ignore_conflicts=True)
-            send_office_invite_email.delay(
+            try:
+                m.CompanyMember.objects.bulk_create(members)
+            except IntegrityError:
+                return Response({"message": msgs.INVITE_EMAIL_EXIST}, status=HTTP_400_BAD_REQUEST)
+            send_company_invite_email.delay(
                 [
-                    {"office_id": member["office"].id, "email": member["email"]}
+                    {
+                        "company_id": self.kwargs["company_pk"],
+                        "email": member["email"],
+                        "office_id": office_.id if (office_ := member.get("office", None)) else None,
+                    }
                     for member in serializer.validated_data["members"]
                 ]
             )

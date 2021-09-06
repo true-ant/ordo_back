@@ -20,7 +20,7 @@ class User(AbstractUser):
         ADMIN = 1
         USER = 2
 
-    role = models.IntegerField(choices=Role.choices, default=Role.USER)
+    role = models.IntegerField(choices=Role.choices, default=Role.ADMIN)
     avatar = models.ImageField(null=True, blank=True)
 
 
@@ -89,8 +89,9 @@ class CompanyMember(TimeStampedModel):
 
     company = FlexibleForeignKey(Company)
     user = FlexibleForeignKey(User, null=True)
+    role = models.IntegerField(choices=User.Role.choices, default=User.Role.ADMIN)
     office = FlexibleForeignKey(Office, null=True)
-    email = models.EmailField()
+    email = models.EmailField(null=False, blank=False)
     invite_status = models.IntegerField(choices=InviteStatus.choices, default=InviteStatus.INVITE_SENT)
     date_joined = models.DateTimeField(null=True, blank=True)
     token = models.CharField(max_length=64, default=generate_token, unique=True)
@@ -105,3 +106,6 @@ class CompanyMember(TimeStampedModel):
 
     def refresh_expires_at(self):
         self.token_expires_at = timezone.now() + timedelta(days=INVITE_EXPIRES_DAYS)
+
+    class Meta:
+        unique_together = ["company", "email"]

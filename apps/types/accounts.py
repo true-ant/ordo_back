@@ -1,6 +1,7 @@
-from typing import TypedDict
+from typing import Optional, TypedDict
 
 
-class OfficeInvite(TypedDict):
-    office_id: int
+class CompanyInvite(TypedDict):
+    company_id: int
     email: str
+    office_id: Optional[int]

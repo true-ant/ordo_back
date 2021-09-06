@@ -7,11 +7,13 @@ from . import models as m
 
 
 class CompanyMemberSerializer(serializers.ModelSerializer):
+    company = serializers.PrimaryKeyRelatedField(queryset=m.Company.objects.all(), allow_null=True)
     office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), allow_null=True)
+    role_name = serializers.CharField(source="get_role_display", required=False)
 
     class Meta:
         model = m.CompanyMember
-        exclude = ("company",)
+        exclude = ("token", "token_expires_at")
 
 
 class VendorSerializer(serializers.ModelSerializer):
@@ -92,12 +94,31 @@ class UserSignupSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField()
     company_name = serializers.CharField()
-    role = serializers.ChoiceField(choices=(m.User.Role.ADMIN.value,))
+
+
+class CompanyMemberInviteSerializer(serializers.Serializer):
+    role = serializers.ChoiceField(
+        choices=(
+            m.User.Role.ADMIN,
+            m.User.Role.USER,
+        )
+    )
+    office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), required=False)
+    email = serializers.EmailField()
 
 
 class CompanyMemberBulkInviteSerializer(serializers.Serializer):
     on_boarding_step = serializers.IntegerField()
-    members = serializers.ListField(child=CompanyMemberSerializer(), allow_empty=False)
+    members = serializers.ListField(child=CompanyMemberInviteSerializer(), allow_empty=False)
+
+
+class CompanyMemberUpdateSerializer(serializers.Serializer):
+    role = serializers.ChoiceField(
+        choices=(
+            m.User.Role.ADMIN,
+            m.User.Role.USER,
+        )
+    )
 
 
 class CompanyVendorSerializer(serializers.ModelSerializer):

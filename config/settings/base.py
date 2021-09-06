@@ -176,7 +176,7 @@ REST_FRAMEWORK = {
         "apps.common.renders.APIRenderer",
     ],
     # "DEFAULT_PAGINATION_CLASS": "apps.common.pagination.StandardResultsSetPagination",
-    "PAGE_SIZE": 20,
+    # "PAGE_SIZE": 20,
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_jwt.authentication.JSONWebTokenAuthentication",
         "rest_framework.authentication.SessionAuthentication",
