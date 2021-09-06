@@ -185,7 +185,6 @@ class CompanyMemberInvitationCheckAPIView(APIView):
 
 class VendorViewSet(ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
-    pagination_class = None
     serializer_class = s.VendorSerializer
     queryset = m.Vendor.objects.all()
 

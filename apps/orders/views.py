@@ -18,6 +18,7 @@ from rest_framework.viewsets import ModelViewSet
 from apps.accounts.models import Company, CompanyMember, CompanyVendor, Office
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
+from apps.common.pagination import StandardResultsSetPagination
 from apps.scrapers.schema import Product as ProductDataClass
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import LinkedVendor
@@ -32,6 +33,7 @@ class OrderViewSet(ModelViewSet):
     queryset = m.Order.objects.all()
     permission_classes = [IsAuthenticated]
     serializer_class = s.OrderSerializer
+    pagination_class = StandardResultsSetPagination
     filterset_class = f.OrderFilter
 
     def get_serializer_class(self):
