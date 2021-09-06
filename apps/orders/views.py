@@ -1,14 +1,26 @@
+import asyncio
+from typing import List
+
+from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
+from django.apps import apps
 from django.db.models import F, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from rest_framework.decorators import action
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.status import HTTP_400_BAD_REQUEST
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from apps.accounts.models import Company, CompanyVendor, Office
+from apps.accounts.models import Company, CompanyMember, CompanyVendor, Office
+from apps.common import messages as msgs
+from apps.common.asyncdrf import AsyncMixin
+from apps.scrapers.schema import Product as ProductDataClass
+from apps.scrapers.scraper_factory import ScraperFactory
+from apps.types.orders import LinkedVendor
 
 from . import filters as f
 from . import models as m
@@ -105,3 +117,48 @@ class OfficeSpendAPIView(APIView):
         data = get_spending(request.query_params.get("by", "vendor"), queryset, office.company)
         serializer = s.TotalSpendSerializer(data, many=True)
         return Response(serializer.data)
+
+
+class ProductViewSet(AsyncMixin, ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = s.ProductSerializer
+    queryset = m.Product.objects.all()
+
+    @sync_to_async
+    def _get_linked_vendors(self, request) -> List[LinkedVendor]:
+        company_member = CompanyMember.objects.filter(user=request.user).first()
+        company_vendors = CompanyVendor.objects.select_related("vendor").filter(company=company_member.company)
+        return [
+            LinkedVendor(
+                vendor=company_vendor.vendor.slug, username=company_vendor.username, password=company_vendor.password
+            )
+            for company_vendor in company_vendors
+        ]
+
+    @action(detail=False, methods=["get"], url_path="search")
+    async def search_product(self, request, *args, **kwargs):
+        q = request.query_params.get("q", "")
+        if len(q) <= 3:
+            return Response({"message": msgs.SEARCH_QUERY_LIMIT}, status=HTTP_400_BAD_REQUEST)
+        session = apps.get_app_config("accounts").session
+        data = []
+        company_vendors = await self._get_linked_vendors(request)
+        tasks = []
+        for company_vendor in company_vendors:
+            scraper = ScraperFactory.create_scraper(
+                scraper_name=company_vendor["vendor"],
+                session=session,
+                username=company_vendor["username"],
+                password=company_vendor["password"],
+            )
+            tasks.append(scraper.search_products(query=q))
+
+        scrapers_products = await asyncio.gather(*tasks, return_exceptions=True)
+        data = [
+            product.to_dict()
+            for scraper_products in scrapers_products
+            for product in scraper_products
+            if isinstance(product, ProductDataClass)
+        ]
+
+        return Response(data)

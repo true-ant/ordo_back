@@ -9,3 +9,6 @@ INVITE_NOT_ACCEPTABLE = "You can accept only once the onboarding process if fini
 VENDOR_SCRAPER_IMPROPERLY_CONFIGURED = "Vendor scraper improperly configured"
 VENDOR_WRONG_INFORMATION = "Wrong Vendor credential provided"
 VENDOR_CONNECTED = "Successfully connected"
+
+# Product Search
+SEARCH_QUERY_LIMIT = "Search query string must be longer than 3 charaters"

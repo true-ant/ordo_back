@@ -1,10 +1,11 @@
 import asyncio
+from typing import List
 
 from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
-from apps.scrapers.schema import Order
+from apps.scrapers.schema import Order, Product
 from apps.types.scraper import LoginInformation
 
 HEADERS = {
@@ -168,3 +169,6 @@ class UltraDentScraper(Scraper):
 
             tasks = (self.get_order(order_data) for order_data in orders_data)
             return await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def search_products(self, query: str, page: int = 1, per_page: int = 30) -> List[Product]:
+        return []

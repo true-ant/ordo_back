@@ -82,7 +82,6 @@ def fetch_orders_from_vendor(company_vendor_id, login_cookies=None, perform_logi
 
     company_vendor = CompanyVendor.objects.select_related("company", "vendor").get(id=company_vendor_id)
     offices = company_vendor.company.offices.all()
-    print(offices)
 
     if login_cookies:
         cookie = SimpleCookie()
@@ -98,7 +97,6 @@ def fetch_orders_from_vendor(company_vendor_id, login_cookies=None, perform_logi
             order_data = order_data_cls.to_dict()
             order_products_data = order_data.pop("products")
             shipping_address = order_data.pop("shipping_address")
-            print(order_data)
             try:
                 office = [
                     office for office in offices if office.postal_code[:5] == shipping_address["postal_code"][:5]
