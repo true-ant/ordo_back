@@ -36,21 +36,32 @@ class UserSignupAPIView(APIView):
             if m.User.objects.filter(email=serializer.validated_data["email"]).exists():
                 return Response({"message": msgs.SIGNUP_DUPLICATE_EMAIL}, status=HTTP_400_BAD_REQUEST)
 
-            company_name = serializer.validated_data.pop("company_name")
+            company_name = serializer.validated_data.pop("company_name", None)
+            token = serializer.validated_data.pop("token", None)
             user = m.User.objects.create_user(
                 username=serializer.validated_data["email"],
                 **serializer.validated_data,
             )
-            company = m.Company.objects.create(name=company_name, on_boarding_step=0)
-            m.CompanyMember.objects.create(
-                company=company,
-                user=user,
-                role=m.User.Role.ADMIN,
-                office=None,
-                email=user.email,
-                invite_status=m.CompanyMember.InviteStatus.INVITE_APPROVED,
-                date_joined=timezone.now(),
-            )
+            if token:
+                company_member = m.CompanyMember.objects.filter(
+                    token=token, email=serializer.validated_data["email"]
+                ).first()
+                company_member.user = user
+                company_member.invite_status = m.CompanyMember.InviteStatus.INVITE_APPROVED
+                company_member.date_joined = timezone.now()
+                company_member.save()
+                company = company_member.company
+            else:
+                company = m.Company.objects.create(name=company_name, on_boarding_step=0)
+                m.CompanyMember.objects.create(
+                    company=company,
+                    user=user,
+                    role=m.User.Role.ADMIN,
+                    office=None,
+                    email=user.email,
+                    invite_status=m.CompanyMember.InviteStatus.INVITE_APPROVED,
+                    date_joined=timezone.now(),
+                )
             payload = jwt_payload_handler(user)
             return Response(
                 {
@@ -215,7 +226,13 @@ class CompanyMemberInvitationCheckAPIView(APIView):
             return Response({"redirect": "login"})
 
         return Response(
-            {"redirect": "signup", "email": invite.email, "company": invite.company.name, "role": invite.role}
+            {
+                "redirect": "signup",
+                "email": invite.email,
+                "company": invite.company.name,
+                "role": invite.role,
+                "token": token,
+            }
         )
 
 

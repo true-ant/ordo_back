@@ -94,6 +94,7 @@ class UserSignupSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField()
     company_name = serializers.CharField()
+    token = serializers.CharField(required=False)
 
 
 class CompanyMemberInviteSerializer(serializers.Serializer):
