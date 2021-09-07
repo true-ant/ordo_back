@@ -154,7 +154,7 @@ AUTH_USER_MODEL = "accounts.User"
 STAGE = os.environ.get("STAGE")
 
 # Email Settings
-DEFAULT_FROM_EMAIL = "bignewhope1994@gmail.com"
+DEFAULT_FROM_EMAIL = "noreply@joinordo.com"
 
 # Frontend Settings
 SITE_URL = os.getenv("SITE_URL", "http://localhost:8000")
