@@ -81,6 +81,10 @@ class CompanyVendor(models.Model):
         unique_together = ["company", "vendor"]
 
 
+def default_expires_at():
+    return timezone.now() + timedelta(days=INVITE_EXPIRES_DAYS)
+
+
 class CompanyMember(TimeStampedModel):
     class InviteStatus(models.IntegerChoices):
         INVITE_SENT = 0
@@ -95,7 +99,7 @@ class CompanyMember(TimeStampedModel):
     invite_status = models.IntegerField(choices=InviteStatus.choices, default=InviteStatus.INVITE_SENT)
     date_joined = models.DateTimeField(null=True, blank=True)
     token = models.CharField(max_length=64, default=generate_token, unique=True)
-    token_expires_at = models.DateTimeField(default=None, null=True)
+    token_expires_at = models.DateTimeField(default=default_expires_at)
     is_active = models.BooleanField(default=True)
 
     objects = managers.CompanyMemeberActiveManager()

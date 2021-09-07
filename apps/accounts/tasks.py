@@ -1,4 +1,6 @@
 import asyncio
+import operator
+from functools import reduce
 from http.cookies import SimpleCookie
 from typing import List
 
@@ -8,9 +10,10 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.db import transaction
+from django.db.models import Q
 from django.template.loader import render_to_string
 
-from apps.accounts.models import CompanyVendor
+from apps.accounts.models import CompanyMember, CompanyVendor
 from apps.orders.models import Order, OrderProduct, Product
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import CompanyInvite
@@ -40,28 +43,30 @@ def send_forgot_password_mail(user_id, token):
 
 @shared_task
 def send_company_invite_email(company_email_invites: List[CompanyInvite]):
-    # company_invites = defaultdict(list)
-    #
-    # for invite in office_email_invites:
-    #     office_invites[invite["office_id"]].append(invite["email"])
-    #
-    # Office.objects.in_bulk(id_list=list(office_invites.keys()))
-    #
-    # for office_id, emails in office_invites.items():
-    emails = [invite["email"] for invite in company_email_invites]
-    htm_content = render_to_string(
-        "emails/invite.html",
-        {
-            "SITE_URL": settings.SITE_URL,
-        },
+    q = reduce(
+        operator.or_,
+        [
+            Q(company=company_email_invite["company_id"]) & Q(email=company_email_invite["email"])
+            for company_email_invite in company_email_invites
+        ],
     )
-    send_mail(
-        subject="You've been invited!",
-        message="message",
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=emails,
-        html_message=htm_content,
-    )
+
+    company_members = CompanyMember.objects.filter(q)
+    for company_member in company_members:
+        htm_content = render_to_string(
+            "emails/invite.html",
+            {
+                "TOKEN": company_member.token,
+                "SITE_URL": settings.SITE_URL,
+            },
+        )
+        send_mail(
+            subject="You've been invited!",
+            message="message",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[company_member.email],
+            html_message=htm_content,
+        )
 
 
 async def get_orders(company_vendor, login_cookies, perform_login):

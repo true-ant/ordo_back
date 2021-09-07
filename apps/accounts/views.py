@@ -4,12 +4,13 @@ from asgiref.sync import sync_to_async
 from django.apps import apps
 from django.db import transaction
 from django.db.utils import IntegrityError
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import mixins
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.status import HTTP_400_BAD_REQUEST
+from rest_framework.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet, ModelViewSet, ReadOnlyModelViewSet
 from rest_framework_jwt.serializers import jwt_encode_handler, jwt_payload_handler
@@ -129,8 +130,20 @@ class CompanyMemberViewSet(ModelViewSet):
             return s.CompanyMemberSerializer
 
     def create(self, request, *args, **kwargs):
-        request.data.setdefault("company", int(self.kwargs["company_pk"]))
-        return super().create(request, *args, **kwargs)
+        request.data.setdefault("company", self.kwargs["company_pk"])
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        send_company_invite_email.delay(
+            [
+                {
+                    "company_id": self.kwargs["company_pk"],
+                    "email": serializer.validated_data["email"],
+                    "office_id": office_.id if (office_ := serializer.validated_data.get("office", None)) else None,
+                }
+            ]
+        )
+        return Response(serializer.data, status=HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -192,7 +205,7 @@ class CompanyMemberInvitationCheckAPIView(APIView):
             return Response({"message": msgs.INVITE_NOT_ACCEPTABLE}, status=HTTP_400_BAD_REQUEST)
 
         now = timezone.now()
-        if invite.token_expires_at > now:
+        if invite.token_expires_at < now:
             return Response({"message": msgs.INVITE_TOKEN_EXPIRED}, status=HTTP_400_BAD_REQUEST)
 
         if invite.user:
@@ -202,12 +215,7 @@ class CompanyMemberInvitationCheckAPIView(APIView):
             return Response({"redirect": "login"})
 
         return Response(
-            {
-                "redirect": "signup",
-                "email": invite.email,
-                "organization": invite.organization.name,
-                "token": token,
-            }
+            {"redirect": "signup", "email": invite.email, "company": invite.company.name, "role": invite.role}
         )
 
 
@@ -234,6 +242,10 @@ class CompanyVendorViewSet(AsyncMixin, ModelViewSet):
         return serializer.save()
 
     async def create(self, request, *args, **kwargs):
+        company = get_object_or_404(m.Company, id=kwargs["company_pk"])
+        if company.on_boarding_step == 4:
+            company.on_boarding_step = 5
+            company.save()
         serializer = await self._validate({**request.data, "company": kwargs["company_pk"]})
         session = apps.get_app_config("accounts").session
         session._cookie_jar.clear()

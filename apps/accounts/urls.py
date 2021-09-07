@@ -17,5 +17,5 @@ urlpatterns = [
     path("", include(router.urls)),
     path("", include(company_router.urls)),
     path("auth/signup", v.UserSignupAPIView.as_view(), name="signup"),
-    path("check-invite", v.CompanyMemberInvitationCheckAPIView.as_view()),
+    path("accept-invite/<str:token>", v.CompanyMemberInvitationCheckAPIView.as_view()),
 ]
