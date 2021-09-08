@@ -13,28 +13,36 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class OrderProductSerializer(serializers.ModelSerializer):
+class VendorOrderProductSerializer(serializers.ModelSerializer):
     product = ProductSerializer()
 
     class Meta:
-        model = m.OrderProduct
+        model = m.VendorOrderProduct
         fields = "__all__"
+
+
+class VendorOrderSerializer(serializers.ModelSerializer):
+    products = VendorOrderProductSerializer(many=True, source="orderproduct_set")
+
+    class Meta:
+        model = m.VendorOrder
+        exclude = ("order",)
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    products = OrderProductSerializer(many=True, source="orderproduct_set")
+    vendor_orders = VendorOrderSerializer(many=True)
 
     class Meta:
         model = m.Order
         fields = "__all__"
 
 
-class OrderListSerializer(serializers.ModelSerializer):
-    total_items = serializers.IntegerField(source="products.count", read_only=True)
-
-    class Meta:
-        model = m.Order
-        fields = ("id", "order_id", "total_amount", "currency", "order_date", "status", "total_items")
+class OrderListSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    total_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    order_date = serializers.DateField()
+    status = serializers.CharField()
+    total_items = serializers.CharField()
 
 
 class OfficeVendorConnectedSerializer(serializers.Serializer):

@@ -26,4 +26,4 @@ class OrderFactory(DjangoModelFactory):
 
 class OrderProductFactory(DjangoModelFactory):
     class Meta:
-        model = m.OrderProduct
+        model = m.VendorOrderProduct

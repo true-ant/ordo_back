@@ -10,7 +10,7 @@ router.register(r"products", v.ProductViewSet, basename="products")
 
 offices_router = NestedSimpleRouter(company_router, r"offices", lookup="office")
 offices_router.register(r"orders", v.OrderViewSet, basename="orders")
-offices_router.register(r"order-products", v.OrderProductViewSet, basename="order-products")
+offices_router.register(r"order-products", v.VendorOrderProductViewSet, basename="order-products")
 
 urlpatterns = [
     path("", include(router.urls)),

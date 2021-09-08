@@ -14,7 +14,7 @@ from django.db.models import Q
 from django.template.loader import render_to_string
 
 from apps.accounts.models import CompanyMember, OfficeVendor
-from apps.orders.models import Order, OrderProduct, Product
+from apps.orders.models import Order, Product, VendorOrder, VendorOrderProduct
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import CompanyInvite
 
@@ -111,13 +111,19 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
                     if office_vendor.office.postal_code[:5] == shipping_address["postal_code"][:5]
                 ][0]
             except (TypeError, IndexError):
-                office = offices_vendors[0].office
+                office = office_vendor.office
 
-            order = Order.from_dataclass(vendor=office_vendor.vendor, office=office, dict_data=order_data)
+            order = Order.objects.create(
+                office=office,
+                status=order_data["status"],
+                created_at=order_data["order_date"],
+                updated_at=order_data["order_date"],
+            )
+            vendor_order = VendorOrder.from_dataclass(vendor=office_vendor.vendor, order=order, dict_data=order_data)
             for order_product_data in order_products_data:
                 product = Product.from_dataclass(office_vendor.vendor, order_product_data["product"])
-                OrderProduct.objects.create(
-                    order=order,
+                VendorOrderProduct.objects.create(
+                    vendor_order=vendor_order,
                     product=product,
                     quantity=order_product_data["quantity"],
                     unit_price=order_product_data["unit_price"],

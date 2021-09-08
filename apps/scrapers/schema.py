@@ -86,3 +86,9 @@ class Order(BaseDataClass):
     status: str
     shipping_address: Address
     products: List[OrderProduct]
+    total_items: int = 0
+
+    def to_dict(self) -> dict:
+        ret = super().to_dict()
+        ret["total_items"] = len(self.products)
+        return ret
