@@ -191,16 +191,16 @@ class CompanyMemberViewSet(ModelViewSet):
                 m.CompanyMember.objects.bulk_create(members)
             except IntegrityError:
                 return Response({"message": msgs.INVITE_EMAIL_EXIST}, status=HTTP_400_BAD_REQUEST)
-            send_company_invite_email.delay(
-                [
-                    {
-                        "company_id": self.kwargs["company_pk"],
-                        "email": member["email"],
-                        "office_id": office_.id if (office_ := member.get("office", None)) else None,
-                    }
-                    for member in serializer.validated_data["members"]
-                ]
-            )
+        send_company_invite_email.delay(
+            [
+                {
+                    "company_id": self.kwargs["company_pk"],
+                    "email": member["email"],
+                    "office_id": office_.id if (office_ := member.get("office", None)) else None,
+                }
+                for member in serializer.validated_data["members"]
+            ]
+        )
         return Response({})
 
 

@@ -46,7 +46,7 @@ def send_company_invite_email(company_email_invites: List[CompanyInvite]):
     q = reduce(
         operator.or_,
         [
-            Q(company=company_email_invite["company_id"]) & Q(email=company_email_invite["email"])
+            Q(company_id=company_email_invite["company_id"]) & Q(email=company_email_invite["email"])
             for company_email_invite in company_email_invites
         ],
     )
