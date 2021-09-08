@@ -10,6 +10,7 @@ from rest_framework import mixins
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.serializers import ValidationError
 from rest_framework.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet, ModelViewSet, ReadOnlyModelViewSet
@@ -242,15 +243,23 @@ class VendorViewSet(ReadOnlyModelViewSet):
     queryset = m.Vendor.objects.all()
 
 
-class CompanyVendorViewSet(AsyncMixin, ModelViewSet):
+class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return m.CompanyVendor.objects.filter(company_id=self.kwargs["company_pk"])
+        return m.OfficeVendor.objects.filter(office_id=self.kwargs["office_pk"])
 
     @sync_to_async
     def _validate(self, data):
-        serializer = s.CompanyVendorSerializer(data=data)
+        office = get_object_or_404(m.Office, id=data["office"])
+        company = office.company
+        if company.on_boarding_step == 4:
+            company.on_boarding_step = 5
+            company.save()
+        elif company.on_boarding_step < 4:
+            raise ValidationError({"message": msgs.VENDOR_IMPOSSIBLE_LINK})
+
+        serializer = s.OfficeVendorSerializer(data=data)
         serializer.is_valid(raise_exception=True)
         return serializer
 
@@ -259,11 +268,7 @@ class CompanyVendorViewSet(AsyncMixin, ModelViewSet):
         return serializer.save()
 
     async def create(self, request, *args, **kwargs):
-        company = get_object_or_404(m.Company, id=kwargs["company_pk"])
-        if company.on_boarding_step == 4:
-            company.on_boarding_step = 5
-            company.save()
-        serializer = await self._validate({**request.data, "company": kwargs["company_pk"]})
+        serializer = await self._validate({**request.data, "office": kwargs["office_pk"]})
         session = apps.get_app_config("accounts").session
         session._cookie_jar.clear()
         try:
@@ -274,9 +279,9 @@ class CompanyVendorViewSet(AsyncMixin, ModelViewSet):
                 session=session,
             )
             login_cookies = await scraper.login()
-            company_vendor = await self._save(serializer)
+            office_vendor = await self._save(serializer)
             fetch_orders_from_vendor.delay(
-                company_vendor_id=company_vendor.id,
+                office_vendor_id=office_vendor.id,
                 login_cookies=login_cookies.output(),
             )
         except VendorNotSupported:
@@ -289,12 +294,12 @@ class CompanyVendorViewSet(AsyncMixin, ModelViewSet):
         except VendorAuthenticationFailed:
             return Response({"message": msgs.VENDOR_WRONG_INFORMATION}, status=HTTP_400_BAD_REQUEST)
 
-        return Response({"message": msgs.VENDOR_CONNECTED})
+        return Response({"message": msgs.VENDOR_CONNECTED, **serializer.data})
 
     @action(detail=True, methods=["post"], url_path="fetch")
     def fetch_orders(self, request, *args, **kwargs):
         instance = self.get_object()
-        fetch_orders_from_vendor.delay(company_vendor_id=instance.id, login_cookies=None, perform_login=True)
+        fetch_orders_from_vendor.delay(office_vendor_id=instance.id, login_cookies=None, perform_login=True)
         return Response({})
 
 

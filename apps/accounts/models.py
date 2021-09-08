@@ -37,7 +37,6 @@ class Company(TimeStampedModel):
     name = models.CharField(max_length=100)
     on_boarding_step = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
-    vendors = models.ManyToManyField(Vendor, through="CompanyVendor")
 
     objects = managers.CompanyMemeberActiveManager()
 
@@ -50,6 +49,7 @@ class Company(TimeStampedModel):
 
 class Office(TimeStampedModel):
     company = FlexibleForeignKey(Company, related_name="offices")
+    vendors = models.ManyToManyField(Vendor, through="OfficeVendor")
     is_active = models.BooleanField(default=True)
 
     # Basic Information
@@ -71,14 +71,14 @@ class Office(TimeStampedModel):
         return f"{self.company} -> {self.name}"
 
 
-class CompanyVendor(models.Model):
-    vendor = FlexibleForeignKey(Vendor, related_name="vendors")
-    company = FlexibleForeignKey(Company, related_name="companies")
+class OfficeVendor(models.Model):
+    vendor = FlexibleForeignKey(Vendor)
+    office = FlexibleForeignKey(Office)
     username = models.CharField(max_length=100)
     password = models.CharField(max_length=100)
 
     class Meta:
-        unique_together = ["company", "vendor"]
+        unique_together = ["office", "vendor"]
 
 
 def default_expires_at():

@@ -9,8 +9,8 @@ from rest_framework.test import APITestCase
 from apps.accounts.factories import (
     CompanyFactory,
     CompanyMemberFactory,
-    CompanyVendorFactory,
     OfficeFactory,
+    OfficeVendorFactory,
     UserFactory,
     VendorFactory,
 )
@@ -120,8 +120,8 @@ class CompanyOfficeSpendTests(APITestCase):
         self.product2 = ProductFactory(
             vendor=self.vendor2, price=self.product2_price, retail_price=self.product2_price
         )
-        self.company_vendor1 = CompanyVendorFactory(company=self.company, vendor=self.vendor1)
-        self.company_vendor2 = CompanyVendorFactory(company=self.company, vendor=self.vendor2)
+        self.office1_vendor1 = OfficeVendorFactory(company=self.office1, vendor=self.vendor1)
+        self.office1_vendor2 = OfficeVendorFactory(company=self.office1, vendor=self.vendor2)
 
         # office1 vendors
         self._create_orders(self.product1, self.office1, self.vendor1)

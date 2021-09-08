@@ -29,12 +29,12 @@ class OfficeFactory(DjangoModelFactory):
     company = CompanyFactory()
 
 
-class CompanyVendorFactory(DjangoModelFactory):
+class OfficeVendorFactory(DjangoModelFactory):
     class Meta:
-        model = m.CompanyVendor
+        model = m.OfficeVendor
 
     vendor = VendorFactory()
-    company = CompanyFactory()
+    office = OfficeFactory()
 
 
 class CompanyMemberFactory(DjangoModelFactory):

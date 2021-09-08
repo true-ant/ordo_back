@@ -8,14 +8,13 @@ from django.db.models import F, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.decorators import action
-from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.status import HTTP_400_BAD_REQUEST
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from apps.accounts.models import Company, CompanyMember, CompanyVendor, Office
+from apps.accounts.models import Company, CompanyMember, Office, OfficeVendor
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
 from apps.common.pagination import StandardResultsSetPagination
@@ -52,7 +51,7 @@ class OrderProductViewSet(ModelViewSet):
         return super().get_queryset().filter(order__office__id=self.kwargs["office_pk"])
 
 
-class CompanyOrderAPIView(APIView, LimitOffsetPagination):
+class CompanyOrderAPIView(APIView, StandardResultsSetPagination):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, company_id):
@@ -81,7 +80,9 @@ def get_spending(by, orders, company):
         )
 
         vendor_ids = [q["vendor_id"] for q in qs]
-        vendors = CompanyVendor.objects.select_related("vendor").filter(company=company, vendor_id__in=vendor_ids)
+        vendors = OfficeVendor.objects.select_related("vendor").filter(
+            office__company=company, vendor_id__in=vendor_ids
+        )
         vendors = {v.vendor.id: v for v in vendors}
 
         return [
@@ -89,7 +90,7 @@ def get_spending(by, orders, company):
                 "vendor": {
                     "id": q["vendor_id"],
                     "name": q["vendor_name"],
-                    "company_associated_id": vendors[q["vendor_id"]].id,
+                    "office_associated_id": vendors[q["vendor_id"]].id,
                 },
                 "total_amount": q["total_amount"],
             }
@@ -129,7 +130,7 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
     @sync_to_async
     def _get_linked_vendors(self, request) -> List[LinkedVendor]:
         company_member = CompanyMember.objects.filter(user=request.user).first()
-        company_vendors = CompanyVendor.objects.select_related("vendor").filter(company=company_member.company)
+        company_vendors = OfficeVendor.objects.select_related("vendor").filter(company=company_member.company)
         return [
             LinkedVendor(
                 vendor=company_vendor.vendor.slug, username=company_vendor.username, password=company_vendor.password

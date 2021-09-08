@@ -37,13 +37,13 @@ class OrderListSerializer(serializers.ModelSerializer):
         fields = ("id", "order_id", "total_amount", "currency", "order_date", "status", "total_items")
 
 
-class CompanyVendorConnectedSerializer(serializers.Serializer):
-    company_associated_id = serializers.CharField()
+class OfficeVendorConnectedSerializer(serializers.Serializer):
+    office_associated_id = serializers.CharField()
     id = serializers.CharField()
     name = serializers.CharField()
 
 
 class TotalSpendSerializer(serializers.Serializer):
-    vendor = CompanyVendorConnectedSerializer(read_only=True)
+    vendor = OfficeVendorConnectedSerializer(read_only=True)
     month = serializers.CharField(read_only=True)
     total_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
