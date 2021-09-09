@@ -123,7 +123,7 @@ class CompanySpendAPIView(APIView):
     def get(self, request, company_id):
         company = get_object_or_404(Company, id=company_id)
         self.check_object_permissions(request, company)
-        queryset = m.Order.objects.select_related("vendor").filter(office__company=company)
+        queryset = m.VendorOrder.objects.select_related("vendor").filter(order__office__company=company)
         data = get_spending(request.query_params.get("by", "vendor"), queryset, company)
         serializer = s.TotalSpendSerializer(data, many=True)
         return Response(serializer.data)
@@ -135,7 +135,7 @@ class OfficeSpendAPIView(APIView):
     def get(self, request, office_id):
         office = get_object_or_404(Office, id=office_id)
         self.check_object_permissions(request, office)
-        queryset = m.Order.objects.select_related("vendor").filter(office=office)
+        queryset = m.VendorOrder.objects.select_related("vendor").filter(order__office=office)
         data = get_spending(request.query_params.get("by", "vendor"), queryset, office.company)
         serializer = s.TotalSpendSerializer(data, many=True)
         return Response(serializer.data)
