@@ -149,7 +149,7 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
     @sync_to_async
     def _get_linked_vendors(self, request) -> List[LinkedVendor]:
         company_member = CompanyMember.objects.filter(user=request.user).first()
-        company_vendors = OfficeVendor.objects.select_related("vendor").filter(company=company_member.company)
+        company_vendors = OfficeVendor.objects.select_related("vendor").filter(office__company=company_member.company)
         return [
             LinkedVendor(
                 vendor=company_vendor.vendor.slug, username=company_vendor.username, password=company_vendor.password
@@ -160,10 +160,16 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
     @action(detail=False, methods=["get"], url_path="search")
     async def search_product(self, request, *args, **kwargs):
         q = request.query_params.get("q", "")
+        page = request.query_params.get("page", 1)
+
         if len(q) <= 3:
             return Response({"message": msgs.SEARCH_QUERY_LIMIT}, status=HTTP_400_BAD_REQUEST)
+        try:
+            page = int(page)
+        except ValueError:
+            return Response({"message": msgs.SEARCH_PAGE_NUMBER_INCORRECT}, status=HTTP_400_BAD_REQUEST)
+
         session = apps.get_app_config("accounts").session
-        data = []
         company_vendors = await self._get_linked_vendors(request)
         tasks = []
         for company_vendor in company_vendors:
@@ -173,7 +179,7 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
                 username=company_vendor["username"],
                 password=company_vendor["password"],
             )
-            tasks.append(scraper.search_products(query=q))
+            tasks.append(scraper.search_products(query=q, page=page))
 
         scrapers_products = await asyncio.gather(*tasks, return_exceptions=True)
         data = [

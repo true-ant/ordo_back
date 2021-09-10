@@ -38,7 +38,7 @@ class ScraperFactory:
 async def main():
 
     load_dotenv()
-    scraper_name = "ultradent"
+    scraper_name = "henry_schein"
     credentials = {
         "henry_schein": {
             "username": os.getenv("HENRY_SCHEIN_USERNAME"),
@@ -65,8 +65,8 @@ async def main():
             username=credential["username"],
             password=credential["password"],
         )
-        results = await scraper.get_orders(perform_login=True)
-        # results = await scraper.search_products(query="tooth brush", per_page=10, page=1)
+        # results = await scraper.get_orders(perform_login=True)
+        results = await scraper.search_products(query="tooth brush", page=2)
         results = [r.to_dict() for r in results]
 
 
