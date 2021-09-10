@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import serializers
 
 from apps.accounts.serializers import VendorSerializer
@@ -55,3 +56,23 @@ class TotalSpendSerializer(serializers.Serializer):
     vendor = OfficeVendorConnectedSerializer(read_only=True)
     month = serializers.CharField(read_only=True)
     total_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+
+class CartProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.CartProduct
+        fields = "__all__"
+
+
+class CartSerializer(serializers.ModelSerializer):
+    product = CartProductSerializer()
+    office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
+
+    class Meta:
+        model = m.Cart
+        fields = "__all__"
+
+    def create(self, validated_data):
+        with transaction.atomic():
+            cart_product = m.CartProduct.objects.create(**validated_data.pop("product"))
+            return m.Cart.objects.create(product=cart_product, **validated_data)

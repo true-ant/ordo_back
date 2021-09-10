@@ -190,3 +190,29 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
         ]
 
         return Response(data)
+
+
+class CartViewSet(ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    model = m.Cart
+    serializer_class = s.CartSerializer
+    queryset = m.Cart.objects.all()
+
+    def get_queryset(self):
+        return self.queryset.filter(office_id=self.kwargs["office_pk"], user=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        request.data.setdefault("user", request.user.id)
+        request.data.setdefault("office", self.kwargs["office_pk"])
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    @action(detail=True, url_path="checkout", methods=["get"])
+    def checkout(self, request):
+        pass
