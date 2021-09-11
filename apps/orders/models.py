@@ -1,7 +1,7 @@
 from django.db import models
 
-from apps.accounts.models import Office, Vendor
-from apps.common.models import FlexibleForeignKey, TimeStampedModel
+from apps.accounts.models import Office, User, Vendor
+from apps.common.models import BlankTextField, FlexibleForeignKey, TimeStampedModel
 
 
 class Product(TimeStampedModel):
@@ -82,3 +82,19 @@ class IsoDate(models.Func):
     function = "TO_CHAR"
     template = "%(function)s(%(expressions)s, 'YYYY-MM-DD')"
     output_field = models.DateField()
+
+
+class CartProduct(TimeStampedModel):
+    product_id = models.CharField(max_length=100)
+    name = models.CharField(max_length=100)
+    description = BlankTextField()
+    url = models.URLField()
+    image = models.URLField()
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+
+
+class Cart(TimeStampedModel):
+    user = FlexibleForeignKey(User)
+    office = FlexibleForeignKey(Office)
+    product = FlexibleForeignKey(CartProduct)
+    quantity = models.IntegerField(default=1)
