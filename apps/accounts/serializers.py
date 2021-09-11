@@ -68,6 +68,8 @@ class CompanySerializer(serializers.ModelSerializer):
 
         with transaction.atomic():
             for key, value in validated_data.items():
+                if key == "on_boarding_step" and instance.on_boarding_step > value:
+                    continue
                 setattr(instance, key, value)
 
             if validated_data:
