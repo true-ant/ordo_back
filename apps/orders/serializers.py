@@ -59,9 +59,16 @@ class TotalSpendSerializer(serializers.Serializer):
 
 
 class CartProductSerializer(serializers.ModelSerializer):
+    vendor = serializers.PrimaryKeyRelatedField(queryset=m.Vendor.objects.all())
+
     class Meta:
         model = m.CartProduct
         fields = "__all__"
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        ret["vendor"] = VendorSerializer(m.Vendor.objects.get(id=ret["vendor"])).data
+        return ret
 
 
 class CartSerializer(serializers.ModelSerializer):

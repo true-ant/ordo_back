@@ -85,6 +85,7 @@ class IsoDate(models.Func):
 
 
 class CartProduct(TimeStampedModel):
+    vendor = FlexibleForeignKey(Vendor)
     product_id = models.CharField(max_length=100)
     name = models.CharField(max_length=100)
     description = BlankTextField()
