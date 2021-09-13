@@ -136,6 +136,14 @@ class OfficeVendorSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class OfficeVendorListSerializer(serializers.ModelSerializer):
+    vendor = VendorSerializer()
+
+    class Meta:
+        model = m.OfficeVendor
+        exclude = ("office",)
+
+
 class UserSerializer(serializers.ModelSerializer):
     company = serializers.SerializerMethodField()
     avatar = Base64ImageField()

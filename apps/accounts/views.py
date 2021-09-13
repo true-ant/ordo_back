@@ -244,6 +244,7 @@ class VendorViewSet(ReadOnlyModelViewSet):
 
 
 class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
+    serializer_class = s.OfficeVendorListSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
