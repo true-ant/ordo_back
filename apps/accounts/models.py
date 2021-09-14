@@ -21,13 +21,14 @@ class User(AbstractUser):
         USER = 2
 
     role = models.IntegerField(choices=Role.choices, default=Role.ADMIN)
-    avatar = models.ImageField(null=True, blank=True)
+    avatar = models.ImageField(null=True, blank=True, upload_to="users")
 
 
 class Vendor(models.Model):
     name = models.CharField(max_length=100)
     slug = models.SlugField(max_length=100)
     url = models.CharField(max_length=100)
+    logo = models.ImageField(null=True, blank=True, upload_to="vendors")
 
     def __str__(self):
         return self.name
@@ -58,7 +59,7 @@ class Office(TimeStampedModel):
     postal_code = models.CharField(max_length=100, null=True, blank=True)
     phone_number = models.CharField(max_length=100, null=True, blank=True)
     website = models.CharField(max_length=100, null=True, blank=True)
-    logo = models.ImageField(null=True, blank=True)
+    logo = models.ImageField(null=True, blank=True, upload_to="offices")
     # Budget & Card Information
     budget = models.PositiveIntegerField(default=0)
     cc_number = models.CharField(max_length=20, null=True, blank=True)

@@ -39,7 +39,15 @@ class Command(BaseCommand):
         json_data = []
         for i, row in df.iterrows():
             json_data.append(
-                {"model": app_model, "pk": i + 1, "fields": {"slug": slugify(row["name"], separator="_"), **row}}
+                {
+                    "model": app_model,
+                    "pk": i + 1,
+                    "fields": {
+                        "slug": (slug := slugify(row["name"], separator="_")),
+                        "logo": f"vendors/{slug}.jpg",
+                        **row,
+                    },
+                }
             )
         app_model = app_model.replace(".", "_")
         with open(f"{os.path.join(BASE_PATH, app_model)}.json", "w") as f:

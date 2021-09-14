@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.serializers import ValidationError
 from rest_framework.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST
 from rest_framework.views import APIView
-from rest_framework.viewsets import GenericViewSet, ModelViewSet, ReadOnlyModelViewSet
+from rest_framework.viewsets import GenericViewSet, ModelViewSet
 from rest_framework_jwt.serializers import jwt_encode_handler, jwt_payload_handler
 
 from apps.common import messages as msgs
@@ -237,10 +237,14 @@ class CompanyMemberInvitationCheckAPIView(APIView):
         )
 
 
-class VendorViewSet(ReadOnlyModelViewSet):
+class VendorViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = s.VendorSerializer
     queryset = m.Vendor.objects.all()
+
+    def update(self, request, *args, **kwargs):
+        kwargs.setdefault("partial", True)
+        return super().update(request, *args, **kwargs)
 
 
 class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
