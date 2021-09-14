@@ -47,6 +47,7 @@ THIRD_PARTY_APPS = [
     "django_rest_passwordreset",
     "corsheaders",
     "django_filters",
+    "phonenumber_field",
 ]
 
 ORDO_APPS = [

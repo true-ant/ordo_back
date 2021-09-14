@@ -1,4 +1,6 @@
+from creditcards.validators import CCNumberValidator, CSCValidator, ExpiryDateValidator
 from django.db import transaction
+from phonenumber_field.serializerfields import PhoneNumberField
 from rest_framework import serializers
 
 from apps.common.serializers import Base64ImageField
@@ -27,8 +29,12 @@ class VendorSerializer(serializers.ModelSerializer):
 class OfficeSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
     company = serializers.PrimaryKeyRelatedField(queryset=m.Company.objects.all(), required=False)
+    phone_number = PhoneNumberField()
     logo = Base64ImageField()
     vendors = VendorSerializer(many=True, required=False)
+    cc_number = serializers.CharField(validators=[CCNumberValidator()])
+    cc_expiry = serializers.DateField(validators=[ExpiryDateValidator()], input_formats=["%m/%y"])
+    cc_code = serializers.CharField(validators=[CSCValidator()])
 
     class Meta:
         model = m.Office

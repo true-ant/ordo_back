@@ -1,11 +1,12 @@
 # from django.db import models
-
 # Create your models here.
 from datetime import timedelta
 
+from creditcards.models import CardExpiryField, CardNumberField, SecurityCodeField
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
+from phonenumber_field.modelfields import PhoneNumberField
 
 from apps.accounts import managers
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
@@ -57,14 +58,14 @@ class Office(TimeStampedModel):
     name = models.CharField(max_length=100)
     address = models.CharField(max_length=100, null=True, blank=True)
     postal_code = models.CharField(max_length=100, null=True, blank=True)
-    phone_number = models.CharField(max_length=100, null=True, blank=True)
+    phone_number = PhoneNumberField(null=True, blank=True)
     website = models.CharField(max_length=100, null=True, blank=True)
     logo = models.ImageField(null=True, blank=True, upload_to="offices")
     # Budget & Card Information
     budget = models.PositiveIntegerField(default=0)
-    cc_number = models.CharField(max_length=20, null=True, blank=True)
-    cc_expiry = models.CharField(max_length=20, null=True, blank=True)
-    cc_code = models.CharField(max_length=20, null=True, blank=True)
+    cc_number = CardNumberField("Card Number", null=True, blank=True)
+    cc_expiry = CardExpiryField("Expiration Date", null=True, blank=True)
+    cc_code = SecurityCodeField("Security Code", null=True, blank=True)
 
     objects = managers.CompanyMemeberActiveManager()
 

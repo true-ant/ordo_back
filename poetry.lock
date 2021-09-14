@@ -385,6 +385,17 @@ python-versions = ">=3.6"
 Django = ">=2.2"
 
 [[package]]
+name = "django-credit-cards"
+version = "0.4.1"
+description = "A Django app providing database and form fields for credit cards."
+category = "main"
+optional = false
+python-versions = ">=3"
+
+[package.dependencies]
+django = ">=1.8"
+
+[[package]]
 name = "django-filter"
 version = "2.4.0"
 description = "Django-filter is a reusable Django application for allowing users to filter querysets dynamically."
@@ -394,6 +405,22 @@ python-versions = ">=3.5"
 
 [package.dependencies]
 Django = ">=2.2"
+
+[[package]]
+name = "django-phonenumber-field"
+version = "5.2.0"
+description = "An international phone number field for django models."
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+Django = ">=2.2"
+phonenumbers = {version = ">=7.0.2", optional = true, markers = "extra == \"phonenumbers\""}
+
+[package.extras]
+phonenumbers = ["phonenumbers (>=7.0.2)"]
+phonenumberslite = ["phonenumberslite (>=7.0.2)"]
 
 [[package]]
 name = "django-rest-passwordreset"
@@ -771,6 +798,14 @@ name = "pathspec"
 version = "0.5.9"
 description = "Utility library for gitignore style pattern matching of file paths."
 category = "dev"
+optional = false
+python-versions = "*"
+
+[[package]]
+name = "phonenumbers"
+version = "8.12.32"
+description = "Python version of Google's common library for parsing, formatting, storing and validating international phone numbers."
+category = "main"
 optional = false
 python-versions = "*"
 
@@ -1354,7 +1389,7 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "13eda12cc8d5fd77823ccd767fc0484ce932318ac88600b53f08e58f2b5307a6"
+content-hash = "c447213a5ea5a0eaaf3aca9ce4809388ee37a2a93c6a4c5be01fc6fdbedc8362"
 
 [metadata.files]
 aiohttp = [
@@ -1563,9 +1598,17 @@ django-cors-headers = [
     {file = "django-cors-headers-3.8.0.tar.gz", hash = "sha256:4b8e13bf8d3df50ac4b986bd87085c3073dd56402ede109222ea34a774f9ec1b"},
     {file = "django_cors_headers-3.8.0-py3-none-any.whl", hash = "sha256:425c20ceffa42b9ac11b02611eece4ae6c5fef2ff0f039c14c1df20e00c80df8"},
 ]
+django-credit-cards = [
+    {file = "django-credit-cards-0.4.1.tar.gz", hash = "sha256:e9c51399b718375cbddee18c13559de154c8de1b1cae4ae9e5db29d5df258bff"},
+    {file = "django_credit_cards-0.4.1-py2.py3-none-any.whl", hash = "sha256:63f651070d556689d57907d49a5fd6a12df698db303665c0daebdcefc34abe96"},
+]
 django-filter = [
     {file = "django-filter-2.4.0.tar.gz", hash = "sha256:84e9d5bb93f237e451db814ed422a3a625751cbc9968b484ecc74964a8696b06"},
     {file = "django_filter-2.4.0-py3-none-any.whl", hash = "sha256:e00d32cebdb3d54273c48f4f878f898dced8d5dfaad009438fe61ebdf535ace1"},
+]
+django-phonenumber-field = [
+    {file = "django-phonenumber-field-5.2.0.tar.gz", hash = "sha256:52b2e5970133ec5ab701218b802f7ab237229854dc95fd239b7e9e77dc43731d"},
+    {file = "django_phonenumber_field-5.2.0-py3-none-any.whl", hash = "sha256:5547fb2b2cc690a306ba77a5038419afc8fa8298a486fb7895008e9067cc7e75"},
 ]
 django-rest-passwordreset = [
     {file = "django-rest-passwordreset-1.2.0.tar.gz", hash = "sha256:4dc915d7afe417b18a7ae15380a794f2be7a3a3f32907d023b17d51895fd9121"},
@@ -1833,6 +1876,10 @@ parsel = [
 ]
 pathspec = [
     {file = "pathspec-0.5.9.tar.gz", hash = "sha256:54a5eab895d89f342b52ba2bffe70930ef9f8d96e398cccf530d21fa0516a873"},
+]
+phonenumbers = [
+    {file = "phonenumbers-8.12.32-py2.py3-none-any.whl", hash = "sha256:8a3c19c38852980961cc380b17ff8aeae844ccff7c4aae7a3789688f0351a628"},
+    {file = "phonenumbers-8.12.32.tar.gz", hash = "sha256:c52c9c3607483072303ba8d8759063edc44d2f8fe7b85afef40bd8d1aafb6483"},
 ]
 pillow = [
     {file = "Pillow-8.3.1-1-cp36-cp36m-win_amd64.whl", hash = "sha256:fd7eef578f5b2200d066db1b50c4aa66410786201669fb76d5238b007918fb24"},
