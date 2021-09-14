@@ -7,6 +7,7 @@ from scrapy import Selector
 
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product
+from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation
 
 HEADERS = {
@@ -25,7 +26,6 @@ HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",
 }
 
-
 SEARCH_HEADERS = {
     "Connection": "keep-alive",
     "sec-ch-ua": '"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"',
@@ -42,6 +42,42 @@ SEARCH_HEADERS = {
     "Sec-Fetch-Dest": "document",
     "Referer": "https://www.darbydental.com/",
     "Accept-Language": "en-US,en;q=0.9",
+}
+
+CART_HEADERS = {
+    "Connection": "keep-alive",
+    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
+    "Accept": "application/json, text/javascript, */*; q=0.01",
+    "Content-Type": "application/x-www-form-urlencoded",
+    "X-Requested-With": "XMLHttpRequest",
+    "sec-ch-ua-mobile": "?0",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",
+    "sec-ch-ua-platform": '"Windows"',
+    "Origin": "https://www.darbydental.com",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "empty",
+    "Referer": "https://www.darbydental.com",
+    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
+}
+
+REVIEW_CHECKOUT_HEADERS = {
+    "Connection": "keep-alive",
+    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    "Upgrade-Insecure-Requests": "1",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
+    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-User": "?1",
+    "Sec-Fetch-Dest": "document",
+    "Referer": "https://www.darbydental.com/scripts/cart.aspx",
+    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
 }
 
 
@@ -153,3 +189,14 @@ class DarbyScraper(Scraper):
                     )
                 )
         return products
+
+    async def checkout(self, products: List[CartProduct]):
+        await self.login()
+        data = {}
+        for i, product in enumerate(products):
+            data[f"items[{i}][Sku]"] = product["product_id"]
+            data[f"items[{i}][Quantity]"] = product["quantity"]
+        await self.session.post(
+            "https://www.darbydental.com/api/ShopCart/doAddToCart2", headers=CART_HEADERS, data=data
+        )
+        await self.session.get("https://www.darbydental.com/scripts/checkout.aspx", headers=REVIEW_CHECKOUT_HEADERS)
