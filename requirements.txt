@@ -159,9 +159,15 @@ cssselect==1.1.0; python_version >= "3.6" and python_full_version < "3.0.0" or p
 django-cors-headers==3.8.0; python_version >= "3.6" \
     --hash=sha256:4b8e13bf8d3df50ac4b986bd87085c3073dd56402ede109222ea34a774f9ec1b \
     --hash=sha256:425c20ceffa42b9ac11b02611eece4ae6c5fef2ff0f039c14c1df20e00c80df8
+django-credit-cards==0.4.1; python_version >= "3" \
+    --hash=sha256:e9c51399b718375cbddee18c13559de154c8de1b1cae4ae9e5db29d5df258bff \
+    --hash=sha256:63f651070d556689d57907d49a5fd6a12df698db303665c0daebdcefc34abe96
 django-filter==2.4.0; python_version >= "3.5" \
     --hash=sha256:84e9d5bb93f237e451db814ed422a3a625751cbc9968b484ecc74964a8696b06 \
     --hash=sha256:e00d32cebdb3d54273c48f4f878f898dced8d5dfaad009438fe61ebdf535ace1
+django-phonenumber-field==5.2.0; python_version >= "3.6" \
+    --hash=sha256:52b2e5970133ec5ab701218b802f7ab237229854dc95fd239b7e9e77dc43731d \
+    --hash=sha256:5547fb2b2cc690a306ba77a5038419afc8fa8298a486fb7895008e9067cc7e75
 django-rest-passwordreset==1.2.0 \
     --hash=sha256:4dc915d7afe417b18a7ae15380a794f2be7a3a3f32907d023b17d51895fd9121 \
     --hash=sha256:0fb2c86f5edcfa8c16564744b0782a73221bee7ceb934cd7c7934b0f0e549c0d
@@ -382,6 +388,9 @@ pandas==1.3.2; python_full_version >= "3.7.1" \
 parsel==1.6.0; python_version >= "3.6" \
     --hash=sha256:9e1fa8db1c0b4a878bf34b35c043d89c9d1cbebc23b4d34dbc3c0ec33f2e087d \
     --hash=sha256:70efef0b651a996cceebc69e55a85eb2233be0890959203ba7c3a03c72725c79
+phonenumbers==8.12.32; python_version >= "3.6" \
+    --hash=sha256:8a3c19c38852980961cc380b17ff8aeae844ccff7c4aae7a3789688f0351a628 \
+    --hash=sha256:c52c9c3607483072303ba8d8759063edc44d2f8fe7b85afef40bd8d1aafb6483
 pillow==8.3.1; python_version >= "3.6" \
     --hash=sha256:fd7eef578f5b2200d066db1b50c4aa66410786201669fb76d5238b007918fb24 \
     --hash=sha256:75e09042a3b39e0ea61ce37e941221313d51a9c26b8e54e12b3ececccb71718a \
