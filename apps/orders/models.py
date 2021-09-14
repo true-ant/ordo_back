@@ -1,6 +1,6 @@
 from django.db import models
 
-from apps.accounts.models import Office, User, Vendor
+from apps.accounts.models import Office, OfficeVendor, User, Vendor
 from apps.common.models import BlankTextField, FlexibleForeignKey, TimeStampedModel
 
 
@@ -99,3 +99,12 @@ class Cart(TimeStampedModel):
     office = FlexibleForeignKey(Office)
     product = FlexibleForeignKey(CartProduct)
     quantity = models.IntegerField(default=1)
+
+
+class OrderProgressStatus(TimeStampedModel):
+    class STATUS(models.IntegerChoices):
+        COMPLETE = 0
+        IN_PROGRESS = 1
+
+    office_vendor = FlexibleForeignKey(OfficeVendor)
+    status = models.IntegerField(choices=STATUS.choices, default=STATUS.COMPLETE)

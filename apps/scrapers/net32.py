@@ -7,6 +7,7 @@ from scrapy import Selector
 from apps.scrapers.base import Scraper
 from apps.scrapers.errors import OrderFetchException
 from apps.scrapers.schema import Order, Product
+from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation
 
 HEADERS = {
@@ -38,6 +39,79 @@ SEARCH_HEADERS = {
     "Sec-Fetch-User": "?1",
     "Sec-Fetch-Dest": "document",
     "Accept-Language": "en-US,en;q=0.9",
+}
+
+CART_HEADERS = {
+    "Connection": "keep-alive",
+    "Cache-Control": "max-age=0",
+    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
+    "Accept": "application/json",
+    "Content-Type": "application/json",
+    "sec-ch-ua-mobile": "?0",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",  # noqa
+    "sec-ch-ua-platform": '"Windows"',
+    "Origin": "https://www.net32.com",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "empty",
+    "Referer": "https://www.net32.com/shopping-cart",
+    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
+}
+
+CHECKOUT_HEADERS = {
+    "Connection": "keep-alive",
+    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    "Upgrade-Insecure-Requests": "1",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",  # noqa
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",  # noqa
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-User": "?1",
+    "Sec-Fetch-Dest": "document",
+    "Referer": "https://www.net32.com/shopping-cart",
+    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
+}
+
+REVIEW_CHECKOUT_HEADERS = {
+    "Connection": "keep-alive",
+    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    "Upgrade-Insecure-Requests": "1",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,"
+    "image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-User": "?1",
+    "Sec-Fetch-Dest": "document",
+    "Referer": "https://www.net32.com/shopping-cart",
+    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
+}
+
+PLACE_ORDER_HEADERS = {
+    "Connection": "keep-alive",
+    "Content-Length": "0",
+    "Cache-Control": "max-age=0",
+    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    "Upgrade-Insecure-Requests": "1",
+    "Origin": "https://www.net32.com",
+    "Content-Type": "application/x-www-form-urlencoded",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,"
+    "image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-User": "?1",
+    "Sec-Fetch-Dest": "document",
+    "Referer": "https://www.net32.com/checkout/review",
+    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
 }
 
 
@@ -161,3 +235,18 @@ class Net32Scraper(Scraper):
                 )
 
             return products
+
+    async def checkout(self, products: List[CartProduct]):
+        await self.login()
+        # Add cart
+        data = [{"mpId": product["product_id"], "quantity": product["quantity"]} for product in products]
+        await self.session.post(
+            "https://www.net32.com/rest/shoppingCart/addMfrProdViaConsolidation", headers=CART_HEADERS, json=data
+        )
+        await self.session.get("https://www.net32.com/checkout", headers=CHECKOUT_HEADERS)
+
+        # Review checkout
+        await self.session.get("https://www.net32.com/checkout", headers=REVIEW_CHECKOUT_HEADERS)
+
+        # Place Order
+        await self.session.post("https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS)
