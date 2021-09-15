@@ -13,6 +13,7 @@ import datetime
 import os
 from pathlib import Path
 
+from celery.schedules import crontab
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -48,6 +49,7 @@ THIRD_PARTY_APPS = [
     "corsheaders",
     "django_filters",
     "phonenumber_field",
+    "django_celery_beat",
 ]
 
 ORDO_APPS = [
@@ -168,6 +170,12 @@ CELERY_ACCEPT_CONTENT = ["application/json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULE = {
+    "update_office_budget": {
+        "task": "apps.accounts.tasks.update_office_budget",
+        "schedule": crontab(day_of_month=1),
+    }
+}
 
 # Django Rest Framework
 REST_FRAMEWORK = {

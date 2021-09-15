@@ -13,7 +13,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.template.loader import render_to_string
 
-from apps.accounts.models import CompanyMember, OfficeVendor
+from apps.accounts.models import CompanyMember, Office, OfficeVendor, User
 from apps.orders.models import Order, Product, VendorOrder, VendorOrderProduct
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import CompanyInvite
@@ -129,3 +129,27 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
                     unit_price=order_product_data["unit_price"],
                     status=order_product_data["status"],
                 )
+
+
+@shared_task
+def update_office_budget():
+    offices = Office.objects.select_related("company").all()
+    for office in offices:
+        emails = CompanyMember.objects.filter(
+            company=office.company, role=User.Role.ADMIN, invite_status=CompanyMember.InviteStatus.INVITE_APPROVED
+        ).values_list("email", flat=True)
+
+    htm_content = render_to_string(
+        "emails/update_budget.html",
+        {
+            "SITE_URL": settings.SITE_URL,
+        },
+    )
+
+    send_mail(
+        subject="Update your budget",
+        message="message",
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=emails,
+        html_message=htm_content,
+    )
