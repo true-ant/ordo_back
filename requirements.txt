@@ -156,6 +156,9 @@ cryptography==3.4.8; python_version >= "3.6" and python_full_version < "3.0.0" o
 cssselect==1.1.0; python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.4.0" and python_version >= "3.6" \
     --hash=sha256:f612ee47b749c877ebae5bb77035d8f4202c6ad0f0fc1271b3c18ad6c4468ecf \
     --hash=sha256:f95f8dedd925fd8f54edb3d2dfb44c190d9d18512377d3c1e2388d16126879bc
+django-celery-beat==2.2.1 \
+    --hash=sha256:97ae5eb309541551bdb07bf60cc57cadacf42a74287560ced2d2c06298620234 \
+    --hash=sha256:ab43049634fd18dc037927d7c2c7d5f67f95283a20ebbda55f42f8606412e66c
 django-cors-headers==3.8.0; python_version >= "3.6" \
     --hash=sha256:4b8e13bf8d3df50ac4b986bd87085c3073dd56402ede109222ea34a774f9ec1b \
     --hash=sha256:425c20ceffa42b9ac11b02611eece4ae6c5fef2ff0f039c14c1df20e00c80df8
@@ -165,6 +168,8 @@ django-credit-cards==0.4.1; python_version >= "3" \
 django-filter==2.4.0; python_version >= "3.5" \
     --hash=sha256:84e9d5bb93f237e451db814ed422a3a625751cbc9968b484ecc74964a8696b06 \
     --hash=sha256:e00d32cebdb3d54273c48f4f878f898dced8d5dfaad009438fe61ebdf535ace1
+django-monthfield==0.1.3 \
+    --hash=sha256:196a70b1c4f18bca983f3d4cd0377faaa35e6e9d4ee807201c12db0002886dea
 django-phonenumber-field==5.2.0; python_version >= "3.6" \
     --hash=sha256:52b2e5970133ec5ab701218b802f7ab237229854dc95fd239b7e9e77dc43731d \
     --hash=sha256:5547fb2b2cc690a306ba77a5038419afc8fa8298a486fb7895008e9067cc7e75
@@ -177,6 +182,9 @@ django-ses==2.2.1; python_version >= "3.5" \
 django-storages==1.11.1; python_version >= "3.5" \
     --hash=sha256:c823dbf56c9e35b0999a13d7e05062b837bae36c518a40255d522fbe3750fbb4 \
     --hash=sha256:f28765826d507a0309cfaa849bd084894bc71d81bf0d09479168d44785396f80
+django-timezone-field==4.2.1; python_version >= "3.5" \
+    --hash=sha256:97780cde658daa5094ae515bb55ca97c1352928ab554041207ad515dee3fe971 \
+    --hash=sha256:6dc782e31036a58da35b553bd00c70f112d794700025270d8a6a4c1d2e5b26c6
 django==3.2.6; python_version >= "3.6" \
     --hash=sha256:7f92413529aa0e291f3be78ab19be31aefb1e1c9a52cd59e130f505f27a51f13 \
     --hash=sha256:f27f8544c9d4c383bbe007c57e3235918e258364577373d4920e9162837be022
@@ -529,6 +537,8 @@ pyopenssl==20.0.1; python_version >= "3.6" and python_full_version < "3.0.0" or 
     --hash=sha256:4c231c759543ba02560fcd2480c48dcec4dae34c9da7d3747c508227e0624b51
 pypydispatcher==2.1.2; platform_python_implementation == "PyPy" and python_version >= "3.6" \
     --hash=sha256:b6bec5dfcff9d2535bca2b23c80eae367b1ac250a645106948d315fcfa9130f2
+python-crontab==2.5.1 \
+    --hash=sha256:4bbe7e720753a132ca4ca9d4094915f40e9d9dc8a807a4564007651018ce8c31
 python-dateutil==2.8.2; (python_version >= "2.7" and python_full_version < "3.0.0") or (python_full_version >= "3.3.0") \
     --hash=sha256:0123cacc1627ae19ddf3c27a5de5bd67ee4586fbdd6440d9748f8abb483d3e86 \
     --hash=sha256:961d03dc3453ebbc59dbdea9e4e11c5651520a876d0f4db161e8674aae935da9
