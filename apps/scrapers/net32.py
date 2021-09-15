@@ -231,6 +231,7 @@ class Net32Scraper(Scraper):
                         )
                         else "Currently out of stock",
                         retail_price="",
+                        vendor_id=self.vendor_id,
                     )
                 )
 

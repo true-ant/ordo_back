@@ -153,12 +153,13 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
     def _get_linked_vendors(self, request) -> List[LinkedVendor]:
         company_member = CompanyMember.objects.filter(user=request.user).first()
         office_vendors = OfficeVendor.objects.select_related("vendor").filter(office__company=company_member.company)
-        return [
-            LinkedVendor(
-                vendor=office_vendor.vendor.slug, username=office_vendor.username, password=office_vendor.password
-            )
-            for office_vendor in office_vendors
-        ]
+        return list(office_vendors)
+        # return [
+        #     LinkedVendor(
+        #         vendor=office_vendor.vendor.slug, username=office_vendor.username, password=office_vendor.password
+        #     )
+        #     for office_vendor in office_vendors
+        # ]
 
     @action(detail=False, methods=["get"], url_path="search")
     async def search_product(self, request, *args, **kwargs):
@@ -177,10 +178,11 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
         tasks = []
         for office_vendor in office_vendors:
             scraper = ScraperFactory.create_scraper(
-                scraper_name=office_vendor["vendor"],
+                scraper_name=office_vendor.vendor.slug,
                 session=session,
-                username=office_vendor["username"],
-                password=office_vendor["password"],
+                username=office_vendor.username,
+                password=office_vendor.password,
+                vendor_id=office_vendor.vendor.id,
             )
             tasks.append(scraper.search_products(query=q, page=page))
 

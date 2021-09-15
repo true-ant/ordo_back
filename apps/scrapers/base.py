@@ -8,10 +8,17 @@ from apps.types.scraper import LoginInformation
 
 
 class Scraper:
-    def __init__(self, session: ClientSession, username: Optional[str] = None, password: Optional[str] = None):
+    def __init__(
+        self,
+        session: ClientSession,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        vendor_id: Optional[int] = None,
+    ):
         self.session = session
         self.username = username
         self.password = password
+        self.vendor_id = vendor_id
 
     async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> SimpleCookie:
         if username:
@@ -26,6 +33,8 @@ class Scraper:
             if resp.status != 200:
                 raise VendorAuthenticationFailed()
 
+            await self._after_login_hook(resp)
+
             is_authenticated = await self._check_authenticated(resp)
             if not is_authenticated:
                 raise VendorAuthenticationFailed()
@@ -36,6 +45,9 @@ class Scraper:
         return True
 
     async def _get_login_data(self) -> LoginInformation:
+        pass
+
+    async def _after_login_hook(self, response: ClientResponse):
         pass
 
     def extract_first(self, dom, xpath):

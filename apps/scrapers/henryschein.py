@@ -176,6 +176,7 @@ class HenryScheinScraper(Scraper):
                     image=product_detail["image"],
                     price="",
                     retail_price="",
+                    vendor_id=self.vendor_id,
                 )
             )
 

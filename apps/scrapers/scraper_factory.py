@@ -9,6 +9,7 @@ from apps.scrapers.darby import DarbyScraper
 from apps.scrapers.errors import VendorNotSupported
 from apps.scrapers.henryschein import HenryScheinScraper
 from apps.scrapers.net32 import Net32Scraper
+from apps.scrapers.patterson import PattersonScraper
 from apps.scrapers.ultradent import UltraDentScraper
 
 SCRAPERS = {
@@ -16,6 +17,7 @@ SCRAPERS = {
     "net_32": Net32Scraper,
     "ultradent": UltraDentScraper,
     "darby": DarbyScraper,
+    "patterson": PattersonScraper,
 }
 
 
@@ -27,18 +29,19 @@ class ScraperFactory:
         scraper_name: str,
         session: ClientSession,
         username: Optional[str] = None,
-        password: Optional[str] = None
+        password: Optional[str] = None,
+        vendor_id: Optional[int] = None,
     ):
         if scraper_name not in SCRAPERS:
             raise VendorNotSupported(scraper_name)
 
-        return SCRAPERS[scraper_name](session, username, password)
+        return SCRAPERS[scraper_name](session, username, password, vendor_id)
 
 
 async def main():
 
     load_dotenv()
-    scraper_name = "henry_schein"
+    scraper_name = "patterson"
     credentials = {
         "henry_schein": {
             "username": os.getenv("HENRY_SCHEIN_USERNAME"),
@@ -56,6 +59,10 @@ async def main():
             "username": os.getenv("DARBY_SCHEIN_USERNAME"),
             "password": os.getenv("DARBY_SCHEIN_PASSWORD"),
         },
+        "patterson": {
+            "username": os.getenv("PATTERSON_USERNAME"),
+            "password": os.getenv("PATTERSON_PASSWORD"),
+        },
     }
     credential = credentials[scraper_name]
     async with ClientSession() as session:
@@ -65,9 +72,10 @@ async def main():
             username=credential["username"],
             password=credential["password"],
         )
+        await scraper.login()
         # results = await scraper.get_orders(perform_login=True)
-        results = await scraper.search_products(query="tooth brush", page=2)
-        results = [r.to_dict() for r in results]
+        # results = await scraper.search_products(query="tooth brush", page=2)
+        # results = [r.to_dict() for r in results]
 
 
 if __name__ == "__main__":
