@@ -407,6 +407,14 @@ python-versions = ">=3.5"
 Django = ">=2.2"
 
 [[package]]
+name = "django-monthfield"
+version = "0.1.3"
+description = "Provides a field for storing months (YYYY-MM) on django models."
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "django-phonenumber-field"
 version = "5.2.0"
 description = "An international phone number field for django models."
@@ -1389,7 +1397,7 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "c447213a5ea5a0eaaf3aca9ce4809388ee37a2a93c6a4c5be01fc6fdbedc8362"
+content-hash = "86b700a0a0b52765f8db878eaaddf4f6d3b851081d6d0b59e16b42feda9c15ef"
 
 [metadata.files]
 aiohttp = [
@@ -1605,6 +1613,9 @@ django-credit-cards = [
 django-filter = [
     {file = "django-filter-2.4.0.tar.gz", hash = "sha256:84e9d5bb93f237e451db814ed422a3a625751cbc9968b484ecc74964a8696b06"},
     {file = "django_filter-2.4.0-py3-none-any.whl", hash = "sha256:e00d32cebdb3d54273c48f4f878f898dced8d5dfaad009438fe61ebdf535ace1"},
+]
+django-monthfield = [
+    {file = "django-monthfield-0.1.3.tar.gz", hash = "sha256:196a70b1c4f18bca983f3d4cd0377faaa35e6e9d4ee807201c12db0002886dea"},
 ]
 django-phonenumber-field = [
     {file = "django-phonenumber-field-5.2.0.tar.gz", hash = "sha256:52b2e5970133ec5ab701218b802f7ab237229854dc95fd239b7e9e77dc43731d"},

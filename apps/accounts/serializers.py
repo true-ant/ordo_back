@@ -47,6 +47,15 @@ class OfficeSerializer(serializers.ModelSerializer):
         return res
 
 
+class OfficeBudgetSerializer(serializers.ModelSerializer):
+    office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), required=False)
+    spend = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = m.OfficeBudget
+        exclude = ("created_at", "updated_at")
+
+
 class CompanySerializer(serializers.ModelSerializer):
     offices = OfficeSerializer(many=True)
 

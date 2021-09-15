@@ -6,6 +6,7 @@ from creditcards.models import CardExpiryField, CardNumberField, SecurityCodeFie
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
+from month.models import MonthField
 from phonenumber_field.modelfields import PhoneNumberField
 
 from apps.accounts import managers
@@ -62,7 +63,6 @@ class Office(TimeStampedModel):
     website = models.CharField(max_length=100, null=True, blank=True)
     logo = models.ImageField(null=True, blank=True, upload_to="offices")
     # Budget & Card Information
-    budget = models.PositiveIntegerField(default=0)
     cc_number = CardNumberField("Card Number", null=True, blank=True)
     cc_expiry = CardExpiryField("Expiration Date", null=True, blank=True)
     cc_code = SecurityCodeField("Security Code", null=True, blank=True)
@@ -71,6 +71,22 @@ class Office(TimeStampedModel):
 
     def __str__(self):
         return f"{self.company} -> {self.name}"
+
+
+class OfficeBudget(TimeStampedModel):
+    class BudgetType(models.TextChoices):
+        PRODUCTION = "production", "Adjusted Production"
+        COLLECTION = "collection", "Collection"
+
+    office = FlexibleForeignKey(Office, related_name="budgets")
+    budget_type = models.CharField(max_length=10, choices=BudgetType.choices, default=BudgetType.PRODUCTION)
+    percentage = models.DecimalField(max_digits=5, decimal_places=2)
+    budget = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    spend = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    month = MonthField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ["office", "month"]
 
 
 class OfficeVendor(models.Model):

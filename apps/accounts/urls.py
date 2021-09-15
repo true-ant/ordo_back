@@ -14,6 +14,7 @@ company_router.register(r"offices", v.OfficeViewSet, basename="offices")
 
 office_router = NestedSimpleRouter(company_router, r"offices", lookup="office")
 office_router.register(r"vendors", v.OfficeVendorViewSet, basename="vendors")
+office_router.register(r"budgets", v.OfficeBudgetViewSet, basename="budgets")
 
 urlpatterns = [
     path("", include(router.urls)),

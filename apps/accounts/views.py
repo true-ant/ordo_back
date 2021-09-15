@@ -6,6 +6,7 @@ from django.db import transaction
 from django.db.utils import IntegrityError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from month import Month
 from rest_framework import mixins
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -334,3 +335,33 @@ class UserViewSet(ModelViewSet):
                 active_membership.is_active = False
             instance.is_active = False
             instance.save()
+
+
+class OfficeBudgetViewSet(ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = s.OfficeBudgetSerializer
+    queryset = m.OfficeBudget.objects.all()
+
+    def get_queryset(self):
+        return super().get_queryset().filter(office_id=self.kwargs["office_pk"])
+
+    def create(self, request, *args, **kwargs):
+        on_boarding_step = request.data.pop("on_boarding_step", None)
+        company = get_object_or_404(m.Company, pk=self.kwargs["company_pk"])
+        if on_boarding_step and company.on_boarding_step < on_boarding_step:
+            company.on_boarding_step = on_boarding_step
+            company.save()
+
+        request.data.setdefault("office", self.kwargs["office_pk"])
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        kwargs.setdefault("partial", True)
+        return super().update(request, *args, **kwargs)
+
+    @action(detail=False, url_path="current", methods=["get"])
+    def get_current_month_budget(self, *args, **kwargs):
+        current_date = timezone.now().date()
+        current_month_budget = self.get_queryset().filter(month=Month(current_date.year, current_date.month)).first()
+        serializer = self.get_serializer(current_month_budget)
+        return Response(serializer.data)
