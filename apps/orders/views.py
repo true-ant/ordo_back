@@ -1,5 +1,6 @@
 import asyncio
 import operator
+from decimal import Decimal, InvalidOperation
 from functools import reduce
 from typing import List
 
@@ -165,20 +166,30 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
     async def search_product(self, request, *args, **kwargs):
         q = request.query_params.get("q", "")
         page = request.query_params.get("page", 1)
+        vendors = request.query_params.get("vendors", "")
+        min_price = request.query_params.get("min_price", 0)
+        max_price = request.query_params.get("max_price", 0)
 
         if len(q) <= 3:
             return Response({"message": msgs.SEARCH_QUERY_LIMIT}, status=HTTP_400_BAD_REQUEST)
         try:
             page = int(page)
-        except ValueError:
-            return Response({"message": msgs.SEARCH_PAGE_NUMBER_INCORRECT}, status=HTTP_400_BAD_REQUEST)
+            vendors = vendors.split(",")
+            min_price = Decimal(min_price)
+            max_price = Decimal(max_price)
+        except (ValueError, InvalidOperation):
+            return Response({"message": msgs.SEARCH_PRODUCT_WRONG_PARAMETER}, status=HTTP_400_BAD_REQUEST)
 
         session = apps.get_app_config("accounts").session
         office_vendors = await self._get_linked_vendors(request)
         tasks = []
         for office_vendor in office_vendors:
+            vendor_slug = office_vendor.vendor.slug
+            if vendors and vendor_slug not in vendors:
+                continue
+
             scraper = ScraperFactory.create_scraper(
-                scraper_name=office_vendor.vendor.slug,
+                scraper_name=vendor_slug,
                 session=session,
                 username=office_vendor.username,
                 password=office_vendor.password,
@@ -187,12 +198,21 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
             tasks.append(scraper.search_products(query=q, page=page))
 
         scrapers_products = await asyncio.gather(*tasks, return_exceptions=True)
-        data = [
-            product.to_dict()
+
+        # filter
+        products = [
+            product
             for scraper_products in scrapers_products
             for product in scraper_products
             if isinstance(product, ProductDataClass)
         ]
+
+        if max_price:
+            products = [product for product in products if product.price and product.price < max_price]
+        if min_price:
+            products = [product for product in products if product.price and product.price > min_price]
+
+        data = [product.to_dict() for product in products]
 
         return Response(data)
 

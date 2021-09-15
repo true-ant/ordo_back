@@ -168,15 +168,17 @@ class HenryScheinScraper(Scraper):
             product_detail = product_dom.xpath(".//script[@type='application/ld+json']//text()").extract_first()
             product_detail = json.loads(product_detail)
             products.append(
-                Product(
-                    product_id=product_detail["sku"],
-                    name=product_detail["name"],
-                    description=product_detail["description"],
-                    url=product_detail["url"],
-                    image=product_detail["image"],
-                    price="",
-                    retail_price="",
-                    vendor_id=self.vendor_id,
+                Product.from_dict(
+                    {
+                        "product_id": product_detail["sku"],
+                        "name": product_detail["name"],
+                        "description": product_detail["description"],
+                        "url": product_detail["url"],
+                        "image": product_detail["image"],
+                        "price": "",
+                        "retail_price": "",
+                        "vendor_id": self.vendor_id,
+                    }
                 )
             )
 

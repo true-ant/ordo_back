@@ -1,7 +1,7 @@
 from dataclasses import asdict, dataclass, fields
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
-from typing import List, Optional, get_args, get_origin
+from typing import List, get_args, get_origin
 
 from django.utils.dateparse import parse_date, parse_datetime
 
@@ -56,9 +56,9 @@ class Product(BaseDataClass):
     description: str
     url: str
     image: str
-    price: str  # Decimal
+    price: Decimal  # Decimal
     retail_price: str  # Decimal
-    vendor_id: Optional[str] = None
+    vendor_id: str
     # stars: Decimal
     # ratings: Decimal
 

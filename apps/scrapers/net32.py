@@ -211,27 +211,27 @@ class Net32Scraper(Scraper):
 
             for product_dom in products_dom:
                 products.append(
-                    Product(
-                        product_id=product_dom.attrib["data-mpid"],
-                        name=self.extract_first(product_dom, ".//a[@class='localsearch-result-product-name']//text()"),
-                        description=self.extract_first(
-                            product_dom, ".//div[@class='localsearch-result-product-packaging-container']//text()"
-                        ),
-                        url=self.BASE_URL
-                        + self.extract_first(product_dom, ".//a[@class='localsearch-result-product-name']/@href"),
-                        image=self.BASE_URL
-                        + self.extract_first(
-                            product_dom, ".//img[@class='localsearch-result-product-thumbnail']/@src"
-                        ),
-                        price=price_
-                        if (
-                            price_ := self.extract_first(
+                    Product.from_dict(
+                        {
+                            "product_id": product_dom.attrib["data-mpid"],
+                            "name": self.extract_first(
+                                product_dom, ".//a[@class='localsearch-result-product-name']//text()"
+                            ),
+                            "description": self.extract_first(
+                                product_dom, ".//div[@class='localsearch-result-product-packaging-container']//text()"
+                            ),
+                            "url": self.BASE_URL
+                            + self.extract_first(product_dom, ".//a[@class='localsearch-result-product-name']/@href"),
+                            "image": self.BASE_URL
+                            + self.extract_first(
+                                product_dom, ".//img[@class='localsearch-result-product-thumbnail']/@src"
+                            ),
+                            "price": self.extract_first(
                                 product_dom, ".//ins[@class='localsearch-result-best-price']//text()"
-                            )
-                        )
-                        else "Currently out of stock",
-                        retail_price="",
-                        vendor_id=self.vendor_id,
+                            ),
+                            "retail_price": "",
+                            "vendor_id": self.vendor_id,
+                        }
                     )
                 )
 

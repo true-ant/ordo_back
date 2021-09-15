@@ -101,7 +101,7 @@ class PattersonScraper(Scraper):
         pass
 
     async def search_products(self, query: str, page: int = 1, per_page: int = 30) -> List[Product]:
-        pass
+        return []
 
     async def checkout(self, products: List[CartProduct]):
         pass

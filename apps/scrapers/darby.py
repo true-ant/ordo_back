@@ -178,15 +178,17 @@ class DarbyScraper(Scraper):
                 price = self.extract_first(product_dom, ".//div[contains(@class, 'prod-price')]//text()")
                 _, price = price.split("@")
                 products.append(
-                    Product(
-                        product_id=self.extract_first(product_dom, ".//div[@class='prodno']/label//text()"),
-                        name=self.extract_first(product_dom, ".//div[@class='prod-title']//text()"),
-                        description="",
-                        url=self.BASE_URL + self.extract_first(product_dom, ".//a[@href]/@href"),
-                        image=self.extract_first(product_dom, ".//img[@class='card-img-top']/@src"),
-                        price=price,
-                        retail_price=price,
-                        vendor_id=self.vendor_id,
+                    Product.from_dict(
+                        {
+                            "product_id": self.extract_first(product_dom, ".//div[@class='prodno']/label//text()"),
+                            "name": self.extract_first(product_dom, ".//div[@class='prod-title']//text()"),
+                            "description": "",
+                            "url": self.BASE_URL + self.extract_first(product_dom, ".//a[@href]/@href"),
+                            "image": self.extract_first(product_dom, ".//img[@class='card-img-top']/@src"),
+                            "price": price,
+                            "retail_price": price,
+                            "vendor_id": self.vendor_id,
+                        }
                     )
                 )
         return products
