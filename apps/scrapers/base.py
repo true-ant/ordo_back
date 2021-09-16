@@ -33,11 +33,11 @@ class Scraper:
             if resp.status != 200:
                 raise VendorAuthenticationFailed()
 
-            await self._after_login_hook(resp)
-
             is_authenticated = await self._check_authenticated(resp)
             if not is_authenticated:
                 raise VendorAuthenticationFailed()
+
+            await self._after_login_hook(resp)
 
         return resp.cookies
 

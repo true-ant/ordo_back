@@ -5,6 +5,7 @@ from typing import Optional
 from aiohttp import ClientSession
 from dotenv import load_dotenv
 
+from apps.scrapers.benco import BencoScraper
 from apps.scrapers.darby import DarbyScraper
 from apps.scrapers.errors import VendorNotSupported
 from apps.scrapers.henryschein import HenryScheinScraper
@@ -18,6 +19,7 @@ SCRAPERS = {
     "ultradent": UltraDentScraper,
     "darby": DarbyScraper,
     "patterson": PattersonScraper,
+    "benco": BencoScraper,
 }
 
 
@@ -63,6 +65,10 @@ async def main():
             "username": os.getenv("PATTERSON_USERNAME"),
             "password": os.getenv("PATTERSON_PASSWORD"),
         },
+        "benco": {
+            "username": os.getenv("BENCO_USERNAME"),
+            "password": os.getenv("BENCO_PASSWORD"),
+        },
     }
     credential = credentials[scraper_name]
     async with ClientSession() as session:
@@ -72,10 +78,11 @@ async def main():
             username=credential["username"],
             password=credential["password"],
         )
-        await scraper.login()
+        # await scraper.login()
         # results = await scraper.get_orders(perform_login=True)
-        # results = await scraper.search_products(query="tooth brush", page=2)
-        # results = [r.to_dict() for r in results]
+        results = await scraper.search_products(query="tooth brush", page=2)
+        results = [r.to_dict() for r in results]
+        print(results)
 
 
 if __name__ == "__main__":
