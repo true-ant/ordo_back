@@ -26,6 +26,15 @@ class VendorSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class OfficeBudgetSerializer(serializers.ModelSerializer):
+    office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), required=False)
+    spend = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = m.OfficeBudget
+        exclude = ("created_at", "updated_at")
+
+
 class OfficeSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
     company = serializers.PrimaryKeyRelatedField(queryset=m.Company.objects.all(), required=False)
@@ -35,6 +44,7 @@ class OfficeSerializer(serializers.ModelSerializer):
     cc_number = serializers.CharField(validators=[CCNumberValidator()])
     cc_expiry = serializers.DateField(validators=[ExpiryDateValidator()], input_formats=["%m/%y"])
     cc_code = serializers.CharField(validators=[CSCValidator()])
+    budget = OfficeBudgetSerializer()
 
     class Meta:
         model = m.Office
@@ -45,15 +55,6 @@ class OfficeSerializer(serializers.ModelSerializer):
         if self.context.get("exclude_vendors"):
             res.pop("vendors")
         return res
-
-
-class OfficeBudgetSerializer(serializers.ModelSerializer):
-    office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), required=False)
-    spend = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
-
-    class Meta:
-        model = m.OfficeBudget
-        exclude = ("created_at", "updated_at")
 
 
 class CompanySerializer(serializers.ModelSerializer):

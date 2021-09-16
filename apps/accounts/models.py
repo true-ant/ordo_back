@@ -6,6 +6,7 @@ from creditcards.models import CardExpiryField, CardNumberField, SecurityCodeFie
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
+from month import Month
 from month.models import MonthField
 from phonenumber_field.modelfields import PhoneNumberField
 
@@ -72,6 +73,12 @@ class Office(TimeStampedModel):
     def __str__(self):
         return f"{self.company} -> {self.name}"
 
+    @property
+    def budget(self):
+        current_date = timezone.now().date()
+        month = Month(year=current_date.year, month=current_date.month)
+        return self.budgets.filter(month=month).first()
+
 
 class OfficeBudget(TimeStampedModel):
     class BudgetType(models.TextChoices):
@@ -86,6 +93,7 @@ class OfficeBudget(TimeStampedModel):
     month = MonthField(auto_now_add=True)
 
     class Meta:
+        ordering = ("-month",)
         unique_together = ["office", "month"]
 
 
