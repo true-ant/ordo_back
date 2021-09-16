@@ -166,7 +166,7 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
     async def search_product(self, request, *args, **kwargs):
         q = request.query_params.get("q", "")
         page = request.query_params.get("page", 1)
-        vendors = request.query_params.get("vendors", "")
+        vendors = request.query_params.get("vendors")
         min_price = request.query_params.get("min_price", 0)
         max_price = request.query_params.get("max_price", 0)
 
@@ -174,7 +174,7 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
             return Response({"message": msgs.SEARCH_QUERY_LIMIT}, status=HTTP_400_BAD_REQUEST)
         try:
             page = int(page)
-            vendors = vendors.split(",")
+            vendors = vendors.split(",") if vendors else None
             min_price = Decimal(min_price)
             max_price = Decimal(max_price)
         except (ValueError, InvalidOperation):
