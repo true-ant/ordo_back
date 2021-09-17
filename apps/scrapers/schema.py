@@ -14,6 +14,7 @@ def from_dict(cls, dict_data):
             return field_type(v)
         elif field_type is Decimal:
             try:
+                v = v.replace(",", "")
                 v = Decimal(str(v).strip(" $"))
             except InvalidOperation:
                 v = Decimal("0")
