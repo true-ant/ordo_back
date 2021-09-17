@@ -1,0 +1,72 @@
+[
+    {
+        "model": "accounts.vendor",
+        "pk": 1,
+        "fields": {
+            "slug": "henry_schein",
+            "logo": "vendors/henry_schein.jpg",
+            "name": "Henry Schein",
+            "url": "https://www.henryschein.com/"
+        }
+    },
+    {
+        "model": "accounts.vendor",
+        "pk": 2,
+        "fields": {
+            "slug": "net_32",
+            "logo": "vendors/net_32.jpg",
+            "name": "Net 32",
+            "url": "https://www.net32.com/"
+        }
+    },
+    {
+        "model": "accounts.vendor",
+        "pk": 3,
+        "fields": {
+            "slug": "darby",
+            "logo": "vendors/darby.jpg",
+            "name": "Darby",
+            "url": "https://www.darbydental.com/"
+        }
+    },
+    {
+        "model": "accounts.vendor",
+        "pk": 4,
+        "fields": {
+            "slug": "patterson",
+            "logo": "vendors/patterson.jpg",
+            "name": "Patterson",
+            "url": "https://www.pattersondental.com/"
+        }
+    },
+    {
+        "model": "accounts.vendor",
+        "pk": 5,
+        "fields": {
+            "slug": "amazon",
+            "logo": "vendors/amazon.jpg",
+            "name": "Amazon",
+            "url": "https://www.amazon.com/"
+        }
+    },
+    {
+        "model": "accounts.vendor",
+        "pk": 6,
+        "fields": {
+            "slug": "ultradent",
+            "logo": "vendors/ultradent.jpg",
+            "name": "Ultradent",
+            "url": "https://www.ultradent.com/"
+        }
+    },
+    {
+        "model": "accounts.vendor",
+        "pk": 7,
+        "fields": {
+            "slug": "benco",
+            "logo": "vendors/benco.jpg",
+            "name": "Benco",
+            "url": "https://www.benco.com/"
+        }
+    }
+]
