@@ -24,7 +24,7 @@ from apps.common.asyncdrf import AsyncMixin
 from apps.common.pagination import StandardResultsSetPagination
 from apps.scrapers.schema import Product as ProductDataClass
 from apps.scrapers.scraper_factory import ScraperFactory
-from apps.types.orders import LinkedVendor
+from apps.types.orders import CartProduct, LinkedVendor
 
 from . import filters as f
 from . import models as m
@@ -240,12 +240,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
     @sync_to_async
     def _pre_checkout_hook(self):
-        queryset = (
-            self.get_queryset()
-            .annotate(vendor_product_id=F("product__product_id"))
-            .annotate(vendor_slug=F("product__vendor__slug"))
-            # .values("vendor_product_id", "quantity", "office", "vendor")
-        )
+        queryset = self.get_queryset()
 
         q = reduce(
             operator.or_,
@@ -253,80 +248,71 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         )
         office_vendors = OfficeVendor.objects.select_related("vendor").filter(q)
 
-        vendors_order_status = m.OrderProgressStatus.objects.filter(office_vendor__in=office_vendors)
-        is_checking = vendors_order_status.exists()
-        return queryset, list(office_vendors), vendors_order_status, is_checking
+        is_checking = m.OrderProgressStatus.objects.filter(
+            status=m.OrderProgressStatus.STATUS.IN_PROGRESS, office_vendor__in=office_vendors
+        ).exists()
+
+        return queryset, list(office_vendors), is_checking
 
     @sync_to_async
-    def _update_vendors_order_status(self, vendors_order_status, status):
-        for vendor_order_status in vendors_order_status:
-            vendor_order_status.status = status
-        m.OrderProgressStatus.objects.bulk_update(vendors_order_status, ["status"])
+    def _update_vendors_order_status(self, office_vendors, status):
+        for office_vendor in office_vendors:
+            office_vendor_order_progress, created = m.OrderProgressStatus.objects.get_or_create(
+                office_vendor=office_vendor, defaults={"status": status}
+            )
+            if not created:
+                office_vendor_order_progress.status = status
+                office_vendor_order_progress.save()
 
     @sync_to_async
-    def _create_order(self, cart_products):
+    def _create_order(self, office_vendors):
         with transaction.atomic():
-            products = [
-                m.Product(
-                    vendor=cart_product.vendor,
-                    product_id=cart_product.product_id,
-                    name=cart_product.name,
-                    description=cart_product.description,
-                    url=cart_product.url,
-                    image=cart_product.image,
-                    price=cart_product.price,
-                )
-                for cart_product in cart_products
-            ]
-            m.Product.objects.bulk_create(products)
-
-        # order = m.Order.objects(office=office, status="PENDING")
-        # for office_vendor in office_vendors:
-        #     m.VendorOrder.objects.create(
-        #         order=order, vendor=vendor,
-        #         vendor_order_id="vendor",
-        #         total_amount=1,
-        #         total_items=1,
-        #         currency="USD",
-        #         order_date=timezone.now()
-        #         status="PENDING"
-        #     )
-        #     product = Product.objects.create(
-        #         vendor="",
-        #         product_id
-        #         name
-        #         description
-        #         url
-        #         image
-        #         price
-        #         retail_price
-        #     )
-        #     VendorOrderProduct
-
-        cart_products.delete()
+            m.Order.objects.create(office_id=self.kwargs["office_pk"], created_by=self.request.user, status="PENDING")
+            # for office_vendor in office_vendors:
+            #     m.VendorOrder.objects.create(
+            #         order=order,
+            #         vendor=vendor,
+            #         vendor_order_id="vendor",
+            #         total_amount=1,
+            #         total_items=1,
+            #         currency="USD",
+            #         order_date=timezone.now()
+            #         status="PENDING"
+            #     )
 
     @action(detail=False, url_path="checkout", methods=["get"], permission_classes=[p.OrderCheckoutPermission])
     async def checkout(self, request, *args, **kwargs):
-        cart_products, office_vendors, vendors_order_status, is_checking = await self._pre_checkout_hook()
+        cart_products, office_vendors, is_checking = await self._pre_checkout_hook()
         if is_checking:
             return Response({"message": msgs.ORDER_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
 
-        await self._update_vendors_order_status(vendors_order_status, status=m.OrderProgressStatus.STATUS.IN_PROGRESS)
-        session = apps.get_app_config("accounts").session
-        tasks = []
-        for office_vendor in office_vendors:
-            scraper = ScraperFactory.create_scraper(
-                scraper_name=office_vendor.vendor.slug,
-                session=session,
-                username=office_vendor.username,
-                password=office_vendor.password,
-            )
-            tasks.append(
-                scraper.checkout(
-                    [product for product in cart_products if product.vendor_slug == office_vendor.vendor.slug]
+        await self._update_vendors_order_status(office_vendors, status=m.OrderProgressStatus.STATUS.IN_PROGRESS)
+        try:
+            session = apps.get_app_config("accounts").session
+            tasks = []
+            for office_vendor in office_vendors:
+                scraper = ScraperFactory.create_scraper(
+                    scraper_name=office_vendor.vendor.slug,
+                    session=session,
+                    username=office_vendor.username,
+                    password=office_vendor.password,
                 )
-            )
-        await asyncio.gather(*tasks, return_exceptions=True)
-        await self._update_vendors_order_status(vendors_order_status, status=m.OrderProgressStatus.STATUS.COMPLETE)
-        await self._create_order(cart_products)
+                tasks.append(
+                    scraper.checkout(
+                        [
+                            CartProduct(product_id=cart_product.product.product_id, quantity=cart_product.quantity)
+                            for cart_product in cart_products
+                            if cart_product.product.vendor.id == office_vendor.vendor.id
+                        ]
+                    )
+                )
+            await asyncio.gather(*tasks, return_exceptions=True)
+        except Exception as e:
+            print(e)
+            return Response({"message": "Bad request"}, status=HTTP_400_BAD_REQUEST)
+        else:
+            await self._create_order(office_vendors)
+        finally:
+            await self._update_vendors_order_status(office_vendors, status=m.OrderProgressStatus.STATUS.COMPLETE)
+
         return Response({"message": "okay"})

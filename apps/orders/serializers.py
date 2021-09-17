@@ -7,11 +7,16 @@ from . import models as m
 
 
 class ProductSerializer(serializers.ModelSerializer):
-    vendor = VendorSerializer()
+    vendor = serializers.PrimaryKeyRelatedField(queryset=m.Vendor.objects.all())
 
     class Meta:
         model = m.Product
         fields = "__all__"
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        ret["vendor"] = VendorSerializer(m.Vendor.objects.get(id=ret["vendor"])).data
+        return ret
 
 
 class VendorOrderProductSerializer(serializers.ModelSerializer):
@@ -58,21 +63,8 @@ class TotalSpendSerializer(serializers.Serializer):
     total_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
 
 
-class CartProductSerializer(serializers.ModelSerializer):
-    vendor = serializers.PrimaryKeyRelatedField(queryset=m.Vendor.objects.all())
-
-    class Meta:
-        model = m.CartProduct
-        fields = "__all__"
-
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        ret["vendor"] = VendorSerializer(m.Vendor.objects.get(id=ret["vendor"])).data
-        return ret
-
-
 class CartSerializer(serializers.ModelSerializer):
-    product = CartProductSerializer()
+    product = ProductSerializer()
     office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
 
     class Meta:
@@ -81,5 +73,15 @@ class CartSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         with transaction.atomic():
-            cart_product = m.CartProduct.objects.create(**validated_data.pop("product"))
-            return m.Cart.objects.create(product=cart_product, **validated_data)
+            product_data = validated_data.pop("product")
+            vendor = product_data.pop("vendor")
+            product_id = product_data.pop("product_id")
+            try:
+                product = m.Product.objects.get(vendor=vendor, product_id=product_id)
+                for k, v in product_data.items():
+                    setattr(product, k, v)
+                product.save()
+            except m.Product.DoesNotExist:
+                product = m.Product.objects.create(vendor=vendor, product_id=product_id, **product_data)
+
+            return m.Cart.objects.create(product=product, **validated_data)

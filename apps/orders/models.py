@@ -1,7 +1,7 @@
 from django.db import models
 
 from apps.accounts.models import Office, OfficeVendor, User, Vendor
-from apps.common.models import BlankTextField, FlexibleForeignKey, TimeStampedModel
+from apps.common.models import FlexibleForeignKey, TimeStampedModel
 
 
 class Product(TimeStampedModel):
@@ -28,6 +28,7 @@ class OrderStatus(models.IntegerChoices):
 
 class Order(TimeStampedModel):
     office = FlexibleForeignKey(Office)
+    created_by = FlexibleForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     status = models.CharField(max_length=100)
 
 
@@ -84,20 +85,10 @@ class IsoDate(models.Func):
     output_field = models.DateField()
 
 
-class CartProduct(TimeStampedModel):
-    vendor = FlexibleForeignKey(Vendor)
-    product_id = models.CharField(max_length=100)
-    name = models.CharField(max_length=100)
-    description = BlankTextField()
-    url = models.URLField()
-    image = models.URLField()
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-
-
 class Cart(TimeStampedModel):
     user = FlexibleForeignKey(User)
     office = FlexibleForeignKey(Office)
-    product = FlexibleForeignKey(CartProduct)
+    product = FlexibleForeignKey(Product)
     quantity = models.IntegerField(default=1)
 
 
@@ -106,5 +97,5 @@ class OrderProgressStatus(TimeStampedModel):
         COMPLETE = 0
         IN_PROGRESS = 1
 
-    office_vendor = FlexibleForeignKey(OfficeVendor)
+    office_vendor = models.OneToOneField(OfficeVendor, on_delete=models.CASCADE)
     status = models.IntegerField(choices=STATUS.choices, default=STATUS.COMPLETE)
