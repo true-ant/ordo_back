@@ -1,4 +1,5 @@
 import asyncio
+import re
 from datetime import datetime
 from typing import List
 
@@ -8,7 +9,7 @@ from scrapy import Selector
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product
 from apps.types.orders import CartProduct
-from apps.types.scraper import LoginInformation
+from apps.types.scraper import LoginInformation, ProductSearch
 
 HEADERS = {
     "Connection": "keep-alive",
@@ -141,8 +142,11 @@ class DarbyScraper(Scraper):
             tasks = (self.get_order(order_dom) for order_dom in orders_dom)
             return await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def search_products(self, query: str, page: int = 1, per_page: int = 30) -> List[Product]:
+    async def _search_products(
+        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
+    ) -> ProductSearch:
         url = "https://www.darbydental.com/scripts/productlistview.aspx"
+        page_size = 30
         params = {
             "term": query,
         }
@@ -157,7 +161,7 @@ class DarbyScraper(Scraper):
             #     response, "//input[@name='ctl00$MainContent$pageCount']/@value"
             # ),
             "ctl00$MainContent$currentSort": "score",
-            "ctl00$MainContent$selPerPage": f"{per_page}",
+            "ctl00$MainContent$selPerPage": f"{page_size}",
             "ctl00$MainContent$sorter": "score",
             # "ctl00$serverTime": clean_text(response, "//input[@name='ctl00$serverTime']/@value"),
             "__EVENTTARGET": f"ctl00$MainContent$ppager$ctl{page - 1:02}$pagelink",
@@ -173,8 +177,11 @@ class DarbyScraper(Scraper):
 
         async with self.session.post(url, headers=SEARCH_HEADERS, data=data, params=params) as resp:
             response_dom = Selector(text=await resp.text())
-
-            for product_dom in response_dom.xpath("//div[@id='productContainer']//div[contains(@class, 'prodcard')]"):
+            total_size_str = response_dom.xpath(".//span[@id='MainContent_resultCount']/text()").extract_first()
+            matches = re.search(r"of(.*?)results", total_size_str)
+            total_size = int(matches.group(1).strip()) if matches else 0
+            products_dom = response_dom.xpath("//div[@id='productContainer']//div[contains(@class, 'prodcard')]")
+            for product_dom in products_dom:
                 price = self.extract_first(product_dom, ".//div[contains(@class, 'prod-price')]//text()")
                 _, price = price.split("@")
                 products.append(
@@ -191,7 +198,13 @@ class DarbyScraper(Scraper):
                         }
                     )
                 )
-        return products
+        return {
+            "total_size": total_size,
+            "page": page,
+            "page_size": page_size,
+            "products": products,
+            "last_page": page_size * page >= total_size,
+        }
 
     async def checkout(self, products: List[CartProduct]):
         await self.login()

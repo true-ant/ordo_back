@@ -7,7 +7,7 @@ from scrapy import Selector
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product
 from apps.types.orders import CartProduct
-from apps.types.scraper import LoginInformation
+from apps.types.scraper import LoginInformation, ProductSearch
 
 LOGIN_HEADERS = {
     "Connection": "keep-alive",
@@ -154,28 +154,29 @@ class PattersonScraper(Scraper):
             price_high = res["PriceHigh"]
             # price_low = res["PriceLow"]
 
-        return Product.from_dict(
-            {
-                "product_id": product_id,
-                "name": self.extract_first(
-                    product_description_dom,
-                    ".//a[@class='itemTitleDescription']//text()",
-                ),
-                "description": "",
-                "url": self.BASE_URL
-                + self.extract_first(
-                    product_description_dom,
-                    ".//a[@class='itemTitleDescription']/@href",
-                ),
-                "image": self.extract_first(product_dom, ".//div[contains(@class, 'listViewImageWrapper')]/img/@src"),
-                "price": price_high,
-                "retail_price": "",
-                "vendor_id": self.vendor_id,
-            }
-        )
+        return {
+            "product_id": product_id,
+            "name": self.extract_first(
+                product_description_dom,
+                ".//a[@class='itemTitleDescription']//text()",
+            ),
+            "description": "",
+            "url": self.BASE_URL
+            + self.extract_first(
+                product_description_dom,
+                ".//a[@class='itemTitleDescription']/@href",
+            ),
+            "image": self.extract_first(product_dom, ".//div[contains(@class, 'listViewImageWrapper')]/img/@src"),
+            "price": price_high,
+            "retail_price": "",
+            "vendor_id": self.vendor_id,
+        }
 
-    async def search_products(self, query: str, page: int = 1, per_page: int = 30) -> List[Product]:
+    async def _search_products(
+        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
+    ) -> ProductSearch:
         await self.login()
+        page_size = 24
         url = f"{self.BASE_URL}/Search/SearchResults"
         params = {
             "F.MYCATALOG": "false",
@@ -184,21 +185,28 @@ class PattersonScraper(Scraper):
         }
         async with self.session.get(url, headers=SEARCH_HEADERS, params=params) as resp:
             response_dom = Selector(text=await resp.text())
-            # total_products_count = (
-            #     response_dom.xpath(
-            #         "//div[contains(@class, 'productItemFamilyListHeader')]\
-            #       //h1//text()"
-            #     )
-            #     .get()
-            #     .split("results", 1)[0]
-            #     .split("Found")[1]
-            #     .strip()
-            # )
+            total_size = (
+                response_dom.xpath(
+                    "//div[contains(@class, 'productItemFamilyListHeader')]\
+                  //h1//text()"
+                )
+                .get()
+                .split("results", 1)[0]
+                .split("Found")[1]
+                .strip()
+            )
             products_dom = response_dom.xpath(
                 "//div[@class='container-fluid']//table//tr//div[@ng-controller='SearchResultsController']"
             )
             tasks = (self.get_product(product_dom) for product_dom in products_dom)
-            return await asyncio.gather(*tasks)
+            products = await asyncio.gather(*tasks, return_exceptions=True)
+            return {
+                "total_size": total_size,
+                "page": page,
+                "page_size": page_size,
+                "products": [Product.from_dict(product) for product in products if isinstance(product, dict)],
+                "last_page": page_size * page >= total_size,
+            }
 
     async def checkout(self, products: List[CartProduct]):
         pass

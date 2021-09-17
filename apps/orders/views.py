@@ -1,6 +1,5 @@
 import asyncio
 import operator
-from decimal import Decimal, InvalidOperation
 from functools import reduce
 from typing import List
 
@@ -175,9 +174,9 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
         try:
             page = int(page)
             vendors = vendors.split(",") if vendors else None
-            min_price = Decimal(min_price)
-            max_price = Decimal(max_price)
-        except (ValueError, InvalidOperation):
+            min_price = int(min_price)
+            max_price = int(max_price)
+        except ValueError:
             return Response({"message": msgs.SEARCH_PRODUCT_WRONG_PARAMETER}, status=HTTP_400_BAD_REQUEST)
 
         session = apps.get_app_config("accounts").session
@@ -195,7 +194,7 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
                 password=office_vendor.password,
                 vendor_id=office_vendor.vendor.id,
             )
-            tasks.append(scraper.search_products(query=q, page=page))
+            tasks.append(scraper.search_products(query=q, page=page, min_price=min_price, max_price=max_price))
 
         scrapers_products = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -206,11 +205,6 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
             for product in scraper_products
             if isinstance(product, ProductDataClass)
         ]
-
-        if max_price:
-            products = [product for product in products if product.price and product.price < max_price]
-        if min_price:
-            products = [product for product in products if product.price and product.price > min_price]
 
         data = [product.to_dict() for product in products]
 

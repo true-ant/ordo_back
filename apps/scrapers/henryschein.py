@@ -2,14 +2,13 @@ import asyncio
 import json
 import re
 from datetime import datetime
-from typing import List
 
 from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product
-from apps.types.scraper import LoginInformation
+from apps.types.scraper import LoginInformation, ProductSearch
 
 HEADERS = {
     "authority": "www.henryschein.com",
@@ -156,13 +155,22 @@ class HenryScheinScraper(Scraper):
             tasks = (self.get_order(order_dom) for order_dom in orders_dom)
             return await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def search_products(self, query: str, page: int = 1, per_page: int = 30) -> List[Product]:
+    async def _search_products(
+        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
+    ) -> ProductSearch:
         await self.login()
         url = f"{self.BASE_URL}/us-en/Search.aspx"
+        page_size = 25
         params = {"searchkeyWord": query, "pagenumber": page}
+
         async with self.session.get(url, headers=SEARCH_HEADERS, params=params) as resp:
             response_dom = Selector(text=await resp.text())
 
+        total_size_str = response_dom.xpath(".//span[@class='result-count']/text()").extract_first()
+        try:
+            total_size = int(total_size_str)
+        except ValueError:
+            total_size = 0
         products = []
         for product_dom in response_dom.css("section.product-listing ol.products > li.product > .title"):
             product_detail = product_dom.xpath(".//script[@type='application/ld+json']//text()").extract_first()
@@ -182,4 +190,10 @@ class HenryScheinScraper(Scraper):
                 )
             )
 
-        return products
+        return {
+            "total_size": total_size,
+            "page": page,
+            "page_size": page_size,
+            "products": products,
+            "last_page": page_size * page >= total_size,
+        }

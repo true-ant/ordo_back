@@ -4,7 +4,7 @@ from typing import Optional
 from aiohttp import ClientResponse, ClientSession
 
 from apps.scrapers.errors import VendorAuthenticationFailed
-from apps.types.scraper import LoginInformation
+from apps.types.scraper import LoginInformation, ProductSearch
 
 
 class Scraper:
@@ -55,3 +55,41 @@ class Scraper:
 
     def merge_strip_values(self, dom, xpath, delimeter=""):
         return delimeter.join(filter(None, map(str.strip, dom.xpath(xpath).extract())))
+
+    async def _search_products(
+        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
+    ) -> ProductSearch:
+        pass
+
+    async def search_products(
+        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
+    ) -> ProductSearch:
+        res_products = []
+        page_size = 0
+
+        while True:
+            product_search = await self._search_products(query, page, min_price=min_price, max_price=max_price)
+            if not page_size:
+                page_size = product_search["page_size"]
+
+            total_size = product_search["total_size"]
+            products = product_search["products"]
+            last_page = product_search["last_page"]
+            if max_price:
+                products = [product for product in products if product.price and product.price < max_price]
+            if min_price:
+                products = [product for product in products if product.price and product.price > min_price]
+
+            res_products.extend(products)
+
+            if len(res_products) > 10 or last_page:
+                break
+            page += 1
+
+        return {
+            "total_size": total_size,
+            "page": page,
+            "page_size": page_size,
+            "products": res_products,
+            "last_page": last_page,
+        }

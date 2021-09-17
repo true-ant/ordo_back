@@ -8,7 +8,7 @@ from apps.scrapers.base import Scraper
 from apps.scrapers.errors import OrderFetchException
 from apps.scrapers.schema import Order, Product
 from apps.types.orders import CartProduct
-from apps.types.scraper import LoginInformation
+from apps.types.scraper import LoginInformation, ProductSearch
 
 HEADERS = {
     "Connection": "keep-alive",
@@ -195,15 +195,26 @@ class Net32Scraper(Scraper):
         except KeyError:
             raise OrderFetchException()
 
-    async def search_products(self, query: str, page: int = 1, per_page: int = 30) -> List[Product]:
+    async def _search_products(
+        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
+    ) -> ProductSearch:
         url = f"{self.BASE_URL}/search"
+        page_size = 60
         params = {
             "q": query,
             "page": page,
         }
+        if min_price:
+            params["filter.price.low"] = min_price
+        if max_price:
+            params["filter.price.high"] = max_price
+
         async with self.session.get(url, headers=SEARCH_HEADERS, params=params) as resp:
             response_dom = Selector(text=await resp.text())
 
+            total_size = int(
+                response_dom.xpath("//p[@class='localsearch-result-summary-paragraph']/strong/text()").get()
+            )
             products = []
             products_dom = response_dom.xpath(
                 "//div[@class='localsearch-results-container']//div[contains(@class, 'localsearch-result-wrapper')]"
@@ -235,7 +246,13 @@ class Net32Scraper(Scraper):
                     )
                 )
 
-            return products
+            return {
+                "total_size": total_size,
+                "page": page,
+                "page_size": page_size,
+                "products": products,
+                "last_page": page_size * page >= total_size,
+            }
 
     async def checkout(self, products: List[CartProduct]):
         await self.login()
@@ -250,4 +267,4 @@ class Net32Scraper(Scraper):
         await self.session.get("https://www.net32.com/checkout", headers=REVIEW_CHECKOUT_HEADERS)
 
         # Place Order
-        await self.session.post("https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS)
+        # await self.session.post("https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS)
