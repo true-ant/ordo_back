@@ -61,10 +61,10 @@ class OrderViewSet(ModelViewSet):
 class VendorOrderProductViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = m.VendorOrderProduct.objects.all()
-    serializer_class = s.VendorOrderSerializer
+    serializer_class = s.VendorOrderProductSerializer
 
     def get_queryset(self):
-        return super().get_queryset().filter(order__office__id=self.kwargs["office_pk"])
+        return super().get_queryset().filter(vendor_order__order__office__id=self.kwargs["office_pk"])
 
 
 class CompanyOrderAPIView(APIView, StandardResultsSetPagination):
