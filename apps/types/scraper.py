@@ -10,6 +10,7 @@ class LoginInformation(TypedDict):
 
 
 class ProductSearch(TypedDict):
+    vendor_slug: str
     total_size: int
     page: int
     page_size: int

@@ -37,7 +37,7 @@ class ScraperFactory:
         if scraper_name not in SCRAPERS:
             raise VendorNotSupported(scraper_name)
 
-        return SCRAPERS[scraper_name](session, username, password, vendor_id)
+        return SCRAPERS[scraper_name](session, scraper_name, username, password, vendor_id)
 
 
 async def main():

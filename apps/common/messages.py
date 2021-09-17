@@ -16,6 +16,7 @@ VENDOR_IMPOSSIBLE_LINK = "Vendor can be linked once you complete the onboarding 
 SEARCH_QUERY_LIMIT = "Search query string must be longer than 3 charaters"
 SEARCH_PAGE_NUMBER_INCORRECT = "Page number is incorrect"
 SEARCH_PRODUCT_WRONG_PARAMETER = "Parameter is wrong"
+NO_SEARCH_PRODUCT_RESULT = "No result"
 
 # Order
 ORDER_IN_PROGRESS = "Another user is checking out an order for now. Please try"

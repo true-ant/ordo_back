@@ -11,11 +11,13 @@ class Scraper:
     def __init__(
         self,
         session: ClientSession,
+        vendor_slug: str,
         username: Optional[str] = None,
         password: Optional[str] = None,
         vendor_id: Optional[int] = None,
     ):
         self.session = session
+        self.vendor_slug = vendor_slug
         self.username = username
         self.password = password
         self.vendor_id = vendor_id
@@ -87,6 +89,7 @@ class Scraper:
             page += 1
 
         return {
+            "vendor_slug": self.vendor_slug,
             "total_size": total_size,
             "page": page,
             "page_size": page_size,

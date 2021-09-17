@@ -21,7 +21,6 @@ from apps.accounts.models import Company, CompanyMember, Office, OfficeVendor
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
 from apps.common.pagination import StandardResultsSetPagination
-from apps.scrapers.schema import Product as ProductDataClass
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import CartProduct, LinkedVendor
 
@@ -161,32 +160,37 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
         #     for office_vendor in office_vendors
         # ]
 
-    @action(detail=False, methods=["get"], url_path="search")
+    @action(detail=False, methods=["post"], url_path="search")
     async def search_product(self, request, *args, **kwargs):
-        q = request.query_params.get("q", "")
-        page = request.query_params.get("page", 1)
-        vendors = request.query_params.get("vendors")
-        min_price = request.query_params.get("min_price", 0)
-        max_price = request.query_params.get("max_price", 0)
+        data = request.data
+
+        q = data.get("q", "")
+        pagination_meta = data.get("meta", {})
+        min_price = data.get("min_price", 0)
+        max_price = data.get("max_price", 0)
+
+        if pagination_meta.get("last_page", False):
+            return Response({"message": msgs.NO_SEARCH_PRODUCT_RESULT}, status=HTTP_400_BAD_REQUEST)
 
         if len(q) <= 3:
             return Response({"message": msgs.SEARCH_QUERY_LIMIT}, status=HTTP_400_BAD_REQUEST)
         try:
-            page = int(page)
-            vendors = vendors.split(",") if vendors else None
             min_price = int(min_price)
             max_price = int(max_price)
         except ValueError:
             return Response({"message": msgs.SEARCH_PRODUCT_WRONG_PARAMETER}, status=HTTP_400_BAD_REQUEST)
 
+        vendors_meta = {vendor_meta["vendor"]: vendor_meta for vendor_meta in pagination_meta.get("vendors", [])}
         session = apps.get_app_config("accounts").session
         office_vendors = await self._get_linked_vendors(request)
         tasks = []
         for office_vendor in office_vendors:
             vendor_slug = office_vendor.vendor.slug
-            if vendors and vendor_slug not in vendors:
+            if vendors_meta.keys() and vendor_slug not in vendors_meta.keys():
                 continue
 
+            if vendors_meta.get(vendor_slug, {}).get("last_page", False):
+                continue
             scraper = ScraperFactory.create_scraper(
                 scraper_name=vendor_slug,
                 session=session,
@@ -194,21 +198,28 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
                 password=office_vendor.password,
                 vendor_id=office_vendor.vendor.id,
             )
-            tasks.append(scraper.search_products(query=q, page=page, min_price=min_price, max_price=max_price))
+            current_page = vendors_meta.get(vendor_slug, {}).get("page", 0)
+            tasks.append(
+                scraper.search_products(query=q, page=current_page + 1, min_price=min_price, max_price=max_price)
+            )
 
-        scrapers_products = await asyncio.gather(*tasks, return_exceptions=True)
+        search_results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # filter
-        products = [
-            product
-            for scraper_products in scrapers_products
-            for product in scraper_products
-            if isinstance(product, ProductDataClass)
-        ]
+        products = [product.to_dict() for search_result in search_results for product in search_result["products"]]
+        meta = {
+            "vendors": [
+                {
+                    "vendor": search_result["vendor_slug"],
+                    "page": search_result["page"],
+                    "last_page": search_result["last_page"],
+                }
+                for search_result in search_results
+            ],
+            "last_page": all([search_result["last_page"] for search_result in search_results]),
+        }
 
-        data = [product.to_dict() for product in products]
-
-        return Response(data)
+        return Response({"meta": meta, "products": products})
 
 
 class CartViewSet(AsyncMixin, ModelViewSet):
