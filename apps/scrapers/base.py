@@ -58,6 +58,11 @@ class Scraper:
     def merge_strip_values(self, dom, xpath, delimeter=""):
         return delimeter.join(filter(None, map(str.strip, dom.xpath(xpath).extract())))
 
+    def remove_thousands_separator(self, value):
+        value = value.replace(" ", "")
+        value = value.replace(",", "")
+        return value
+
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
     ) -> ProductSearch:
