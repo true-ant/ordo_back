@@ -61,6 +61,7 @@ class VendorOrderProductViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = m.VendorOrderProduct.objects.all()
     serializer_class = s.VendorOrderProductSerializer
+    filterset_class = f.VendorOrderProductFilter
 
     def get_queryset(self):
         return super().get_queryset().filter(vendor_order__order__office__id=self.kwargs["office_pk"])

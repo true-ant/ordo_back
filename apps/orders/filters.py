@@ -1,6 +1,6 @@
 from django_filters import rest_framework as filters
 
-from .models import Order
+from .models import Order, VendorOrderProduct
 
 
 class OrderFilter(filters.FilterSet):
@@ -10,3 +10,11 @@ class OrderFilter(filters.FilterSet):
     class Meta:
         model = Order
         fields = ["start_date", "end_date", "status"]
+
+
+class VendorOrderProductFilter(filters.FilterSet):
+    product_name = filters.CharFilter(field_name="product__name", lookup_expr="icontains")
+
+    class Meta:
+        model = VendorOrderProduct
+        fields = ["product_name"]
