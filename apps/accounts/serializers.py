@@ -129,7 +129,7 @@ class CompanyMemberInviteSerializer(serializers.Serializer):
             m.User.Role.USER,
         )
     )
-    office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), required=False)
+    office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), required=False, allow_null=True)
     email = serializers.EmailField()
 
 
