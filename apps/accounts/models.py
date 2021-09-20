@@ -131,6 +131,7 @@ class CompanyMember(TimeStampedModel):
     is_active = models.BooleanField(default=True)
 
     objects = managers.CompanyMemeberActiveManager()
+    alls = managers.Manager()
 
     def regenerate_token(self):
         self.key = generate_token()

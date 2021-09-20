@@ -177,7 +177,9 @@ class CompanyMemberViewSet(ModelViewSet):
             company.on_boarding_step = serializer.validated_data["on_boarding_step"]
             company.save()
             users = m.User.objects.in_bulk(emails, field_name="username")
-            members = (
+            m.CompanyMember.alls.filter(is_active=False, email__in=emails).delete()
+
+            members = [
                 m.CompanyMember(
                     company_id=kwargs["company_pk"],
                     office=member.get("office", None),
@@ -187,7 +189,7 @@ class CompanyMemberViewSet(ModelViewSet):
                     token_expires_at=timezone.now() + timedelta(m.INVITE_EXPIRES_DAYS),
                 )
                 for member in serializer.validated_data["members"]
-            )
+            ]
             try:
                 m.CompanyMember.objects.bulk_create(members)
             except IntegrityError:
