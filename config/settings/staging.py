@@ -1,6 +1,11 @@
 from .base import *  # noqa
 
-EMAIL_BACKEND = "django_ses.SESBackend"
+EMAIL_HOST = "smtp.mailgun.org"
+EMAIL_PORT = 587
+EMAIL_HOST_USER = EMAIL_HOST_USER  # noqa
+EMAIL_HOST_PASSWORD = EMAIL_HOST_PASSWORD  # noqa
+EMAIL_USE_TLS = True
+
 ALLOWED_HOSTS = [
     "ordo-backend-dev.us-east-1.elasticbeanstalk.com",
     "api.staging.joinordo.com",

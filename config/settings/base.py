@@ -157,7 +157,9 @@ AUTH_USER_MODEL = "accounts.User"
 STAGE = os.environ.get("STAGE")
 
 # Email Settings
-DEFAULT_FROM_EMAIL = "noreply@joinordo.com"
+DEFAULT_FROM_EMAIL = "hello@joinordo.com"
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
 
 # Frontend Settings
 SITE_URL = os.getenv("SITE_URL", "http://localhost:8000")
