@@ -82,6 +82,12 @@ class CartSerializer(serializers.ModelSerializer):
                     setattr(product, k, v)
                 product.save()
             except m.Product.DoesNotExist:
+                images = product_data.pop("images", [])
                 product = m.Product.objects.create(vendor=vendor, product_id=product_id, **product_data)
+                product_images_objs = []
+                for image in images:
+                    product_images_objs.append(m.ProductImage(product=product, image=image))
+                if images:
+                    m.ProductImage.objects.bulk_create(product_images_objs)
 
             return m.Cart.objects.create(product=product, **validated_data)

@@ -246,7 +246,7 @@ class BencoScraper(Scraper):
                                     + product_row.xpath(
                                         ".//div[contains(@class, 'product-details')]/strong/a/@href"
                                     ).get(),
-                                    "image": product_row.xpath(".//img/@src").get(),
+                                    "images": [{"image": product_row.xpath(".//img/@src").get()}],
                                     "price": other_details[2].split(":")[1],
                                     "retail_price": "",
                                     "vendor_id": self.vendor_id,
@@ -319,7 +319,11 @@ class BencoScraper(Scraper):
                         product_dom,
                         "./div[contains(@class, 'product-data-area')]/div[contains(@class, 'title')]//a/@href",
                     ),
-                    "image": product_dom.xpath("./div[contains(@class, 'product-image-area')]/img/@src").get(),
+                    "images": [
+                        {
+                            "image": product_dom.xpath("./div[contains(@class, 'product-image-area')]/img/@src").get(),
+                        }
+                    ],
                     "price": "",
                     "retail_price": "",
                     "vendor_id": self.vendor_id,
@@ -340,6 +344,7 @@ class BencoScraper(Scraper):
                 products[product_id]["price"] = row_dom.xpath("//h4[@class='selling-price']").attrib["content"]
 
         return {
+            "vendor_slug": self.vendor_slug,
             "total_size": total_size,
             "page": page,
             "page_size": page_size,

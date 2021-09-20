@@ -150,25 +150,23 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
     queryset = m.Product.objects.all()
 
     @sync_to_async
-    def _get_linked_vendors(self, request) -> List[LinkedVendor]:
-        company_member = CompanyMember.objects.filter(user=request.user).first()
-        office_vendors = OfficeVendor.objects.select_related("vendor").filter(office__company=company_member.company)
-        return list(office_vendors)
-        # return [
-        #     LinkedVendor(
-        #         vendor=office_vendor.vendor.slug, username=office_vendor.username, password=office_vendor.password
-        #     )
-        #     for office_vendor in office_vendors
-        # ]
+    def _get_linked_vendors(self, request, office_id) -> List[LinkedVendor]:
+        CompanyMember.objects.filter(user=request.user).first()
+        # TODO: Check permission
+        # office_vendors = OfficeVendor.objects.select_related("vendor").filter(office__company=company_member.company)
+        return list(OfficeVendor.objects.select_related("vendor").filter(office_id=office_id))
 
     @action(detail=False, methods=["post"], url_path="search")
     async def search_product(self, request, *args, **kwargs):
         data = request.data
-
+        office_id = data.get("office_id", "")
         q = data.get("q", "")
         pagination_meta = data.get("meta", {})
         min_price = data.get("min_price", 0)
         max_price = data.get("max_price", 0)
+
+        if not office_id:
+            return Response({"message": msgs.OFFICE_ID_MISSING}, status=HTTP_400_BAD_REQUEST)
 
         if pagination_meta.get("last_page", False):
             return Response({"message": msgs.NO_SEARCH_PRODUCT_RESULT}, status=HTTP_400_BAD_REQUEST)
@@ -183,7 +181,7 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
 
         vendors_meta = {vendor_meta["vendor"]: vendor_meta for vendor_meta in pagination_meta.get("vendors", [])}
         session = apps.get_app_config("accounts").session
-        office_vendors = await self._get_linked_vendors(request)
+        office_vendors = await self._get_linked_vendors(request, office_id)
         tasks = []
         for office_vendor in office_vendors:
             vendor_slug = office_vendor.vendor.slug
@@ -209,6 +207,7 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
         # filter
         products = [product.to_dict() for search_result in search_results for product in search_result["products"]]
         meta = {
+            "total_size": sum([search_result["total_size"] for search_result in search_results]),
             "vendors": [
                 {
                     "vendor": search_result["vendor_slug"],

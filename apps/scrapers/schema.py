@@ -51,12 +51,17 @@ class BaseDataClass:
 
 
 @dataclass(frozen=True)
+class ProductImage(BaseDataClass):
+    image: str
+
+
+@dataclass(frozen=True)
 class Product(BaseDataClass):
     product_id: str
     name: str
     description: str
     url: str
-    image: str
+    images: List[ProductImage]
     price: Decimal  # Decimal
     retail_price: str  # Decimal
     vendor_id: str

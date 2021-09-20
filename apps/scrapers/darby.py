@@ -191,7 +191,11 @@ class DarbyScraper(Scraper):
                             "name": self.extract_first(product_dom, ".//div[@class='prod-title']//text()"),
                             "description": "",
                             "url": self.BASE_URL + self.extract_first(product_dom, ".//a[@href]/@href"),
-                            "image": self.extract_first(product_dom, ".//img[@class='card-img-top']/@src"),
+                            "images": [
+                                {
+                                    "image": self.extract_first(product_dom, ".//img[@class='card-img-top']/@src"),
+                                }
+                            ],
                             "price": price,
                             "retail_price": price,
                             "vendor_id": self.vendor_id,
@@ -199,6 +203,7 @@ class DarbyScraper(Scraper):
                     )
                 )
         return {
+            "vendor_slug": self.vendor_slug,
             "total_size": total_size,
             "page": page,
             "page_size": page_size,
