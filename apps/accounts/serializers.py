@@ -43,7 +43,7 @@ class OfficeSerializer(serializers.ModelSerializer):
     logo = Base64ImageField()
     vendors = VendorSerializer(many=True, required=False)
     cc_number = serializers.CharField(validators=[CCNumberValidator()])
-    cc_expiry = serializers.DateField(validators=[ExpiryDateValidator()], input_formats=["%m/%y"])
+    cc_expiry = serializers.DateField(validators=[ExpiryDateValidator()], input_formats=["%m/%y"], format="%m/%y")
     cc_code = serializers.CharField(validators=[CSCValidator()])
     budget = OfficeBudgetSerializer()
 
@@ -129,7 +129,7 @@ class CompanyMemberInviteSerializer(serializers.Serializer):
             m.User.Role.USER,
         )
     )
-    office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), required=False, allow_null=True)
+    office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), required=False)
     email = serializers.EmailField()
 
 
