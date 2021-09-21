@@ -60,7 +60,6 @@ class Office(TimeStampedModel):
 
     # Basic Information
     name = models.CharField(max_length=100)
-    address = models.CharField(max_length=100, null=True, blank=True)
     postal_code = models.CharField(max_length=100, null=True, blank=True)
     phone_number = models.CharField(max_length=25, null=True, blank=True)
     website = models.CharField(max_length=100, null=True, blank=True)
@@ -82,6 +81,19 @@ class Office(TimeStampedModel):
         return self.budgets.filter(month=month).first()
 
 
+class OfficeAddress(TimeStampedModel):
+    class AddressType(models.TextChoices):
+        ADDRESS = "address", "Address"
+        BILLING_ADDRESS = "billing", "Billing Address"
+
+    office = FlexibleForeignKey(Office, related_name="addresses")
+    address_type = models.CharField(max_length=10, choices=AddressType.choices, default=AddressType.ADDRESS)
+    address = models.CharField(max_length=100)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100)
+    zip_code = models.CharField(max_length=100)
+
+
 class OfficeBudget(TimeStampedModel):
     class BudgetType(models.TextChoices):
         PRODUCTION = "production", "Adjusted Production"
@@ -89,10 +101,11 @@ class OfficeBudget(TimeStampedModel):
 
     office = FlexibleForeignKey(Office, related_name="budgets")
     budget_type = models.CharField(max_length=10, choices=BudgetType.choices, default=BudgetType.PRODUCTION)
+    total_budget = models.DecimalField(max_digits=5, decimal_places=2)
     percentage = models.DecimalField(max_digits=5, decimal_places=2)
     budget = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     spend = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    month = MonthField(auto_now_add=True)
+    month = MonthField()
 
     class Meta:
         ordering = ("-month",)

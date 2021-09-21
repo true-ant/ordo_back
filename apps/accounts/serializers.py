@@ -36,9 +36,16 @@ class OfficeBudgetSerializer(serializers.ModelSerializer):
         exclude = ("created_at", "updated_at")
 
 
+class OfficeAddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.OfficeAddress
+        exclude = ("office",)
+
+
 class OfficeSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
     company = serializers.PrimaryKeyRelatedField(queryset=m.Company.objects.all(), required=False)
+    addresses = OfficeAddressSerializer(many=True, required=False)
     phone_number = serializers.CharField()
     logo = Base64ImageField()
     vendors = VendorSerializer(many=True, required=False)
@@ -65,20 +72,40 @@ class CompanySerializer(serializers.ModelSerializer):
         model = m.Company
         fields = "__all__"
 
+    def _create_or_update_office(self, company, **kwargs):
+        office_id = kwargs.pop("id", None)
+        addresses = kwargs.pop("addresses", [])
+        if office_id:
+            office = m.Office.objects.get(id=office_id, company=company)
+            for key, value in kwargs.items():
+                setattr(office, key, value)
+            office.save()
+        else:
+            office = m.Office.objects.create(
+                company=company,
+                name=kwargs["name"],
+                phone_number=kwargs["phone_number"],
+                website=kwargs["website"],
+            )
+
+        for address in addresses:
+            address_id = address.pop("id", [])
+            if address_id:
+                office_address = m.OfficeAddress.objects.get(id=address_id)
+                for key, value in address.items():
+                    setattr(office_address, key, value)
+                office_address.save()
+            else:
+                m.OfficeAddress.objects.create(office=office, **address)
+        return office
+
     def create(self, validated_data):
         offices = validated_data.pop("offices", None)
         with transaction.atomic():
             company = m.Company.objects.create(**validated_data)
-            offices = [
-                m.Office(
-                    company=company,
-                    name=office["name"],
-                    address=office["address"],
-                    phone_number=office["phone_number"],
-                    website=office["website"],
-                )
-                for office in offices
-            ]
+            for office in offices:
+                self._create_or_update_office(company, **office)
+
             m.Office.objects.bulk_create(offices)
         return company
 
@@ -95,14 +122,7 @@ class CompanySerializer(serializers.ModelSerializer):
                 instance.save()
 
             for office in offices:
-                office_id = office.pop("id", None)
-                if office_id:
-                    office_obj = m.Office.objects.get(id=office_id, company=instance)
-                    for key, value in office.items():
-                        setattr(office_obj, key, value)
-                    office_obj.save()
-                else:
-                    m.Office.objects.create(company=instance, **office)
+                self._create_or_update_office(instance, **office)
 
         return instance
 
@@ -129,7 +149,9 @@ class CompanyMemberInviteSerializer(serializers.Serializer):
             m.User.Role.USER,
         )
     )
-    office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), required=False)
+    offices = serializers.ListField(
+        child=serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), required=False)
+    )
     email = serializers.EmailField()
 
 

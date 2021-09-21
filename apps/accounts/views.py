@@ -179,17 +179,34 @@ class CompanyMemberViewSet(ModelViewSet):
             users = m.User.objects.in_bulk(emails, field_name="username")
             m.CompanyMember.alls.filter(is_active=False, email__in=emails).delete()
 
-            members = [
-                m.CompanyMember(
-                    company_id=kwargs["company_pk"],
-                    office=member.get("office", None),
-                    email=member["email"],
-                    role=member["role"],
-                    user=users.get(member["email"], None),
-                    token_expires_at=timezone.now() + timedelta(m.INVITE_EXPIRES_DAYS),
-                )
-                for member in serializer.validated_data["members"]
-            ]
+            members = []
+            for member in serializer.validated_data["members"]:
+                offices = member.get("offices", [])
+                for i, office in enumerate(offices):
+                    members.append(
+                        m.CompanyMember(
+                            company_id=kwargs["company_pk"],
+                            office=office,
+                            email=member["email"],
+                            role=member["role"],
+                            user=users.get(member["email"], None),
+                            token_expires_at=timezone.now() + timedelta(m.INVITE_EXPIRES_DAYS),
+                        )
+                    )
+                    if i == len(offices) - 1:
+                        break
+                else:
+                    members.append(
+                        m.CompanyMember(
+                            company_id=kwargs["company_pk"],
+                            office=None,
+                            email=member["email"],
+                            role=member["role"],
+                            user=users.get(member["email"], None),
+                            token_expires_at=timezone.now() + timedelta(m.INVITE_EXPIRES_DAYS),
+                        )
+                    )
+
             try:
                 m.CompanyMember.objects.bulk_create(members)
             except IntegrityError:
@@ -354,7 +371,9 @@ class OfficeBudgetViewSet(ModelViewSet):
             company.on_boarding_step = on_boarding_step
             company.save()
 
+        now_date = timezone.now().date()
         request.data.setdefault("office", self.kwargs["office_pk"])
+        request.data.setdefault("month", now_date)
         return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
