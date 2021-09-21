@@ -234,10 +234,14 @@ class Net32Scraper(Scraper):
                             ),
                             "url": self.BASE_URL
                             + self.extract_first(product_dom, ".//a[@class='localsearch-result-product-name']/@href"),
-                            "image": self.BASE_URL
-                            + self.extract_first(
-                                product_dom, ".//img[@class='localsearch-result-product-thumbnail']/@src"
-                            ),
+                            "images": [
+                                {
+                                    "image": self.BASE_URL
+                                    + self.extract_first(
+                                        product_dom, ".//img[@class='localsearch-result-product-thumbnail']/@src"
+                                    )
+                                }
+                            ],
                             "price": self.extract_first(
                                 product_dom, ".//ins[@class='localsearch-result-best-price']//text()"
                             ),
@@ -248,6 +252,7 @@ class Net32Scraper(Scraper):
                 )
 
             return {
+                "vendor_slug": self.vendor_slug,
                 "total_size": total_size,
                 "page": page,
                 "page_size": page_size,

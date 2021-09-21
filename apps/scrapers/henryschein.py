@@ -131,7 +131,7 @@ class HenryScheinScraper(Scraper):
                 "name": product_detail["name"],
                 "description": product_detail["description"],
                 "url": product_detail["url"],
-                "image": product_detail["image"],
+                "images": [{"image": product_detail["image"]}],
                 # "price": product_detail["price"],
                 # "retail_price": product_detail["price"],
                 # stars
@@ -191,6 +191,7 @@ class HenryScheinScraper(Scraper):
             )
 
         return {
+            "vendor_slug": self.vendor_slug,
             "total_size": total_size,
             "page": page,
             "page_size": page_size,

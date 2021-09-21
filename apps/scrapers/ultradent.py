@@ -1,8 +1,10 @@
 import asyncio
 
 from aiohttp import ClientResponse
+from asgiref.sync import sync_to_async
 from scrapy import Selector
 
+from apps.orders.models import Product
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order
 from apps.types.scraper import LoginInformation, ProductSearch
@@ -40,6 +42,42 @@ ORDER_HEADERS = {
     "referer": "https://www.ultradent.com/account/order-history",
     "accept-language": "en-US,en;q=0.9",
 }
+
+SEARCH_HEADERS = {
+    "authority": "www.ultradent.com",
+    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
+    "accept": "*/*",
+    "content-type": "application/json",
+    "sec-ch-ua-mobile": "?0",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36",
+    "sec-ch-ua-platform": '"Windows"',
+    "origin": "https://www.ultradent.com",
+    "sec-fetch-site": "same-origin",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-dest": "empty",
+    "referer": "https://www.ultradent.com/checkout",
+    "accept-language": "en-US,en;q=0.9,ko;q=0.8",
+}
+SEARCH_VARIABLE = {"includeAllSkus": True, "withImages": False}
+SEARCH_QUERY = """
+  query Catalog($includeAllSkus: Boolean = true, $withImages: Boolean = false) {
+    allProducts(includeAllSkus: $includeAllSkus) {
+      sku
+      brandName
+      productName
+      productFamily
+      kitName
+      url
+      isOrderable
+      images @include(if: $withImages) {
+        source
+        __typename
+      }
+      __typename
+    }
+  }
+"""
 
 
 class UltraDentScraper(Scraper):
@@ -169,7 +207,34 @@ class UltraDentScraper(Scraper):
             tasks = (self.get_order(order_data) for order_data in orders_data)
             return await asyncio.gather(*tasks, return_exceptions=True)
 
+    @sync_to_async
+    def get_page_queryset(self, page, page_size):
+        products = Product.objects.filter(vendor_id=self.vendor_id)
+        total_size = products.count()
+        if (page - 1) * page_size < total_size:
+            page_products = products[(page - 1) * page_size : page * page_size]
+            page_products = [product.to_dataclass() for product in page_products]
+        else:
+            page_products = []
+        return total_size, page_products
+
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
     ) -> ProductSearch:
-        pass
+
+        # async with self.session.post("https://www.ultradent.com/api/ecommerce", headers=SEARCH_HEADERS, json={""})
+        # response = requests.post('https://www.ultradent.com/api/ecommerce', headers=headers,
+        #                          json={'query': query, 'variables': variables})
+        # products = response.json()["data"]["allProducts"]
+        page_size = 30
+        total_size, page_products = await self.get_page_queryset(page, page_size)
+        last_page = page_size * page >= total_size
+
+        return {
+            "vendor_slug": self.vendor_slug,
+            "total_size": total_size,
+            "page": page,
+            "page_size": page_size,
+            "products": page_products,
+            "last_page": last_page,
+        }

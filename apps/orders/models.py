@@ -2,6 +2,8 @@ from django.db import models
 
 from apps.accounts.models import Office, OfficeVendor, User, Vendor
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
+from apps.scrapers.schema import Product as ProductDataClass
+from apps.scrapers.schema import ProductImage as ProductImageDataClass
 
 
 class Product(TimeStampedModel):
@@ -9,8 +11,7 @@ class Product(TimeStampedModel):
     product_id = models.CharField(max_length=100)
     name = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
-    url = models.URLField(null=True, blank=True)
-    image = models.URLField(null=True, blank=True)
+    url = models.URLField(null=True, blank=True, max_length=300)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     retail_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     # stars: Decimal
@@ -19,6 +20,23 @@ class Product(TimeStampedModel):
     @classmethod
     def from_dataclass(cls, vendor, dict_data):
         return cls.objects.create(vendor=vendor, **dict_data)
+
+    def to_dataclass(self):
+        return ProductDataClass(
+            product_id=self.product_id,
+            name=self.name,
+            description=self.description,
+            url=self.url,
+            images=[ProductImageDataClass(image=image.image) for image in self.images.all()],
+            price=self.price,
+            retail_price=self.retail_price,
+            vendor_id=self.vendor.id,
+        )
+
+
+class ProductImage(TimeStampedModel):
+    product = FlexibleForeignKey(Product, related_name="images")
+    image = models.URLField(max_length=300)
 
 
 class OrderStatus(models.IntegerChoices):

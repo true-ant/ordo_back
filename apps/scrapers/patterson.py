@@ -166,7 +166,13 @@ class PattersonScraper(Scraper):
                 product_description_dom,
                 ".//a[@class='itemTitleDescription']/@href",
             ),
-            "image": self.extract_first(product_dom, ".//div[contains(@class, 'listViewImageWrapper')]/img/@src"),
+            "images": [
+                {
+                    "image": self.extract_first(
+                        product_dom, ".//div[contains(@class, 'listViewImageWrapper')]/img/@src"
+                    ),
+                }
+            ],
             "price": price_high,
             "retail_price": "",
             "vendor_id": self.vendor_id,
@@ -201,6 +207,7 @@ class PattersonScraper(Scraper):
             tasks = (self.get_product(product_dom) for product_dom in products_dom)
             products = await asyncio.gather(*tasks, return_exceptions=True)
             return {
+                "vendor_slug": self.vendor_slug,
                 "total_size": total_size,
                 "page": page,
                 "page_size": page_size,
