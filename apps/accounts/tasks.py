@@ -33,8 +33,7 @@ def send_forgot_password_mail(user_id, token):
     htm_content = render_to_string(
         "emails/reset_password.html",
         {
-            "USER": user,
-            "SECRET": token,
+            "TOKEN": token,
             "SITE_URL": settings.SITE_URL,
         },
     )
@@ -62,6 +61,7 @@ def send_company_invite_email(company_email_invites: List[CompanyInvite]):
         htm_content = render_to_string(
             "emails/invite.html",
             {
+                "COMPANY_NAME": company_member.company.name,
                 "TOKEN": company_member.token,
                 "SITE_URL": settings.SITE_URL,
             },
