@@ -17,6 +17,9 @@ class Product(TimeStampedModel):
     # stars: Decimal
     # ratings: Decimal
 
+    def __str__(self):
+        return self.name
+
     @classmethod
     def from_dataclass(cls, vendor, dict_data):
         return cls.objects.create(vendor=vendor, **dict_data)
