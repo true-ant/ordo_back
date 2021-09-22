@@ -171,6 +171,7 @@ class CompanyMemberUpdateSerializer(serializers.Serializer):
 
 class OfficeVendorSerializer(serializers.ModelSerializer):
     office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), allow_null=True)
+    password = serializers.CharField(required=False)
 
     class Meta:
         model = m.OfficeVendor
@@ -182,7 +183,10 @@ class OfficeVendorListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = m.OfficeVendor
-        exclude = ("office",)
+        exclude = (
+            "office",
+            "password",
+        )
 
 
 class UserSerializer(serializers.ModelSerializer):

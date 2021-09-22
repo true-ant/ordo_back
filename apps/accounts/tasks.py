@@ -14,7 +14,13 @@ from django.db.models import Q
 from django.template.loader import render_to_string
 
 from apps.accounts.models import CompanyMember, Office, OfficeVendor, User
-from apps.orders.models import Order, Product, VendorOrder, VendorOrderProduct
+from apps.orders.models import (
+    Order,
+    Product,
+    ProductImage,
+    VendorOrder,
+    VendorOrderProduct,
+)
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import CompanyInvite
 
@@ -108,7 +114,7 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
                 office = [
                     office_vendor.office
                     for office_vendor in offices_vendors
-                    if office_vendor.office.postal_code[:5] == shipping_address["postal_code"][:5]
+                    if office_vendor.office.shipping_zip_code[:5] == shipping_address["postal_code"][:5]
                 ][0]
             except (TypeError, IndexError):
                 office = office_vendor.office
@@ -121,8 +127,15 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
             )
             vendor_order = VendorOrder.from_dataclass(vendor=office_vendor.vendor, order=order, dict_data=order_data)
             for order_product_data in order_products_data:
+                print(order_product_data)
                 order_product_data["product"].pop("vendor_id")
+                order_product_images = order_product_data["product"].pop("images", [])
                 product = Product.from_dataclass(office_vendor.vendor, order_product_data["product"])
+                for order_product_image in order_product_images:
+                    ProductImage.objects.create(
+                        product=product,
+                        image=order_product_image["image"],
+                    )
                 VendorOrderProduct.objects.create(
                     vendor_order=vendor_order,
                     product=product,

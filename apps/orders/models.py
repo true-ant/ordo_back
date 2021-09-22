@@ -49,6 +49,9 @@ class Order(TimeStampedModel):
     created_by = FlexibleForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     status = models.CharField(max_length=100)
 
+    def __str__(self):
+        return f"{self.office}'s Order"
+
 
 class VendorOrder(TimeStampedModel):
     order = FlexibleForeignKey(Order, related_name="vendor_orders")

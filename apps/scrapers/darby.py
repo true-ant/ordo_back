@@ -99,10 +99,12 @@ class DarbyScraper(Scraper):
     async def get_order(self, order_dom):
         link = self.merge_strip_values(order_dom, "./td[1]/a/@href")
         order = {
-            "id": self.merge_strip_values(order_dom, "./td[1]//text()"),
+            "order_id": self.merge_strip_values(order_dom, "./td[1]//text()"),
             "total_amount": self.merge_strip_values(order_dom, ".//td[8]//text()"),
             "currency": "USD",
             "order_date": datetime.strptime(self.merge_strip_values(order_dom, ".//td[2]//text()"), "%m/%d/%Y").date(),
+            # TODO: fetch darby status
+            "status": "status",
         }
         async with self.session.get(f"{self.BASE_URL}/Scripts/{link}", headers=HEADERS) as resp:
             order_detail_response = Selector(text=await resp.text())
@@ -116,12 +118,13 @@ class DarbyScraper(Scraper):
                             "product_id": self.merge_strip_values(detail_row, "./td[1]/a//text()"),
                             "name": self.merge_strip_values(detail_row, "./td[2]//text()"),
                             "url": self.BASE_URL + self.merge_strip_values(detail_row, "./td[1]/a//@href"),
-                            "image": self.BASE_URL + self.merge_strip_values(detail_row, "./td[1]/input//@src"),
+                            "images": [
+                                {"image": self.BASE_URL + self.merge_strip_values(detail_row, "./td[1]/input//@src")}
+                            ],
                             "price": self.merge_strip_values(detail_row, "./td[4]//text()"),
                         },
                         "quantity": self.merge_strip_values(detail_row, "./td[5]//text()"),
                         "unit_price": self.merge_strip_values(detail_row, "./td[4]//text()"),
-                        # "status": status
                     }
                 )
 

@@ -60,7 +60,6 @@ class Office(TimeStampedModel):
 
     # Basic Information
     name = models.CharField(max_length=100)
-    postal_code = models.CharField(max_length=100, null=True, blank=True)
     phone_number = models.CharField(max_length=25, null=True, blank=True)
     website = models.CharField(max_length=100, null=True, blank=True)
     logo = models.ImageField(null=True, blank=True, upload_to="offices")
@@ -73,6 +72,11 @@ class Office(TimeStampedModel):
 
     def __str__(self):
         return f"{self.company} -> {self.name}"
+
+    @property
+    def shipping_zip_code(self):
+        address = self.addresses.filter(address_type="billing").first()
+        return address.zip_code if address else None
 
     @property
     def budget(self):

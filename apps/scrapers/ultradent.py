@@ -166,6 +166,8 @@ class UltraDentScraper(Scraper):
                                     order_detail, "./span[@class='sku-id']//text()"
                                 ).strip("#"),
                                 "name": self.extract_first(order_detail, "./span[@class='sku-product-name']//text()"),
+                                # TODO: get ultradent image,
+                                "images": [],
                             },
                             "quantity": self.extract_first(order_detail, "./span[@class='sku-qty']//text()"),
                             "unit_price": self.extract_first(order_detail, "./span[@class='sku-price']//text()"),
@@ -221,15 +223,9 @@ class UltraDentScraper(Scraper):
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
     ) -> ProductSearch:
-
-        # async with self.session.post("https://www.ultradent.com/api/ecommerce", headers=SEARCH_HEADERS, json={""})
-        # response = requests.post('https://www.ultradent.com/api/ecommerce', headers=headers,
-        #                          json={'query': query, 'variables': variables})
-        # products = response.json()["data"]["allProducts"]
         page_size = 30
         total_size, page_products = await self.get_page_queryset(page, page_size)
         last_page = page_size * page >= total_size
-
         return {
             "vendor_slug": self.vendor_slug,
             "total_size": total_size,

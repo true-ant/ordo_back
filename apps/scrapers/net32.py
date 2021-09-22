@@ -177,7 +177,7 @@ class Net32Scraper(Scraper):
                                         "name": line_item["mpName"],
                                         "description": line_item["description"],
                                         "url": f"{self.BASE_URL}/{line_item['detailLink']}",
-                                        "image": f"{self.BASE_URL}/media/{line_item['mediaPath']}",
+                                        "images": [{"image": f"{self.BASE_URL}/media{line_item['mediaPath']}"}],
                                         "price": line_item["oliProdPrice"],
                                         "retail_price": line_item["oliProdRetailPrice"],
                                     },

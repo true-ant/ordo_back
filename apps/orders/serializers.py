@@ -6,8 +6,15 @@ from apps.accounts.serializers import VendorSerializer
 from . import models as m
 
 
+class ProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.ProductImage
+        fields = ("image",)
+
+
 class ProductSerializer(serializers.ModelSerializer):
     vendor = serializers.PrimaryKeyRelatedField(queryset=m.Vendor.objects.all())
+    images = ProductImageSerializer(many=True)
 
     class Meta:
         model = m.Product
