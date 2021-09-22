@@ -21,6 +21,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("apps.accounts.urls")),
     path("api/", include("apps.orders.urls")),
+    path("^_nested_admin/", include("nested_admin.urls")),
     path("api/auth/login/", obtain_jwt_token),
     path(
         "api/password_reset/",

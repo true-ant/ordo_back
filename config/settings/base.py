@@ -50,6 +50,7 @@ THIRD_PARTY_APPS = [
     "django_filters",
     "phonenumber_field",
     "django_celery_beat",
+    "nested_admin",
 ]
 
 ORDO_APPS = [

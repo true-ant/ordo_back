@@ -53,7 +53,7 @@ class Order(TimeStampedModel):
     status = models.CharField(max_length=100)
 
     def __str__(self):
-        return f"{self.office}'s Order"
+        return f"{self.office.name}(#{self.pk})"
 
 
 class VendorOrder(TimeStampedModel):

@@ -71,7 +71,7 @@ class Office(TimeStampedModel):
     objects = managers.CompanyMemeberActiveManager()
 
     def __str__(self):
-        return f"{self.company} -> {self.name}"
+        return self.name
 
     @property
     def shipping_zip_code(self):

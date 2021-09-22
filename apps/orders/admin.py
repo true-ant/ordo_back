@@ -16,7 +16,12 @@ class VendorOrderInline(admin.TabularInline):
 
 @admin.register(m.Order)
 class OrderAdmin(admin.ModelAdmin):
+    list_display = ("id", "company", "office", "created_by", "status")
     inlines = (VendorOrderInline,)
+
+    @admin.display(description="Company")
+    def company(self, obj):
+        return obj.office.company
 
 
 @admin.register(m.Product)
