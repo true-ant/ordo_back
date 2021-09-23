@@ -191,7 +191,7 @@ class PattersonScraper(Scraper):
         }
         async with self.session.get(url, headers=SEARCH_HEADERS, params=params) as resp:
             response_dom = Selector(text=await resp.text())
-            total_size = (
+            total_size = int(
                 response_dom.xpath(
                     "//div[contains(@class, 'productItemFamilyListHeader')]\
                   //h1//text()"
