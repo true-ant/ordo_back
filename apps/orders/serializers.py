@@ -50,12 +50,23 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class OrderListSerializer(serializers.Serializer):
-    id = serializers.IntegerField()
-    total_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
-    order_date = serializers.DateField()
-    status = serializers.CharField()
-    total_items = serializers.CharField()
+class OrderListSerializer(serializers.ModelSerializer):
+    vendors = serializers.SerializerMethodField()
+
+    class Meta:
+        model = m.Order
+        fields = (
+            "id",
+            "vendors",
+            "total_amount",
+            "order_date",
+            "status",
+            "total_items",
+        )
+
+    def get_vendors(self, instance):
+        vendors = instance.vendor_orders.select_related("vendor")
+        return VendorSerializer([vendor.vendor for vendor in vendors], many=True).data
 
 
 class OfficeVendorConnectedSerializer(serializers.Serializer):

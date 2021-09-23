@@ -42,12 +42,12 @@ class OrderViewSet(ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
-        queryset = (
-            queryset.values("id", "status")
-            .annotate(order_date=m.IsoDate("created_at"))
-            .annotate(total_amount=Sum("vendor_orders__total_amount"))
-            .annotate(total_items=Sum("vendor_orders__total_items"))
-        )
+        # queryset = (
+        #     queryset.values("id", "status")
+        #     .annotate(order_date=m.IsoDate("created_at"))
+        #     .annotate(total_amount=Sum("vendor_orders__total_amount"))
+        #     .annotate(total_items=Sum("vendor_orders__total_items"))
+        # )
         page = self.paginate_queryset(queryset)
 
         serializer = self.get_serializer(page, many=True)
