@@ -105,7 +105,7 @@ class OfficeBudget(TimeStampedModel):
 
     office = FlexibleForeignKey(Office, related_name="budgets")
     budget_type = models.CharField(max_length=10, choices=BudgetType.choices, default=BudgetType.PRODUCTION)
-    total_budget = models.DecimalField(max_digits=5, decimal_places=2)
+    total_budget = models.DecimalField(max_digits=10, decimal_places=2)
     percentage = models.DecimalField(max_digits=5, decimal_places=2)
     budget = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     spend = models.DecimalField(max_digits=10, decimal_places=2, default=0)
