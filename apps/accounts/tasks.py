@@ -122,8 +122,7 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
             order = Order.objects.create(
                 office=office,
                 status=order_data["status"],
-                created_at=order_data["order_date"],
-                updated_at=order_data["order_date"],
+                order_date=order_data["order_date"],
             )
             vendor_order = VendorOrder.from_dataclass(vendor=office_vendor.vendor, order=order, dict_data=order_data)
             for order_product_data in order_products_data:
