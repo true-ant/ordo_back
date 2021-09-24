@@ -6,6 +6,7 @@ from scrapy import Selector
 
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product
+from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation, ProductSearch
 
@@ -88,6 +89,7 @@ SEARCH_HEADERS = {
 class PattersonScraper(Scraper):
     BASE_URL = "https://www.pattersondental.com"
 
+    @catch_network
     async def _get_login_data(self) -> LoginInformation:
         headers = {
             "Connection": "keep-alive",
@@ -128,6 +130,7 @@ class PattersonScraper(Scraper):
         dom = Selector(text=await resp.text())
         return False if dom.xpath(".//div[@id='error']") else True
 
+    @catch_network
     async def _after_login_hook(self, response: ClientResponse):
         response_dom = Selector(text=await response.text())
         data = {
@@ -141,8 +144,9 @@ class PattersonScraper(Scraper):
             return text
 
     async def get_orders(self, perform_login=False) -> List[Order]:
-        pass
+        return []
 
+    @catch_network
     async def get_product(self, product_dom):
         product_description_dom = product_dom.xpath(".//div[contains(@class, 'listViewDescriptionWrapper')]")
         product_link = product_description_dom.xpath(".//a[@class='itemTitleDescription']")
@@ -178,6 +182,7 @@ class PattersonScraper(Scraper):
             "vendor_id": self.vendor_id,
         }
 
+    @catch_network
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
     ) -> ProductSearch:
@@ -199,7 +204,7 @@ class PattersonScraper(Scraper):
                 .get()
                 .split("results", 1)[0]
                 .split("Found")[1]
-                .strip()
+                .strip(" +")
             )
             products_dom = response_dom.xpath(
                 "//div[@class='container-fluid']//table//tr//div[@ng-controller='SearchResultsController']"

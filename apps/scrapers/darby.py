@@ -8,6 +8,7 @@ from scrapy import Selector
 
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product
+from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation, ProductSearch
 
@@ -96,6 +97,7 @@ class DarbyScraper(Scraper):
             "data": {"username": self.username, "password": self.password, "next": ""},
         }
 
+    @catch_network
     async def get_order(self, order_dom):
         link = self.merge_strip_values(order_dom, "./td[1]/a/@href")
         order = {
@@ -130,6 +132,7 @@ class DarbyScraper(Scraper):
 
         return Order.from_dict(order)
 
+    @catch_network
     async def get_orders(self, perform_login=False):
         url = f"{self.BASE_URL}/Scripts/InvoiceHistory.aspx"
 
@@ -145,6 +148,7 @@ class DarbyScraper(Scraper):
             tasks = (self.get_order(order_dom) for order_dom in orders_dom)
             return await asyncio.gather(*tasks, return_exceptions=True)
 
+    @catch_network
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
     ) -> ProductSearch:
@@ -214,6 +218,7 @@ class DarbyScraper(Scraper):
             "last_page": page_size * page >= total_size,
         }
 
+    @catch_network
     async def checkout(self, products: List[CartProduct]):
         await self.login()
         data = {}

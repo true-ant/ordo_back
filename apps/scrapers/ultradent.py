@@ -7,6 +7,7 @@ from scrapy import Selector
 from apps.orders.models import Product
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order
+from apps.scrapers.utils import catch_network
 from apps.types.scraper import LoginInformation, ProductSearch
 
 HEADERS = {
@@ -86,6 +87,7 @@ class UltraDentScraper(Scraper):
         res_dom = Selector(text=res)
         return self.username == res_dom.xpath("//meta[@name='mUserName']/@content").get()
 
+    @catch_network
     async def _get_login_data(self) -> LoginInformation:
         url = "https://www.ultradent.com/login"
         async with self.session.get(url, headers=HEADERS) as resp:
@@ -102,6 +104,7 @@ class UltraDentScraper(Scraper):
             },
         }
 
+    @catch_network
     async def get_order(self, order):
         json_data = {
             "variables": {"orderNumber": order["orderNumber"]},
@@ -177,6 +180,7 @@ class UltraDentScraper(Scraper):
 
         return Order.from_dict(order)
 
+    @catch_network
     async def get_orders(self, perform_login=False):
         url = "https://www.ultradent.com/api/ecommerce"
 

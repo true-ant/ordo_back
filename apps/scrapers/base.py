@@ -4,6 +4,7 @@ from typing import Optional
 from aiohttp import ClientResponse, ClientSession
 
 from apps.scrapers.errors import VendorAuthenticationFailed
+from apps.scrapers.utils import catch_network
 from apps.types.scraper import LoginInformation, ProductSearch
 
 
@@ -22,6 +23,7 @@ class Scraper:
         self.password = password
         self.vendor_id = vendor_id
 
+    @catch_network
     async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> SimpleCookie:
         if username:
             self.username = username

@@ -8,6 +8,7 @@ from scrapy import Selector
 
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product
+from apps.scrapers.utils import catch_network
 from apps.types.scraper import LoginInformation, ProductSearch
 
 HEADERS = {
@@ -67,6 +68,7 @@ class HenryScheinScraper(Scraper):
             },
         }
 
+    @catch_network
     async def get_order(self, order_dom):
         link = order_dom.xpath("./td[8]/a/@href").extract_first().strip()
         order = {
@@ -107,6 +109,7 @@ class HenryScheinScraper(Scraper):
             order["products"] = await asyncio.gather(*tasks)
         return Order.from_dict(order)
 
+    @catch_network
     async def get_product(self, product_link, order_product_dom):
         async with self.session.get(product_link) as resp:
             res = Selector(text=await resp.text())
@@ -118,13 +121,14 @@ class HenryScheinScraper(Scraper):
         )
         quantity, _, unit_price = quantity_price.split(";")
         unit_price = re.search(r"\$(.*)/", unit_price)
+        unit_price = unit_price.group(1)
 
         status = self.merge_strip_values(
             dom=order_product_dom, xpath=".//span[contains(@id, 'itemStatusLbl')]//text()"
         )
         order_product = {
             "quantity": quantity,
-            "unit_price": unit_price.group(1),
+            "unit_price": unit_price,
             "status": status,
             "product": {
                 "product_id": product_detail["sku"],
@@ -132,14 +136,13 @@ class HenryScheinScraper(Scraper):
                 "description": product_detail["description"],
                 "url": product_detail["url"],
                 "images": [{"image": product_detail["image"]}],
-                # "price": product_detail["price"],
+                "price": unit_price,
                 # "retail_price": product_detail["price"],
-                # stars
-                # ratings
             },
         }
         return order_product
 
+    @catch_network
     async def get_orders(self, perform_login=False):
         url = f"{self.BASE_URL}/us-en/Orders/OrderStatus.aspx"
 
@@ -155,6 +158,7 @@ class HenryScheinScraper(Scraper):
             tasks = (self.get_order(order_dom) for order_dom in orders_dom)
             return await asyncio.gather(*tasks, return_exceptions=True)
 
+    @catch_network
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
     ) -> ProductSearch:
