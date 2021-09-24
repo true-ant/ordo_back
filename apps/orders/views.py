@@ -205,19 +205,25 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
         search_results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # filter
-        products = [product.to_dict() for search_result in search_results for product in search_result["products"]]
+        products = []
         meta = {
-            "total_size": sum([search_result["total_size"] for search_result in search_results]),
-            "vendors": [
+            "total_size": 0,
+            "vendors": [],
+        }
+        for search_result in search_results:
+            if not isinstance(search_result, dict):
+                continue
+            meta["total_size"] += search_result["total_size"]
+            meta["vendors"].append(
                 {
                     "vendor": search_result["vendor_slug"],
                     "page": search_result["page"],
                     "last_page": search_result["last_page"],
                 }
-                for search_result in search_results
-            ],
-            "last_page": all([search_result["last_page"] for search_result in search_results]),
-        }
+            )
+            products.extend([product.to_dict() for product in search_result["products"]])
+
+        meta["last_page"] = all([vendor_search["last_page"] for vendor_search in meta["vendors"]])
 
         return Response({"meta": meta, "products": products})
 
