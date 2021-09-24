@@ -144,7 +144,7 @@ class PattersonScraper(Scraper):
             return text
 
     async def get_orders(self, perform_login=False) -> List[Order]:
-        pass
+        return []
 
     @catch_network
     async def get_product(self, product_dom):
@@ -204,7 +204,7 @@ class PattersonScraper(Scraper):
                 .get()
                 .split("results", 1)[0]
                 .split("Found")[1]
-                .strip()
+                .strip(" +")
             )
             products_dom = response_dom.xpath(
                 "//div[@class='container-fluid']//table//tr//div[@ng-controller='SearchResultsController']"
