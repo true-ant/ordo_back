@@ -11,6 +11,7 @@ from scrapy import Selector
 
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product
+from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation, ProductSearch
 
@@ -128,6 +129,7 @@ class BencoScraper(Scraper):
         )
         super().__init__(*args, **kwargs)
 
+    @catch_network
     async def _get_login_data(self) -> LoginInformation:
         async with self.session.get(
             f"{self.BASE_URL}/Login/Login", headers=PRE_LOGIN_HEADERS, ssl=self._ssl_context
@@ -154,6 +156,7 @@ class BencoScraper(Scraper):
                 },
             }
 
+    @catch_network
     async def _check_authenticated(self, resp: ClientResponse) -> bool:
         response_dom = Selector(text=await resp.text())
         id_token = response_dom.xpath("//input[@name='id_token']/@value").get()
@@ -190,6 +193,7 @@ class BencoScraper(Scraper):
     async def _after_login_hook(self, response: ClientResponse):
         pass
 
+    @catch_network
     async def get_order(self, order_link, referer) -> dict:
         headers = ORDER_DETAIL_HEADERS.copy()
         headers["Referer"] = referer
@@ -257,6 +261,7 @@ class BencoScraper(Scraper):
                         )
         return order
 
+    @catch_network
     async def get_orders(self, perform_login=False) -> List[Order]:
         url = f"{self.BASE_URL}/PurchaseHistory"
         if perform_login:
@@ -273,6 +278,7 @@ class BencoScraper(Scraper):
             orders = await asyncio.gather(*tasks, return_exceptions=True)
             return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
 
+    @catch_network
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
     ) -> ProductSearch:

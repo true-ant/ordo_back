@@ -7,6 +7,7 @@ from scrapy import Selector
 from apps.scrapers.base import Scraper
 from apps.scrapers.errors import OrderFetchException
 from apps.scrapers.schema import Order, Product
+from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation, ProductSearch
 
@@ -136,6 +137,7 @@ class Net32Scraper(Scraper):
             },
         }
 
+    @catch_network
     async def get_orders(self, perform_login=False) -> List[Order]:
         url = f"{self.BASE_URL}/rest/order/orderHistory"
         headers = HEADERS.copy()
@@ -195,6 +197,7 @@ class Net32Scraper(Scraper):
         except KeyError:
             raise OrderFetchException()
 
+    @catch_network
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
     ) -> ProductSearch:
@@ -260,6 +263,7 @@ class Net32Scraper(Scraper):
                 "last_page": page_size * page >= total_size,
             }
 
+    @catch_network
     async def checkout(self, products: List[CartProduct]):
         await self.login()
         # Add cart

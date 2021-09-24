@@ -19,7 +19,11 @@ from rest_framework_jwt.serializers import jwt_encode_handler, jwt_payload_handl
 
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
-from apps.scrapers.errors import VendorAuthenticationFailed, VendorNotSupported
+from apps.scrapers.errors import (
+    NetworkConnectionException,
+    VendorAuthenticationFailed,
+    VendorNotSupported,
+)
 from apps.scrapers.scraper_factory import ScraperFactory
 
 from . import models as m
@@ -318,6 +322,8 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
             )
         except VendorAuthenticationFailed:
             return Response({"message": msgs.VENDOR_WRONG_INFORMATION}, status=HTTP_400_BAD_REQUEST)
+        except NetworkConnectionException:
+            return Response({"message": msgs.VENDOR_BAD_NETWORK_CONNECTION}, status=HTTP_400_BAD_REQUEST)
 
         return Response({"message": msgs.VENDOR_CONNECTED, **serializer.data})
 
