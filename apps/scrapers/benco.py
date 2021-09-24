@@ -237,7 +237,10 @@ class BencoScraper(Scraper):
                 else:
                     for product_row in row.xpath("./ul[@class='list-group']/li[@class='list-group-item']"):
                         other_details = product_row.xpath(".//p/text()").extract()
-
+                        product_url = product_row.xpath(
+                            ".//div[contains(@class, 'product-details')]/strong/a/@href"
+                        ).get()
+                        product_url = f"{self.BASE_URL}{product_url}" if product_url else None
                         order["products"].append(
                             {
                                 "product": {
@@ -246,10 +249,7 @@ class BencoScraper(Scraper):
                                         ".//div[contains(@class, 'product-details')]/strong/a//text()"
                                     ).get(),
                                     "description": "",
-                                    "url": self.BASE_URL
-                                    + product_row.xpath(
-                                        ".//div[contains(@class, 'product-details')]/strong/a/@href"
-                                    ).get(),
+                                    "url": product_url,
                                     "images": [{"image": product_row.xpath(".//img/@src").get()}],
                                     "price": other_details[2].split(":")[1],
                                     "retail_price": "",
@@ -314,17 +314,18 @@ class BencoScraper(Scraper):
                     product_dom, "./div[contains(@class, 'product-data-area')]//span[@itemprop='sku']//text()"
                 )
                 product_ids.append(product_id)
+                product_url = self.extract_first(
+                    product_dom,
+                    "./div[contains(@class, 'product-data-area')]/div[contains(@class, 'title')]//a/@href",
+                )
+                product_url = f"{self.BASE_URL}{product_url}" if product_url else None
                 products[product_id] = {
                     "product_id": product_id,
                     "name": self.extract_first(
                         product_dom, "./div[contains(@class, 'product-data-area')]//h4[@itemprop='name']//text()"
                     ),
                     "description": "",
-                    "url": self.BASE_URL
-                    + self.extract_first(
-                        product_dom,
-                        "./div[contains(@class, 'product-data-area')]/div[contains(@class, 'title')]//a/@href",
-                    ),
+                    "url": product_url,
                     "images": [
                         {
                             "image": product_dom.xpath("./div[contains(@class, 'product-image-area')]/img/@src").get(),
@@ -343,6 +344,7 @@ class BencoScraper(Scraper):
             json=data,
             ssl=self._ssl_context,
         ) as resp:
+            print(resp.status)
             res = await resp.json()
             for product_id, row in res.items():
                 row_dom = Selector(text=row)
