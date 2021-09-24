@@ -130,8 +130,20 @@ class UltraDentScraper(Scraper):
         ) as resp:
             oder_html = (await resp.json())["data"]["orderHtml"]["orderDetailWithShippingHtml"]
             order_dom = Selector(text=oder_html)
+            tracking_dom = order_dom.xpath("//section[@data-tab='track-shipments']")
+            product_images = {}
+            for tracking_product in tracking_dom.xpath(".//ul/li"):
+                sku = self.extract_first(tracking_product, ".//span[@class='sku-id']/text()")
+                product_images[sku] = self.extract_first(
+                    tracking_product, ".//figure[@class='sku-thumb']/div/img/@src"
+                )
+
+            # track_status = tracking_dom.xpath(".//span[contains(@class, 'shipment-package-date')]//text()").extract()
+            # order["status"] = track_status[0].strip().strip(":")
+            # order["tracking_date"] = track_status[1]
+
             shipping_dom = order_dom.xpath(
-                "//section[@class='order-details']/div[@class='odr-line-summary']"
+                "//section[@data-tab='order-details']/div[@class='odr-line-summary']"
                 "/div[@class='grid-unit'][last()]/div[@class='address']"
             )
 
@@ -162,18 +174,22 @@ class UltraDentScraper(Scraper):
                         "//div[@class='odr-total']/span[contains(@class, 'value')]//text()",
                     )
                 else:
+                    product_id = self.extract_first(order_detail, "./span[@class='sku-id']//text()").strip()
+                    price = self.extract_first(order_detail, "./span[@class='sku-price']//text()")
                     order["products"].append(
                         {
                             "product": {
-                                "product_id": self.extract_first(
-                                    order_detail, "./span[@class='sku-id']//text()"
-                                ).strip("#"),
+                                "product_id": product_id,
                                 "name": self.extract_first(order_detail, "./span[@class='sku-product-name']//text()"),
-                                # TODO: get ultradent image,
-                                "images": [],
+                                "images": [
+                                    {
+                                        "image": product_images[product_id],
+                                    }
+                                ],
+                                "price": price,
                             },
                             "quantity": self.extract_first(order_detail, "./span[@class='sku-qty']//text()"),
-                            "unit_price": self.extract_first(order_detail, "./span[@class='sku-price']//text()"),
+                            "unit_price": price,
                             # "status": self.
                         }
                     )
