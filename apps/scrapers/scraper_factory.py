@@ -43,7 +43,7 @@ class ScraperFactory:
 async def main():
 
     load_dotenv()
-    scraper_name = "ultradent"
+    scraper_name = "benco"
     credentials = {
         "henry_schein": {
             "username": os.getenv("HENRY_SCHEIN_USERNAME"),
@@ -53,13 +53,13 @@ async def main():
             "username": os.getenv("NET32_USERNAME"),
             "password": os.getenv("NET32_PASSWORD"),
         },
-        "ultradent": {
-            "username": os.getenv("ULTRADENT_SCHEIN_USERNAME"),
-            "password": os.getenv("ULTRADENT_SCHEIN_PASSWORD"),
-        },
         "darby": {
             "username": os.getenv("DARBY_SCHEIN_USERNAME"),
             "password": os.getenv("DARBY_SCHEIN_PASSWORD"),
+        },
+        "ultradent": {
+            "username": os.getenv("ULTRADENT_SCHEIN_USERNAME"),
+            "password": os.getenv("ULTRADENT_SCHEIN_PASSWORD"),
         },
         "patterson": {
             "username": os.getenv("PATTERSON_USERNAME"),
@@ -78,9 +78,9 @@ async def main():
             username=credential["username"],
             password=credential["password"],
         )
-        # await scraper.login()
-        results = await scraper.get_orders(perform_login=True)
-        # results = await scraper.search_products(query="tooth brush", page=1, min_price=10, max_price=20)
+        # results = await scraper.login()
+        # results = await scraper.get_orders(perform_login=True)
+        results = await scraper.search_products(query="brush", page=1, min_price=10, max_price=20)
         # results = [r.to_dict() for r in results]
         print(results)
 

@@ -314,17 +314,17 @@ class BencoScraper(Scraper):
                     product_dom, "./div[contains(@class, 'product-data-area')]//span[@itemprop='sku']//text()"
                 )
                 product_ids.append(product_id)
+                product_url = self.extract_first(
+                    product_dom, "./div[contains(@class, 'product-data-area')]/div[contains(@class, 'title')]//a/@href"
+                )
+                product_url = f"{self.BASE_URL}{product_url}" if product_url else None
                 products[product_id] = {
                     "product_id": product_id,
                     "name": self.extract_first(
                         product_dom, "./div[contains(@class, 'product-data-area')]//h4[@itemprop='name']//text()"
                     ),
                     "description": "",
-                    "url": self.BASE_URL
-                    + self.extract_first(
-                        product_dom,
-                        "./div[contains(@class, 'product-data-area')]/div[contains(@class, 'title')]//a/@href",
-                    ),
+                    "url": product_url,
                     "images": [
                         {
                             "image": product_dom.xpath("./div[contains(@class, 'product-image-area')]/img/@src").get(),
