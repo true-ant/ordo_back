@@ -121,13 +121,14 @@ class HenryScheinScraper(Scraper):
         )
         quantity, _, unit_price = quantity_price.split(";")
         unit_price = re.search(r"\$(.*)/", unit_price)
+        unit_price = unit_price.group(1)
 
         status = self.merge_strip_values(
             dom=order_product_dom, xpath=".//span[contains(@id, 'itemStatusLbl')]//text()"
         )
         order_product = {
             "quantity": quantity,
-            "unit_price": unit_price.group(1),
+            "unit_price": unit_price,
             "status": status,
             "product": {
                 "product_id": product_detail["sku"],
@@ -135,10 +136,8 @@ class HenryScheinScraper(Scraper):
                 "description": product_detail["description"],
                 "url": product_detail["url"],
                 "images": [{"image": product_detail["image"]}],
-                # "price": product_detail["price"],
+                "price": unit_price,
                 # "retail_price": product_detail["price"],
-                # stars
-                # ratings
             },
         }
         return order_product
