@@ -310,32 +310,60 @@ class BencoScraper(Scraper):
             )
             products_dom = response_dom.xpath("//div[@class='product-list']/div[contains(@class, 'product-row')]")
             for product_dom in products_dom:
-                product_id = self.extract_first(
-                    product_dom, "./div[contains(@class, 'product-data-area')]//span[@itemprop='sku']//text()"
-                )
-                product_ids.append(product_id)
-                product_url = self.extract_first(
-                    product_dom,
-                    "./div[contains(@class, 'product-data-area')]/div[contains(@class, 'title')]//a/@href",
-                )
-                product_url = f"{self.BASE_URL}{product_url}" if product_url else None
+                additional_products = product_dom.xpath(".//div[contains(@class, 'additional-products')]")
+                if additional_products:
+                    product_image = product_dom.xpath(".//div[contains(@class, 'summary-row')]//img/@src").get()
+                    product_description = self.extract_first(product_dom, ".//p[@class='description']/text()")
+                    for additional_product in additional_products.xpath(".//tr"):
+                        product_id = self.extract_first(additional_product, ".//td[@itemprop='sku']/text()")
+                        name = self.extract_first(additional_product, ".//td[@class='product-name']/span/text()")
+                        product_url = additional_product.attrib["data-click-href"]
+                        product_url = f"{self.BASE_URL}{product_url}" if product_url else None
+                        products[product_id] = {
+                            "product_id": product_id,
+                            "name": name,
+                            "description": product_description,
+                            "url": product_url,
+                            "images": [
+                                {
+                                    "image": product_image,
+                                }
+                            ],
+                            "price": "",
+                            "retail_price": "",
+                            "vendor_id": self.vendor_id,
+                        }
+                        product_ids.append(product_id)
+                else:
+                    product_id = self.extract_first(
+                        product_dom, "./div[contains(@class, 'product-data-area')]//span[@itemprop='sku']//text()"
+                    )
+                    product_ids.append(product_id)
+                    product_url = self.extract_first(
+                        product_dom,
+                        "./div[contains(@class, 'product-data-area')]/div[contains(@class, 'title')]//a/@href",
+                    )
+                    product_url = f"{self.BASE_URL}{product_url}" if product_url else None
+                    name = self.extract_first(
+                        product_dom, "./div[contains(@class, 'product-data-area')]//h4[@itemprop='name']//text()"
+                    )
+                    product_image = product_dom.xpath("./div[contains(@class, 'product-image-area')]/img/@src").get()
+                    product_description = self.extract_first(product_dom, ".//p/text()")
                 products[product_id] = {
                     "product_id": product_id,
-                    "name": self.extract_first(
-                        product_dom, "./div[contains(@class, 'product-data-area')]//h4[@itemprop='name']//text()"
-                    ),
-                    "description": "",
+                    "name": name,
+                    "description": product_description,
                     "url": product_url,
                     "images": [
                         {
-                            "image": product_dom.xpath("./div[contains(@class, 'product-image-area')]/img/@src").get(),
+                            "image": product_image,
                         }
                     ],
                     "price": "",
                     "retail_price": "",
                     "vendor_id": self.vendor_id,
                 }
-        data = {"productNumbers": product_ids, "pricePartialType": "ProductPriceRow"}
+        data = {"productNumbers": product_ids, "pricePartialType": "ProductPriceFrom"}
         headers = PRICE_SEARCH_HEADERS.copy()
         headers["Referer"] = url
         async with self.session.post(
