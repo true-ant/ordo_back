@@ -56,6 +56,10 @@ class HenryScheinScraper(Scraper):
         return res.get("IsAuthenticated", False)
 
     async def _get_login_data(self) -> LoginInformation:
+        async with self.session.get("https://www.henryschein.com/us-en/dental/Default.aspx") as resp:
+            text = await resp.text()
+            n = text.split("var _n =")[1].split(";")[0].strip(" '")
+        self.session.headers.update({"n": n})
         return {
             "url": f"{self.BASE_URL}/webservices/LoginRequestHandler.ashx",
             "headers": HEADERS,
@@ -174,30 +178,74 @@ class HenryScheinScraper(Scraper):
             total_size = int(total_size_str)
         except ValueError:
             total_size = 0
-        products = []
+        products = {}
+        products_price_data = []
         for product_dom in response_dom.css("section.product-listing ol.products > li.product > .title"):
             product_detail = product_dom.xpath(".//script[@type='application/ld+json']//text()").extract_first()
-            product_detail = json.loads(product_detail)
-            products.append(
-                Product.from_dict(
-                    {
-                        "product_id": product_detail["sku"],
-                        "name": product_detail["name"],
-                        "description": product_detail["description"],
-                        "url": product_detail["url"],
-                        "image": product_detail["image"],
-                        "price": "",
-                        "retail_price": "",
-                        "vendor_id": self.vendor_id,
-                    }
-                )
+            product_unit = self.merge_strip_values(
+                product_dom,
+                "./ul[@class='product-actions']"
+                "//div[contains(@class, 'color-label-gray')]/span[contains(@class, 'block')]//text()",
             )
+            product_detail = json.loads(product_detail)
+            product_id = product_detail["sku"]
+            products_price_data.append(
+                {
+                    "ProductId": int(product_id),
+                    "Qty": "1",
+                    "Uom": product_unit,
+                    "PromoCode": "",
+                    "CatalogName": "B_DENTAL",
+                    "ForceUpdateInventoryStatus": False,
+                    "AvailabilityCode": "01",
+                }
+            )
+            products[product_id] = {
+                "product_id": product_detail["sku"],
+                "name": product_detail["name"],
+                "description": product_detail["description"],
+                "url": product_detail["url"],
+                "images": [
+                    {
+                        "image": product_detail["image"],
+                    }
+                ],
+                "price": "",
+                "retail_price": "",
+                "vendor_id": self.vendor_id,
+            }
+
+        products_price_data = {
+            "ItemArray": json.dumps(
+                {
+                    "ItemDataToPrice": products_price_data,
+                }
+            ),
+            "searchType": "6",
+            "did": "dental",
+            "catalogName": "B_DENTAL",
+            "endecaCatalogName": "DENTAL",
+            "culture": "us-en",
+            "showPriceToAnonymousUserFromCMS": "False",
+            "isCallingFromCMS": "False",
+        }
+
+        headers = SEARCH_HEADERS.copy()
+        headers["referer"] = f"https://www.henryschein.com/us-en/Search.aspx?searchkeyWord={query}"
+        async with self.session.post(
+            "https://www.henryschein.com/webservices/JSONRequestHandler.ashx",
+            data=products_price_data,
+            headers=headers,
+        ) as resp:
+            res = await resp.json()
+            for product_price in res["ItemDataToPrice"]:
+                products[product_price["ProductId"]]["price"] = product_price["CustomerPrice"]
 
         return {
             "vendor_slug": self.vendor_slug,
             "total_size": total_size,
             "page": page,
             "page_size": page_size,
-            "products": products,
+            "products": [Product.from_dict(product) for product_id, product in products.items()],
             "last_page": page_size * page >= total_size,
         }
