@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.contrib.admin import SimpleListFilter
+from django.db.models import Q
 from django.utils.safestring import mark_safe
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
@@ -48,6 +50,27 @@ class OrderAdmin(NestedModelAdmin):
         return ", ".join([vendor_order.vendor.name for vendor_order in objs.vendor_orders.all()])
 
 
+class ProductPriceFilter(SimpleListFilter):
+    title = "Price Range"
+    parameter_name = "price"
+
+    def lookups(self, request, model_admin):
+        return (("_100", "0 - 100"), ("100_200", "100 - 200"), ("200_300", "200 - 300"), ("300_", "300 +"))
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if not value:
+            return queryset
+        if value == "_100":
+            return queryset.filter(price__lte=100)
+        elif value == "100_200":
+            return queryset.filter(Q(price__gt=100) & Q(price__lte=200))
+        elif value == "200_300":
+            return queryset.filter(Q(price__gt=200) & Q(price__lte=300))
+        else:
+            return queryset.filter(price__gt=300)
+
+
 @admin.register(m.Product)
 class ProductAdmin(admin.ModelAdmin):
     list_per_page = 20
@@ -59,6 +82,10 @@ class ProductAdmin(admin.ModelAdmin):
         "vendor",
         "url",
         "price",
+    )
+    list_filter = (
+        "vendor",
+        ProductPriceFilter,
     )
 
     @admin.display(description="Image")
