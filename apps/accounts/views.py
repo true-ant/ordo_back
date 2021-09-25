@@ -312,6 +312,8 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
             fetch_orders_from_vendor.delay(
                 office_vendor_id=office_vendor.id,
                 login_cookies=login_cookies.output(),
+                # all scrapers work with login_cookies, but henryschein not working with login_cookies
+                perform_login=True,
             )
         except VendorNotSupported:
             return Response(

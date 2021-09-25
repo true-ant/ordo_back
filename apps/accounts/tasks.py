@@ -86,6 +86,43 @@ async def get_orders(company_vendor, login_cookies, perform_login):
         return await scraper.get_orders(perform_login=perform_login)
 
 
+def save_order_to_db(office, vendor, order_data):
+    order_products_data = order_data.pop("products")
+    order_id = order_data["order_id"]
+    try:
+        vendor_order = VendorOrder.objects.get(vendor=vendor, vendor_order_id=order_id)
+    except VendorOrder.DoesNotExist:
+        order = Order.objects.create(
+            office=office,
+            status=order_data["status"],
+            order_date=order_data["order_date"],
+        )
+        vendor_order = VendorOrder.from_dataclass(vendor=vendor, order=order, dict_data=order_data)
+
+    for order_product_data in order_products_data:
+        order_product_data["product"].pop("vendor_id")
+        order_product_images = order_product_data["product"].pop("images", [])
+        product_id = order_product_data["product"].pop("product_id")
+        product, created = Product.objects.get_or_create(
+            vendor=vendor, product_id=product_id, defaults=order_product_data["product"]
+        )
+        if not created:
+            continue
+
+        for order_product_image in order_product_images:
+            ProductImage.objects.create(
+                product=product,
+                image=order_product_image["image"],
+            )
+        VendorOrderProduct.objects.create(
+            vendor_order=vendor_order,
+            product=product,
+            quantity=order_product_data["quantity"],
+            unit_price=order_product_data["unit_price"],
+            status=order_product_data["status"],
+        )
+
+
 @shared_task
 def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login=False):
     if login_cookies is None and perform_login is False:
@@ -108,7 +145,6 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
     with transaction.atomic():
         for order_data_cls in orders:
             order_data = order_data_cls.to_dict()
-            order_products_data = order_data.pop("products")
             shipping_address = order_data.pop("shipping_address")
             try:
                 office = [
@@ -119,29 +155,7 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
             except (TypeError, IndexError):
                 office = office_vendor.office
 
-            order = Order.objects.create(
-                office=office,
-                status=order_data["status"],
-                order_date=order_data["order_date"],
-            )
-            vendor_order = VendorOrder.from_dataclass(vendor=office_vendor.vendor, order=order, dict_data=order_data)
-            for order_product_data in order_products_data:
-                print(order_product_data)
-                order_product_data["product"].pop("vendor_id")
-                order_product_images = order_product_data["product"].pop("images", [])
-                product = Product.from_dataclass(office_vendor.vendor, order_product_data["product"])
-                for order_product_image in order_product_images:
-                    ProductImage.objects.create(
-                        product=product,
-                        image=order_product_image["image"],
-                    )
-                VendorOrderProduct.objects.create(
-                    vendor_order=vendor_order,
-                    product=product,
-                    quantity=order_product_data["quantity"],
-                    unit_price=order_product_data["unit_price"],
-                    status=order_product_data["status"],
-                )
+            save_order_to_db(office, office_vendor.vendor, order_data)
 
 
 @shared_task
