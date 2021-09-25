@@ -76,6 +76,8 @@ class Scraper:
         res_products = []
         page_size = 0
 
+        await self.login()
+
         while True:
             product_search = await self._search_products(query, page, min_price=min_price, max_price=max_price)
             if not page_size:

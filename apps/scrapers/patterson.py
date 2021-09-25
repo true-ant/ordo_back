@@ -186,7 +186,6 @@ class PattersonScraper(Scraper):
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
     ) -> ProductSearch:
-        await self.login()
         page_size = 24
         url = f"{self.BASE_URL}/Search/SearchResults"
         params = {

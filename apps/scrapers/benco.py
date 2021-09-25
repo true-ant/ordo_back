@@ -363,7 +363,7 @@ class BencoScraper(Scraper):
                     "retail_price": "",
                     "vendor_id": self.vendor_id,
                 }
-        data = {"productNumbers": product_ids, "pricePartialType": "ProductPriceFrom"}
+        data = {"productNumbers": product_ids, "pricePartialType": "ProductPriceRow"}
         headers = PRICE_SEARCH_HEADERS.copy()
         headers["Referer"] = url
         async with self.session.post(

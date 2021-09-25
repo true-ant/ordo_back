@@ -162,7 +162,6 @@ class HenryScheinScraper(Scraper):
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
     ) -> ProductSearch:
-        await self.login()
         url = f"{self.BASE_URL}/us-en/Search.aspx"
         page_size = 25
         params = {"searchkeyWord": query, "pagenumber": page}

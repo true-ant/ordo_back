@@ -197,8 +197,6 @@ class DarbyScraper(Scraper):
         }
         products = []
 
-        await self.login()
-
         async with self.session.post(url, headers=SEARCH_HEADERS, data=data, params=params) as resp:
             response_dom = Selector(text=await resp.text())
             total_size_str = response_dom.xpath(".//span[@id='MainContent_resultCount']/text()").extract_first()
