@@ -56,6 +56,17 @@ class OrderViewSet(ModelViewSet):
     def get_queryset(self):
         return super().get_queryset().filter(office__id=self.kwargs["office_pk"])
 
+    @action(detail=False, methods=["get"], url_path="count")
+    def get_orders_count(self, request, *args, **kwargs):
+        count = self.filter_queryset(self.get_queryset()).count()
+        return Response({"count": count})
+
+    @action(detail=False, methods=["get"], url_path="monthly-count")
+    def get_orders_monthly_count(self, request, *args, **kwargs):
+        queryset = m.Order.months.filter(office__id=self.kwargs["office_pk"])
+        count = self.filter_queryset(queryset).count()
+        return Response({"count": count})
+
 
 class VendorOrderProductViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]

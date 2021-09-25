@@ -1,4 +1,8 @@
+from datetime import timedelta
+
 from django.db import models
+from django.db.models import Q
+from django.utils import timezone
 
 from apps.accounts.models import Office, OfficeVendor, User, Vendor
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
@@ -47,6 +51,16 @@ class OrderStatus(models.IntegerChoices):
     PROCESSING = 1
 
 
+class OrderMonthManager(models.Manager):
+    def get_queryset(self):
+        today = timezone.now().date()
+        month_first_day = today.replace(day=1)
+        next_month_first_day = (month_first_day + timedelta(days=32)).replace(day=1)
+        return (
+            super().get_queryset().filter(Q(order_date__gte=month_first_day) & Q(order_date__lt=next_month_first_day))
+        )
+
+
 class Order(TimeStampedModel):
     office = FlexibleForeignKey(Office)
     created_by = FlexibleForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
@@ -54,6 +68,9 @@ class Order(TimeStampedModel):
     total_items = models.IntegerField(default=1)
     total_amount = models.DecimalField(decimal_places=2, max_digits=10, default=0)
     status = models.CharField(max_length=100)
+
+    objects = models.Manager()
+    months = OrderMonthManager()
 
     def __str__(self):
         return f"{self.office.name}(#{self.pk})"
