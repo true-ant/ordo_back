@@ -1,11 +1,8 @@
-from nested_admin.nested import NestedTabularInline
-
-
-class ReadOnlyNestedTabularInline(NestedTabularInline):
+class ReadOnlyAdminMixin:
     extra = 0
 
-    def has_add_permission(self, request, obj):
+    def has_add_permission(self, *args, **kwargs):
         return
 
-    def has_delete_permission(self, request, obj=None):
+    def has_delete_permission(self, *args, **kwargs):
         return False

@@ -1,21 +1,41 @@
 from django.contrib import admin
 from django.utils.safestring import mark_safe
+from nested_admin.nested import NestedModelAdmin, NestedTabularInline
+
+from apps.common.admins import ReadOnlyAdminMixin
 
 from . import models as m
 
 
-class VendorOrderInline(admin.TabularInline):
+class VendorOrderProductInline(ReadOnlyAdminMixin, NestedTabularInline):
+    model = m.VendorOrderProduct
+    readonly_fields = (
+        "product",
+        "unit_price",
+        "quantity",
+        "total_price",
+        "status",
+    )
+
+    def total_price(self, obj):
+        return obj.quantity * obj.unit_price
+
+
+class VendorOrderInline(ReadOnlyAdminMixin, NestedTabularInline):
     model = m.VendorOrder
     fk_name = "order"
-    readonly_fields = ("total_amount", "total_items", "vendor", "vendor_order_id", "currency", "order_date", "status")
-    can_delete = False
+    readonly_fields = ("vendor", "vendor_order_id", "order_date", "total_amount", "total_items", "currency", "status")
+    inlines = (VendorOrderProductInline,)
 
     def has_add_permission(self, request, obj):
         return False
 
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 
 @admin.register(m.Order)
-class OrderAdmin(admin.ModelAdmin):
+class OrderAdmin(NestedModelAdmin):
     list_display = ("id", "company", "office", "vendors", "order_date", "status")
     inlines = (VendorOrderInline,)
 

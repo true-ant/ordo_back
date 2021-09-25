@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.safestring import mark_safe
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
-from apps.common.admins import ReadOnlyNestedTabularInline
+from apps.common.admins import ReadOnlyAdminMixin
 
 from . import models as m
 
@@ -22,7 +22,7 @@ class UserAdmin(admin.ModelAdmin):
     )
 
 
-class CompanyMemberInline(ReadOnlyNestedTabularInline):
+class CompanyMemberInline(ReadOnlyAdminMixin, NestedTabularInline):
     model = m.CompanyMember
     exclude = ("token", "token_expires_at")
     readonly_fields = (
@@ -36,7 +36,7 @@ class CompanyMemberInline(ReadOnlyNestedTabularInline):
     )
 
 
-class OfficeVendorInline(ReadOnlyNestedTabularInline):
+class OfficeVendorInline(ReadOnlyAdminMixin, NestedTabularInline):
     model = m.OfficeVendor
     readonly_fields = ("vendor", "username", "password")
 
