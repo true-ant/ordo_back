@@ -98,16 +98,19 @@ class DarbyScraper(Scraper):
         }
 
     @catch_network
-    async def get_order(self, order_dom):
-        link = self.merge_strip_values(order_dom, "./td[1]/a/@href")
-        order = {
-            "order_id": self.merge_strip_values(order_dom, "./td[1]//text()"),
-            "total_amount": self.merge_strip_values(order_dom, ".//td[8]//text()"),
-            "currency": "USD",
-            "order_date": datetime.strptime(self.merge_strip_values(order_dom, ".//td[2]//text()"), "%m/%d/%Y").date(),
-            # TODO: fetch darby status
-            "status": "status",
-        }
+    async def get_shipping_track(self, order, order_id):
+        async with self.session.get(
+            f"{self.BASE_URL}/Scripts/InvoiceTrack.aspx?invno={order_id}", headers=HEADERS
+        ) as resp:
+            track_response_dom = Selector(text=await resp.text())
+            tracking_dom = track_response_dom.xpath(
+                "//table[contains(@id, 'MainContent_rpt_gvInvoiceTrack_')]//tr[@class='pdpHelltPrimary']"
+            )[0]
+
+            order["status"] = self.extract_first(tracking_dom, "./td[4]//text()")
+
+    @catch_network
+    async def get_order_products(self, order, link):
         async with self.session.get(f"{self.BASE_URL}/Scripts/{link}", headers=HEADERS) as resp:
             order_detail_response = Selector(text=await resp.text())
             order["products"] = []
@@ -129,6 +132,20 @@ class DarbyScraper(Scraper):
                         "unit_price": self.merge_strip_values(detail_row, "./td[4]//text()"),
                     }
                 )
+
+    @catch_network
+    async def get_order(self, order_dom):
+        link = self.merge_strip_values(order_dom, "./td[1]/a/@href")
+        order_id = self.merge_strip_values(order_dom, "./td[1]//text()")
+        order = {
+            "order_id": order_id,
+            "total_amount": self.merge_strip_values(order_dom, ".//td[8]//text()"),
+            "currency": "USD",
+            "order_date": datetime.strptime(self.merge_strip_values(order_dom, ".//td[2]//text()"), "%m/%d/%Y").date(),
+            # TODO: fetch darby status
+            "status": "status",
+        }
+        await asyncio.gather(self.get_order_products(order, link), self.get_shipping_track(order, order_id))
 
         return Order.from_dict(order)
 
