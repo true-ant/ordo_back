@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 from collections import defaultdict
 
 from aiohttp import ClientSession
@@ -65,12 +66,14 @@ class Command(BaseCommand):
                 product["price"] = products_res["pricing"][product["sku"]]["customerPrice"]
 
     async def fetch_products(self):
+        username = os.getenv("ULTRADENT_SCHEIN_USERNAME")
+        password = os.getenv("ULTRADENT_SCHEIN_PASSWORD")
         async with ClientSession() as session:
             scraper = UltraDentScraper(
                 session=session,
                 vendor_slug="",
-                username="info@columbinecreekdentistry.com",
-                password="co80128!",
+                username=username,
+                password=password,
             )
             await scraper.login()
             async with session.post(
