@@ -172,7 +172,7 @@ class CompanyMemberUpdateSerializer(serializers.Serializer):
 
 class OfficeVendorSerializer(serializers.ModelSerializer):
     office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), allow_null=True)
-    password = serializers.CharField(required=False)
+    password = serializers.CharField(write_only=True)
 
     class Meta:
         model = m.OfficeVendor

@@ -36,9 +36,27 @@ class VendorOrderInline(ReadOnlyAdminMixin, NestedTabularInline):
         return False
 
 
+class OrderVendorFilter(SimpleListFilter):
+    title = "Vendor"
+    parameter_name = "vendors"
+
+    def lookups(self, request, model_admin):
+        return m.Vendor.objects.values_list("slug", "name")
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if not value:
+            return queryset
+        return queryset.filter(vendor_orders__vendor__slug=value)
+
+
 @admin.register(m.Order)
 class OrderAdmin(NestedModelAdmin):
     list_display = ("id", "company", "office", "vendors", "order_date", "status")
+    list_filter = (
+        "status",
+        OrderVendorFilter,
+    )
     inlines = (VendorOrderInline,)
 
     @admin.display(description="Company")
@@ -55,7 +73,7 @@ class ProductPriceFilter(SimpleListFilter):
     parameter_name = "price"
 
     def lookups(self, request, model_admin):
-        return (("_100", "0 - 100"), ("100_200", "100 - 200"), ("200_300", "200 - 300"), ("300_", "300 +"))
+        return ("_100", "0 - 100"), ("100_200", "100 - 200"), ("200_300", "200 - 300"), ("300_", "300 +")
 
     def queryset(self, request, queryset):
         value = self.value()
