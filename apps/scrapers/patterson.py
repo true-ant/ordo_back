@@ -195,16 +195,19 @@ class PattersonScraper(Scraper):
         }
         async with self.session.get(url, headers=SEARCH_HEADERS, params=params) as resp:
             response_dom = Selector(text=await resp.text())
-            total_size = int(
-                response_dom.xpath(
-                    "//div[contains(@class, 'productItemFamilyListHeader')]\
-                  //h1//text()"
+            try:
+                total_size = int(
+                    response_dom.xpath(
+                        "//div[contains(@class, 'productItemFamilyListHeader')]\
+                      //h1//text()"
+                    )
+                    .get()
+                    .split("results", 1)[0]
+                    .split("Found")[1]
+                    .strip(" +")
                 )
-                .get()
-                .split("results", 1)[0]
-                .split("Found")[1]
-                .strip(" +")
-            )
+            except (IndexError, AttributeError, ValueError):
+                total_size = 0
             products_dom = response_dom.xpath(
                 "//div[@class='container-fluid']//table//tr//div[@ng-controller='SearchResultsController']"
             )
