@@ -217,6 +217,11 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
 
         # filter
         products = []
+        for search_result in search_results:
+            if not isinstance(search_result, dict):
+                continue
+            products.extend([product for product in search_result["products"]])
+
         meta = {
             "total_size": 0,
             "vendors": [],
