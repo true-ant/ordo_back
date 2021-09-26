@@ -86,6 +86,10 @@ REVIEW_CHECKOUT_HEADERS = {
 class DarbyScraper(Scraper):
     BASE_URL = "https://www.darbydental.com"
 
+    def __init__(self, *args, **kwargs):
+        self.products = {}
+        super().__init__(*args, **kwargs)
+
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         res = await response.json()
         return res["m_Item2"] and res["m_Item2"]["username"] == self.username
@@ -102,12 +106,14 @@ class DarbyScraper(Scraper):
         async with self.session.get(
             f"{self.BASE_URL}/Scripts/InvoiceTrack.aspx?invno={order_id}", headers=HEADERS
         ) as resp:
-            track_response_dom = Selector(text=await resp.text())
-            tracking_dom = track_response_dom.xpath(
-                "//table[contains(@id, 'MainContent_rpt_gvInvoiceTrack_')]//tr[@class='pdpHelltPrimary']"
-            )[0]
-
-            order["status"] = self.extract_first(tracking_dom, "./td[4]//text()")
+            try:
+                track_response_dom = Selector(text=await resp.text())
+                tracking_dom = track_response_dom.xpath(
+                    "//table[contains(@id, 'MainContent_rpt_gvInvoiceTrack_')]//tr[@class='pdpHelltPrimary']"
+                )[0]
+                order["status"] = self.extract_first(tracking_dom, "./td[4]//text()")
+            except IndexError:
+                order["status"] = "Unknown"
 
     @catch_network
     async def get_order_products(self, order, link):
@@ -117,15 +123,21 @@ class DarbyScraper(Scraper):
             for detail_row in order_detail_response.xpath(
                 "//table[@id='MainContent_gvInvoiceDetail']//tr[@class='pdpHelltPrimary']"  # noqa
             ):
+                product_id = self.merge_strip_values(detail_row, "./td[1]/a//text()")
+                product_url = self.merge_strip_values(detail_row, "./td[1]/a//@href")
+                if product_url:
+                    product_url = f"{self.BASE_URL}{product_url}"
+                    self.products[product_id] = {"url": product_url}
+                product_image = self.merge_strip_values(detail_row, "./td[1]/input//@src")
+                product_image = f"{self.BASE_URL}{product_image}" if product_image else None
                 order["products"].append(
                     {
                         "product": {
                             "product_id": self.merge_strip_values(detail_row, "./td[1]/a//text()"),
                             "name": self.merge_strip_values(detail_row, "./td[2]//text()"),
-                            "url": self.BASE_URL + self.merge_strip_values(detail_row, "./td[1]/a//@href"),
-                            "images": [
-                                {"image": self.BASE_URL + self.merge_strip_values(detail_row, "./td[1]/input//@src")}
-                            ],
+                            "description": "",
+                            "url": product_url,
+                            "images": [{"image": product_image}],
                             "price": self.merge_strip_values(detail_row, "./td[4]//text()"),
                         },
                         "quantity": self.merge_strip_values(detail_row, "./td[5]//text()"),
@@ -142,12 +154,10 @@ class DarbyScraper(Scraper):
             "total_amount": self.merge_strip_values(order_dom, ".//td[8]//text()"),
             "currency": "USD",
             "order_date": datetime.strptime(self.merge_strip_values(order_dom, ".//td[2]//text()"), "%m/%d/%Y").date(),
-            # TODO: fetch darby status
-            "status": "status",
         }
         await asyncio.gather(self.get_order_products(order, link), self.get_shipping_track(order, order_id))
 
-        return Order.from_dict(order)
+        return order
 
     @catch_network
     async def get_orders(self, perform_login=False):
@@ -163,7 +173,30 @@ class DarbyScraper(Scraper):
                 "//table[@id='MainContent_gvInvoiceHistory']//tr[@class='pdpHelltPrimary']"
             )
             tasks = (self.get_order(order_dom) for order_dom in orders_dom)
-            return await asyncio.gather(*tasks, return_exceptions=True)
+            orders = await asyncio.gather(*tasks, return_exceptions=True)
+
+        tasks = (self.get_product(product_id, product["url"]) for product_id, product in self.products.items())
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+        for order in orders:
+            if not isinstance(order, dict):
+                continue
+            for order_product in order["products"]:
+                try:
+                    product_description = self.products[order_product["product"]["product_id"]]["description"]
+                except KeyError:
+                    product_description = ""
+                order_product["product"]["description"] = product_description
+
+        return [Order.from_dict(order) for order in orders]
+
+    @catch_network
+    async def get_product(self, product_id, product_link):
+        async with self.session.get(product_link) as resp:
+            product_dom = Selector(text=await resp.text())
+            self.products[product_id] = {
+                "description": self.extract_first(product_dom, ".//span[@id='MainContent_lblDescription']/text()")
+            }
 
     @catch_network
     async def _search_products(
