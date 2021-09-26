@@ -215,10 +215,14 @@ class Net32Scraper(Scraper):
         async with self.session.get(url, headers=SEARCH_HEADERS, params=params) as resp:
             response_dom = Selector(text=await resp.text())
 
-            total_size_str = response_dom.xpath(
-                "//p[@class='localsearch-result-summary-paragraph']/strong/text()"
-            ).get()
-            total_size = int(self.remove_thousands_separator(total_size_str))
+            try:
+                total_size_str = response_dom.xpath(
+                    "//p[@class='localsearch-result-summary-paragraph']/strong/text()"
+                ).get()
+                total_size = int(self.remove_thousands_separator(total_size_str))
+            except (AttributeError, ValueError, TypeError):
+                total_size = 0
+
             products = []
             products_dom = response_dom.xpath(
                 "//div[@class='localsearch-results-container']//div[contains(@class, 'localsearch-result-wrapper')]"
