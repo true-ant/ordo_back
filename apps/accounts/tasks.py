@@ -96,6 +96,8 @@ def save_order_to_db(office, vendor, order_data):
             office=office,
             status=order_data["status"],
             order_date=order_data["order_date"],
+            total_items=order_data["total_items"],
+            total_amount=order_data["total_amount"],
         )
         vendor_order = VendorOrder.from_dataclass(vendor=vendor, order=order, dict_data=order_data)
 

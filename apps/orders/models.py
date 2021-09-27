@@ -70,7 +70,7 @@ class Order(TimeStampedModel):
     status = models.CharField(max_length=100)
 
     objects = models.Manager()
-    months = OrderMonthManager()
+    current_months = OrderMonthManager()
 
     def __str__(self):
         return f"{self.office.name}(#{self.pk})"
@@ -86,6 +86,9 @@ class VendorOrder(TimeStampedModel):
     order_date = models.DateField()
     status = models.CharField(max_length=100)
     products = models.ManyToManyField(Product, through="VendorOrderProduct")
+
+    objects = models.Manager()
+    current_months = OrderMonthManager()
 
     def __str__(self):
         return self.vendor_order_id

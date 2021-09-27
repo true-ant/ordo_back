@@ -6,6 +6,7 @@ from typing import List
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
 from django.apps import apps
+from django.conf import settings
 from django.db import transaction
 from django.db.models import F, Q, Sum
 from django.shortcuts import get_object_or_404
@@ -56,16 +57,51 @@ class OrderViewSet(ModelViewSet):
     def get_queryset(self):
         return super().get_queryset().filter(office__id=self.kwargs["office_pk"])
 
-    @action(detail=False, methods=["get"], url_path="count")
-    def get_orders_count(self, request, *args, **kwargs):
-        count = self.filter_queryset(self.get_queryset()).count()
-        return Response({"count": count})
+    @action(detail=False, methods=["get"], url_path="stats")
+    def get_orders_stats(self, request, *args, **kwargs):
+        office_id = self.kwargs["office_pk"]
 
-    @action(detail=False, methods=["get"], url_path="monthly-count")
-    def get_orders_monthly_count(self, request, *args, **kwargs):
-        queryset = m.Order.months.filter(office__id=self.kwargs["office_pk"])
-        count = self.filter_queryset(queryset).count()
-        return Response({"count": count})
+        total_items = 0
+        total_amount = 0
+        average_amount = 0
+
+        queryset = (
+            m.Order.current_months.filter(office__id=office_id)
+            .annotate(month_total_items=Sum("total_items", distinct=True))
+            .annotate(month_total_amount=Sum("total_amount", distinct=True))
+        )
+        orders_count = queryset.count()
+        if orders_count:
+            total_items = queryset[0].month_total_items
+            total_amount = queryset[0].month_total_amount
+            average_amount = total_amount / orders_count
+
+        vendors = (
+            m.VendorOrder.current_months.filter(order__office_id=office_id)
+            .values("vendor_id", "vendor__name", "vendor__logo")
+            .order_by("vendor_id")
+            .annotate(order_counts=Sum("vendor_id"))
+        )
+
+        ret = {
+            "order": {
+                "order_counts": orders_count,
+                "total_items": total_items,
+                "total_amount": total_amount,
+                "average_amount": average_amount,
+            },
+            "vendors": [
+                {
+                    "id": vendor["vendor_id"],
+                    "name": vendor["vendor__name"],
+                    "logo": f"https://{settings.AWS_S3_CUSTOM_DOMAIN}"
+                    f"{settings.PUBLIC_MEDIA_LOCATION}{vendor['vendor__logo']}",
+                    "order_counts": vendor["order_counts"],
+                }
+                for vendor in vendors
+            ],
+        }
+        return Response(ret)
 
 
 class VendorOrderProductViewSet(ModelViewSet):
