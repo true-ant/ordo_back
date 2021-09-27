@@ -89,7 +89,7 @@ class HenryScheinScraper(Scraper):
             addresses = order_detail_response.xpath(
                 "//span[@id='ctl00_cphMainContent_ucShippingAddr_lblAddress']//text()"
             ).extract()
-            _, codes = addresses[2].split(",")
+            _, codes = addresses[-2].split(",")
             region_code, postal_code = codes.strip().split(" ")
             order["shipping_address"] = {
                 "address": addresses[1],
