@@ -8,7 +8,7 @@ from dateutil.relativedelta import relativedelta
 from django.apps import apps
 from django.conf import settings
 from django.db import transaction
-from django.db.models import F, Q, Sum
+from django.db.models import Count, F, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.decorators import action
@@ -78,9 +78,10 @@ class OrderViewSet(ModelViewSet):
 
         vendors = (
             m.VendorOrder.current_months.filter(order__office_id=office_id)
-            .values("vendor_id", "vendor__name", "vendor__logo")
+            .values("vendor_id", "vendor__name", "vendor__logo", "total_amount")
             .order_by("vendor_id")
-            .annotate(order_counts=Sum("vendor_id"))
+            .annotate(order_counts=Count("vendor_id", distinct=True))
+            .annotate(order_total_amount=Sum("total_amount", distinct=True))
         )
 
         ret = {
@@ -97,6 +98,7 @@ class OrderViewSet(ModelViewSet):
                     "logo": f"https://{settings.AWS_S3_CUSTOM_DOMAIN}"
                     f"{settings.PUBLIC_MEDIA_LOCATION}{vendor['vendor__logo']}",
                     "order_counts": vendor["order_counts"],
+                    "total_amount": vendor["order_total_amount"],
                 }
                 for vendor in vendors
             ],
@@ -272,8 +274,6 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
 
         meta["last_page"] = all([vendor_search["last_page"] for vendor_search in meta["vendors"]])
 
-        print(meta)
-        print(products)
         return Response({"meta": meta, "products": products})
 
 
