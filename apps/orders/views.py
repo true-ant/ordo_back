@@ -96,9 +96,9 @@ class OrderViewSet(ModelViewSet):
             "vendors": [
                 {
                     "id": vendor["vendor_id"],
-                    "name": vendor["vendor__name"],
+                    "name": vendor["vendor_name"],
                     "logo": f"https://{settings.AWS_S3_CUSTOM_DOMAIN}"
-                    f"{settings.PUBLIC_MEDIA_LOCATION}{vendor['vendor__logo']}",
+                    f"{settings.PUBLIC_MEDIA_LOCATION}{vendor['vendor_logo']}",
                     "order_counts": vendor["order_counts"],
                     "total_amount": vendor["order_total_amount"],
                 }
