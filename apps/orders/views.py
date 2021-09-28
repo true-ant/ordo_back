@@ -161,6 +161,8 @@ def get_spending(by, orders, company):
                 "vendor": {
                     "id": q["vendor_id"],
                     "name": q["vendor_name"],
+                    "logo": f"https://{settings.AWS_S3_CUSTOM_DOMAIN}"
+                    f"{settings.PUBLIC_MEDIA_LOCATION}{vendors[q['vendor_id']].vendor.logo}",
                     "office_associated_id": vendors[q["vendor_id"]].id,
                 },
                 "total_amount": q["total_amount"],

@@ -73,6 +73,7 @@ class OfficeVendorConnectedSerializer(serializers.Serializer):
     office_associated_id = serializers.CharField()
     id = serializers.CharField()
     name = serializers.CharField()
+    logo = serializers.CharField()
 
 
 class TotalSpendSerializer(serializers.Serializer):
