@@ -146,6 +146,10 @@ class PattersonScraper(Scraper):
     async def get_orders(self, perform_login=False) -> List[Order]:
         return []
 
+    # @catch_network
+    # async def get_product(self, product_id, product_url, perform_login=False) -> Product:
+    #     pass
+
     @catch_network
     async def get_product(self, product_dom):
         product_description_dom = product_dom.xpath(".//div[contains(@class, 'listViewDescriptionWrapper')]")

@@ -14,7 +14,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     vendor = serializers.PrimaryKeyRelatedField(queryset=m.Vendor.objects.all())
-    images = ProductImageSerializer(many=True)
+    images = ProductImageSerializer(many=True, required=False)
 
     class Meta:
         model = m.Product
@@ -24,6 +24,12 @@ class ProductSerializer(serializers.ModelSerializer):
         ret = super().to_representation(instance)
         ret["vendor"] = VendorSerializer(m.Vendor.objects.get(id=ret["vendor"])).data
         return ret
+
+
+class ProductReadDetailSerializer(serializers.Serializer):
+    vendor = serializers.PrimaryKeyRelatedField(queryset=m.Vendor.objects.all())
+    product_id = serializers.CharField()
+    product_url = serializers.URLField()
 
 
 class VendorOrderProductSerializer(serializers.ModelSerializer):

@@ -279,6 +279,31 @@ class BencoScraper(Scraper):
             return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
 
     @catch_network
+    async def get_product(self, product_id, product_url, perform_login=False) -> Product:
+        if perform_login:
+            await self.login()
+
+        async with self.session.get(product_url, ssl=self._ssl_context) as resp:
+            res = Selector(text=await resp.text())
+            product_name = self.extract_first(res, ".//h3[@class='product-name']/text()")
+            product_description = self.extract_first(res, ".//p[@class='product-description']/text()")
+            product_images = res.xpath(".//div[@id='activeImageArea']/img/@src").extract()
+            product_images.extend(res.xpath(".//div[@class='thumbnail']/img/@src").extract())
+            product_price = self.extract_first(res, ".//div[@class='product-detail-actions-wrapper']/h3/text()")
+            return Product.from_dict(
+                {
+                    "product_id": product_id,
+                    "name": product_name,
+                    "description": product_description,
+                    "url": product_url,
+                    "images": [{"image": product_image} for product_image in product_images],
+                    "price": product_price,
+                    "retail_price": product_price,
+                    "vendor_id": self.vendor_id,
+                }
+            )
+
+    @catch_network
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
     ) -> ProductSearch:

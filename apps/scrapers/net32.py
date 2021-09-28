@@ -198,6 +198,10 @@ class Net32Scraper(Scraper):
             raise OrderFetchException()
 
     @catch_network
+    async def get_product(self, product_id, product_url, perform_login=False) -> Product:
+        pass
+
+    @catch_network
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
     ) -> ProductSearch:

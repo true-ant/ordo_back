@@ -17,7 +17,9 @@ HEADERS = {
     "n": "pikP/UtnnyEIsCZl3cphEgyUhacC9CnLZqSaDcvfufM=",
     "iscallingfromcms": "False",
     "sec-ch-ua-mobile": "?0",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36",  # noqa
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36",
+    # noqa
     "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
     "accept": "application/json, text/javascript, */*; q=0.01",
     "x-requested-with": "XMLHttpRequest",
@@ -98,7 +100,7 @@ class HenryScheinScraper(Scraper):
             }
 
             tasks = (
-                self.get_product(
+                self.get_order_product(
                     product_link=self.merge_strip_values(
                         dom=order_product_dom,
                         xpath="./td[1]//table[@id='tblProduct']//span[@class='ProductDisplayName']//a/@href",
@@ -106,7 +108,9 @@ class HenryScheinScraper(Scraper):
                     order_product_dom=order_product_dom,
                 )
                 for order_product_dom in order_detail_response.xpath(
-                    "//table[contains(@class, 'tblOrderableProducts')]//tr//table[@class='SimpleList']//tr[@class='ItemRow' or @class='AlternateItemRow']"  # noqa
+                    "//table[contains(@class, 'tblOrderableProducts')]//tr"
+                    "//table[@class='SimpleList']//tr[@class='ItemRow' or @class='AlternateItemRow']"
+                    # noqa
                 )
             )
 
@@ -114,7 +118,40 @@ class HenryScheinScraper(Scraper):
         return Order.from_dict(order)
 
     @catch_network
-    async def get_product(self, product_link, order_product_dom):
+    async def get_product(self, product_id, product_url, perform_login=False) -> Product:
+        if perform_login:
+            await self.login()
+
+        async with self.session.get(product_url) as resp:
+            res = Selector(text=await resp.text())
+            product_detail = res.xpath(".//ul[@id='ctl00_cphMainContentHarmony_ucProductSummary_ulProductSummary']")
+            product_name = self.extract_first(product_detail, ".//h2[contains(@class, 'product-title')]/text()")
+            product_description = self.extract_first(res, ".//li[@class='customer-notes']/div[@class='value']/text()")
+            product_images = res.xpath(
+                ".//div[@id='ctl00_cphMainContentHarmony_ucProductAssets_divImgProduct']/img/@src"
+            ).extract()
+            product_price = self.extract_first(
+                res,
+                ".//li[@id='ctl00_cphMainContentHarmony_ucProductSummary_ucPackagingOptions"
+                "_rptProductList_ctl00_liProductAction']//span[contains(@class, 'amount')]/text()",
+            )
+            product_price = re.findall("\\d+\\.\\d+", product_price)
+            product_price = product_price[0] if isinstance(product_price, list) else None
+            return Product.from_dict(
+                {
+                    "product_id": product_id,
+                    "name": product_name,
+                    "description": product_description,
+                    "url": product_url,
+                    "images": [{"image": product_image} for product_image in product_images],
+                    "price": product_price,
+                    "retail_price": product_price,
+                    "vendor_id": self.vendor_id,
+                }
+            )
+
+    @catch_network
+    async def get_order_product(self, product_link, order_product_dom):
         async with self.session.get(product_link) as resp:
             res = Selector(text=await resp.text())
             product_detail = res.xpath("//script[@type='application/ld+json']//text()").extract_first()

@@ -63,11 +63,25 @@ class OrderMonthManager(models.Manager):
 
 class Order(TimeStampedModel):
     office = FlexibleForeignKey(Office)
-    created_by = FlexibleForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_by = models.ForeignKey(
+        User,
+        related_name="orders",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
     order_date = models.DateField()
     total_items = models.IntegerField(default=1)
     total_amount = models.DecimalField(decimal_places=2, max_digits=10, default=0)
     status = models.CharField(max_length=100)
+    is_approved = models.BooleanField(default=True)
+    approved_by = models.ForeignKey(
+        User,
+        related_name="orders_approved_me",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
 
     objects = models.Manager()
     current_months = OrderMonthManager()

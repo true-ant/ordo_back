@@ -203,11 +203,14 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
     queryset = m.Product.objects.all()
 
     @sync_to_async
-    def _get_linked_vendors(self, request, office_id) -> List[LinkedVendor]:
+    def _get_linked_vendors(self, request, office_id, vendor_id=None) -> List[LinkedVendor]:
         CompanyMember.objects.filter(user=request.user).first()
         # TODO: Check permission
         # office_vendors = OfficeVendor.objects.select_related("vendor").filter(office__company=company_member.company)
-        return list(OfficeVendor.objects.select_related("vendor").filter(office_id=office_id))
+        office_vendors = OfficeVendor.objects.select_related("vendor").filter(office_id=office_id)
+        if vendor_id:
+            office_vendors = office_vendors.filter(vendor_id=vendor_id)
+        return list(office_vendors)
 
     @action(detail=False, methods=["post"], url_path="search")
     async def search_product(self, request, *args, **kwargs):
@@ -280,6 +283,29 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
 
         return Response({"meta": meta, "products": products})
 
+    @sync_to_async
+    def _validate_product_detail_serializer(self, request):
+        serializer = s.ProductReadDetailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return serializer.validated_data
+
+    @action(detail=False, methods=["post"], url_path="detail")
+    async def get_product_detail_from_vendor(self, request, *args, **kwargs):
+        office_id = self.kwargs["office_pk"]
+        validated_data = await self._validate_product_detail_serializer(request)
+        office_vendor = await self._get_linked_vendors(request, office_id, validated_data["vendor"].id)[0]
+        session = apps.get_app_config("accounts").session
+        scraper = ScraperFactory.create_scraper(
+            scraper_name=validated_data["vendor"].slug,
+            session=session,
+            username=office_vendor.username,
+            password=office_vendor.password,
+            vendor_id=office_vendor.vendor.id,
+        )
+
+        product = await scraper.get_product(product_id=validated_data["product_id"], url=validated_data["product_url"])
+        return Response(product.to_dict())
+
 
 class CartViewSet(AsyncMixin, ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -305,10 +331,10 @@ class CartViewSet(AsyncMixin, ModelViewSet):
     @sync_to_async
     def _pre_checkout_hook(self):
         queryset = self.get_queryset()
-
+        office = Office.objects.get(id=self.kwargs["office_pk"])
         q = reduce(
             operator.or_,
-            [Q(office=item.office) & Q(vendor=item.product.vendor) for item in queryset],
+            [Q(office=office) & Q(vendor=item.product.vendor) for item in queryset],
         )
         office_vendors = OfficeVendor.objects.select_related("vendor").filter(q)
 
@@ -316,7 +342,8 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             status=m.OrderProgressStatus.STATUS.IN_PROGRESS, office_vendor__in=office_vendors
         ).exists()
 
-        return queryset, list(office_vendors), is_checking
+        # total_price = sum(cart.quantity * cart.product.price for cart in queryset)
+        return queryset, office, list(office_vendors), is_checking
 
     @sync_to_async
     def _update_vendors_order_status(self, office_vendors, status):
@@ -346,7 +373,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=False, url_path="checkout", methods=["get"], permission_classes=[p.OrderCheckoutPermission])
     async def checkout(self, request, *args, **kwargs):
-        cart_products, office_vendors, is_checking = await self._pre_checkout_hook()
+        cart_products, office, office_vendors, is_checking = await self._pre_checkout_hook()
         if is_checking:
             return Response({"message": msgs.ORDER_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
 

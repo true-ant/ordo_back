@@ -240,6 +240,11 @@ class UltraDentScraper(Scraper):
             page_products = []
         return total_size, page_products
 
+    @catch_network
+    async def get_product(self, product_id, product_url, perform_login=False) -> Product:
+        if perform_login:
+            await self.login()
+
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
     ) -> ProductSearch:
