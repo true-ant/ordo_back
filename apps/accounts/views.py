@@ -26,6 +26,7 @@ from apps.scrapers.errors import (
 )
 from apps.scrapers.scraper_factory import ScraperFactory
 
+from . import filters as f
 from . import models as m
 from . import permissions as p
 from . import serializers as s
@@ -368,6 +369,7 @@ class OfficeBudgetViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = s.OfficeBudgetSerializer
     queryset = m.OfficeBudget.objects.all()
+    filterset_class = f.OfficeBudgetFilter
 
     def get_queryset(self):
         return super().get_queryset().filter(office_id=self.kwargs["office_pk"])
