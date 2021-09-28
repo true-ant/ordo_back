@@ -78,10 +78,12 @@ class OrderViewSet(ModelViewSet):
 
         vendors = (
             m.VendorOrder.current_months.filter(order__office_id=office_id)
-            .values("vendor_id", "vendor__name", "vendor__logo", "total_amount")
             .order_by("vendor_id")
-            .annotate(order_counts=Count("vendor_id", distinct=True))
-            .annotate(order_total_amount=Sum("total_amount", distinct=True))
+            .values("vendor_id")
+            .annotate(order_counts=Count("vendor_id"))
+            .annotate(order_total_amount=Sum("total_amount"))
+            .annotate(vendor_name=F("vendor__name"))
+            .annotate(vendor_logo=F("vendor__logo"))
         )
 
         ret = {
