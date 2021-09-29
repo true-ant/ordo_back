@@ -56,6 +56,15 @@ class ProductImage(BaseDataClass):
 
 
 @dataclass(frozen=True)
+class Vendor(BaseDataClass):
+    id: str
+    name: str
+    slug: str
+    url: str
+    logo: str
+
+
+@dataclass(frozen=True)
 class Product(BaseDataClass):
     product_id: str
     name: str
@@ -64,7 +73,7 @@ class Product(BaseDataClass):
     images: List[ProductImage]
     price: Decimal  # Decimal
     retail_price: str  # Decimal
-    vendor_id: str
+    vendor: Vendor
     # stars: Decimal
     # ratings: Decimal
 

@@ -248,12 +248,13 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
             if vendors_meta.get(vendor_slug, {}).get("last_page", False):
                 continue
             try:
+                print(office_vendor.vendor)
+                print(office_vendor.vendor.to_dict())
                 scraper = ScraperFactory.create_scraper(
-                    scraper_name=vendor_slug,
+                    vendor=office_vendor.vendor.to_dict(),
                     session=session,
                     username=office_vendor.username,
                     password=office_vendor.password,
-                    vendor_id=office_vendor.vendor.id,
                 )
             except VendorNotSupported:
                 continue
@@ -263,7 +264,7 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
             )
 
         search_results = await asyncio.gather(*tasks, return_exceptions=True)
-        print(search_results)
+
         # filter
         products = []
         meta = {
@@ -300,11 +301,10 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
         office_vendor = await self._get_linked_vendors(request, office_id, validated_data["vendor"].id)[0]
         session = apps.get_app_config("accounts").session
         scraper = ScraperFactory.create_scraper(
-            scraper_name=validated_data["vendor"].slug,
+            vendor=validated_data["vendor"].slug,
             session=session,
             username=office_vendor.username,
             password=office_vendor.password,
-            vendor_id=office_vendor.vendor.id,
         )
 
         product = await scraper.get_product(product_id=validated_data["product_id"], url=validated_data["product_url"])
@@ -387,7 +387,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             tasks = []
             for office_vendor in office_vendors:
                 scraper = ScraperFactory.create_scraper(
-                    scraper_name=office_vendor.vendor.slug,
+                    vendor=office_vendor.vendor.to_dict(),
                     session=session,
                     username=office_vendor.username,
                     password=office_vendor.password,

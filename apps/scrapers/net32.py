@@ -257,13 +257,13 @@ class Net32Scraper(Scraper):
                                 product_dom, ".//ins[@class='localsearch-result-best-price']//text()"
                             ),
                             "retail_price": "",
-                            "vendor_id": self.vendor_id,
+                            "vendor": self.vendor,
                         }
                     )
                 )
 
             return {
-                "vendor_slug": self.vendor_slug,
+                "vendor_slug": self.vendor["slug"],
                 "total_size": total_size,
                 "page": page,
                 "page_size": page_size,

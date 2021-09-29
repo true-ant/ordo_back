@@ -253,7 +253,7 @@ class BencoScraper(Scraper):
                                     "images": [{"image": product_row.xpath(".//img/@src").get()}],
                                     "price": other_details[2].split(":")[1],
                                     "retail_price": "",
-                                    "vendor_id": self.vendor_id,
+                                    "vendor": self.vendor,
                                 },
                                 "quantity": other_details[1].split(":")[1].strip(),
                                 "unit_price": other_details[2].split(":")[1],
@@ -299,7 +299,7 @@ class BencoScraper(Scraper):
                     "images": [{"image": product_image} for product_image in product_images],
                     "price": product_price,
                     "retail_price": product_price,
-                    "vendor_id": self.vendor_id,
+                    "vendor": self.vendor,
                 }
             )
 
@@ -356,7 +356,7 @@ class BencoScraper(Scraper):
                             ],
                             "price": "",
                             "retail_price": "",
-                            "vendor_id": self.vendor_id,
+                            "vendor_id": self.vendor,
                         }
                         product_ids.append(product_id)
                 else:
@@ -386,7 +386,7 @@ class BencoScraper(Scraper):
                     ],
                     "price": "",
                     "retail_price": "",
-                    "vendor_id": self.vendor_id,
+                    "vendor": self.vendor,
                 }
         data = {"productNumbers": product_ids, "pricePartialType": "ProductPriceRow"}
         headers = PRICE_SEARCH_HEADERS.copy()
@@ -405,7 +405,7 @@ class BencoScraper(Scraper):
                 products[product_id]["price"] = row_dom.xpath("//h4[@class='selling-price']").attrib["content"]
 
         return {
-            "vendor_slug": self.vendor_slug,
+            "vendor_slug": self.vendor["slug"],
             "total_size": total_size,
             "page": page,
             "page_size": page_size,

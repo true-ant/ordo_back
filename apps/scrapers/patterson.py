@@ -183,7 +183,7 @@ class PattersonScraper(Scraper):
             ],
             "price": price_high,
             "retail_price": "",
-            "vendor_id": self.vendor_id,
+            "vendor": self.vendor,
         }
 
     @catch_network
@@ -218,7 +218,7 @@ class PattersonScraper(Scraper):
             tasks = (self.get_product(product_dom) for product_dom in products_dom)
             products = await asyncio.gather(*tasks, return_exceptions=True)
             return {
-                "vendor_slug": self.vendor_slug,
+                "vendor_slug": self.vendor["slug"],
                 "total_size": total_size,
                 "page": page,
                 "page_size": page_size,

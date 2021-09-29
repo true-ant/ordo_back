@@ -5,23 +5,21 @@ from aiohttp import ClientResponse, ClientSession
 
 from apps.scrapers.errors import VendorAuthenticationFailed
 from apps.scrapers.utils import catch_network
-from apps.types.scraper import LoginInformation, ProductSearch
+from apps.types.scraper import LoginInformation, ProductSearch, VendorInformation
 
 
 class Scraper:
     def __init__(
         self,
         session: ClientSession,
-        vendor_slug: str,
+        vendor: VendorInformation,
         username: Optional[str] = None,
         password: Optional[str] = None,
-        vendor_id: Optional[int] = None,
     ):
         self.session = session
-        self.vendor_slug = vendor_slug
+        self.vendor = vendor
         self.username = username
         self.password = password
-        self.vendor_id = vendor_id
 
     @catch_network
     async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> SimpleCookie:
@@ -98,7 +96,7 @@ class Scraper:
             page += 1
 
         return {
-            "vendor_slug": self.vendor_slug,
+            "vendor_slug": self.vendor["slug"],
             "total_size": total_size,
             "page": page,
             "page_size": page_size,

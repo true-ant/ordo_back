@@ -78,7 +78,7 @@ def send_company_invite_email(company_email_invites: List[CompanyInvite]):
 async def get_orders(company_vendor, login_cookies, perform_login):
     async with ClientSession(cookies=login_cookies) as session:
         scraper = ScraperFactory.create_scraper(
-            scraper_name=company_vendor.vendor.slug,
+            vendor=company_vendor.vendor.to_dict(),
             session=session,
             username=company_vendor.username,
             password=company_vendor.password,

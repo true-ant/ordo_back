@@ -231,7 +231,7 @@ class UltraDentScraper(Scraper):
 
     @sync_to_async
     def get_page_queryset(self, page, page_size):
-        products = Product.objects.filter(vendor_id=self.vendor_id)
+        products = Product.objects.filter(vendor_id=self.vendor["id"])
         total_size = products.count()
         if (page - 1) * page_size < total_size:
             page_products = products[(page - 1) * page_size : page * page_size]
@@ -252,7 +252,7 @@ class UltraDentScraper(Scraper):
         total_size, page_products = await self.get_page_queryset(page, page_size)
         last_page = page_size * page >= total_size
         return {
-            "vendor_slug": self.vendor_slug,
+            "vendor_slug": self.vendor["slug"],
             "total_size": total_size,
             "page": page,
             "page_size": page_size,

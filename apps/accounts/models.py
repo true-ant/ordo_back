@@ -3,6 +3,7 @@
 from datetime import timedelta
 
 from creditcards.models import CardExpiryField, CardNumberField, SecurityCodeField
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
@@ -37,6 +38,17 @@ class Vendor(models.Model):
 
     def __str__(self):
         return self.name
+
+    def to_dict(self):
+        ret = {}
+        for k, v in self.__dict__.items():
+            if "_" in k:
+                continue
+            if k == "logo":
+                ret[k] = f"https://{settings.AWS_S3_CUSTOM_DOMAIN}{settings.PUBLIC_MEDIA_LOCATION}{v}"
+            else:
+                ret[k] = v
+        return ret
 
 
 class Company(TimeStampedModel):

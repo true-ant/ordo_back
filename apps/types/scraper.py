@@ -16,3 +16,11 @@ class ProductSearch(TypedDict):
     page_size: int
     products: List[Product]
     last_page: bool
+
+
+class VendorInformation(TypedDict):
+    id: int
+    name: str
+    slug: str
+    url: str
+    logo: str

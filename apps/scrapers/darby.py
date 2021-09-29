@@ -216,7 +216,7 @@ class DarbyScraper(Scraper):
                     "images": [{"image": f"{self.BASE_URL}{product_image}"} for product_image in product_images],
                     "price": product_price,
                     "retail_price": product_price,
-                    "vendor_id": f"{self.vendor_id}",
+                    "vendor": self.vendor,
                 }
             )
 
@@ -275,12 +275,12 @@ class DarbyScraper(Scraper):
                             ],
                             "price": price,
                             "retail_price": price,
-                            "vendor_id": self.vendor_id,
+                            "vendor": self.vendor,
                         }
                     )
                 )
         return {
-            "vendor_slug": self.vendor_slug,
+            "vendor_slug": self.vendor["slug"],
             "total_size": total_size,
             "page": page,
             "page_size": page_size,
