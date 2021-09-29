@@ -8,6 +8,7 @@ from apps.accounts.models import Office, OfficeVendor, User, Vendor
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
 from apps.scrapers.schema import Product as ProductDataClass
 from apps.scrapers.schema import ProductImage as ProductImageDataClass
+from apps.scrapers.schema import Vendor as VendorDataClass
 
 
 class Product(TimeStampedModel):
@@ -37,7 +38,13 @@ class Product(TimeStampedModel):
             images=[ProductImageDataClass(image=image.image) for image in self.images.all()],
             price=self.price,
             retail_price=self.retail_price,
-            vendor_id=self.vendor.id,
+            vendor=VendorDataClass(
+                id=self.vendor.id,
+                name=self.vendor.name,
+                slug=self.vendor.slug,
+                url=self.vendor.url,
+                logo=self.vendor.logo,
+            ),
         )
 
 
