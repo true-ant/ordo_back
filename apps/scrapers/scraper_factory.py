@@ -11,13 +11,12 @@ from apps.scrapers.errors import VendorNotSupported
 from apps.scrapers.henryschein import HenryScheinScraper
 from apps.scrapers.net32 import Net32Scraper
 from apps.scrapers.patterson import PattersonScraper
-
-# from apps.scrapers.ultradent import UltraDentScraper
+from apps.scrapers.ultradent import UltraDentScraper
 
 SCRAPERS = {
     "henry_schein": HenryScheinScraper,
     "net_32": Net32Scraper,
-    # "ultradent": UltraDentScraper,
+    "ultradent": UltraDentScraper,
     "darby": DarbyScraper,
     "patterson": PattersonScraper,
     "benco": BencoScraper,

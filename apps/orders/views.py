@@ -22,6 +22,7 @@ from apps.accounts.models import Company, CompanyMember, Office, OfficeVendor
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
 from apps.common.pagination import StandardResultsSetPagination
+from apps.scrapers.errors import VendorNotSupported
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import CartProduct, LinkedVendor
 
@@ -246,13 +247,16 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
 
             if vendors_meta.get(vendor_slug, {}).get("last_page", False):
                 continue
-            scraper = ScraperFactory.create_scraper(
-                scraper_name=vendor_slug,
-                session=session,
-                username=office_vendor.username,
-                password=office_vendor.password,
-                vendor_id=office_vendor.vendor.id,
-            )
+            try:
+                scraper = ScraperFactory.create_scraper(
+                    scraper_name=vendor_slug,
+                    session=session,
+                    username=office_vendor.username,
+                    password=office_vendor.password,
+                    vendor_id=office_vendor.vendor.id,
+                )
+            except VendorNotSupported:
+                continue
             current_page = vendors_meta.get(vendor_slug, {}).get("page", 0)
             tasks.append(
                 scraper.search_products(query=q, page=current_page + 1, min_price=min_price, max_price=max_price)
