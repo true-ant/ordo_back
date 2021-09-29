@@ -1,9 +1,11 @@
 from http.cookies import SimpleCookie
-from typing import Optional
+from typing import List, Optional
 
 from aiohttp import ClientResponse, ClientSession
+from scrapy import Selector
 
 from apps.scrapers.errors import VendorAuthenticationFailed
+from apps.scrapers.schema import ProductCategory
 from apps.scrapers.utils import catch_network
 from apps.types.scraper import LoginInformation, ProductSearch, VendorInformation
 
@@ -62,6 +64,27 @@ class Scraper:
         value = value.replace(" ", "")
         value = value.replace(",", "")
         return value
+
+    def _get_vendor_categories(self, response) -> List[ProductCategory]:
+        pass
+
+    async def get_vendor_categories(self, url=None, headers=None, perform_login=False) -> List[ProductCategory]:
+        if perform_login:
+            await self.login()
+
+        url = self.CATEGORY_URL if hasattr(self, "CATEGORY_URL") else url
+        if not url:
+            raise ValueError
+
+        headers = self.CATEGORY_HEADERS if hasattr(self, "CATEGORY_HEADERS") else headers
+
+        ssl_context = self._ssl_context if hasattr(self, "_ssl_context") else None
+        async with self.session.get(url, headers=headers, ssl=ssl_context) as resp:
+            if resp.content_type == "application/json":
+                response = await resp.json()
+            else:
+                response = Selector(text=await resp.text())
+            return self._get_vendor_categories(response)
 
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0

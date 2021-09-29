@@ -10,7 +10,7 @@ from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
-from apps.scrapers.schema import Order, Product
+from apps.scrapers.schema import Order, Product, ProductCategory
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation, ProductSearch
@@ -122,6 +122,7 @@ ORDER_DETAIL_HEADERS = {
 
 class BencoScraper(Scraper):
     BASE_URL = "https://shop.benco.com"
+    CATEGORY_URL = "https://shop.benco.com/Browse"
 
     def __init__(self, *args, **kwargs):
         self._ssl_context = ssl.create_default_context(
@@ -415,3 +416,12 @@ class BencoScraper(Scraper):
 
     async def checkout(self, products: List[CartProduct]):
         pass
+
+    def _get_vendor_categories(self, response) -> List[ProductCategory]:
+        return [
+            ProductCategory(
+                name=category.xpath("./h4/text()").extract_first(),
+                slug=category.attrib["href"].split("/")[-1],
+            )
+            for category in response.xpath("//div[@class='tab-header']/a")
+        ]

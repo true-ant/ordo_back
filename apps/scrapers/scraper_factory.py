@@ -43,7 +43,7 @@ class ScraperFactory:
 async def main():
 
     load_dotenv()
-    scraper_name = "henry_schein"
+    scraper_name = "ultradent"
     BASE_DATA = {
         "henry_schein": {
             "username": os.getenv("HENRY_SCHEIN_USERNAME"),
@@ -169,15 +169,16 @@ async def main():
         # await scraper.login()
 
         # results = await scraper.get_orders(perform_login=True)
-        results = await scraper.search_products(query="tooth brush")
+        # results = await scraper.search_products(query="tooth brush")
         # results = [r.to_dict() for r in results]
         # results = await scraper.get_product(
         #     product_id=BASE_DATA[scraper_name]["products"][0]["product_id"],
         #     product_url=BASE_DATA[scraper_name]["products"][0]["product_url"],
         #     perform_login=True,
         # )
-
-        print(results)
+        results = await scraper.get_vendor_categories(perform_login=True)
+        for r in results:
+            print(r.name)
 
 
 if __name__ == "__main__":

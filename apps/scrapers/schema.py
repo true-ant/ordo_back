@@ -65,6 +65,12 @@ class Vendor(BaseDataClass):
 
 
 @dataclass(frozen=True)
+class ProductCategory(BaseDataClass):
+    name: str
+    slug: str
+
+
+@dataclass(frozen=True)
 class Product(BaseDataClass):
     product_id: str
     name: str
@@ -74,6 +80,7 @@ class Product(BaseDataClass):
     price: Decimal  # Decimal
     retail_price: str  # Decimal
     vendor: Vendor
+    category: ProductCategory
     # stars: Decimal
     # ratings: Decimal
 

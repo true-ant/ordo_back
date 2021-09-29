@@ -7,7 +7,7 @@ from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
-from apps.scrapers.schema import Order, Product
+from apps.scrapers.schema import Order, Product, ProductCategory
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation, ProductSearch
@@ -85,6 +85,7 @@ REVIEW_CHECKOUT_HEADERS = {
 
 class DarbyScraper(Scraper):
     BASE_URL = "https://www.darbydental.com"
+    CATEGORY_URL = "https://www.darbydental.com/scripts/Categories.aspx"
 
     def __init__(self, *args, **kwargs):
         self.products = {}
@@ -299,3 +300,14 @@ class DarbyScraper(Scraper):
             "https://www.darbydental.com/api/ShopCart/doAddToCart2", headers=CART_HEADERS, data=data
         )
         await self.session.get("https://www.darbydental.com/scripts/checkout.aspx", headers=REVIEW_CHECKOUT_HEADERS)
+
+    def _get_vendor_categories(self, response) -> List[ProductCategory]:
+        return [
+            ProductCategory(
+                name=category.xpath("./text()").extract_first(),
+                slug=category.attrib["href"].split("/")[-1],
+            )
+            for category in response.xpath(
+                "//ul[@id='catCage2']//div[contains(@class, 'card-footer')]/a[contains(@class, 'topic-link')]"
+            )
+        ]

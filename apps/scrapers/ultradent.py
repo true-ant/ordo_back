@@ -1,12 +1,12 @@
 import asyncio
+from typing import List
 
 from aiohttp import ClientResponse
 from asgiref.sync import sync_to_async
 from scrapy import Selector
 
-from apps.orders.models import Product
 from apps.scrapers.base import Scraper
-from apps.scrapers.schema import Order
+from apps.scrapers.schema import Order, Product, ProductCategory
 from apps.scrapers.utils import catch_network
 from apps.types.scraper import LoginInformation, ProductSearch
 
@@ -82,6 +82,9 @@ SEARCH_QUERY = """
 
 
 class UltraDentScraper(Scraper):
+    CATEGORY_URL = "https://www.ultradent.com/products/categories"
+    CATEGORY_HEADERS = HEADERS
+
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         res = await response.text()
         res_dom = Selector(text=res)
@@ -231,6 +234,8 @@ class UltraDentScraper(Scraper):
 
     @sync_to_async
     def get_page_queryset(self, page, page_size):
+        from apps.orders.models import Product
+
         products = Product.objects.filter(vendor_id=self.vendor["id"])
         total_size = products.count()
         if (page - 1) * page_size < total_size:
@@ -259,3 +264,12 @@ class UltraDentScraper(Scraper):
             "products": page_products,
             "last_page": last_page,
         }
+
+    def _get_vendor_categories(self, response) -> List[ProductCategory]:
+        return [
+            ProductCategory(
+                name=category.xpath(".//h3/text()").extract_first(),
+                slug=category.attrib["href"].split("/")[-1],
+            )
+            for category in response.xpath("//div[contains(@class, 'category-card-grid')]//a")
+        ]

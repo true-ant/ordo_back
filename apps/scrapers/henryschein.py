@@ -2,12 +2,13 @@ import asyncio
 import json
 import re
 from datetime import datetime
+from typing import List
 
 from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
-from apps.scrapers.schema import Order, Product
+from apps.scrapers.schema import Order, Product, ProductCategory
 from apps.scrapers.utils import catch_network
 from apps.types.scraper import LoginInformation, ProductSearch
 
@@ -52,6 +53,7 @@ SEARCH_HEADERS = {
 
 class HenryScheinScraper(Scraper):
     BASE_URL = "https://www.henryschein.com"
+    CATEGORY_URL = "https://www.henryschein.com/us-en/dental/c/browsesupplies"
 
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         res = await response.json()
@@ -286,3 +288,12 @@ class HenryScheinScraper(Scraper):
             "products": [Product.from_dict(product) for product_id, product in products.items()],
             "last_page": page_size * page >= total_size,
         }
+
+    def _get_vendor_categories(self, response) -> List[ProductCategory]:
+        return [
+            ProductCategory(
+                name=category.attrib["title"],
+                slug=category.attrib["href"].split("/")[-1],
+            )
+            for category in response.xpath("//ul[contains(@class, 'hs-categories')]/li/a")
+        ]

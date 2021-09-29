@@ -6,7 +6,7 @@ from scrapy import Selector
 
 from apps.scrapers.base import Scraper
 from apps.scrapers.errors import OrderFetchException
-from apps.scrapers.schema import Order, Product
+from apps.scrapers.schema import Order, Product, ProductCategory
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation, ProductSearch
@@ -118,6 +118,8 @@ PLACE_ORDER_HEADERS = {
 
 class Net32Scraper(Scraper):
     BASE_URL = "https://www.net32.com"
+    CATEGORY_URL = "https://www.net32.com/rest/userAndCartSummary/get"
+    CATEGORY_HEADERS = HEADERS
 
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         res = await response.json()
@@ -286,3 +288,12 @@ class Net32Scraper(Scraper):
 
         # Place Order
         # await self.session.post("https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS)
+
+    def _get_vendor_categories(self, response) -> List[ProductCategory]:
+        return [
+            ProductCategory(
+                name=category["CatName"],
+                slug=category["url"].split("/")[-1],
+            )
+            for category in response["TopCategories"]
+        ]
