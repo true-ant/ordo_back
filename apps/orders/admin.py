@@ -101,6 +101,10 @@ class ProductAdmin(admin.ModelAdmin):
         "url",
         "price",
     )
+    search_fields = (
+        "product_id",
+        "name",
+    )
     list_filter = (
         "vendor",
         ProductPriceFilter,
