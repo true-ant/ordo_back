@@ -102,7 +102,7 @@ def save_order_to_db(office, vendor, order_data):
         vendor_order = VendorOrder.from_dataclass(vendor=vendor, order=order, dict_data=order_data)
 
     for order_product_data in order_products_data:
-        order_product_data["product"].pop("vendor_id")
+        order_product_data["product"].pop("vendor")
         order_product_images = order_product_data["product"].pop("images", [])
         product_id = order_product_data["product"].pop("product_id")
         product, created = Product.objects.get_or_create(
