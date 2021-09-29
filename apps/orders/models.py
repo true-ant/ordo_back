@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
+from django_extensions.db.fields import AutoSlugField
 
 from apps.accounts.models import Office, OfficeVendor, User, Vendor
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
@@ -11,9 +12,23 @@ from apps.scrapers.schema import ProductImage as ProductImageDataClass
 from apps.scrapers.schema import Vendor as VendorDataClass
 
 
+class ProductCategory(models.Model):
+    name = models.CharField(max_length=128)
+    slug = AutoSlugField(populate_from=["name"])
+    parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL)
+    description = models.TextField(null=True, blank=True)
+
+    def __str__(self):
+        return self.slug
+
+    class Meta:
+        verbose_name_plural = "Product categories"
+
+
 class Product(TimeStampedModel):
     vendor = FlexibleForeignKey(Vendor, related_name="products")
     product_id = models.CharField(max_length=100)
+    category = models.ForeignKey(ProductCategory, null=True, blank=True, on_delete=models.SET_NULL)
     name = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
     url = models.URLField(null=True, blank=True, max_length=300)

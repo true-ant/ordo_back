@@ -1,0 +1,209 @@
+[
+    {
+        "model": "orders.productcategory",
+        "pk": 1,
+        "fields": {
+            "slug": "anesthetics",
+            "name": "Anesthetics",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 2,
+        "fields": {
+            "slug": "burs_diamonds",
+            "name": "Burs & Diamonds",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 3,
+        "fields": {
+            "slug": "cad_cam",
+            "name": "CAD/CAM",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 4,
+        "fields": {
+            "slug": "dental_equipment_parts_and_accessories",
+            "name": "Dental Equipment Parts and Accessories",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 5,
+        "fields": {
+            "slug": "disposables",
+            "name": "Disposables",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 6,
+        "fields": {
+            "slug": "endodontics",
+            "name": "Endodontics",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 7,
+        "fields": {
+            "slug": "equipment_technology",
+            "name": "Equipment & Technology",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 8,
+        "fields": {
+            "slug": "evacuation_products",
+            "name": "Evacuation Products",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 9,
+        "fields": {
+            "slug": "impression_materials_accessories",
+            "name": "Impression Materials & Accessories",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 10,
+        "fields": {
+            "slug": "infection_control",
+            "name": "INFECTION CONTROL",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 11,
+        "fields": {
+            "slug": "instruments",
+            "name": "Instruments",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 12,
+        "fields": {
+            "slug": "laboratory",
+            "name": "Laboratory",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 13,
+        "fields": {
+            "slug": "miscellaneous",
+            "name": "Miscellaneous",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 14,
+        "fields": {
+            "slug": "office_supplies",
+            "name": "OFFICE SUPPLIES",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 15,
+        "fields": {
+            "slug": "orthodontic",
+            "name": "Orthodontic",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 16,
+        "fields": {
+            "slug": "pharmaceuticals",
+            "name": "Pharmaceuticals",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 17,
+        "fields": {
+            "slug": "preventive",
+            "name": "Preventive",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 18,
+        "fields": {
+            "slug": "restorative",
+            "name": "RESTORATIVE",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 19,
+        "fields": {
+            "slug": "small_equipment",
+            "name": "Small Equipment",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 20,
+        "fields": {
+            "slug": "x_ray_and_digital_imaging",
+            "name": "X-Ray And Digital Imaging",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 21,
+        "fields": {
+            "slug": "implant",
+            "name": "Implant",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 22,
+        "fields": {
+            "slug": "surgical_supplies",
+            "name": "Surgical supplies",
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 23,
+        "fields": {
+            "slug": "other",
+            "name": "Other",
+            "description": ""
+        }
+    }
+]

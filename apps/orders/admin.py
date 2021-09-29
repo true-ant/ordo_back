@@ -89,6 +89,11 @@ class ProductPriceFilter(SimpleListFilter):
             return queryset.filter(price__gt=300)
 
 
+@admin.register(m.ProductCategory)
+class ProductCategoryAdmin(admin.ModelAdmin):
+    list_display = ("__str__", "name", "parent")
+
+
 @admin.register(m.Product)
 class ProductAdmin(admin.ModelAdmin):
     list_per_page = 20
@@ -98,7 +103,8 @@ class ProductAdmin(admin.ModelAdmin):
         "product_id",
         "name",
         "vendor",
-        "url",
+        "category",
+        "get_url",
         "price",
     )
     search_fields = (
@@ -109,6 +115,10 @@ class ProductAdmin(admin.ModelAdmin):
         "vendor",
         ProductPriceFilter,
     )
+
+    @admin.display(description="url")
+    def get_url(self, obj):
+        return mark_safe(f"<a target='_blank' href={obj.url}>Link</a>")
 
     @admin.display(description="Image")
     def product_thumb(self, obj):
