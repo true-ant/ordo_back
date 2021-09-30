@@ -38,7 +38,10 @@ class CompanyMemberInline(ReadOnlyAdminMixin, NestedTabularInline):
 
 class OfficeVendorInline(ReadOnlyAdminMixin, NestedTabularInline):
     model = m.OfficeVendor
-    readonly_fields = ("vendor", "username", "password")
+    readonly_fields = (
+        "vendor",
+        "username",
+    )
 
 
 class OfficeInline(NestedTabularInline):
