@@ -1,4 +1,5 @@
 import asyncio
+from decimal import Decimal
 from typing import List
 
 from aiohttp import ClientResponse
@@ -146,45 +147,16 @@ class PattersonScraper(Scraper):
     async def get_orders(self, perform_login=False) -> List[Order]:
         return []
 
-    # @catch_network
-    # async def get_product(self, product_id, product_url, perform_login=False) -> Product:
-    #     pass
+    async def get_product_price(self, product_id, perform_login=False) -> Decimal:
+        # TODO: perform_login, this can be handle in decorator in the future
+        if perform_login:
+            await self.login()
 
-    @catch_network
-    async def get_product(self, product_dom):
-        product_description_dom = product_dom.xpath(".//div[contains(@class, 'listViewDescriptionWrapper')]")
-        product_link = product_description_dom.xpath(".//a[@class='itemTitleDescription']")
-        product_id = product_link.attrib["data-objectid"]
         async with self.session.get(
             f"{self.BASE_URL}/Supplies/ProductFamilyPricing?productFamilyKey={product_id}&getLastDateOrdered=false"
         ) as resp:
             res = await resp.json()
-            price_high = res["PriceHigh"]
-            # price_low = res["PriceLow"]
-
-        return {
-            "product_id": product_id,
-            "name": self.extract_first(
-                product_description_dom,
-                ".//a[@class='itemTitleDescription']//text()",
-            ),
-            "description": "",
-            "url": self.BASE_URL
-            + self.extract_first(
-                product_description_dom,
-                ".//a[@class='itemTitleDescription']/@href",
-            ),
-            "images": [
-                {
-                    "image": self.extract_first(
-                        product_dom, ".//div[contains(@class, 'listViewImageWrapper')]/img/@src"
-                    ),
-                }
-            ],
-            "price": price_high,
-            "retail_price": "",
-            "vendor": self.vendor,
-        }
+            return Decimal(str(res["PriceHigh"]))
 
     @catch_network
     async def _search_products(
@@ -197,6 +169,7 @@ class PattersonScraper(Scraper):
             "q": query,
             "p": page,
         }
+        products = []
         async with self.session.get(url, headers=SEARCH_HEADERS, params=params) as resp:
             response_dom = Selector(text=await resp.text())
             try:
@@ -215,16 +188,50 @@ class PattersonScraper(Scraper):
             products_dom = response_dom.xpath(
                 "//div[@class='container-fluid']//table//tr//div[@ng-controller='SearchResultsController']"
             )
-            tasks = (self.get_product(product_dom) for product_dom in products_dom)
-            products = await asyncio.gather(*tasks, return_exceptions=True)
-            return {
-                "vendor_slug": self.vendor["slug"],
-                "total_size": total_size,
-                "page": page,
-                "page_size": page_size,
-                "products": [Product.from_dict(product) for product in products if isinstance(product, dict)],
-                "last_page": page_size * page >= total_size,
-            }
+        for product_dom in products_dom:
+            product_description_dom = product_dom.xpath(".//div[contains(@class, 'listViewDescriptionWrapper')]")
+            product_link = product_description_dom.xpath(".//a[@class='itemTitleDescription']")
+            product_id = product_link.attrib["data-objectid"]
+            product_name = self.extract_first(
+                product_description_dom,
+                ".//a[@class='itemTitleDescription']//text()",
+            )
+            product_url = self.BASE_URL + self.extract_first(
+                product_description_dom,
+                ".//a[@class='itemTitleDescription']/@href",
+            )
+            product_image = (
+                self.extract_first(product_dom, ".//div[contains(@class, 'listViewImageWrapper')]/img/@src"),
+            )
+
+            products.append(
+                {
+                    "product_id": product_id,
+                    "name": product_name,
+                    "description": "",
+                    "url": product_url,
+                    "images": [{"image": product_image}],
+                    "price": Decimal(0),
+                    "vendor": self.vendor,
+                    "category": "",
+                }
+            )
+
+        tasks = (self.get_product_price(product["product_id"]) for product in products)
+        product_prices = await asyncio.gather(*tasks, return_exceptions=True)
+        for product, product_price in zip(products, product_prices):
+            if not isinstance(product_price, Decimal) or not isinstance(product, dict):
+                continue
+            product["price"] = product_price
+
+        return {
+            "vendor_slug": self.vendor["slug"],
+            "total_size": total_size,
+            "page": page,
+            "page_size": page_size,
+            "products": [Product.from_dict(product) for product in products if isinstance(product, dict)],
+            "last_page": page_size * page >= total_size,
+        }
 
     async def checkout(self, products: List[CartProduct]):
         pass

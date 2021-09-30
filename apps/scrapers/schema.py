@@ -78,9 +78,8 @@ class Product(BaseDataClass):
     url: str
     images: List[ProductImage]
     price: Decimal  # Decimal
-    retail_price: str  # Decimal
     vendor: Vendor
-    category: ProductCategory
+    category: List[str]  # this is a list of categories including sub-categories
     # stars: Decimal
     # ratings: Decimal
 
