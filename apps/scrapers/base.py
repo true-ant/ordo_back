@@ -103,9 +103,10 @@ class Scraper:
             )
             for order_product in order_products
         )
-        products_description = await asyncio.gather(*tasks, return_exceptions=True)
-        for order_product, product_detail in zip(order_products, products_description):
-            order_product["product"]["description"] = product_detail["description"]
+        products_missing_data = await asyncio.gather(*tasks, return_exceptions=True)
+        for order_product, product_missing_data in zip(order_products, products_missing_data):
+            for field in fields:
+                order_product["product"][field] = product_missing_data[field]
 
     async def get_vendor_categories(self, url=None, headers=None, perform_login=False) -> List[ProductCategory]:
         if perform_login:

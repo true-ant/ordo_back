@@ -246,7 +246,8 @@ class BencoScraper(Scraper):
                             ".//div[contains(@class, 'product-details')]/strong/a/@href"
                         ).get()
                         product_url = f"{self.BASE_URL}{product_url}" if product_url else None
-                        product_images = product_row.xpath(".//img/@src").extract()
+                        # product image is one in order history we try to fetch images on product detail
+                        # product_images = product_row.xpath(".//img/@src").extract()
                         product_price = other_details[2].split(":")[1]
                         quantity = other_details[1].split(":")[1].strip()
                         order["products"].append(
@@ -256,7 +257,8 @@ class BencoScraper(Scraper):
                                     "name": product_name,
                                     "description": "",
                                     "url": product_url,
-                                    "images": [{"image": product_image for product_image in product_images}],
+                                    "images": [],
+                                    # "images": [{"image": product_image for product_image in product_images}],
                                     "price": product_price,
                                     "vendor": self.vendor,
                                 },
@@ -265,7 +267,14 @@ class BencoScraper(Scraper):
                             }
                         )
 
-        await self.get_missing_products_fields(order["products"])
+        await self.get_missing_products_fields(
+            order["products"],
+            fields=(
+                "description",
+                "images",
+                "category",
+            ),
+        )
 
         return order
 
@@ -294,11 +303,13 @@ class BencoScraper(Scraper):
         async with self.session.get(product_url, ssl=self._ssl_context) as resp:
             res = Selector(text=await resp.text())
             product_name = self.extract_first(res, ".//h3[@class='product-name']/text()")
-            product_description = (self.extract_first(res, ".//p[@class='product-description']/text()"),)
-            product_images = res.xpath(".//div[@id='activeImageArea']/img/@src").extract()
-            product_images.extend(res.xpath(".//div[@class='thumbnail']/img/@src").extract())
+            product_description = self.extract_first(res, ".//p[@class='product-description']/text()")
+            product_images = res.xpath(".//div[@class='thumbnail']/img/@src").extract()
+            if not product_images:
+                product_images = res.xpath(".//div[@id='activeImageArea']/img/@src").extract()
+
             product_price = self.extract_first(res, ".//div[@class='product-detail-actions-wrapper']/h3/text()")
-            product_category = self.extract_first(res, ".//div[@class='breadcrumb-bar']/ul/li[2]/a/@href")
+            product_category = self.extract_first(res, ".//div[@class='breadcrumb-bar']/ul/li[2]/a/text()")
             return {
                 "product_id": product_id,
                 "name": product_name,
