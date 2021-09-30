@@ -98,7 +98,6 @@ class DarbyScraper(Scraper):
             "data": {"username": self.username, "password": self.password, "next": ""},
         }
 
-    @catch_network
     async def get_shipping_track(self, order, order_id):
         async with self.session.get(
             f"{self.BASE_URL}/Scripts/InvoiceTrack.aspx?invno={order_id}", headers=HEADERS
@@ -112,7 +111,6 @@ class DarbyScraper(Scraper):
             except IndexError:
                 order["status"] = "Unknown"
 
-    @catch_network
     async def get_order_products(self, order, link):
         async with self.session.get(f"{self.BASE_URL}/Scripts/{link}", headers=HEADERS) as resp:
             order_detail_response = Selector(text=await resp.text())
@@ -157,7 +155,6 @@ class DarbyScraper(Scraper):
         )
         return order
 
-    @catch_network
     async def get_order(self, order_dom):
         link = self.merge_strip_values(order_dom, "./td[1]/a/@href")
         order_id = self.merge_strip_values(order_dom, "./td[1]//text()")
@@ -189,7 +186,6 @@ class DarbyScraper(Scraper):
 
         return [Order.from_dict(order) for order in orders]
 
-    @catch_network
     async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
         if perform_login:
             await self.login()
@@ -215,7 +211,6 @@ class DarbyScraper(Scraper):
                 "vendor": self.vendor,
             }
 
-    @catch_network
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
     ) -> ProductSearch:
@@ -256,16 +251,20 @@ class DarbyScraper(Scraper):
             for product_dom in products_dom:
                 price = self.extract_first(product_dom, ".//div[contains(@class, 'prod-price')]//text()")
                 _, price = price.split("@")
+                product_id = self.extract_first(product_dom, ".//div[@class='prodno']/label//text()")
+                product_name = self.extract_first(product_dom, ".//div[@class='prod-title']//text()")
+                product_url = self.BASE_URL + self.extract_first(product_dom, ".//a[@href]/@href")
+                product_image = self.extract_first(product_dom, ".//img[@class='card-img-top']/@src")
                 products.append(
                     Product.from_dict(
                         {
-                            "product_id": self.extract_first(product_dom, ".//div[@class='prodno']/label//text()"),
-                            "name": self.extract_first(product_dom, ".//div[@class='prod-title']//text()"),
+                            "product_id": product_id,
+                            "name": product_name,
                             "description": "",
-                            "url": self.BASE_URL + self.extract_first(product_dom, ".//a[@href]/@href"),
+                            "url": product_url,
                             "images": [
                                 {
-                                    "image": self.extract_first(product_dom, ".//img[@class='card-img-top']/@src"),
+                                    "image": product_image,
                                 }
                             ],
                             "price": price,

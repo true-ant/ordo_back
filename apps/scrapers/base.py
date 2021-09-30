@@ -132,6 +132,7 @@ class Scraper:
     ) -> ProductSearch:
         pass
 
+    @catch_network
     async def search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
     ) -> ProductSearch:

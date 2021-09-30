@@ -2,7 +2,8 @@ import asyncio
 import json
 import re
 from datetime import datetime
-from typing import List
+from decimal import Decimal
+from typing import Dict, List
 
 from aiohttp import ClientResponse
 from scrapy import Selector
@@ -76,7 +77,6 @@ class HenryScheinScraper(Scraper):
             },
         }
 
-    @catch_network
     async def get_order(self, order_dom):
         link = order_dom.xpath("./td[8]/a/@href").extract_first().strip()
         order = {
@@ -149,7 +149,6 @@ class HenryScheinScraper(Scraper):
         )
         return order
 
-    @catch_network
     async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
         if perform_login:
             await self.login()
@@ -202,57 +201,23 @@ class HenryScheinScraper(Scraper):
 
         return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
 
-    @catch_network
-    async def _search_products(
-        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
-    ) -> ProductSearch:
-        url = f"{self.BASE_URL}/us-en/Search.aspx"
-        page_size = 25
-        params = {"searchkeyWord": query, "pagenumber": page}
+    async def get_product_prices(self, product_ids, perform_login=False, **kwargs) -> Dict[str, Decimal]:
+        if perform_login:
+            await self.login()
 
-        async with self.session.get(url, headers=SEARCH_HEADERS, params=params) as resp:
-            response_dom = Selector(text=await resp.text())
-
-        total_size_str = response_dom.xpath(".//span[@class='result-count']/text()").extract_first()
-        try:
-            total_size = int(total_size_str)
-        except ValueError:
-            total_size = 0
-        products = {}
-        products_price_data = []
-        for product_dom in response_dom.css("section.product-listing ol.products > li.product > .title"):
-            product_detail = product_dom.xpath(".//script[@type='application/ld+json']//text()").extract_first()
-            product_unit = self.merge_strip_values(
-                product_dom,
-                "./ul[@class='product-actions']"
-                "//div[contains(@class, 'color-label-gray')]/span[contains(@class, 'block')]//text()",
-            )
-            product_detail = json.loads(product_detail)
-            product_id = product_detail["sku"]
-            products_price_data.append(
-                {
-                    "ProductId": int(product_id),
-                    "Qty": "1",
-                    "Uom": product_unit,
-                    "PromoCode": "",
-                    "CatalogName": "B_DENTAL",
-                    "ForceUpdateInventoryStatus": False,
-                    "AvailabilityCode": "01",
-                }
-            )
-            products[product_id] = {
-                "product_id": product_detail["sku"],
-                "name": product_detail["name"],
-                "description": product_detail["description"],
-                "url": product_detail["url"],
-                "images": [
-                    {
-                        "image": product_detail["image"],
-                    }
-                ],
-                "price": "",
-                "vendor": self.vendor,
+        product_units = kwargs.get("product_units")
+        products_price_data = [
+            {
+                "ProductId": int(product_id),
+                "Qty": "1",
+                "Uom": product_unit,
+                "PromoCode": "",
+                "CatalogName": "B_DENTAL",
+                "ForceUpdateInventoryStatus": False,
+                "AvailabilityCode": "01",
             }
+            for product_id, product_unit in zip(product_ids, product_units)
+        ]
 
         products_price_data = {
             "ItemArray": json.dumps(
@@ -270,7 +235,8 @@ class HenryScheinScraper(Scraper):
         }
 
         headers = SEARCH_HEADERS.copy()
-        headers["referer"] = f"https://www.henryschein.com/us-en/Search.aspx?searchkeyWord={query}"
+        headers["referer"] = kwargs.get("Referer")
+        product_prices = {}
         async with self.session.post(
             "https://www.henryschein.com/webservices/JSONRequestHandler.ashx",
             data=products_price_data,
@@ -278,14 +244,64 @@ class HenryScheinScraper(Scraper):
         ) as resp:
             res = await resp.json()
             for product_price in res["ItemDataToPrice"]:
-                products[product_price["ProductId"]]["price"] = product_price["CustomerPrice"]
+                product_prices[product_price["ProductId"]] = product_price["CustomerPrice"]
+        return product_prices
+
+    async def _search_products(
+        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
+    ) -> ProductSearch:
+        url = f"{self.BASE_URL}/us-en/Search.aspx"
+        page_size = 25
+        params = {"searchkeyWord": query, "pagenumber": page}
+
+        async with self.session.get(url, headers=SEARCH_HEADERS, params=params) as resp:
+            response_dom = Selector(text=await resp.text())
+
+        total_size_str = response_dom.xpath(".//span[@class='result-count']/text()").extract_first()
+        try:
+            total_size = int(total_size_str)
+        except ValueError:
+            total_size = 0
+        products = []
+        for product_dom in response_dom.css("section.product-listing ol.products > li.product > .title"):
+            product_detail = product_dom.xpath(".//script[@type='application/ld+json']//text()").extract_first()
+            product_unit = self.merge_strip_values(
+                product_dom,
+                "./ul[@class='product-actions']"
+                "//div[contains(@class, 'color-label-gray')]/span[contains(@class, 'block')]//text()",
+            )
+            product_detail = json.loads(product_detail)
+            products.append(
+                {
+                    "product_id": product_detail["sku"],
+                    "product_unit": product_unit,
+                    "name": product_detail["name"],
+                    "description": product_detail["description"],
+                    "url": product_detail["url"],
+                    "images": [
+                        {
+                            "image": product_detail["image"],
+                        }
+                    ],
+                    "price": Decimal(0),
+                    "vendor": self.vendor,
+                }
+            )
+
+        kwargs = {
+            "Referer": f"https://www.henryschein.com/us-en/Search.aspx?searchkeyWord={query}",
+            "product_units": [product["product_unit"] for product in products],
+        }
+        product_prices = await self.get_product_prices([product["product_id"] for product in products], **kwargs)
+        for product in products:
+            product["price"] = product_prices[product["product_id"]]
 
         return {
             "vendor_slug": self.vendor["slug"],
             "total_size": total_size,
             "page": page,
             "page_size": page_size,
-            "products": [Product.from_dict(product) for product_id, product in products.items()],
+            "products": [Product.from_dict(product) for product in products],
             "last_page": page_size * page >= total_size,
         }
 

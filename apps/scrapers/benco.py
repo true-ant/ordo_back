@@ -341,7 +341,6 @@ class BencoScraper(Scraper):
                 product_prices[product_id] = row_dom.xpath("//h4[@class='selling-price']").attrib["content"]
         return product_prices
 
-    @catch_network
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
     ) -> ProductSearch:
@@ -358,8 +357,7 @@ class BencoScraper(Scraper):
             "Source": "",
             "ShowResultsAsGrid": "False",
         }
-        products = {}
-        product_ids = []
+        products = []
         async with self.session.post(
             f"{self.BASE_URL}/Search/ChangePage", headers=SEARCH_HEADERS, data=data, ssl=self._ssl_context
         ) as resp:
@@ -382,25 +380,25 @@ class BencoScraper(Scraper):
                         name = self.extract_first(additional_product, ".//td[@class='product-name']/span/text()")
                         product_url = additional_product.attrib["data-click-href"]
                         product_url = f"{self.BASE_URL}{product_url}" if product_url else None
-                        products[product_id] = {
-                            "product_id": product_id,
-                            "name": name,
-                            "description": product_description,
-                            "url": product_url,
-                            "images": [
-                                {
-                                    "image": product_image,
-                                }
-                            ],
-                            "price": "",
-                            "vendor_id": self.vendor,
-                        }
-                        product_ids.append(product_id)
+                        products.append(
+                            {
+                                "product_id": product_id,
+                                "name": name,
+                                "description": product_description,
+                                "url": product_url,
+                                "images": [
+                                    {
+                                        "image": product_image,
+                                    }
+                                ],
+                                "price": Decimal(0),
+                                "vendor_id": self.vendor,
+                            }
+                        )
                 else:
                     product_id = self.extract_first(
                         product_dom, "./div[contains(@class, 'product-data-area')]//span[@itemprop='sku']//text()"
                     )
-                    product_ids.append(product_id)
                     product_url = self.extract_first(
                         product_dom,
                         "./div[contains(@class, 'product-data-area')]/div[contains(@class, 'title')]//a/@href",
@@ -411,19 +409,21 @@ class BencoScraper(Scraper):
                     )
                     product_image = product_dom.xpath("./div[contains(@class, 'product-image-area')]/img/@src").get()
                     product_description = self.extract_first(product_dom, ".//p/text()")
-                    products[product_id] = {
-                        "product_id": product_id,
-                        "name": name,
-                        "description": product_description,
-                        "url": product_url,
-                        "images": [
-                            {
-                                "image": product_image,
-                            }
-                        ],
-                        "price": "",
-                        "vendor": self.vendor,
-                    }
+                    products.append(
+                        {
+                            "product_id": product_id,
+                            "name": name,
+                            "description": product_description,
+                            "url": product_url,
+                            "images": [
+                                {
+                                    "image": product_image,
+                                }
+                            ],
+                            "price": Decimal(0),
+                            "vendor": self.vendor,
+                        }
+                    )
 
         kwargs = {"Referer": url}
         product_prices = await self.get_product_prices([product["product_id"] for product in products], **kwargs)
@@ -435,7 +435,7 @@ class BencoScraper(Scraper):
             "total_size": total_size,
             "page": page,
             "page_size": page_size,
-            "products": [Product.from_dict(product) for _, product in products.items()],
+            "products": [Product.from_dict(product) for product in products],
             "last_page": page_size * page >= total_size,
         }
 
