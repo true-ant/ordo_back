@@ -3,8 +3,9 @@ import datetime
 import json
 import os
 import ssl
+from decimal import Decimal
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 from aiohttp import ClientResponse
 from scrapy import Selector
@@ -194,7 +195,6 @@ class BencoScraper(Scraper):
     async def _after_login_hook(self, response: ClientResponse):
         pass
 
-    @catch_network
     async def get_order(self, order_link, referer) -> dict:
         headers = ORDER_DETAIL_HEADERS.copy()
         headers["Referer"] = referer
@@ -296,7 +296,6 @@ class BencoScraper(Scraper):
             orders = await asyncio.gather(*tasks, return_exceptions=True)
             return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
 
-    @catch_network
     async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
         if perform_login:
             await self.login()
@@ -321,6 +320,26 @@ class BencoScraper(Scraper):
                 "price": product_price,
                 "vendor": self.vendor,
             }
+
+    async def get_product_prices(self, product_ids, perform_login=False, **kwargs) -> Dict[str, Decimal]:
+        if perform_login:
+            await self.login()
+
+        product_prices = {}
+        data = {"productNumbers": product_ids, "pricePartialType": "ProductPriceRow"}
+        headers = PRICE_SEARCH_HEADERS.copy()
+        headers["Referer"] = kwargs.get("Referer")
+        async with self.session.post(
+            "https://shop.benco.com/Search/GetPricePartialsForProductNumbers",
+            headers=headers,
+            json=data,
+            ssl=self._ssl_context,
+        ) as resp:
+            res = await resp.json()
+            for product_id, row in res.items():
+                row_dom = Selector(text=row)
+                product_prices[product_id] = row_dom.xpath("//h4[@class='selling-price']").attrib["content"]
+        return product_prices
 
     @catch_network
     async def _search_products(
@@ -405,21 +424,11 @@ class BencoScraper(Scraper):
                         "price": "",
                         "vendor": self.vendor,
                     }
-        data = {"productNumbers": product_ids, "pricePartialType": "ProductPriceRow"}
-        headers = PRICE_SEARCH_HEADERS.copy()
-        headers["Referer"] = url
-        async with self.session.post(
-            "https://shop.benco.com/Search/GetPricePartialsForProductNumbers",
-            headers=headers,
-            json=data,
-            ssl=self._ssl_context,
-        ) as resp:
-            print(resp.status)
-            res = await resp.json()
-            for product_id, row in res.items():
-                row_dom = Selector(text=row)
 
-                products[product_id]["price"] = row_dom.xpath("//h4[@class='selling-price']").attrib["content"]
+        kwargs = {"Referer": url}
+        product_prices = await self.get_product_prices([product["product_id"] for product in products], **kwargs)
+        for product in products:
+            product["price"] = product_prices[product["product_id"]]
 
         return {
             "vendor_slug": self.vendor["slug"],

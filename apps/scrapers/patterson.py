@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import List
+from typing import Dict, List
 
 from aiohttp import ClientResponse
 from scrapy import Selector
@@ -147,11 +147,21 @@ class PattersonScraper(Scraper):
     async def get_orders(self, perform_login=False) -> List[Order]:
         return []
 
-    async def get_product_price(self, product_id, perform_login=False) -> Decimal:
+    async def get_product_prices(self, product_ids, perform_login=False, **kwargs) -> Dict[str, Decimal]:
         # TODO: perform_login, this can be handle in decorator in the future
         if perform_login:
             await self.login()
 
+        tasks = (self.get_product_price(product_id) for product_id in product_ids)
+        product_prices = await asyncio.gather(*tasks, return_exceptions=True)
+
+        return {
+            product_id: product_price
+            for product_id, product_price in zip(product_ids, product_prices)
+            if isinstance(product_price, Decimal)
+        }
+
+    async def get_product_price(self, product_id) -> Decimal:
         async with self.session.get(
             f"{self.BASE_URL}/Supplies/ProductFamilyPricing?productFamilyKey={product_id}&getLastDateOrdered=false"
         ) as resp:
@@ -217,12 +227,10 @@ class PattersonScraper(Scraper):
                 }
             )
 
-        tasks = (self.get_product_price(product["product_id"]) for product in products)
-        product_prices = await asyncio.gather(*tasks, return_exceptions=True)
-        for product, product_price in zip(products, product_prices):
-            if not isinstance(product_price, Decimal) or not isinstance(product, dict):
-                continue
-            product["price"] = product_price
+        product_prices = await self.get_product_prices([product["product_id"] for product in products])
+
+        for product in products:
+            product["price"] = product_prices[product["product_id"]]
 
         return {
             "vendor_slug": self.vendor["slug"],
