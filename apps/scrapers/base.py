@@ -102,6 +102,7 @@ class Scraper:
                 fields=fields,
             )
             for order_product in order_products
+            if order_product["product"]["url"]
         )
         products_missing_data = await asyncio.gather(*tasks, return_exceptions=True)
         for order_product, product_missing_data in zip(order_products, products_missing_data):

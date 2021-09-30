@@ -87,10 +87,6 @@ class DarbyScraper(Scraper):
     BASE_URL = "https://www.darbydental.com"
     CATEGORY_URL = "https://www.darbydental.com/scripts/Categories.aspx"
 
-    def __init__(self, *args, **kwargs):
-        self.products = {}
-        super().__init__(*args, **kwargs)
-
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         res = await response.json()
         return res["m_Item2"] and res["m_Item2"]["username"] == self.username
@@ -125,26 +121,39 @@ class DarbyScraper(Scraper):
                 "//table[@id='MainContent_gvInvoiceDetail']//tr[@class='pdpHelltPrimary']"  # noqa
             ):
                 product_id = self.merge_strip_values(detail_row, "./td[1]/a//text()")
+                product_name = self.merge_strip_values(detail_row, "./td[2]//text()")
                 product_url = self.merge_strip_values(detail_row, "./td[1]/a//@href")
                 if product_url:
                     product_url = f"{self.BASE_URL}{product_url}"
-                    self.products[product_id] = {"url": product_url}
-                product_image = self.merge_strip_values(detail_row, "./td[1]/input//@src")
-                product_image = f"{self.BASE_URL}{product_image}" if product_image else None
+
+                # at here image is only one so we try to get product images on product detail page
+                # product_image = self.merge_strip_values(detail_row, "./td[1]/input//@src")
+                # product_image = f"{self.BASE_URL}{product_image}" if product_image else None
+                product_price = self.merge_strip_values(detail_row, "./td[4]//text()")
+                quantity = self.merge_strip_values(detail_row, "./td[5]//text()")
                 order["products"].append(
                     {
                         "product": {
-                            "product_id": self.merge_strip_values(detail_row, "./td[1]/a//text()"),
-                            "name": self.merge_strip_values(detail_row, "./td[2]//text()"),
+                            "product_id": product_id,
+                            "name": product_name,
                             "description": "",
                             "url": product_url,
-                            "images": [{"image": product_image}],
-                            "price": self.merge_strip_values(detail_row, "./td[4]//text()"),
+                            "images": [],
+                            # "images": [{"image": product_image}],
+                            "price": product_price,
                         },
-                        "quantity": self.merge_strip_values(detail_row, "./td[5]//text()"),
-                        "unit_price": self.merge_strip_values(detail_row, "./td[4]//text()"),
+                        "unit_price": product_price,
+                        "quantity": quantity,
                     }
                 )
+        await self.get_missing_products_fields(
+            order["products"],
+            fields=(
+                "description",
+                "images",
+            ),
+        )
+        return order
 
     @catch_network
     async def get_order(self, order_dom):
@@ -176,50 +185,33 @@ class DarbyScraper(Scraper):
             tasks = (self.get_order(order_dom) for order_dom in orders_dom)
             orders = await asyncio.gather(*tasks, return_exceptions=True)
 
-        tasks = (self.get_product(product_id, product["url"]) for product_id, product in self.products.items())
-        await asyncio.gather(*tasks, return_exceptions=True)
-
-        for order in orders:
-            if not isinstance(order, dict):
-                continue
-            for order_product in order["products"]:
-                try:
-                    product_description = self.products[order_product["product"]["product_id"]]["description"]
-                except KeyError:
-                    product_description = ""
-                order_product["product"]["description"] = product_description
-
         return [Order.from_dict(order) for order in orders]
 
     @catch_network
-    async def get_product(self, product_id, product_url, perform_login) -> Product:
+    async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
         if perform_login:
             await self.login()
 
         async with self.session.get(product_url) as resp:
             res = Selector(text=await resp.text())
-            product_name = self.extract_first(res, ".//span[@id='pMainContent_lblName']/text()")
+            product_name = self.extract_first(res, ".//span[@id='MainContent_lblName']/text()")
             product_description = self.extract_first(res, ".//span[@id='MainContent_lblDescription']/text()")
-            product_images = res.xpath(".//div[contains(@class, 'productSmallImg']/img/@src").extract()
+            product_images = res.xpath(".//div[contains(@class, 'productSmallImg')]/img/@src").extract()
             product_price = self.extract_first(res, ".//span[@id='MainContent_lblPrice']/text()")
             product_price = re.findall("\\d+\\.\\d+", product_price)
             product_price = product_price[0] if isinstance(product_price, list) else None
+            product_category = self.extract_first(res, ".//ul[contains(@class, 'breadcrumb')]/li[2]/a/text()")
 
-            # extra
-            self.products[product_id] = {"description": product_description}
-
-            return Product.from_dict(
-                {
-                    "product_id": product_id,
-                    "name": product_name,
-                    "description": product_description,
-                    "url": product_url,
-                    "images": [{"image": f"{self.BASE_URL}{product_image}"} for product_image in product_images],
-                    "price": product_price,
-                    "retail_price": product_price,
-                    "vendor": self.vendor,
-                }
-            )
+            return {
+                "product_id": product_id,
+                "name": product_name,
+                "description": product_description,
+                "url": product_url,
+                "images": [{"image": product_image} for product_image in product_images],
+                "category": product_category,
+                "price": product_price,
+                "vendor": self.vendor,
+            }
 
     @catch_network
     async def _search_products(
@@ -275,7 +267,6 @@ class DarbyScraper(Scraper):
                                 }
                             ],
                             "price": price,
-                            "retail_price": price,
                             "vendor": self.vendor,
                         }
                     )
