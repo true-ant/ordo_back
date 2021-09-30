@@ -139,6 +139,7 @@ class DarbyScraper(Scraper):
                             "description": "",
                             "url": product_url,
                             "images": [],
+                            "category": "",
                             # "images": [{"image": product_image}],
                             "price": product_price,
                         },
@@ -151,6 +152,7 @@ class DarbyScraper(Scraper):
             fields=(
                 "description",
                 "images",
+                "category",
             ),
         )
         return order
@@ -200,7 +202,7 @@ class DarbyScraper(Scraper):
             product_price = self.extract_first(res, ".//span[@id='MainContent_lblPrice']/text()")
             product_price = re.findall("\\d+\\.\\d+", product_price)
             product_price = product_price[0] if isinstance(product_price, list) else None
-            product_category = self.extract_first(res, ".//ul[contains(@class, 'breadcrumb')]/li[2]/a/text()")
+            product_category = res.xpath(".//ul[contains(@class, 'breadcrumb')]/li/a/text()")[1:]
 
             return {
                 "product_id": product_id,

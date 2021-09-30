@@ -84,6 +84,7 @@ class HenryScheinScraper(Scraper):
             "currency": "USD",
             "order_date": datetime.strptime(order_dom.xpath("./td[4]//text()").extract_first(), "%m/%d/%Y").date(),
             "status": order_dom.xpath("./td[7]//text()").extract_first(),
+            "products": [],
         }
         async with self.session.get(link) as resp:
             order_detail_response = Selector(text=await resp.text())
@@ -101,26 +102,55 @@ class HenryScheinScraper(Scraper):
                 "postal_code": postal_code,
             }
 
-            tasks = (
-                self.get_order_product(
-                    product_link=self.merge_strip_values(
-                        dom=order_product_dom,
-                        xpath="./td[1]//table[@id='tblProduct']//span[@class='ProductDisplayName']//a/@href",
-                    ),
-                    order_product_dom=order_product_dom,
+            for order_product_dom in order_detail_response.xpath(
+                "//table[contains(@class, 'tblOrderableProducts')]//tr"
+                "//table[@class='SimpleList']//tr[@class='ItemRow' or @class='AlternateItemRow']"
+            ):
+                product_name_url_dom = order_product_dom.xpath(
+                    "./td[1]//table[@id='tblProduct']//span[@class='ProductDisplayName']"
                 )
-                for order_product_dom in order_detail_response.xpath(
-                    "//table[contains(@class, 'tblOrderableProducts')]//tr"
-                    "//table[@class='SimpleList']//tr[@class='ItemRow' or @class='AlternateItemRow']"
-                    # noqa
+                product_id = self.extract_first(order_product_dom, ".//b/text()")
+                product_name = self.extract_first(product_name_url_dom, ".//a/text()")
+                product_url = self.merge_strip_values(product_name_url_dom, xpath=".//a/@href")
+                quantity_price = self.merge_strip_values(
+                    dom=order_product_dom, xpath=".//td[@id='QtyRow']//text()", delimeter=";"
                 )
-            )
+                quantity, _, product_price = quantity_price.split(";")
+                product_price = re.search(r"\$(.*)/", product_price)
+                product_price = product_price.group(1)
 
-            order["products"] = await asyncio.gather(*tasks)
-        return Order.from_dict(order)
+                status = self.merge_strip_values(
+                    dom=order_product_dom, xpath=".//span[contains(@id, 'itemStatusLbl')]//text()"
+                )
+                order["products"].append(
+                    {
+                        "product": {
+                            "product_id": product_id,
+                            "name": product_name,
+                            "description": "",
+                            "url": product_url,
+                            "images": [],
+                            "category": "",
+                            "price": product_price,
+                        },
+                        "quantity": quantity,
+                        "unit_price": product_price,
+                        "status": status,
+                    }
+                )
+
+        await self.get_missing_products_fields(
+            order["products"],
+            fields=(
+                "description",
+                "images",
+                "category",
+            ),
+        )
+        return order
 
     @catch_network
-    async def get_product(self, product_id, product_url, perform_login=False) -> Product:
+    async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
         if perform_login:
             await self.login()
 
@@ -139,51 +169,20 @@ class HenryScheinScraper(Scraper):
             )
             product_price = re.findall("\\d+\\.\\d+", product_price)
             product_price = product_price[0] if isinstance(product_price, list) else None
-            return Product.from_dict(
-                {
-                    "product_id": product_id,
-                    "name": product_name,
-                    "description": product_description,
-                    "url": product_url,
-                    "images": [{"image": product_image} for product_image in product_images],
-                    "price": product_price,
-                    "retail_price": product_price,
-                    "vendor": self.vendor,
-                }
-            )
+            product_category = res.xpath(
+                ".//div[contains(@class, 'product-image')]/ul/li/div[@class='value']/span/text()"
+            ).extract()
 
-    @catch_network
-    async def get_order_product(self, product_link, order_product_dom):
-        async with self.session.get(product_link) as resp:
-            res = Selector(text=await resp.text())
-            product_detail = res.xpath("//script[@type='application/ld+json']//text()").extract_first()
-            product_detail = json.loads(product_detail)
-
-        quantity_price = self.merge_strip_values(
-            dom=order_product_dom, xpath=".//td[@id='QtyRow']//text()", delimeter=";"
-        )
-        quantity, _, unit_price = quantity_price.split(";")
-        unit_price = re.search(r"\$(.*)/", unit_price)
-        unit_price = unit_price.group(1)
-
-        status = self.merge_strip_values(
-            dom=order_product_dom, xpath=".//span[contains(@id, 'itemStatusLbl')]//text()"
-        )
-        order_product = {
-            "quantity": quantity,
-            "unit_price": unit_price,
-            "status": status,
-            "product": {
-                "product_id": product_detail["sku"],
-                "name": product_detail["name"],
-                "description": product_detail["description"],
-                "url": product_detail["url"],
-                "images": [{"image": product_detail["image"]}],
-                "price": unit_price,
-                # "retail_price": product_detail["price"],
-            },
-        }
-        return order_product
+            return {
+                "product_id": product_id,
+                "name": product_name,
+                "description": product_description,
+                "url": product_url,
+                "images": [{"image": product_image} for product_image in product_images],
+                "category": product_category,
+                "price": product_price,
+                "vendor": self.vendor,
+            }
 
     @catch_network
     async def get_orders(self, perform_login=False):
@@ -198,8 +197,10 @@ class HenryScheinScraper(Scraper):
             orders_dom = response_dom.xpath(
                 "//table[@class='SimpleList']//tr[@class='ItemRow' or @class='AlternateItemRow']"
             )
-            tasks = (self.get_order(order_dom) for order_dom in orders_dom)
-            return await asyncio.gather(*tasks, return_exceptions=True)
+            tasks = (self.get_order(order_dom) for order_dom in orders_dom[:1])
+            orders = await asyncio.gather(*tasks, return_exceptions=True)
+
+        return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
 
     @catch_network
     async def _search_products(
@@ -250,7 +251,6 @@ class HenryScheinScraper(Scraper):
                     }
                 ],
                 "price": "",
-                "retail_price": "",
                 "vendor": self.vendor,
             }
 

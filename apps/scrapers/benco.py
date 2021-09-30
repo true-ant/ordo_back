@@ -258,9 +258,10 @@ class BencoScraper(Scraper):
                                     "description": "",
                                     "url": product_url,
                                     "images": [],
-                                    # "images": [{"image": product_image for product_image in product_images}],
+                                    "category": "",
                                     "price": product_price,
                                     "vendor": self.vendor,
+                                    # "images": [{"image": product_image for product_image in product_images}],
                                 },
                                 "unit_price": product_price,
                                 "quantity": quantity,
@@ -309,7 +310,7 @@ class BencoScraper(Scraper):
                 product_images = res.xpath(".//div[@id='activeImageArea']/img/@src").extract()
 
             product_price = self.extract_first(res, ".//div[@class='product-detail-actions-wrapper']/h3/text()")
-            product_category = self.extract_first(res, ".//div[@class='breadcrumb-bar']/ul/li[2]/a/text()")
+            product_category = res.xpath(".//div[@class='breadcrumb-bar']/ul/li/a/text()").extract()[1:]
             return {
                 "product_id": product_id,
                 "name": product_name,
