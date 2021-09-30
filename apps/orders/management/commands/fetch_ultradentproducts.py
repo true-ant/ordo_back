@@ -107,7 +107,6 @@ class Command(BaseCommand):
                         description="",
                         url=f"{self.BASE_URL}{url}?sku={product_data['sku']}",
                         price=product_data["price"],
-                        # retail_price="retail_price",
                     )
                     for product_image in product_data["images"]:
                         ProductImage.objects.create(product=product, image=product_image)

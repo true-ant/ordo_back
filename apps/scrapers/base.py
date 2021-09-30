@@ -1,3 +1,4 @@
+import asyncio
 from http.cookies import SimpleCookie
 from typing import List, Optional
 
@@ -5,7 +6,7 @@ from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
 
 from apps.scrapers.errors import VendorAuthenticationFailed
-from apps.scrapers.schema import ProductCategory
+from apps.scrapers.schema import Product, ProductCategory
 from apps.scrapers.utils import catch_network
 from apps.types.scraper import LoginInformation, ProductSearch, VendorInformation
 
@@ -22,6 +23,28 @@ class Scraper:
         self.vendor = vendor
         self.username = username
         self.password = password
+        self.orders = {}
+
+    @staticmethod
+    def extract_first(dom, xpath):
+        return x.strip() if (x := dom.xpath(xpath).extract_first()) else x
+
+    @staticmethod
+    def merge_strip_values(dom, xpath, delimeter=""):
+        return delimeter.join(filter(None, map(str.strip, dom.xpath(xpath).extract())))
+
+    @staticmethod
+    def remove_thousands_separator(value):
+        value = value.replace(" ", "")
+        value = value.replace(",", "")
+        return value
+
+    @staticmethod
+    def get_category_slug(value) -> Optional[str]:
+        try:
+            return value.split("/")[-1]
+        except (AttributeError, IndexError):
+            pass
 
     @catch_network
     async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> SimpleCookie:
@@ -54,19 +77,35 @@ class Scraper:
     async def _after_login_hook(self, response: ClientResponse):
         pass
 
-    def extract_first(self, dom, xpath):
-        return x.strip() if (x := dom.xpath(xpath).extract_first()) else x
-
-    def merge_strip_values(self, dom, xpath, delimeter=""):
-        return delimeter.join(filter(None, map(str.strip, dom.xpath(xpath).extract())))
-
-    def remove_thousands_separator(self, value):
-        value = value.replace(" ", "")
-        value = value.replace(",", "")
-        return value
-
     def _get_vendor_categories(self, response) -> List[ProductCategory]:
         pass
+
+    async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
+        raise NotImplementedError()
+
+    async def get_product(self, product_id, product_url, perform_login=False) -> Product:
+        product = await self.get_product_as_dict(product_id, product_url, perform_login)
+        return Product.from_dict(product)
+
+    async def get_missing_product_fields(self, product_id, product_url, perform_login=False, fields=None) -> dict:
+        product = await self.get_product_as_dict(product_id, product_url, perform_login)
+
+        if fields and isinstance(fields, tuple):
+            return {k: v for k, v in product.items() if k in fields}
+
+    async def get_missing_products_fields(self, order_products, fields=("description",)):
+        tasks = (
+            self.get_missing_product_fields(
+                product_id=order_product["product"]["product_id"],
+                product_url=order_product["product"]["url"],
+                perform_login=False,
+                fields=fields,
+            )
+            for order_product in order_products
+        )
+        products_description = await asyncio.gather(*tasks, return_exceptions=True)
+        for order_product, product_detail in zip(order_products, products_description):
+            order_product["product"]["description"] = product_detail["description"]
 
     async def get_vendor_categories(self, url=None, headers=None, perform_login=False) -> List[ProductCategory]:
         if perform_login:

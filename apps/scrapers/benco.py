@@ -238,28 +238,35 @@ class BencoScraper(Scraper):
                 else:
                     for product_row in row.xpath("./ul[@class='list-group']/li[@class='list-group-item']"):
                         other_details = product_row.xpath(".//p/text()").extract()
+                        product_id = other_details[0].split("#: ")[1]
+                        product_name = product_row.xpath(
+                            ".//div[contains(@class, 'product-details')]/strong/a//text()"
+                        ).get()
                         product_url = product_row.xpath(
                             ".//div[contains(@class, 'product-details')]/strong/a/@href"
                         ).get()
                         product_url = f"{self.BASE_URL}{product_url}" if product_url else None
+                        product_images = product_row.xpath(".//img/@src").extract()
+                        product_price = other_details[2].split(":")[1]
+                        quantity = other_details[1].split(":")[1].strip()
                         order["products"].append(
                             {
                                 "product": {
-                                    "product_id": other_details[0].split("#: ")[1],
-                                    "name": product_row.xpath(
-                                        ".//div[contains(@class, 'product-details')]/strong/a//text()"
-                                    ).get(),
+                                    "product_id": product_id,
+                                    "name": product_name,
                                     "description": "",
                                     "url": product_url,
-                                    "images": [{"image": product_row.xpath(".//img/@src").get()}],
-                                    "price": other_details[2].split(":")[1],
-                                    "retail_price": "",
+                                    "images": [{"image": product_image for product_image in product_images}],
+                                    "price": product_price,
                                     "vendor": self.vendor,
                                 },
-                                "quantity": other_details[1].split(":")[1].strip(),
-                                "unit_price": other_details[2].split(":")[1],
+                                "unit_price": product_price,
+                                "quantity": quantity,
                             }
                         )
+
+        await self.get_missing_products_fields(order["products"])
+
         return order
 
     @catch_network
@@ -280,29 +287,28 @@ class BencoScraper(Scraper):
             return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
 
     @catch_network
-    async def get_product(self, product_id, product_url, perform_login=False) -> Product:
+    async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
         if perform_login:
             await self.login()
 
         async with self.session.get(product_url, ssl=self._ssl_context) as resp:
             res = Selector(text=await resp.text())
             product_name = self.extract_first(res, ".//h3[@class='product-name']/text()")
-            product_description = self.extract_first(res, ".//p[@class='product-description']/text()")
+            product_description = (self.extract_first(res, ".//p[@class='product-description']/text()"),)
             product_images = res.xpath(".//div[@id='activeImageArea']/img/@src").extract()
             product_images.extend(res.xpath(".//div[@class='thumbnail']/img/@src").extract())
             product_price = self.extract_first(res, ".//div[@class='product-detail-actions-wrapper']/h3/text()")
-            return Product.from_dict(
-                {
-                    "product_id": product_id,
-                    "name": product_name,
-                    "description": product_description,
-                    "url": product_url,
-                    "images": [{"image": product_image} for product_image in product_images],
-                    "price": product_price,
-                    "retail_price": product_price,
-                    "vendor": self.vendor,
-                }
-            )
+            product_category = self.extract_first(res, ".//div[@class='breadcrumb-bar']/ul/li[2]/a/@href")
+            return {
+                "product_id": product_id,
+                "name": product_name,
+                "description": product_description,
+                "url": product_url,
+                "images": [{"image": product_image} for product_image in product_images],
+                "category": product_category,
+                "price": product_price,
+                "vendor": self.vendor,
+            }
 
     @catch_network
     async def _search_products(
@@ -356,7 +362,6 @@ class BencoScraper(Scraper):
                                 }
                             ],
                             "price": "",
-                            "retail_price": "",
                             "vendor_id": self.vendor,
                         }
                         product_ids.append(product_id)
@@ -375,20 +380,19 @@ class BencoScraper(Scraper):
                     )
                     product_image = product_dom.xpath("./div[contains(@class, 'product-image-area')]/img/@src").get()
                     product_description = self.extract_first(product_dom, ".//p/text()")
-                products[product_id] = {
-                    "product_id": product_id,
-                    "name": name,
-                    "description": product_description,
-                    "url": product_url,
-                    "images": [
-                        {
-                            "image": product_image,
-                        }
-                    ],
-                    "price": "",
-                    "retail_price": "",
-                    "vendor": self.vendor,
-                }
+                    products[product_id] = {
+                        "product_id": product_id,
+                        "name": name,
+                        "description": product_description,
+                        "url": product_url,
+                        "images": [
+                            {
+                                "image": product_image,
+                            }
+                        ],
+                        "price": "",
+                        "vendor": self.vendor,
+                    }
         data = {"productNumbers": product_ids, "pricePartialType": "ProductPriceRow"}
         headers = PRICE_SEARCH_HEADERS.copy()
         headers["Referer"] = url

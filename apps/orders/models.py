@@ -33,9 +33,6 @@ class Product(TimeStampedModel):
     description = models.TextField(null=True, blank=True)
     url = models.URLField(null=True, blank=True, max_length=300)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    retail_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    # stars: Decimal
-    # ratings: Decimal
 
     def __str__(self):
         return self.name
@@ -52,7 +49,6 @@ class Product(TimeStampedModel):
             url=self.url,
             images=[ProductImageDataClass(image=image.image) for image in self.images.all()],
             price=self.price,
-            retail_price=self.retail_price,
             vendor=VendorDataClass(
                 id=self.vendor.id,
                 name=self.vendor.name,
