@@ -1,3 +1,4 @@
+import asyncio
 from typing import List
 
 from aiohttp import ClientResponse
@@ -182,8 +183,8 @@ class Net32Scraper(Scraper):
                                         "description": line_item["description"],
                                         "url": f"{self.BASE_URL}/{line_item['detailLink']}",
                                         "images": [{"image": f"{self.BASE_URL}/media{line_item['mediaPath']}"}],
+                                        "category": [line_item["catName"]],
                                         "price": line_item["oliProdPrice"],
-                                        "retail_price": line_item["oliProdRetailPrice"],
                                     },
                                     "quantity": line_item["quantity"],
                                     "unit_price": line_item["oliProdPrice"],
@@ -199,9 +200,35 @@ class Net32Scraper(Scraper):
         except KeyError:
             raise OrderFetchException()
 
+    async def get_product_category_tree(self, product_id, product_data_dict):
+        async with self.session.get(f"https://www.net32.com/rest/neo/pdp/{product_id}/categories-tree") as resp:
+            res = await resp.json()
+            product_data_dict["category"] = [item["name"] for item in res]
+
+    async def get_product_detail(self, product_id, product_data_dict):
+        async with self.session.get(f"https://www.net32.com/rest/neo/pdp/{product_id}") as resp:
+            res = await resp.json()
+
+            product_data_dict["name"] = res["title"]
+            product_data_dict["description"] = res["description"]
+            product_data_dict["images"] = [
+                {"image": f"{self.BASE_URL}{image['s']}"} for i, image in res["additionalImages"].items()
+            ]
+            product_data_dict["price"] = res["retailPrice"]
+            product_data_dict["vendor"] = self.vendor
+
     @catch_network
-    async def get_product(self, product_id, product_url, perform_login=False) -> Product:
-        pass
+    async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
+        product_data_dict = {
+            "product_id": product_id,
+            "url": product_url,
+        }
+        tasks = (
+            self.get_product_detail(product_id, product_data_dict),
+            self.get_product_category_tree(product_id, product_data_dict),
+        )
+        await asyncio.gather(*tasks, return_exceptions=True)
+        return product_data_dict
 
     @catch_network
     async def _search_products(
@@ -258,7 +285,6 @@ class Net32Scraper(Scraper):
                             "price": self.extract_first(
                                 product_dom, ".//ins[@class='localsearch-result-best-price']//text()"
                             ),
-                            "retail_price": "",
                             "vendor": self.vendor,
                         }
                     )
