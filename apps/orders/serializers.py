@@ -27,6 +27,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 class ProductReadDetailSerializer(serializers.Serializer):
+    office_id = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
     vendor = serializers.PrimaryKeyRelatedField(queryset=m.Vendor.objects.all())
     product_id = serializers.CharField()
     product_url = serializers.URLField()

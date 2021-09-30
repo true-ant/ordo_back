@@ -90,7 +90,6 @@ SEARCH_HEADERS = {
 class PattersonScraper(Scraper):
     BASE_URL = "https://www.pattersondental.com"
 
-    @catch_network
     async def _get_login_data(self) -> LoginInformation:
         headers = {
             "Connection": "keep-alive",
@@ -131,7 +130,6 @@ class PattersonScraper(Scraper):
         dom = Selector(text=await resp.text())
         return False if dom.xpath(".//div[@id='error']") else True
 
-    @catch_network
     async def _after_login_hook(self, response: ClientResponse):
         response_dom = Selector(text=await response.text())
         data = {
@@ -146,6 +144,25 @@ class PattersonScraper(Scraper):
 
     async def get_orders(self, perform_login=False) -> List[Order]:
         return []
+
+    async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
+        if perform_login:
+            await self.login()
+
+        async with self.session.get(product_url) as resp:
+            res = Selector(text=await resp.text())
+            product_description = self.extract_first(res, ".//div[@class='viewMoreDescriptionContainer']/text()")
+            product_images = res.xpath(".//div[@id='productFamilyCarouselItem']//img/@src").extract()
+            return {
+                "product_id": "",
+                "name": "",
+                "description": product_description,
+                "url": product_url,
+                "images": [{"image": product_image} for product_image in product_images],
+                "category": "",
+                "price": "",
+                "vendor": self.vendor,
+            }
 
     async def get_product_prices(self, product_ids, perform_login=False, **kwargs) -> Dict[str, Decimal]:
         # TODO: perform_login, this can be handle in decorator in the future

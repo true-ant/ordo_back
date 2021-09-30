@@ -3,7 +3,6 @@ import decimal
 import operator
 from decimal import Decimal
 from functools import reduce
-from typing import List
 
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
@@ -26,7 +25,7 @@ from apps.common.asyncdrf import AsyncMixin
 from apps.common.pagination import StandardResultsSetPagination
 from apps.scrapers.errors import VendorNotSupported
 from apps.scrapers.scraper_factory import ScraperFactory
-from apps.types.orders import CartProduct, LinkedVendor
+from apps.types.orders import CartProduct
 
 from . import filters as f
 from . import models as m
@@ -206,7 +205,7 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
     queryset = m.Product.objects.all()
 
     @sync_to_async
-    def _get_linked_vendors(self, request, office_id, vendor_id=None) -> List[LinkedVendor]:
+    def _get_linked_vendors(self, request, office_id, vendor_id=None):
         CompanyMember.objects.filter(user=request.user).first()
         # TODO: Check permission
         # office_vendors = OfficeVendor.objects.select_related("vendor").filter(office__company=company_member.company)
@@ -250,8 +249,6 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
             if vendors_meta.get(vendor_slug, {}).get("last_page", False):
                 continue
             try:
-                print(office_vendor.vendor)
-                print(office_vendor.vendor.to_dict())
                 scraper = ScraperFactory.create_scraper(
                     vendor=office_vendor.vendor.to_dict(),
                     session=session,
@@ -298,18 +295,22 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="detail")
     async def get_product_detail_from_vendor(self, request, *args, **kwargs):
-        office_id = self.kwargs["office_pk"]
         validated_data = await self._validate_product_detail_serializer(request)
-        office_vendor = await self._get_linked_vendors(request, office_id, validated_data["vendor"].id)[0]
+        office_vendor = await self._get_linked_vendors(
+            request, validated_data["office_id"].id, validated_data["vendor"].id
+        )
+        office_vendor = office_vendor[0]
         session = apps.get_app_config("accounts").session
         scraper = ScraperFactory.create_scraper(
-            vendor=validated_data["vendor"].slug,
+            vendor=validated_data["vendor"].to_dict(),
             session=session,
             username=office_vendor.username,
             password=office_vendor.password,
         )
 
-        product = await scraper.get_product(product_id=validated_data["product_id"], url=validated_data["product_url"])
+        product = await scraper.get_product(
+            product_id=validated_data["product_id"], product_url=validated_data["product_url"], perform_login=True
+        )
         return Response(product.to_dict())
 
 
