@@ -1,5 +1,7 @@
 import asyncio
+import decimal
 import operator
+from decimal import Decimal
 from functools import reduce
 from typing import List
 
@@ -75,7 +77,7 @@ class OrderViewSet(ModelViewSet):
         if orders_count:
             total_items = queryset[0].month_total_items
             total_amount = queryset[0].month_total_amount
-            average_amount = total_amount / orders_count
+            average_amount = (total_amount / orders_count).quantize(Decimal(".01"), rounding=decimal.ROUND_UP)
 
         vendors = (
             m.VendorOrder.current_months.filter(order__office_id=office_id)
