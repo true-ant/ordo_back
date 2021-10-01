@@ -5,3 +5,4 @@ DEBUG = True
 # Email settings
 EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
 EMAIL_FILE_PATH = "/tmp/app-messages"
+# CELERY_TASK_ALWAYS_EAGER=True

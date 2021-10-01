@@ -17,6 +17,7 @@ from apps.accounts.models import CompanyMember, Office, OfficeVendor, User
 from apps.orders.models import (
     Order,
     Product,
+    ProductCategory,
     ProductImage,
     VendorOrder,
     VendorOrderProduct,
@@ -102,9 +103,18 @@ def save_order_to_db(office, vendor, order_data):
         vendor_order = VendorOrder.from_dataclass(vendor=vendor, order=order, dict_data=order_data)
 
     for order_product_data in order_products_data:
-        order_product_data["product"].pop("vendor")
+        vendor_data = order_product_data["product"].pop("vendor")
         order_product_images = order_product_data["product"].pop("images", [])
         product_id = order_product_data["product"].pop("product_id")
+        product_category = order_product_data["product"].pop("category")
+
+        if product_category:
+            q = {f"vendor_categories__{vendor_data['slug']}__contains": product_category[0]}
+            q = Q(**q)
+            product_category = ProductCategory.objects.filter(q).first()
+            if product_category:
+                order_product_data["product"]["category_id"] = product_category.id
+
         product, created = Product.objects.get_or_create(
             vendor=vendor, product_id=product_id, defaults=order_product_data["product"]
         )

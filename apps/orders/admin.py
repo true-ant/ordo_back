@@ -113,6 +113,7 @@ class ProductAdmin(admin.ModelAdmin):
     )
     list_filter = (
         "vendor",
+        "category",
         ProductPriceFilter,
     )
 

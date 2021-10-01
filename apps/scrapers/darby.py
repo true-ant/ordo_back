@@ -140,6 +140,7 @@ class DarbyScraper(Scraper):
                             "category": "",
                             # "images": [{"image": product_image}],
                             "price": product_price,
+                            "vendor": self.vendor,
                         },
                         "unit_price": product_price,
                         "quantity": quantity,

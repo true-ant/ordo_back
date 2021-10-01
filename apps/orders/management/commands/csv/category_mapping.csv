@@ -1,0 +1,163 @@
+vendor,vendor_category,category
+henry_schein,Anesthetics,Anesthetics
+henry_schein,Burs & Diamonds,Burs & Diamonds
+henry_schein,CAD/CAM,CAD/CAM
+henry_schein,Crown & Bridge,Restorative
+henry_schein,Dental Equipment Parts and Accessories,Dental Equipment Parts and Accessories
+henry_schein,Disposables,Disposables
+henry_schein,"Education, Patient & Staff",Miscellaneous
+henry_schein,Endodontics,Endodontics
+henry_schein,Equipment & Technology,Equipment & Technology
+henry_schein,Evacuation Products,Evacuation Products
+henry_schein,Finishing & Polishing,Restorative
+henry_schein,Gloves,Infection Control
+henry_schein,Handpieces,Dental Equipment Parts and Accessories
+henry_schein,Health & Beauty & OTC,Miscellaneous
+henry_schein,Impression Materials & Accessories,Impression Materials & Accessories
+henry_schein,Infection Control Products,Infection Control
+henry_schein,Instruments,Instruments
+henry_schein,Laboratory,Laboratory
+henry_schein,Medical Diagnostic & Emergency,Miscellaneous
+henry_schein,Miscellaneous,Miscellaneous
+henry_schein,Office Management & Supplies,Office Supplies
+henry_schein,Orthodontic,Orthodontic
+henry_schein,Pharmaceuticals,Pharmaceuticals
+henry_schein,Practice Marketing,Miscellaneous
+henry_schein,Preventive,Preventive
+henry_schein,Restorative & Cosmetic,Restorative
+henry_schein,Small Equipment,Small Equipment
+henry_schein,Surgical & Implant Products,Surgical supplies
+henry_schein,Uniforms & Work Wear,Miscellaneous
+henry_schein,X-Ray And Digital Imaging,X-Ray And Digital Imaging
+net_32,"Acrylics, reline & tray materials",Laboratory
+net_32,Alloys & accessories,Restorative
+net_32,Anesthetic products,Anesthetics
+net_32,Articulating materials & accessories,Restorative
+net_32,Burs & diamonds,Burs & Diamonds
+net_32,CAD CAM products,CAD/CAM
+net_32,"Cements, liners & adhesives",Restorative
+net_32,Core materials,Restorative
+net_32,Cosmetic dentistry products,Restorative
+net_32,"Crowns, bands & shells",Restorative
+net_32,Dental health education products,Miscellaneous
+net_32,Disposables,Disposables
+net_32,Emergency products,Miscellaneous
+net_32,Endodontic products,Endodontics
+net_32,Equipment,Equipment & Technology
+net_32,Evacuation products,Evacuation Products
+net_32,Finishing & polishing products,Restorative
+net_32,Handpieces,Dental Equipment Parts and Accessories
+net_32,Implant related products,Implant
+net_32,Impression materials,Impression Materials & Accessories
+net_32,Infection control - clinical products,Infection Control
+net_32,Infection control - personal products,Infection Control
+net_32,Instruments,Instruments
+net_32,Laboratory products,Laboratory
+net_32,"Loupes, magnifiers & headlamps",Miscellaneous
+net_32,Matrix materials & wedges,Restorative
+net_32,Medical syringes and needles,Disposables
+net_32,Miscellaneous products,Miscellaneous
+net_32,Mixing materials,Restorative
+net_32,Office supplies & accessories,Office Supplies
+net_32,Orthodontic products,Orthodontic
+net_32,Patient comfort & protection products,Infection Control
+net_32,Pharmaceutical products,Pharmaceuticals
+net_32,Pins & posts,Restorative
+net_32,Preventives,Preventive
+net_32,Retraction materials,Restorative
+net_32,Rubber dam products,Restorative
+net_32,Surgical supplies,Surgical supplies
+net_32,Unique gifts,Miscellaneous
+net_32,Waxes,Laboratory
+net_32,X-Ray products,X-Ray And Digital Imaging
+darby,Acrylics,Laboratory
+darby,Alloys,Restorative
+darby,Anesthetics,Anesthetics
+darby,Articulating,Restorative
+darby,Burs,Burs & Diamonds
+darby,CAD|CAM,CAD/CAM
+darby,Cements,Restorative
+darby,Cleaning and Care,Infection Control
+darby,Core,Restorative
+darby,Cosmetic Dentistry,Restorative
+darby,Crowns,Restorative
+darby,Diamonds,Restorative
+darby,Disposable Products,Disposables
+darby,Emergency Supplies,Miscellaneous
+darby,Endodontics,Endodontics
+darby,Equipment,Equipment & Technology
+darby,Evacuation,Evacuation Products
+darby,Finishing and Polishing,Restorative
+darby,Gloves,Infection Control
+darby,Handpieces,Dental Equipment Parts and Accessories
+darby,Implant Products,Implant
+darby,Impression Material,Impression Materials & Accessories
+darby,Impression Trays,Impression Materials & Accessories
+darby,Infection Control,Infection Control
+darby,Instruments,Instruments
+darby,IT Services,Miscellaneous
+darby,Laboratory,Laboratory
+darby,Matrix,Restorative
+darby,Office Supplies,Office Supplies
+darby,Orthodontics,Orthodontic
+darby,Pharmaceuticals and OTC,Pharmaceuticals
+darby,Pin and Post,Restorative
+darby,Practice Builders,Miscellaneous
+darby,Preventive Products,Preventive
+darby,Refining,Miscellaneous
+darby,Repair Services,Dental Equipment Parts and Accessories
+darby,Retraction Materials,Restorative
+darby,Rubber Dam,Restorative
+darby,Surgical,Surgical supplies
+darby,Uncategorized,Miscellaneous
+darby,Waxes,Laboratory
+darby,X-Ray,X-Ray And Digital Imaging
+ultradent,Whitening,Whitening
+ultradent,Prevent / Hygiene,Preventive
+ultradent,Prepare,Restorative
+ultradent,Triodent®,Restorative
+ultradent,Bond / Etch,Restorative
+ultradent,Tips / Syringes,Disposables
+ultradent,Endodontics,Endodontics
+ultradent,Equipment,Dental Equipment Parts and Accessories
+ultradent,Tissue Management,Restorative
+ultradent,Composites,Restorative
+ultradent,Impressions,Impression Materials & Accessories
+ultradent,Finish,Restorative
+ultradent,Orthodontics,Orthodontic
+ultradent,Crown and Bridge,Restorative
+benco,Acrylics & Relines,Laboratory
+benco,Alloy,Restorative
+benco,Anesthetic,Anesthetics
+benco,Articulating,Restorative
+benco,Burs & Diamonds,Burs & Diamonds
+benco,CAD/CAM,CAD/CAM
+benco,Cements & Liners,Restorative
+benco,Core Material,Restorative
+benco,Cosmetic Dentistry,Restorative
+benco,Crown & Bridge,Restorative
+benco,Dental Dam,Restorative
+benco,Dental Education,Miscellaneous
+benco,Disposables,Disposables
+benco,Endodontics,Endodontics
+benco,Evacuation,Evacuation Products
+benco,Finishing & Polishing,Restorative
+benco,Handpieces,Dental Equipment Parts and Accessories
+benco,Impression,Impression Materials & Accessories
+benco,Infection Control,Infection Control
+benco,Instruments,Instruments
+benco,Laboratory Products,Laboratory
+benco,Matrix,Restorative
+benco,Medicaments,Pharmaceuticals
+benco,Novelties,Miscellaneous
+benco,Office Supplies,Office Supplies
+benco,Parts,Dental Equipment Parts and Accessories
+benco,Patient Supplies,Miscellaneous
+benco,Pharmaceuticals,Pharmaceuticals
+benco,Pins & Posts,Restorative
+benco,Preventative,Preventive
+benco,Safety/OSHA,Infection Control
+benco,Small Equipment,Small Equipment
+benco,Surgical,Surgical supplies
+benco,Waxes,Laboratory
+benco,X-Ray,X-Ray And Digital Imaging

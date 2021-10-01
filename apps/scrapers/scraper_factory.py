@@ -127,6 +127,10 @@ async def main():
                     "product_id": "PIF_63718",
                     "product_url": "https://www.pattersondental.com/Supplies/ProductFamilyDetails/PIF_63718?mc=0",
                 },
+                {
+                    "product_id": "PIF_857369",
+                    "product_url": "https://www.pattersondental.com/Supplies/ItemDetail/071110139",
+                },
             ],
         },
         "ultradent": {
@@ -178,8 +182,8 @@ async def main():
         # results = await scraper.search_products(query="tooth brush", page=1)
         # results = [r.to_dict() for r in results]
         results = await scraper.get_product(
-            product_id=BASE_DATA[scraper_name]["products"][0]["product_id"],
-            product_url=BASE_DATA[scraper_name]["products"][0]["product_url"],
+            product_id=BASE_DATA[scraper_name]["products"][1]["product_id"],
+            product_url=BASE_DATA[scraper_name]["products"][1]["product_url"],
             perform_login=True,
         )
         # results = await scraper.get_vendor_categories(perform_login=True)

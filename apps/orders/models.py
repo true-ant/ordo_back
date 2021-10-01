@@ -16,6 +16,7 @@ class ProductCategory(models.Model):
     name = models.CharField(max_length=128)
     slug = AutoSlugField(populate_from=["name"])
     parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL)
+    vendor_categories = models.JSONField(null=True, blank=True)
     description = models.TextField(null=True, blank=True)
 
     def __str__(self):

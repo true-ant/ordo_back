@@ -15,9 +15,9 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         """
         python manage.py generate_product_category \
-        --file apps/orders/management/commands/csv/categories.csv \
+        --file apps/orders/management/commands/csv/category_mapping.csv \
         --app_model orders.productcategory
-        python manage.py loaddata orders_productcategories
+        python manage.py loaddata orders_productcategory
         """
         parser.add_argument(
             "--file",
@@ -36,16 +36,29 @@ class Command(BaseCommand):
         print(f"Converting {file_path} into fixture format")
 
         df = pd.read_csv(file_path)
-        df = df.fillna("")
+        categories = df["category"].unique()
+
         json_data = []
-        for i, row in df.iterrows():
+        for i, category in enumerate(categories):
+            vendors_categories = df[df["category"] == category]
+            vendors_categories = (
+                vendors_categories.groupby("vendor")["vendor_category"]
+                .apply(list)
+                .reset_index(name="vendor_categories")
+            )
+            print(vendors_categories)
             json_data.append(
                 {
                     "model": app_model,
                     "pk": i + 1,
                     "fields": {
-                        "slug": slugify(row["name"], separator="_"),
-                        **row,
+                        "name": category,
+                        "slug": slugify(category),
+                        "vendor_categories": {
+                            vendor_categories["vendor"]: vendor_categories["vendor_categories"]
+                            for _, vendor_categories in vendors_categories.iterrows()
+                        },
+                        "description": "",
                     },
                 }
             )

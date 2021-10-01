@@ -190,6 +190,7 @@ class UltraDentScraper(Scraper):
                                     }
                                 ],
                                 "price": price,
+                                "vendor": self.vendor,
                             },
                             "quantity": self.extract_first(order_detail, "./span[@class='sku-qty']//text()"),
                             "unit_price": price,

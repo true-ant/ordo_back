@@ -132,6 +132,7 @@ class HenryScheinScraper(Scraper):
                             "images": [],
                             "category": "",
                             "price": product_price,
+                            "vendor": self.vendor,
                         },
                         "quantity": quantity,
                         "unit_price": product_price,

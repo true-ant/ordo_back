@@ -185,6 +185,7 @@ class Net32Scraper(Scraper):
                                         "images": [{"image": f"{self.BASE_URL}/media{line_item['mediaPath']}"}],
                                         "category": [line_item["catName"]],
                                         "price": line_item["oliProdPrice"],
+                                        "vendor": self.vendor,
                                     },
                                     "quantity": line_item["quantity"],
                                     "unit_price": line_item["oliProdPrice"],

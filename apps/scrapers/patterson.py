@@ -151,7 +151,8 @@ class PattersonScraper(Scraper):
 
         async with self.session.get(product_url) as resp:
             res = Selector(text=await resp.text())
-            product_description = self.extract_first(res, ".//div[@class='viewMoreDescriptionContainer']/text()")
+            product_description = ""
+
             product_images = res.xpath(".//div[@id='productFamilyCarouselItem']//img/@src").extract()
             return {
                 "product_id": "",
