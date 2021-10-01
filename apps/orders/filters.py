@@ -14,7 +14,8 @@ class OrderFilter(filters.FilterSet):
 
 class VendorOrderProductFilter(filters.FilterSet):
     product_name = filters.CharFilter(field_name="product__name", lookup_expr="icontains")
+    category = filters.CharFilter(field_name="product__category__slug", lookup_expr="exact")
 
     class Meta:
         model = VendorOrderProduct
-        fields = ["product_name"]
+        fields = ["product_name", "category"]

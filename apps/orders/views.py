@@ -115,6 +115,7 @@ class VendorOrderProductViewSet(ModelViewSet):
     queryset = m.VendorOrderProduct.objects.all()
     serializer_class = s.VendorOrderProductSerializer
     filterset_class = f.VendorOrderProductFilter
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         return super().get_queryset().filter(vendor_order__order__office__id=self.kwargs["office_pk"])
@@ -196,6 +197,21 @@ class OfficeSpendAPIView(APIView):
         queryset = m.VendorOrder.objects.select_related("vendor").filter(order__office=office)
         data = get_spending(request.query_params.get("by", "vendor"), queryset, office.company)
         serializer = s.TotalSpendSerializer(data, many=True)
+        return Response(serializer.data)
+
+
+class ProductCategoryViewSet(ModelViewSet):
+    queryset = m.ProductCategory.objects.all()
+    serializer_class = s.ProductCategorySerializer
+    permission_classes = [p.CompanyOfficeReadPermission]
+
+    @action(detail=False, url_path="inventory", methods=["post"])
+    def get_inventory(self, request):
+        serializer = s.OfficeReadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer = self.serializer_class(
+            self.queryset, context={"office": serializer.validated_data["office_id"]}, many=True
+        )
         return Response(serializer.data)
 
 

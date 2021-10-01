@@ -6,6 +6,29 @@ from apps.accounts.serializers import VendorSerializer
 from . import models as m
 
 
+class ProductCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.ProductCategory
+        fields = (
+            "id",
+            "name",
+            "slug",
+        )
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        office = self.context.get("office")
+        if office:
+            ret["count"] = m.VendorOrderProduct.objects.filter(
+                vendor_order__order__office=office, product__category=instance
+            ).count()
+        return ret
+
+
+class OfficeReadSerializer(serializers.Serializer):
+    office_id = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
+
+
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.ProductImage
