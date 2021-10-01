@@ -124,9 +124,8 @@ class DarbyScraper(Scraper):
                 if product_url:
                     product_url = f"{self.BASE_URL}{product_url}"
 
-                # at here image is only one so we try to get product images on product detail page
-                # product_image = self.merge_strip_values(detail_row, "./td[1]/input//@src")
-                # product_image = f"{self.BASE_URL}{product_image}" if product_image else None
+                product_image = self.merge_strip_values(detail_row, "./td[1]/input//@src")
+                product_image = f"{self.BASE_URL}{product_image}" if product_image else None
                 product_price = self.merge_strip_values(detail_row, "./td[4]//text()")
                 quantity = self.merge_strip_values(detail_row, "./td[5]//text()")
                 order["products"].append(
@@ -136,9 +135,8 @@ class DarbyScraper(Scraper):
                             "name": product_name,
                             "description": "",
                             "url": product_url,
-                            "images": [],
                             "category": "",
-                            # "images": [{"image": product_image}],
+                            "images": [{"image": product_image}],
                             "price": product_price,
                             "vendor": self.vendor,
                         },
@@ -150,7 +148,7 @@ class DarbyScraper(Scraper):
             order["products"],
             fields=(
                 "description",
-                "images",
+                # "images",
                 "category",
             ),
         )
@@ -199,7 +197,7 @@ class DarbyScraper(Scraper):
             product_price = self.extract_first(res, ".//span[@id='MainContent_lblPrice']/text()")
             product_price = re.findall("\\d+\\.\\d+", product_price)
             product_price = product_price[0] if isinstance(product_price, list) else None
-            product_category = res.xpath(".//ul[contains(@class, 'breadcrumb')]/li/a/text()")[1:]
+            product_category = res.xpath(".//ul[contains(@class, 'breadcrumb')]/li/a/text()").extract()[1:]
 
             return {
                 "product_id": product_id,

@@ -118,6 +118,8 @@ def save_order_to_db(office, vendor, order_data):
                 order_product_data["product"]["category_id"] = product_category.id
             else:
                 order_product_data["product"]["category_id"] = other_category.id
+        else:
+            order_product_data["product"]["category_id"] = other_category.id
 
         product, created = Product.objects.get_or_create(
             vendor=vendor, product_id=product_id, defaults=order_product_data["product"]
