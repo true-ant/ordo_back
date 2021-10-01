@@ -6,7 +6,7 @@ from asgiref.sync import sync_to_async
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
-from apps.scrapers.schema import Order, Product, ProductCategory
+from apps.scrapers.schema import Order, ProductCategory
 from apps.scrapers.utils import catch_network
 from apps.types.scraper import LoginInformation, ProductSearch
 
@@ -80,17 +80,112 @@ SEARCH_QUERY = """
   }
 """
 
+PRODUCT_DETAIL_QUERY = """
+    query CatalogItem($skuValues: String!, $withPrice: Boolean = false, $withAccessories: Boolean = false) {
+        product(sku: $skuValues) {
+            ...baseCatalogDetail
+            quantityBreaks @include(if: $withPrice) {
+                ...quantityBreakDetail
+                __typename
+            }
+            accessories @include(if: $withAccessories) {
+                ...accessoryDetail
+                __typename
+            }
+            __typename
+        }
+    }
+
+    fragment baseCatalogDetail on Product {
+        sku
+        brandId
+        url
+        kitName
+        brandName
+        productName
+        productFamily
+        catalogPrice
+        customerPrice
+        inStock
+        isOrderable
+        images {
+            source
+            __typename
+        }
+        __typename
+    }
+
+    fragment quantityBreakDetail on QuantityBreak {
+        price
+        quantity
+        __typename
+    }
+
+    fragment accessoryDetail on Product {
+        sku
+        productFamily
+        productName
+        kitName
+        url
+        images {
+            source
+            __typename
+        }
+        __typename
+    }
+"""
+
+GET_ORDERS_QUERY = """
+   query GetOrderHeaders($numberOfDays: Int!, $numberOfRows: Int!) {
+       orders(numberOfDays: $numberOfDays, numberOfRows: $numberOfRows) {
+           id
+           orderGuid
+           orderNumber
+           poNumber
+           orderStatus
+           orderDate
+           shippingAddress {
+               id
+               __typename
+           }
+           __typename
+       }
+   }
+"""
+
+GET_ORDER_QUERY = """
+    query GetOrderDetailWithTrackingHtml($orderNumber: Int!) {
+        orderHtml(orderNumber: $orderNumber) {
+            orderDetailWithShippingHtml
+            __typename
+        }
+    }
+"""
+
 
 class UltraDentScraper(Scraper):
     CATEGORY_URL = "https://www.ultradent.com/products/categories"
     CATEGORY_HEADERS = HEADERS
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.product_urls = {}
+
+    @sync_to_async
+    def resolve_product_urls(self, product_ids):
+        pass
+        # from apps.orders.models import Product
+        #
+        # not_exists_product_ids = set(product_ids) - self.product_urls.keys()
+        # if not_exists_product_ids:
+        #     products = Product.objects.filter(product_id__in=not_exists_product_ids).values_list("product_id", "url")
+        #     self.product_urls = {product["product_id"]: product["url"] for product in products}
 
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         res = await response.text()
         res_dom = Selector(text=res)
         return self.username == res_dom.xpath("//meta[@name='mUserName']/@content").get()
 
-    @catch_network
     async def _get_login_data(self) -> LoginInformation:
         url = "https://www.ultradent.com/login"
         async with self.session.get(url, headers=HEADERS) as resp:
@@ -107,18 +202,10 @@ class UltraDentScraper(Scraper):
             },
         }
 
-    @catch_network
-    async def get_order(self, order):
+    async def get_order(self, order) -> dict:
         json_data = {
             "variables": {"orderNumber": order["orderNumber"]},
-            "query": """
-                query GetOrderDetailWithTrackingHtml($orderNumber: Int!) {
-                    orderHtml(orderNumber: $orderNumber) {
-                        orderDetailWithShippingHtml
-                        __typename
-                    }
-                }
-            """,
+            "query": GET_ORDER_QUERY,
         }
         order = {
             "order_id": order["orderNumber"],
@@ -179,16 +266,18 @@ class UltraDentScraper(Scraper):
                 else:
                     product_id = self.extract_first(order_detail, "./span[@class='sku-id']//text()").strip()
                     price = self.extract_first(order_detail, "./span[@class='sku-price']//text()")
+
+                    if product_id in product_images:
+                        order_product_images = [{"image": product_images[product_id]}]
+                    else:
+                        order_product_images = []
+
                     order["products"].append(
                         {
                             "product": {
                                 "product_id": product_id,
                                 "name": self.extract_first(order_detail, "./span[@class='sku-product-name']//text()"),
-                                "images": [
-                                    {
-                                        "image": product_images[product_id],
-                                    }
-                                ],
+                                "images": order_product_images,
                                 "price": price,
                                 "vendor": self.vendor,
                             },
@@ -198,31 +287,29 @@ class UltraDentScraper(Scraper):
                         }
                     )
 
-        return Order.from_dict(order)
+        # await self.resolve_product_urls(
+        #     [order_product["product"]["product_id"] for order_product in order["products"]]
+        # )
+        # for order_product in order["product"]:
+        #     order_product["product"]["url"] = self.product_urls[order_product["product"]["product_id"]]
+
+        # await self.get_missing_products_fields(
+        #     order["products"],
+        #     fields=(
+        #         "description",
+        #         "images",
+        #         "category",
+        #     ),
+        # )
+        return order
 
     @catch_network
-    async def get_orders(self, perform_login=False):
+    async def get_orders(self, perform_login=False) -> List[Order]:
         url = "https://www.ultradent.com/api/ecommerce"
 
         json_data = {
             "variables": {"numberOfDays": 546, "numberOfRows": 150},
-            "query": """
-                query GetOrderHeaders($numberOfDays: Int!, $numberOfRows: Int!) {
-                    orders(numberOfDays: $numberOfDays, numberOfRows: $numberOfRows) {
-                        id
-                        orderGuid
-                        orderNumber
-                        poNumber
-                        orderStatus
-                        orderDate
-                        shippingAddress {
-                            id
-                            __typename
-                        }
-                        __typename
-                    }
-                }
-            """,
+            "query": GET_ORDERS_QUERY,
         }
         if perform_login:
             await self.login()
@@ -231,7 +318,8 @@ class UltraDentScraper(Scraper):
             orders_data = (await resp.json())["data"]["orders"]
 
             tasks = (self.get_order(order_data) for order_data in orders_data)
-            return await asyncio.gather(*tasks, return_exceptions=True)
+            orders = await asyncio.gather(*tasks, return_exceptions=True)
+            return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
 
     @sync_to_async
     def get_page_queryset(self, page, page_size):
@@ -246,10 +334,51 @@ class UltraDentScraper(Scraper):
             page_products = []
         return total_size, page_products
 
-    @catch_network
-    async def get_product(self, product_id, product_url, perform_login=False) -> Product:
+    async def get_product_detail_as_dict(self, product_id, product_url) -> dict:
+        json_data = {
+            "variables": {
+                "skuValues": product_id,
+                "withAccessories": False,
+                "withPrice": False,
+            },
+            "query": PRODUCT_DETAIL_QUERY,
+        }
+
+        async with self.session.post(
+            "https://www.ultradent.com/api/ecommerce", headers=ORDER_HEADERS, json=json_data
+        ) as resp:
+            res = await resp.json()
+            product = res["data"]["product"]
+            return {
+                "product_id": product_id,
+                "name": product["productName"],
+                "url": product_url,
+                "images": [{"image": product_image["source"]} for product_image in product["images"]],
+                "category": product["url"].split("/")[2:],
+                "price": product["catalogPrice"],
+                "vendor": self.vendor,
+            }
+
+    async def get_product_description_as_dict(self, product_url) -> dict:
+        async with self.session.get(product_url) as resp:
+            res = Selector(text=await resp.text())
+            return {"description": res.xpath("//section[@id='productOverview']//p/text()").extract_first()}
+
+    async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
         if perform_login:
             await self.login()
+
+        tasks = (
+            self.get_product_detail_as_dict(product_id, product_url),
+            self.get_product_description_as_dict(product_url),
+        )
+        result = await asyncio.gather(*tasks, return_exceptions=True)
+        res = {}
+        for r in result:
+            if isinstance(r, dict):
+                res.update(r)
+
+        return res
 
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
