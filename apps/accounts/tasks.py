@@ -12,6 +12,7 @@ from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Q
 from django.template.loader import render_to_string
+from slugify import slugify
 
 from apps.accounts.models import CompanyMember, Office, OfficeVendor, User
 from apps.orders.models import (
@@ -111,7 +112,8 @@ def save_order_to_db(office, vendor, order_data):
         product_category = order_product_data["product"].pop("category")
 
         if product_category:
-            q = {f"vendor_categories__{vendor_data['slug']}__contains": product_category[0]}
+            product_category = slugify(product_category[0])
+            q = {f"vendor_categories__{vendor_data['slug']}__contains": product_category}
             q = Q(**q)
             product_category = ProductCategory.objects.filter(q).first()
             if product_category:

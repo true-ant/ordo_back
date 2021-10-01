@@ -7,16 +7,16 @@
             "slug": "anesthetics",
             "vendor_categories": {
                 "benco": [
-                    "Anesthetic"
+                    "anesthetic"
                 ],
                 "darby": [
-                    "Anesthetics"
+                    "anesthetics"
                 ],
                 "henry_schein": [
-                    "Anesthetics"
+                    "anesthetics"
                 ],
                 "net_32": [
-                    "Anesthetic products"
+                    "anesthetic-products"
                 ]
             },
             "description": ""
@@ -30,16 +30,16 @@
             "slug": "burs-diamonds",
             "vendor_categories": {
                 "benco": [
-                    "Burs & Diamonds"
+                    "burs-diamonds"
                 ],
                 "darby": [
-                    "Burs"
+                    "burs"
                 ],
                 "henry_schein": [
-                    "Burs & Diamonds"
+                    "burs-diamonds"
                 ],
                 "net_32": [
-                    "Burs & diamonds"
+                    "burs-diamonds"
                 ]
             },
             "description": ""
@@ -53,16 +53,16 @@
             "slug": "cad-cam",
             "vendor_categories": {
                 "benco": [
-                    "CAD/CAM"
+                    "cad-cam"
                 ],
                 "darby": [
-                    "CAD|CAM"
+                    "cad-cam"
                 ],
                 "henry_schein": [
-                    "CAD/CAM"
+                    "cad-cam"
                 ],
                 "net_32": [
-                    "CAD CAM products"
+                    "cad-cam-products"
                 ]
             },
             "description": ""
@@ -76,58 +76,58 @@
             "slug": "restorative",
             "vendor_categories": {
                 "benco": [
-                    "Alloy",
-                    "Articulating",
-                    "Cements & Liners",
-                    "Core Material",
-                    "Cosmetic Dentistry",
-                    "Crown & Bridge",
-                    "Dental Dam",
-                    "Finishing & Polishing",
-                    "Matrix",
-                    "Pins & Posts"
+                    "alloy",
+                    "articulating",
+                    "cements-liners",
+                    "core-material",
+                    "cosmetic-dentistry",
+                    "crown-bridge",
+                    "dental-dam",
+                    "finishing-polishing",
+                    "matrix",
+                    "pins-posts"
                 ],
                 "darby": [
-                    "Alloys",
-                    "Articulating",
-                    "Cements",
-                    "Core",
-                    "Cosmetic Dentistry",
-                    "Crowns",
-                    "Diamonds",
-                    "Finishing and Polishing",
-                    "Matrix",
-                    "Pin and Post",
-                    "Retraction Materials",
-                    "Rubber Dam"
+                    "alloys",
+                    "articulating",
+                    "cements",
+                    "core",
+                    "cosmetic-dentistry",
+                    "crowns",
+                    "diamonds",
+                    "finishing-and-polishing",
+                    "matrix",
+                    "pin-and-post",
+                    "retraction-materials",
+                    "rubber-dam"
                 ],
                 "henry_schein": [
-                    "Crown & Bridge",
-                    "Finishing & Polishing",
-                    "Restorative & Cosmetic"
+                    "crown-bridge",
+                    "finishing-polishing",
+                    "restorative-cosmetic"
                 ],
                 "net_32": [
-                    "Alloys & accessories",
-                    "Articulating materials & accessories",
-                    "Cements, liners & adhesives",
-                    "Core materials",
-                    "Cosmetic dentistry products",
-                    "Crowns, bands & shells",
-                    "Finishing & polishing products",
-                    "Matrix materials & wedges",
-                    "Mixing materials",
-                    "Pins & posts",
-                    "Retraction materials",
-                    "Rubber dam products"
+                    "alloys-accessories",
+                    "articulating-materials-accessories",
+                    "cements-liners-adhesives",
+                    "core-materials",
+                    "cosmetic-dentistry-products",
+                    "crowns-bands-shells",
+                    "finishing-polishing-products",
+                    "matrix-materials-wedges",
+                    "mixing-materials",
+                    "pins-posts",
+                    "retraction-materials",
+                    "rubber-dam-products"
                 ],
                 "ultradent": [
-                    "Prepare",
-                    "Triodent\u00ae",
-                    "Bond / Etch",
-                    "Tissue Management",
-                    "Composites",
-                    "Finish",
-                    "Crown and Bridge"
+                    "prepare",
+                    "triodent-r",
+                    "bond-etch",
+                    "tissue-management",
+                    "composites",
+                    "finish",
+                    "crown-and-bridge"
                 ]
             },
             "description": ""
@@ -141,22 +141,22 @@
             "slug": "dental-equipment-parts-and-accessories",
             "vendor_categories": {
                 "benco": [
-                    "Handpieces",
-                    "Parts"
+                    "handpieces",
+                    "parts"
                 ],
                 "darby": [
-                    "Handpieces",
-                    "Repair Services"
+                    "handpieces",
+                    "repair-services"
                 ],
                 "henry_schein": [
-                    "Dental Equipment Parts and Accessories",
-                    "Handpieces"
+                    "dental-equipment-parts-and-accessories",
+                    "handpieces"
                 ],
                 "net_32": [
-                    "Handpieces"
+                    "handpieces"
                 ],
                 "ultradent": [
-                    "Equipment"
+                    "equipment"
                 ]
             },
             "description": ""
@@ -170,20 +170,20 @@
             "slug": "disposables",
             "vendor_categories": {
                 "benco": [
-                    "Disposables"
+                    "disposables"
                 ],
                 "darby": [
-                    "Disposable Products"
+                    "disposable-products"
                 ],
                 "henry_schein": [
-                    "Disposables"
+                    "disposables"
                 ],
                 "net_32": [
-                    "Disposables",
-                    "Medical syringes and needles"
+                    "disposables",
+                    "medical-syringes-and-needles"
                 ],
                 "ultradent": [
-                    "Tips / Syringes"
+                    "tips-syringes"
                 ]
             },
             "description": ""
@@ -197,31 +197,31 @@
             "slug": "miscellaneous",
             "vendor_categories": {
                 "benco": [
-                    "Dental Education",
-                    "Novelties",
-                    "Patient Supplies"
+                    "dental-education",
+                    "novelties",
+                    "patient-supplies"
                 ],
                 "darby": [
-                    "Emergency Supplies",
-                    "IT Services",
-                    "Practice Builders",
-                    "Refining",
-                    "Uncategorized"
+                    "emergency-supplies",
+                    "it-services",
+                    "practice-builders",
+                    "refining",
+                    "uncategorized"
                 ],
                 "henry_schein": [
-                    "Education, Patient & Staff",
-                    "Health & Beauty & OTC",
-                    "Medical Diagnostic & Emergency",
-                    "Miscellaneous",
-                    "Practice Marketing",
-                    "Uniforms & Work Wear"
+                    "education-patient-staff",
+                    "health-beauty-otc",
+                    "medical-diagnostic-emergency",
+                    "miscellaneous",
+                    "practice-marketing",
+                    "uniforms-work-wear"
                 ],
                 "net_32": [
-                    "Dental health education products",
-                    "Emergency products",
-                    "Loupes, magnifiers & headlamps",
-                    "Miscellaneous products",
-                    "Unique gifts"
+                    "dental-health-education-products",
+                    "emergency-products",
+                    "loupes-magnifiers-headlamps",
+                    "miscellaneous-products",
+                    "unique-gifts"
                 ]
             },
             "description": ""
@@ -235,19 +235,19 @@
             "slug": "endodontics",
             "vendor_categories": {
                 "benco": [
-                    "Endodontics"
+                    "endodontics"
                 ],
                 "darby": [
-                    "Endodontics"
+                    "endodontics"
                 ],
                 "henry_schein": [
-                    "Endodontics"
+                    "endodontics"
                 ],
                 "net_32": [
-                    "Endodontic products"
+                    "endodontic-products"
                 ],
                 "ultradent": [
-                    "Endodontics"
+                    "endodontics"
                 ]
             },
             "description": ""
@@ -261,13 +261,13 @@
             "slug": "equipment-technology",
             "vendor_categories": {
                 "darby": [
-                    "Equipment"
+                    "equipment"
                 ],
                 "henry_schein": [
-                    "Equipment & Technology"
+                    "equipment-technology"
                 ],
                 "net_32": [
-                    "Equipment"
+                    "equipment"
                 ]
             },
             "description": ""
@@ -281,16 +281,16 @@
             "slug": "evacuation-products",
             "vendor_categories": {
                 "benco": [
-                    "Evacuation"
+                    "evacuation"
                 ],
                 "darby": [
-                    "Evacuation"
+                    "evacuation"
                 ],
                 "henry_schein": [
-                    "Evacuation Products"
+                    "evacuation-products"
                 ],
                 "net_32": [
-                    "Evacuation products"
+                    "evacuation-products"
                 ]
             },
             "description": ""
@@ -304,22 +304,22 @@
             "slug": "infection-control",
             "vendor_categories": {
                 "benco": [
-                    "Infection Control",
-                    "Safety/OSHA"
+                    "infection-control",
+                    "safety-osha"
                 ],
                 "darby": [
-                    "Cleaning and Care",
-                    "Gloves",
-                    "Infection Control"
+                    "cleaning-and-care",
+                    "gloves",
+                    "infection-control"
                 ],
                 "henry_schein": [
-                    "Gloves",
-                    "Infection Control Products"
+                    "gloves",
+                    "infection-control-products"
                 ],
                 "net_32": [
-                    "Infection control - clinical products",
-                    "Infection control - personal products",
-                    "Patient comfort & protection products"
+                    "infection-control-clinical-products",
+                    "infection-control-personal-products",
+                    "patient-comfort-protection-products"
                 ]
             },
             "description": ""
@@ -333,20 +333,20 @@
             "slug": "impression-materials-accessories",
             "vendor_categories": {
                 "benco": [
-                    "Impression"
+                    "impression"
                 ],
                 "darby": [
-                    "Impression Material",
-                    "Impression Trays"
+                    "impression-material",
+                    "impression-trays"
                 ],
                 "henry_schein": [
-                    "Impression Materials & Accessories"
+                    "impression-materials-accessories"
                 ],
                 "net_32": [
-                    "Impression materials"
+                    "impression-materials"
                 ],
                 "ultradent": [
-                    "Impressions"
+                    "impressions"
                 ]
             },
             "description": ""
@@ -360,16 +360,16 @@
             "slug": "instruments",
             "vendor_categories": {
                 "benco": [
-                    "Instruments"
+                    "instruments"
                 ],
                 "darby": [
-                    "Instruments"
+                    "instruments"
                 ],
                 "henry_schein": [
-                    "Instruments"
+                    "instruments"
                 ],
                 "net_32": [
-                    "Instruments"
+                    "instruments"
                 ]
             },
             "description": ""
@@ -383,22 +383,22 @@
             "slug": "laboratory",
             "vendor_categories": {
                 "benco": [
-                    "Acrylics & Relines",
-                    "Laboratory Products",
-                    "Waxes"
+                    "acrylics-relines",
+                    "laboratory-products",
+                    "waxes"
                 ],
                 "darby": [
-                    "Acrylics",
-                    "Laboratory",
-                    "Waxes"
+                    "acrylics",
+                    "laboratory",
+                    "waxes"
                 ],
                 "henry_schein": [
-                    "Laboratory"
+                    "laboratory"
                 ],
                 "net_32": [
-                    "Acrylics, reline & tray materials",
-                    "Laboratory products",
-                    "Waxes"
+                    "acrylics-reline-tray-materials",
+                    "laboratory-products",
+                    "waxes"
                 ]
             },
             "description": ""
@@ -412,16 +412,16 @@
             "slug": "office-supplies",
             "vendor_categories": {
                 "benco": [
-                    "Office Supplies"
+                    "office-supplies"
                 ],
                 "darby": [
-                    "Office Supplies"
+                    "office-supplies"
                 ],
                 "henry_schein": [
-                    "Office Management & Supplies"
+                    "office-management-supplies"
                 ],
                 "net_32": [
-                    "Office supplies & accessories"
+                    "office-supplies-accessories"
                 ]
             },
             "description": ""
@@ -435,16 +435,16 @@
             "slug": "orthodontic",
             "vendor_categories": {
                 "darby": [
-                    "Orthodontics"
+                    "orthodontics"
                 ],
                 "henry_schein": [
-                    "Orthodontic"
+                    "orthodontic"
                 ],
                 "net_32": [
-                    "Orthodontic products"
+                    "orthodontic-products"
                 ],
                 "ultradent": [
-                    "Orthodontics"
+                    "orthodontics"
                 ]
             },
             "description": ""
@@ -458,17 +458,17 @@
             "slug": "pharmaceuticals",
             "vendor_categories": {
                 "benco": [
-                    "Medicaments",
-                    "Pharmaceuticals"
+                    "medicaments",
+                    "pharmaceuticals"
                 ],
                 "darby": [
-                    "Pharmaceuticals and OTC"
+                    "pharmaceuticals-and-otc"
                 ],
                 "henry_schein": [
-                    "Pharmaceuticals"
+                    "pharmaceuticals"
                 ],
                 "net_32": [
-                    "Pharmaceutical products"
+                    "pharmaceutical-products"
                 ]
             },
             "description": ""
@@ -482,19 +482,19 @@
             "slug": "preventive",
             "vendor_categories": {
                 "benco": [
-                    "Preventative"
+                    "preventative"
                 ],
                 "darby": [
-                    "Preventive Products"
+                    "preventive-products"
                 ],
                 "henry_schein": [
-                    "Preventive"
+                    "preventive"
                 ],
                 "net_32": [
-                    "Preventives"
+                    "preventives"
                 ],
                 "ultradent": [
-                    "Prevent / Hygiene"
+                    "prevent-hygiene"
                 ]
             },
             "description": ""
@@ -508,10 +508,10 @@
             "slug": "small-equipment",
             "vendor_categories": {
                 "benco": [
-                    "Small Equipment"
+                    "small-equipment"
                 ],
                 "henry_schein": [
-                    "Small Equipment"
+                    "small-equipment"
                 ]
             },
             "description": ""
@@ -525,16 +525,16 @@
             "slug": "surgical-supplies",
             "vendor_categories": {
                 "benco": [
-                    "Surgical"
+                    "surgical"
                 ],
                 "darby": [
-                    "Surgical"
+                    "surgical"
                 ],
                 "henry_schein": [
-                    "Surgical & Implant Products"
+                    "surgical-implant-products"
                 ],
                 "net_32": [
-                    "Surgical supplies"
+                    "surgical-supplies"
                 ]
             },
             "description": ""
@@ -548,16 +548,16 @@
             "slug": "x-ray-and-digital-imaging",
             "vendor_categories": {
                 "benco": [
-                    "X-Ray"
+                    "x-ray"
                 ],
                 "darby": [
-                    "X-Ray"
+                    "x-ray"
                 ],
                 "henry_schein": [
-                    "X-Ray And Digital Imaging"
+                    "x-ray-and-digital-imaging"
                 ],
                 "net_32": [
-                    "X-Ray products"
+                    "x-ray-products"
                 ]
             },
             "description": ""
@@ -571,10 +571,10 @@
             "slug": "implant",
             "vendor_categories": {
                 "darby": [
-                    "Implant Products"
+                    "implant-products"
                 ],
                 "net_32": [
-                    "Implant related products"
+                    "implant-related-products"
                 ]
             },
             "description": ""
@@ -588,7 +588,7 @@
             "slug": "whitening",
             "vendor_categories": {
                 "ultradent": [
-                    "Whitening"
+                    "whitening"
                 ]
             },
             "description": ""

@@ -54,7 +54,9 @@ class Command(BaseCommand):
                         "name": category,
                         "slug": slugify(category),
                         "vendor_categories": {
-                            vendor_categories["vendor"]: vendor_categories["vendor_categories"]
+                            vendor_categories["vendor"]: [
+                                slugify(category) for category in vendor_categories["vendor_categories"]
+                            ]
                             for _, vendor_categories in vendors_categories.iterrows()
                         },
                         "description": "",
