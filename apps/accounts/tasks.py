@@ -144,6 +144,7 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
     if login_cookies is None and perform_login is False:
         return
 
+    # TODO: we don't have to fetch orders that already in our db
     office_vendor = OfficeVendor.objects.select_related("office", "vendor").get(id=office_vendor_id)
     offices_vendors = OfficeVendor.objects.filter(
         office__company=office_vendor.office.company, vendor=office_vendor.vendor

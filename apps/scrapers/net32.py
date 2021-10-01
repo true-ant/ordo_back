@@ -163,48 +163,63 @@ class Net32Scraper(Scraper):
             orders = []
             for order in res["Payload"]["orders"]:
                 orders.append(
-                    Order.from_dict(
-                        {
-                            "order_id": order["id"],
-                            "total_amount": order["orderTotal"],
-                            "currency": "USD",
-                            "order_date": parse_datetime(order["coTime"]).date(),
-                            "status": order["status"],
-                            "shipping_address": {
-                                "address": "".join([i for i in order["shippingAdress"]["Streets"] if i]),
-                                "region_code": order["shippingAdress"]["RegionCD"],
-                                "postal_code": order["shippingAdress"]["PostalCD"],
-                            },
-                            "products": [
-                                {
-                                    "product": {
-                                        "product_id": line_item["id"],
-                                        "name": line_item["mpName"],
-                                        "description": line_item["description"],
-                                        "url": f"{self.BASE_URL}/{line_item['detailLink']}",
-                                        "images": [{"image": f"{self.BASE_URL}/media{line_item['mediaPath']}"}],
-                                        "category": [line_item["catName"]],
-                                        "price": line_item["oliProdPrice"],
-                                        "vendor": self.vendor,
-                                    },
-                                    "quantity": line_item["quantity"],
-                                    "unit_price": line_item["oliProdPrice"],
-                                    "status": line_item["status"],
-                                }
-                                for vendor_order in order["vendorOrders"]
-                                for line_item in vendor_order["lineItems"]
-                            ],
-                        }
-                    )
+                    {
+                        "order_id": order["id"],
+                        "total_amount": order["orderTotal"],
+                        "currency": "USD",
+                        "order_date": parse_datetime(order["coTime"]).date(),
+                        "status": order["status"],
+                        "shipping_address": {
+                            "address": "".join([i for i in order["shippingAdress"]["Streets"] if i]),
+                            "region_code": order["shippingAdress"]["RegionCD"],
+                            "postal_code": order["shippingAdress"]["PostalCD"],
+                        },
+                        "products": [
+                            {
+                                "product": {
+                                    "product_id": line_item["mpId"],
+                                    "name": line_item["mpName"],
+                                    "description": line_item["description"],
+                                    "url": f"{self.BASE_URL}/{line_item['detailLink']}",
+                                    "images": [{"image": f"{self.BASE_URL}/media{line_item['mediaPath']}"}],
+                                    "category": [line_item["catName"]],
+                                    "price": line_item["oliProdPrice"],
+                                    "vendor": self.vendor,
+                                },
+                                "quantity": line_item["quantity"],
+                                "unit_price": line_item["oliProdPrice"],
+                                "status": line_item["status"],
+                            }
+                            for vendor_order in order["vendorOrders"]
+                            for line_item in vendor_order["lineItems"]
+                        ],
+                    }
                 )
-            return orders
+
+            product_categories = {}
+            product_ids = list(
+                set([product["product"]["product_id"] for order in orders for product in order["products"]])
+            )
+            tasks = (self.get_product_category_tree(product_id) for product_id in product_ids)
+            categories = await asyncio.gather(*tasks)
+            for product_id, category in zip(product_ids, categories):
+                product_categories[product_id] = category
+
+            for order in orders:
+                for order_product in order["products"]:
+                    order_product["product"]["category"] = product_categories[order_product["product"]["product_id"]]
+
+            return [Order.from_dict(order) for order in orders]
         except KeyError:
             raise OrderFetchException()
 
-    async def get_product_category_tree(self, product_id, product_data_dict):
+    async def get_product_category_tree(self, product_id, product_data_dict=None):
         async with self.session.get(f"https://www.net32.com/rest/neo/pdp/{product_id}/categories-tree") as resp:
             res = await resp.json()
-            product_data_dict["category"] = [item["name"] for item in res]
+            categories = [item["name"] for item in res]
+            if product_data_dict:
+                product_data_dict["category"] = categories
+            return categories
 
     async def get_product_detail(self, product_id, product_data_dict):
         async with self.session.get(f"https://www.net32.com/rest/neo/pdp/{product_id}") as resp:
