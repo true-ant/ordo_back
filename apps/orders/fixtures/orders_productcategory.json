@@ -593,5 +593,14 @@
             },
             "description": ""
         }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 24,
+        "fields": {
+            "name": "other",
+            "slug": "other",
+            "description": ""
+        }
     }
 ]

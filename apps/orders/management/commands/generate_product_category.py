@@ -46,7 +46,6 @@ class Command(BaseCommand):
                 .apply(list)
                 .reset_index(name="vendor_categories")
             )
-            print(vendors_categories)
             json_data.append(
                 {
                     "model": app_model,
@@ -62,6 +61,18 @@ class Command(BaseCommand):
                     },
                 }
             )
+        category = "other"
+        json_data.append(
+            {
+                "model": app_model,
+                "pk": len(categories) + 1,
+                "fields": {
+                    "name": category,
+                    "slug": slugify(category),
+                    "description": "",
+                },
+            }
+        )
         app_model = app_model.replace(".", "_")
         with open(f"{os.path.join(BASE_PATH, app_model)}.json", "w") as f:
             json.dump(json_data, f, indent=4)

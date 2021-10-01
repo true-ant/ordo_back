@@ -29,12 +29,6 @@ class VendorOrderInline(ReadOnlyAdminMixin, NestedTabularInline):
     readonly_fields = ("vendor", "vendor_order_id", "order_date", "total_amount", "total_items", "currency", "status")
     inlines = (VendorOrderProductInline,)
 
-    def has_add_permission(self, request, obj):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return False
-
 
 class OrderVendorFilter(SimpleListFilter):
     title = "Vendor"
@@ -94,6 +88,19 @@ class ProductCategoryAdmin(admin.ModelAdmin):
     list_display = ("__str__", "name", "parent")
 
 
+class ProductImageInline(ReadOnlyAdminMixin, admin.TabularInline):
+    model = m.ProductImage
+    readonly_fields = (
+        "image_preview",
+        "image",
+    )
+
+    def image_preview(self, obj):
+        return mark_safe("<img src='{}'  width='30' height='30' />".format(obj.image))
+
+    image_preview.short_description = "Preview"
+
+
 @admin.register(m.Product)
 class ProductAdmin(admin.ModelAdmin):
     list_per_page = 20
@@ -116,6 +123,7 @@ class ProductAdmin(admin.ModelAdmin):
         "category",
         ProductPriceFilter,
     )
+    inlines = (ProductImageInline,)
 
     @admin.display(description="url")
     def get_url(self, obj):

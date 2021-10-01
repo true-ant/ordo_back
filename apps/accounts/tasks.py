@@ -102,6 +102,8 @@ def save_order_to_db(office, vendor, order_data):
         )
         vendor_order = VendorOrder.from_dataclass(vendor=vendor, order=order, dict_data=order_data)
 
+    other_category = ProductCategory.objects.filter(slug="other").first()
+
     for order_product_data in order_products_data:
         vendor_data = order_product_data["product"].pop("vendor")
         order_product_images = order_product_data["product"].pop("images", [])
@@ -114,6 +116,8 @@ def save_order_to_db(office, vendor, order_data):
             product_category = ProductCategory.objects.filter(q).first()
             if product_category:
                 order_product_data["product"]["category_id"] = product_category.id
+            else:
+                order_product_data["product"]["category_id"] = other_category.id
 
         product, created = Product.objects.get_or_create(
             vendor=vendor, product_id=product_id, defaults=order_product_data["product"]

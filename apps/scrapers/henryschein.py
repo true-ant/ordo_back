@@ -178,7 +178,7 @@ class HenryScheinScraper(Scraper):
                 "name": product_name,
                 "description": product_description,
                 "url": product_url,
-                "images": [{"image": product_image} for product_image in product_images],
+                "images": [{"image": f"{self.BASE_URL}{product_image}"} for product_image in product_images],
                 "category": product_category,
                 "price": product_price,
                 "vendor": self.vendor,
@@ -197,7 +197,7 @@ class HenryScheinScraper(Scraper):
             orders_dom = response_dom.xpath(
                 "//table[@class='SimpleList']//tr[@class='ItemRow' or @class='AlternateItemRow']"
             )
-            tasks = (self.get_order(order_dom) for order_dom in orders_dom[:1])
+            tasks = (self.get_order(order_dom) for order_dom in orders_dom)
             orders = await asyncio.gather(*tasks, return_exceptions=True)
 
         return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
