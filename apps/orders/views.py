@@ -16,7 +16,7 @@ from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.status import HTTP_400_BAD_REQUEST
+from rest_framework.status import HTTP_204_NO_CONTENT, HTTP_400_BAD_REQUEST
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
@@ -134,7 +134,17 @@ class VendorOrderProductViewSet(ModelViewSet):
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
-        return super().get_queryset().filter(vendor_order__order__office__id=self.kwargs["office_pk"])
+        return (
+            super()
+            .get_queryset()
+            .filter(Q(vendor_order__order__office__id=self.kwargs["office_pk"]) & Q(is_deleted=False))
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_deleted = True
+        instance.save()
+        return Response(status=HTTP_204_NO_CONTENT)
 
 
 class CompanyOrderAPIView(APIView, StandardResultsSetPagination):

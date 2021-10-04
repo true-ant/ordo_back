@@ -146,6 +146,7 @@ class VendorOrderProduct(TimeStampedModel):
     quantity = models.IntegerField(default=0)
     unit_price = models.DecimalField(decimal_places=2, max_digits=10)
     status = models.CharField(max_length=100, null=True, blank=True)
+    is_deleted = models.BooleanField(default=False)
     # status = models.IntegerField(choices=Status.choices, default=Status.OPEN)
 
     @classmethod
@@ -170,6 +171,7 @@ class Cart(TimeStampedModel):
     office = FlexibleForeignKey(Office)
     product = FlexibleForeignKey(Product)
     quantity = models.IntegerField(default=1)
+    later_purpose = models.BooleanField(default=False)
 
 
 class OrderProgressStatus(TimeStampedModel):
