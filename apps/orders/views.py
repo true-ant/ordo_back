@@ -369,7 +369,9 @@ class CartViewSet(AsyncMixin, ModelViewSet):
     queryset = m.Cart.objects.all()
 
     def get_queryset(self):
-        return self.queryset.filter(office_id=self.kwargs["office_pk"], user=self.request.user)
+        return self.queryset.filter(office_id=self.kwargs["office_pk"], user=self.request.user).order_by(
+            "-updated_at", "save_for_later"
+        )
 
     def create(self, request, *args, **kwargs):
         request.data.setdefault("user", request.user.id)
@@ -385,7 +387,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
     @sync_to_async
     def _pre_checkout_hook(self):
-        queryset = self.get_queryset()
+        queryset = self.get_queryset().filter(save_for_later=False)
         office = Office.objects.get(id=self.kwargs["office_pk"])
         q = reduce(
             operator.or_,

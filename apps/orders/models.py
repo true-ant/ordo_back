@@ -171,6 +171,7 @@ class Cart(TimeStampedModel):
     office = FlexibleForeignKey(Office)
     product = FlexibleForeignKey(Product)
     quantity = models.IntegerField(default=1)
+    save_for_later = models.BooleanField(default=False)
 
 
 class OrderProgressStatus(TimeStampedModel):
