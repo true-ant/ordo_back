@@ -193,7 +193,7 @@ class DarbyScraper(Scraper):
             res = Selector(text=await resp.text())
             product_name = self.extract_first(res, ".//span[@id='MainContent_lblName']/text()")
             product_description = self.extract_first(res, ".//span[@id='MainContent_lblDescription']/text()")
-            product_images = res.xpath(".//div[contains(@class, 'productSmallImg')]/img/@src").extract()
+            # product_images = res.xpath(".//div[contains(@class, 'productSmallImg')]/img/@src").extract()
             product_price = self.extract_first(res, ".//span[@id='MainContent_lblPrice']/text()")
             product_price = re.findall("\\d+\\.\\d+", product_price)
             product_price = product_price[0] if isinstance(product_price, list) else None
@@ -204,7 +204,12 @@ class DarbyScraper(Scraper):
                 "name": product_name,
                 "description": product_description,
                 "url": product_url,
-                "images": [{"image": product_image} for product_image in product_images],
+                "images": [
+                    {
+                        "image": "https://azfun-web-image-picker.azurewebsites.net/api/getImage?"
+                        f"sku={product_id.replace('-', '')}&type=WebImages"
+                    }
+                ],
                 "category": product_category,
                 "price": product_price,
                 "vendor": self.vendor,
