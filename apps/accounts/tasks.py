@@ -1,5 +1,7 @@
 import asyncio
 import operator
+from calendar import monthrange
+from datetime import timedelta
 from functools import reduce
 from http.cookies import SimpleCookie
 from typing import List
@@ -12,9 +14,11 @@ from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Q
 from django.template.loader import render_to_string
+from django.utils import timezone
+from month import Month
 from slugify import slugify
 
-from apps.accounts.models import CompanyMember, Office, OfficeVendor, User
+from apps.accounts.models import CompanyMember, Office, OfficeBudget, OfficeVendor, User
 from apps.orders.models import (
     Order,
     Product,
@@ -180,24 +184,51 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
 
 
 @shared_task
-def update_office_budget():
+def send_budget_update_notification():
+    today = timezone.now().date()
+    last_day = monthrange(today.year, today.month)[1]
+    if today.day != last_day:
+        return
+
     offices = Office.objects.select_related("company").all()
     for office in offices:
         emails = CompanyMember.objects.filter(
             company=office.company, role=User.Role.ADMIN, invite_status=CompanyMember.InviteStatus.INVITE_APPROVED
         ).values_list("email", flat=True)
 
-    htm_content = render_to_string(
-        "emails/update_budget.html",
-        {
-            "SITE_URL": settings.SITE_URL,
-        },
-    )
+        htm_content = render_to_string(
+            "emails/update_budget.html",
+            {
+                "SITE_URL": settings.SITE_URL,
+            },
+        )
 
-    send_mail(
-        subject="Update your budget",
-        message="message",
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=emails,
-        html_message=htm_content,
-    )
+        send_mail(
+            subject="Update your budget",
+            message="message",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=emails,
+            html_message=htm_content,
+        )
+
+
+@shared_task
+def update_office_budget():
+    today = timezone.now().date()
+    month_first_day = today.replace(day=1)
+    current_month = Month(today.year, today.month)
+    previous_month_last_day = (month_first_day - timedelta(days=1)).replace(day=1)
+    previous_month = Month(previous_month_last_day.year, previous_month_last_day.month)
+
+    offices = Office.objects.exclude(budgets__month=current_month)
+    for office in offices:
+        office_budget = office.budgets.get(month=previous_month)
+        OfficeBudget.objects.create(
+            office=office,
+            budget_type=office_budget.budget_type,
+            total_budget=office_budget.total_budget,
+            percentage=office_budget.percentage,
+            budget=office_budget.budget,
+            spend=office_budget.spend,
+            month=current_month,
+        )

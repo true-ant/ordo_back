@@ -374,9 +374,6 @@ class OfficeBudgetViewSet(ModelViewSet):
     def get_queryset(self):
         return super().get_queryset().filter(office_id=self.kwargs["office_pk"])
 
-    # def get_object(self):
-    #     if
-
     def create(self, request, *args, **kwargs):
         on_boarding_step = request.data.pop("on_boarding_step", None)
         company = get_object_or_404(m.Company, pk=self.kwargs["company_pk"])
