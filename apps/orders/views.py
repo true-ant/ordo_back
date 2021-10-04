@@ -209,8 +209,14 @@ class ProductCategoryViewSet(ModelViewSet):
     def get_inventory(self, request):
         serializer = s.OfficeReadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        vendors = m.Vendor.objects.all()
         serializer = self.serializer_class(
-            self.queryset, context={"office": serializer.validated_data["office_id"]}, many=True
+            self.queryset,
+            context={
+                "office": serializer.validated_data["office_id"],
+                "vendors": vendors,
+            },
+            many=True,
         )
         return Response(serializer.data)
 

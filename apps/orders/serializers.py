@@ -18,6 +18,11 @@ class ProductCategorySerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         office = self.context.get("office")
+        vendors = self.context.get("vendors")
+        if instance.vendor_categories:
+            ret["vendors"] = [
+                vendor.to_dict() for vendor in vendors if vendor.slug in instance.vendor_categories.keys()
+            ]
         if office:
             ret["count"] = m.VendorOrderProduct.objects.filter(
                 vendor_order__order__office=office, product__category=instance
