@@ -227,9 +227,7 @@ class Net32Scraper(Scraper):
 
             product_data_dict["name"] = res["title"]
             product_data_dict["description"] = res["description"]
-            product_data_dict["images"] = [
-                {"image": f"{self.BASE_URL}{image['s']}"} for i, image in res["additionalImages"].items()
-            ]
+            product_data_dict["images"] = [{"image": f"{self.BASE_URL}/media{res['mediaPath']}"}]
             product_data_dict["price"] = res["retailPrice"]
             product_data_dict["vendor"] = self.vendor
 
