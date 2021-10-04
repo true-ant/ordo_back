@@ -25,7 +25,9 @@ class ProductCategorySerializer(serializers.ModelSerializer):
             ]
         if office:
             ret["count"] = m.VendorOrderProduct.objects.filter(
-                vendor_order__order__office=office, product__category=instance
+                vendor_order__order__office=office,
+                product__category=instance,
+                is_deleted=False,
             ).count()
         return ret
 
