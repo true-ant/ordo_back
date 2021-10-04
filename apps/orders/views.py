@@ -1,6 +1,7 @@
 import asyncio
 import decimal
 import operator
+from datetime import datetime, timedelta
 from decimal import Decimal
 from functools import reduce
 
@@ -67,8 +68,19 @@ class OrderViewSet(ModelViewSet):
         total_amount = 0
         average_amount = 0
 
+        month = self.request.query_params.get("month", "")
+        try:
+            requested_date = datetime.strptime(month, "%Y-%m")
+        except ValueError:
+            requested_date = timezone.now().date()
+
+        month_first_day = requested_date.replace(day=1)
+        next_month_first_day = (requested_date + timedelta(days=32)).replace(day=1)
+
         queryset = (
-            m.Order.current_months.filter(office__id=office_id)
+            m.Order.objects.filter(
+                Q(order_date__gte=month_first_day) & Q(order_date__lt=next_month_first_day) & Q(office_id=office_id)
+            )
             .annotate(month_total_items=Sum("total_items", distinct=True))
             .annotate(month_total_amount=Sum("total_amount", distinct=True))
         )
@@ -79,7 +91,11 @@ class OrderViewSet(ModelViewSet):
             average_amount = (total_amount / orders_count).quantize(Decimal(".01"), rounding=decimal.ROUND_UP)
 
         vendors = (
-            m.VendorOrder.current_months.filter(order__office_id=office_id)
+            m.VendorOrder.objects.filter(
+                Q(order_date__gte=month_first_day)
+                & Q(order_date__lt=next_month_first_day)
+                & Q(order__office_id=office_id)
+            )
             .order_by("vendor_id")
             .values("vendor_id")
             .annotate(order_counts=Count("vendor_id"))
