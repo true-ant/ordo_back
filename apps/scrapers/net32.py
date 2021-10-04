@@ -231,7 +231,6 @@ class Net32Scraper(Scraper):
             product_data_dict["price"] = res["retailPrice"]
             product_data_dict["vendor"] = self.vendor
 
-    @catch_network
     async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
         product_data_dict = {
             "product_id": product_id,

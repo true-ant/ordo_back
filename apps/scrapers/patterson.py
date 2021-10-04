@@ -146,24 +146,33 @@ class PattersonScraper(Scraper):
         return []
 
     async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
-        if perform_login:
-            await self.login()
+        # if perform_login:
+        #     await self.login()
 
         async with self.session.get(product_url) as resp:
             res = Selector(text=await resp.text())
-            product_description = ""
-
             product_images = res.xpath(".//div[@id='productFamilyCarouselItem']//img/@src").extract()
-            return {
-                "product_id": "",
+            ret = {
+                "product_id": product_id,
                 "name": "",
-                "description": product_description,
                 "url": product_url,
                 "images": [{"image": product_image} for product_image in product_images],
                 "category": "",
                 "price": "",
                 "vendor": self.vendor,
             }
+
+        product_description_detail = res.xpath(
+            "//div[@id='ItemDetailsProductDetailsRow']//asyncdiv/@src"
+        ).extract_first()
+        if product_description_detail:
+            async with self.session.get(f"{self.BASE_URL}{product_description_detail}") as resp:
+                res = Selector(text=await resp.text())
+                product_description = self.merge_strip_values(res, "//div[@class='itemDetailBody']//text()")
+        else:
+            product_description = self.merge_strip_values(res, ".//div[@class='viewMoreDescriptionContainer']/text()")
+        ret["description"] = product_description
+        return ret
 
     async def get_product_prices(self, product_ids, perform_login=False, **kwargs) -> Dict[str, Decimal]:
         # TODO: perform_login, this can be handle in decorator in the future
