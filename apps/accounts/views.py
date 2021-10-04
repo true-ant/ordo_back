@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from asgiref.sync import sync_to_async
 from django.apps import apps
@@ -393,9 +393,15 @@ class OfficeBudgetViewSet(ModelViewSet):
         kwargs.setdefault("partial", True)
         return super().update(request, *args, **kwargs)
 
-    @action(detail=False, url_path="current", methods=["get"])
-    def get_current_month_budget(self, *args, **kwargs):
-        current_date = timezone.now().date()
-        current_month_budget = self.get_queryset().filter(month=Month(current_date.year, current_date.month)).first()
+    @action(detail=False, url_path="stats", methods=["get"])
+    def get_current_month_budget(self, request, *args, **kwargs):
+        month = self.request.query_params.get("month", "")
+        try:
+            requested_date = datetime.strptime(month, "%Y-%m")
+        except ValueError:
+            requested_date = timezone.now().date()
+        current_month_budget = (
+            self.get_queryset().filter(month=Month(requested_date.year, requested_date.month)).first()
+        )
         serializer = self.get_serializer(current_month_budget)
         return Response(serializer.data)
