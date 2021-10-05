@@ -17,6 +17,7 @@ office_router.register(r"vendors", v.OfficeVendorViewSet, basename="vendors")
 office_router.register(r"budgets", v.OfficeBudgetViewSet, basename="budgets")
 
 urlpatterns = [
+    path("health/check", v.HealthCheck.as_view()),
     path("", include(router.urls)),
     path("", include(company_router.urls)),
     path("", include(office_router.urls)),
