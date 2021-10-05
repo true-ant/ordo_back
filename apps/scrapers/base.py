@@ -144,7 +144,8 @@ class Scraper:
         res_products = []
         page_size = 0
 
-        await self.login()
+        if self.vendor["slug"] != "ultradent":
+            await self.login()
 
         while True:
             product_search = await self._search_products(query, page, min_price=min_price, max_price=max_price)

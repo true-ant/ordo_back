@@ -6,7 +6,7 @@ from asgiref.sync import sync_to_async
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
-from apps.scrapers.schema import Order, ProductCategory
+from apps.scrapers.schema import Order, Product, ProductCategory
 from apps.scrapers.utils import catch_network
 from apps.types.scraper import LoginInformation, ProductSearch
 
@@ -60,8 +60,11 @@ SEARCH_HEADERS = {
     "referer": "https://www.ultradent.com/checkout",
     "accept-language": "en-US,en;q=0.9,ko;q=0.8",
 }
-SEARCH_VARIABLE = {"includeAllSkus": True, "withImages": False}
-SEARCH_QUERY = """
+ALL_PRODUCTS_VARIABLE = {
+    "includeAllSkus": True,
+    "withImages": True,
+}
+ALL_PRODUCTS_QUERY = """
   query Catalog($includeAllSkus: Boolean = true, $withImages: Boolean = false) {
     allProducts(includeAllSkus: $includeAllSkus) {
       sku
@@ -164,6 +167,7 @@ GET_ORDER_QUERY = """
 
 
 class UltraDentScraper(Scraper):
+    BASE_URL = "https://www.ultradent.com"
     CATEGORY_URL = "https://www.ultradent.com/products/categories"
     CATEGORY_HEADERS = HEADERS
 
@@ -186,7 +190,7 @@ class UltraDentScraper(Scraper):
         res_dom = Selector(text=res)
         return self.username == res_dom.xpath("//meta[@name='mUserName']/@content").get()
 
-    async def _get_login_data(self) -> LoginInformation:
+    async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
         url = "https://www.ultradent.com/login"
         async with self.session.get(url, headers=HEADERS) as resp:
             login_get_response_dom = Selector(text=await resp.text())
@@ -403,3 +407,38 @@ class UltraDentScraper(Scraper):
             )
             for category in response.xpath("//div[contains(@class, 'category-card-grid')]//a")
         ]
+
+    async def get_all_products(self) -> List[Product]:
+        async with self.session.post(
+            "https://www.ultradent.com/api/ecommerce",
+            headers=SEARCH_HEADERS,
+            json={"query": ALL_PRODUCTS_QUERY, "variables": ALL_PRODUCTS_VARIABLE},
+        ) as resp:
+            res = await resp.json()
+            products = res["data"]["allProducts"]
+            for product in products:
+                try:
+                    sku = product["sku"]
+                except KeyError:
+                    print(product)
+                products.append(
+                    {
+                        "product_id": sku,
+                        # "name": product["productName"],
+                        # "description": "description",
+                        "url": f"{self.BASE_URL}{product['url']}?sku={product['sku']}",
+                        # "images": [
+                        #     {
+                        #         "image": image
+                        #     }
+                        #     for image in product["images"]
+                        # ],
+                        # "price": 0,
+                        # "vendor": self.vendor,
+                        # "category": "category",
+                    }
+                )
+
+        tasks = (self.get_product(product["product_id"], product["url"]) for product in products)
+        products = await asyncio.gather(*tasks, return_exceptions=True)
+        return [Product.from_dict(product) for product in products]
