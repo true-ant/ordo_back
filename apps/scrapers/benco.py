@@ -5,7 +5,7 @@ import os
 import ssl
 from decimal import Decimal
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from aiohttp import ClientResponse
 from scrapy import Selector
@@ -131,32 +131,39 @@ class BencoScraper(Scraper):
         )
         super().__init__(*args, **kwargs)
 
-    @catch_network
-    async def _get_login_data(self) -> LoginInformation:
+    async def _get_check_login_state(self) -> Tuple[bool, dict]:
         async with self.session.get(
             f"{self.BASE_URL}/Login/Login", headers=PRE_LOGIN_HEADERS, ssl=self._ssl_context
         ) as resp:
             text = await resp.text()
             url = str(resp.url)
-            modelJson = (
-                text.split("id='modelJson'")[1]
-                .split("</script>", 1)[0]
-                .split(">", 1)[1]
-                .replace("&quot;", '"')
-                .strip()
-            )
-            idsrv_xsrf = json.loads(modelJson)["antiForgery"]["value"]
-            headers = LOGIN_HEADERS.copy()
-            headers["Referer"] = url
-            return {
-                "url": url,
-                "headers": headers,
-                "data": {
-                    "idsrv.xsrf": idsrv_xsrf,
-                    "username": self.username,
-                    "password": self.password,
-                },
-            }
+            try:
+                modelJson = (
+                    text.split("id='modelJson'")[1]
+                    .split("</script>", 1)[0]
+                    .split(">", 1)[1]
+                    .replace("&quot;", '"')
+                    .strip()
+                )
+                idsrv_xsrf = json.loads(modelJson)["antiForgery"]["value"]
+                return False, {"url": url, "idsrv_xsrf": idsrv_xsrf}
+            except IndexError:
+                return True, {}
+
+    async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
+        headers = LOGIN_HEADERS.copy()
+        url: str = kwargs.get("url")
+        idsrv_xsrf = kwargs.get("idsrv_xsrf")
+        headers["Referer"] = url
+        return {
+            "url": url,
+            "headers": headers,
+            "data": {
+                "idsrv.xsrf": idsrv_xsrf,
+                "username": self.username,
+                "password": self.password,
+            },
+        }
 
     @catch_network
     async def _check_authenticated(self, resp: ClientResponse) -> bool:

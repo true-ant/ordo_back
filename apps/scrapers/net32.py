@@ -129,7 +129,7 @@ class Net32Scraper(Scraper):
             and res["CallHeader"]["StatusCode"] != "SC_ERROR_BAD_LOGIN_CREDENTIALS"
         )
 
-    async def _get_login_data(self) -> LoginInformation:
+    async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
         return {
             "url": f"{self.BASE_URL}/rest/user/login",
             "headers": HEADERS,

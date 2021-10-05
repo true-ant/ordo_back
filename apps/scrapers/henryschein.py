@@ -60,7 +60,7 @@ class HenryScheinScraper(Scraper):
         res = await response.json()
         return res.get("IsAuthenticated", False)
 
-    async def _get_login_data(self) -> LoginInformation:
+    async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
         async with self.session.get("https://www.henryschein.com/us-en/dental/Default.aspx") as resp:
             text = await resp.text()
             n = text.split("var _n =")[1].split(";")[0].strip(" '")

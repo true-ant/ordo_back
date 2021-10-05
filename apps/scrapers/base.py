@@ -1,6 +1,6 @@
 import asyncio
 from http.cookies import SimpleCookie
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
@@ -46,6 +46,9 @@ class Scraper:
         except (AttributeError, IndexError):
             pass
 
+    async def _get_check_login_state(self) -> Tuple[bool, dict]:
+        return False, {}
+
     @catch_network
     async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> SimpleCookie:
         if username:
@@ -53,25 +56,27 @@ class Scraper:
         if password:
             self.password = password
 
-        login_info = await self._get_login_data()
-        async with self.session.post(
-            login_info["url"], headers=login_info["headers"], data=login_info["data"]
-        ) as resp:
-            if resp.status != 200:
-                raise VendorAuthenticationFailed()
+        is_already_login, kwargs = await self._get_check_login_state()
+        if not is_already_login:
+            login_info = await self._get_login_data(**kwargs)
+            async with self.session.post(
+                login_info["url"], headers=login_info["headers"], data=login_info["data"]
+            ) as resp:
+                if resp.status != 200:
+                    raise VendorAuthenticationFailed()
 
-            is_authenticated = await self._check_authenticated(resp)
-            if not is_authenticated:
-                raise VendorAuthenticationFailed()
+                is_authenticated = await self._check_authenticated(resp)
+                if not is_authenticated:
+                    raise VendorAuthenticationFailed()
 
-            await self._after_login_hook(resp)
+                await self._after_login_hook(resp)
 
-        return resp.cookies
+            return resp.cookies
 
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         return True
 
-    async def _get_login_data(self) -> LoginInformation:
+    async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
         pass
 
     async def _after_login_hook(self, response: ClientResponse):

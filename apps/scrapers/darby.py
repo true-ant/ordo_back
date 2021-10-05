@@ -91,7 +91,7 @@ class DarbyScraper(Scraper):
         res = await response.json()
         return res["m_Item2"] and res["m_Item2"]["username"] == self.username
 
-    async def _get_login_data(self) -> LoginInformation:
+    async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
         return {
             "url": f"{self.BASE_URL}/api/Login/Login",
             "headers": HEADERS,
