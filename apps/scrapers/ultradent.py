@@ -415,30 +415,27 @@ class UltraDentScraper(Scraper):
             json={"query": ALL_PRODUCTS_QUERY, "variables": ALL_PRODUCTS_VARIABLE},
         ) as resp:
             res = await resp.json()
-            products = res["data"]["allProducts"]
-            for product in products:
-                try:
-                    sku = product["sku"]
-                except KeyError:
-                    print(product)
+            ultradent_products = res["data"]["allProducts"]
+            products = []
+            for ultradent_product in ultradent_products:
+                sku = ultradent_product["sku"]
                 products.append(
                     {
                         "product_id": sku,
                         # "name": product["productName"],
-                        # "description": "description",
-                        "url": f"{self.BASE_URL}{product['url']}?sku={product['sku']}",
-                        # "images": [
-                        #     {
-                        #         "image": image
-                        #     }
-                        #     for image in product["images"]
-                        # ],
+                        "url": f"{self.BASE_URL}{ultradent_product['url']}?sku={sku}",
+                        "images": [
+                            {
+                                "image": image["source"],
+                            }
+                            for image in ultradent_product["images"]
+                        ],
                         # "price": 0,
-                        # "vendor": self.vendor,
+                        "vendor": self.vendor,
                         # "category": "category",
                     }
                 )
 
-        tasks = (self.get_product(product["product_id"], product["url"]) for product in products)
+        tasks = (self.get_product(product["product_id"], product["url"]) for product in products[:1])
         products = await asyncio.gather(*tasks, return_exceptions=True)
         return [Product.from_dict(product) for product in products]
