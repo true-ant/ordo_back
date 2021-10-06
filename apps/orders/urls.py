@@ -20,4 +20,6 @@ urlpatterns = [
     path("companies/<int:company_id>/orders", v.CompanyOrderAPIView.as_view(), name="company-orders"),
     path("companies/<int:company_id>/spending", v.CompanySpendAPIView.as_view(), name="company-spending"),
     path("offices/<int:office_id>/spending", v.OfficeSpendAPIView.as_view(), name="office-spending"),
+    path("checkout/get-status", v.OrderProgressGetStatusAPIView.as_view(), name="get-vendor-order-progress"),
+    path("checkout/update-status", v.OrderProgressUpdateStatusAPIView.as_view(), name="update-vendor-order-progress"),
 ]

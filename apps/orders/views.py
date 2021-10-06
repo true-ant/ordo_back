@@ -464,3 +464,50 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             await self._update_vendors_order_status(office_vendors, status=m.OrderProgressStatus.STATUS.COMPLETE)
 
         return Response({"message": "okay"})
+
+
+def get_checkout_status(office, vendors):
+    q = reduce(
+        operator.or_,
+        [Q(office=office) & Q(vendor=vendor) for vendor in vendors],
+    )
+    office_vendors = OfficeVendor.objects.filter(q)
+
+    is_checking = m.OrderProgressStatus.objects.filter(
+        status=m.OrderProgressStatus.STATUS.IN_PROGRESS, office_vendor__in=office_vendors
+    ).exists()
+
+    return office_vendors, is_checking
+
+
+class OrderProgressGetStatusAPIView(APIView):
+    def post(self, request):
+        serializer = s.OrderVendorStatusSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        _, is_checking = get_checkout_status(
+            office=serializer.validated_data["office"],
+            vendors=serializer.validated_data["vendors"],
+        )
+        return Response({"can_checkout": not is_checking})
+
+
+class OrderProgressUpdateStatusAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        serializer = s.OrderVendorStatusSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        office = serializer.validated_data["office"]
+        vendors = serializer.validated_data["vendors"]
+        office_vendors, is_checking = get_checkout_status(office=office, vendors=vendors)
+        if is_checking:
+            return Response(
+                {"can_checkout": not is_checking, "message": msgs.ORDER_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+            for office_vendor in office_vendors:
+                m.OrderProgressStatus.objects.update_or_create(
+                    office_vendor=office_vendor,
+                    defaults={
+                        "status": m.OrderProgressStatus.STATUS.IN_PROGRESS,
+                    },
+                )

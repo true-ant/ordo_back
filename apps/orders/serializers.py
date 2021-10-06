@@ -146,3 +146,8 @@ class CartSerializer(serializers.ModelSerializer):
                     m.ProductImage.objects.bulk_create(product_images_objs)
 
             return m.Cart.objects.create(product=product, **validated_data)
+
+
+class OrderVendorStatusSerializer(serializers.Serializer):
+    office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
+    vendors = serializers.ListSerializer(child=serializers.PrimaryKeyRelatedField(queryset=m.Vendor.objects.all()))
