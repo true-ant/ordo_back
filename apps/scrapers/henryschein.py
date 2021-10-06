@@ -1,9 +1,9 @@
 import asyncio
+import datetime
 import json
 import re
-from datetime import datetime
 from decimal import Decimal
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from aiohttp import ClientResponse
 from scrapy import Selector
@@ -11,6 +11,7 @@ from scrapy import Selector
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory
 from apps.scrapers.utils import catch_network
+from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation, ProductSearch
 
 HEADERS = {
@@ -51,6 +52,45 @@ SEARCH_HEADERS = {
     "accept-language": "en-US,en;q=0.9",
 }
 
+REMOVE_PRODUCT_FROM_CART_HEADERS = {
+    "authority": "www.henryschein.com",
+    "sec-ch-ua": '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
+    "n": "faMC175siE4Ji7eGjyxEnEahdp30gAd6F12KILNn68E=",
+    "sec-ch-ua-mobile": "?0",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.71 Safari/537.36",
+    "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+    "accept": "application/json, text/javascript, */*; q=0.01",
+    "x-requested-with": "XMLHttpRequest",
+    "sec-ch-ua-platform": '"Windows"',
+    "origin": "https://www.henryschein.com",
+    "sec-fetch-site": "same-origin",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-dest": "empty",
+    "referer": "https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx",
+    "accept-language": "en-US,en;q=0.9,ko;q=0.8",
+}
+
+CHECKOUT_HEADER = {
+    "authority": "www.henryschein.com",
+    "cache-control": "max-age=0",
+    "sec-ch-ua": '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    "upgrade-insecure-requests": "1",
+    "origin": "https://www.henryschein.com",
+    "content-type": "application/x-www-form-urlencoded",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.71 Safari/537.36",
+    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,"
+    "image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+    "sec-fetch-site": "same-origin",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-user": "?1",
+    "sec-fetch-dest": "document",
+    "accept-language": "en-US,en;q=0.9,ko;q=0.8",
+}
+
 
 class HenryScheinScraper(Scraper):
     BASE_URL = "https://www.henryschein.com"
@@ -82,7 +122,9 @@ class HenryScheinScraper(Scraper):
         order = {
             "total_amount": order_dom.xpath("./td[6]//text()").extract_first()[1:],
             "currency": "USD",
-            "order_date": datetime.strptime(order_dom.xpath("./td[4]//text()").extract_first(), "%m/%d/%Y").date(),
+            "order_date": datetime.datetime.strptime(
+                order_dom.xpath("./td[4]//text()").extract_first(), "%m/%d/%Y"
+            ).date(),
             "status": order_dom.xpath("./td[7]//text()").extract_first(),
             "products": [],
         }
@@ -314,3 +356,256 @@ class HenryScheinScraper(Scraper):
             )
             for category in response.xpath("//ul[contains(@class, 'hs-categories')]/li/a")
         ]
+
+    async def get_cart(self):
+        async with self.session.get("https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx") as resp:
+            dom = Selector(text=await resp.text())
+            return dom
+
+    async def remove_product_from_cart(self, product_id):
+        data = {
+            "lineItemId": product_id,
+            "cartId": "",
+            "userId": "",
+            "did": "dental",
+            "catalogName": "B_DENTAL",
+            "endecaCatalogName": "DENTAL",
+            "searchType": "12",
+            "culture": "us-en",
+        }
+        await self.session.post(
+            "https://www.henryschein.com/webservices/JSONRequestHandler.ashx",
+            headers=REMOVE_PRODUCT_FROM_CART_HEADERS,
+            data=data,
+        )
+        return True
+
+    async def clear_cart(self):
+        cart_dom = await self.get_cart()
+        product_ids = []
+        for i, product_dom in enumerate(
+            cart_dom.xpath("//div[@id='ctl00_cphMainContentHarmony_ucOrderCartShop_pnlCartDetails']/ol/li")
+        ):
+            key = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{i + 1:02d}$hdnItemId"
+            product_ids.append(product_dom.xpath(f'.//input[@name="{key}"]/@value').get())
+
+        tasks = (self.remove_product_from_cart(product_id) for product_id in product_ids)
+        await asyncio.gather(*tasks)
+
+    async def add_products_to_cart(self, products: List[CartProduct]):
+        tasks = (self.add_product_to_cart(product) for product in products)
+        await asyncio.gather(*tasks)
+
+    async def add_product_to_cart(self, product: CartProduct):
+        params = {
+            "addproductid": product["product_id"],
+            "addproductqty": product["quantity"],
+            "allowRedirect": "false",
+        }
+        await self.session.get("https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx", params=params)
+
+    @staticmethod
+    def get_checkout_products_sensitive_data(dom):
+        data = {}
+        for i, product_dom in enumerate(
+            dom.xpath("//div[@id='ctl00_cphMainContentHarmony_ucOrderCartShop_pnlCartDetails']/ol/li")
+        ):
+            product_index = f"{i + 1:02d}"
+            for key in [
+                "$ucProductDetailsForEnhancedView$hiddenProductId",
+                "$ucProductDetailsForEnhancedView$hiddenProductAvailabilityCode",
+                "$ucProductDetailsForEnhancedView$hiddenInventoryAvailabilityCode",
+                "$ucProductDetailsForEnhancedView$hiddenImgProduct",
+                "$hdnPriceLabel1",
+                "$hdnPriceLabel2",
+                "$oldQty",
+                "$txtQuantity",
+                "$hdnItemId",
+                "$ucProductDetailsForEnhancedView$hiddenUom",
+            ]:
+                key = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{product_index}{key}"
+                data[key] = product_dom.xpath(f'.//input[@name="{key}"]/@value').get()
+        return data
+
+    async def checkout(self, products: List[CartProduct], checkout_time: Optional[datetime.date] = None):
+        if not checkout_time:
+            checkout_time = datetime.date.today()
+
+        cart_dom = await self.get_cart()
+        data = {
+            "__LASTFOCUS": "",
+            "ctl00_ScriptManager_TSM": ";;System.Web.Extensions, Version=4.0.0.0, Culture=neutral, "
+            "PublicKeyToken=31bf3856ad364e35:en-US:f319b152-218f-4c14-829d-050a68bb1a61:ea597d4b:b25378d2",
+            "__EVENTTARGET": "",
+            "__EVENTARGUMENT": "",
+            "__VIEWSTATE": cart_dom.xpath("//input[@name='__VIEWSTATE']/@value").get(),
+            "__VIEWSTATEGENERATOR": cart_dom.xpath("//input[@name='__VIEWSTATEGENERATOR']/@value").get(),
+            "ctl00$ucHeader$ucSearchBarHeaderbar$txtSearch": "",
+            "ctl00$cphMainContentHarmony$ucOrderActionBarBottomShop$btnCheckout": cart_dom.xpath(
+                "//input[@name='ctl00$cphMainContentHarmony$ucOrderActionBarBottomShop$btnCheckout']/@value"
+            ).get(),
+            "layout": "on",
+            "ctl00$cphMainContentHarmony$ucOrderTopBarShop$txtItemCode": "",
+            "ctl00$cphMainContentHarmony$ucOrderTopBarShop$txtQty": "",
+            "ctl00$cphMainContentHarmony$ucOrderFinalsShop$txtPurchaseOrder": (
+                f'{checkout_time.strftime("%m/%d/%Y")} - Ordo Order'
+            ),
+            "ctl00$cphMainContentHarmony$ucOrderFinalsShop$txtPromoCode": "",
+            "ctl00$cphMainContentHarmony$ucOrderFinalsShop$txtSpecialInstructions": "",
+            "dest": "",
+        }
+
+        data.update(self.get_checkout_products_sensitive_data(cart_dom))
+
+        headers = CHECKOUT_HEADER.copy()
+        headers["referer"] = "https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx"
+        async with self.session.post(
+            "https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx", headers=CHECKOUT_HEADER, data=data
+        ) as resp:
+            return Selector(text=await resp.text())
+
+    async def review_checkout(self, checkout_dom):
+        data = {
+            "ctl00_ScriptManager_TSM": ";;System.Web.Extensions, Version=4.0.0.0, Culture=neutral, "
+            "PublicKeyToken=31bf3856ad364e35:en-US:f319b152-218f-4c14-829d-050a68bb1a61:ea597d4b:b25378d2",
+            "__EVENTTARGET": "ctl00$cphMainContentHarmony$hylNext",
+            "__EVENTARGUMENT": "",
+            "__VIEWSTATE": checkout_dom.xpath("//input[@name='__VIEWSTATE']/@value").get(),
+            "__VIEWSTATEGENERATOR": checkout_dom.xpath("//input[@name='__VIEWSTATEGENERATOR']/@value").get(),
+            "SideMenuControl1000txtItemCodeId": "",
+            "SideMenuControl1000txtItemQtyId": "",
+            "ctl00$ucHeader$ucSearchBarHeaderbar$txtSearch": "",
+            "SideMenuControl1000txtItemCodeId9": "",
+            "SideMenuControl1000txtItemQtyId9": "",
+            "ctl00_cpAsideMenu_AsideMenu_SideMenuControl1000txtItemCodeId": "",
+            "ctl00_cpAsideMenu_AsideMenu_SideMenuControl1000txtItemQtyId": "",
+            "layout": "on",
+            "ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ddlShippingMethod": checkout_dom.xpath(
+                "//select[@name='ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ddlShippingMethod']"
+                "/option[@selected]/@value"
+            ).get(),
+            "ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ddlPaymentMethod": (
+                "1|{a62154f0-a1cc-47e4-b78b-805ed7890527}"
+            ),
+            "ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$hiddenModifyLink": (
+                "https://www.henryschein.com/us-en/checkout/CheckoutCreditCard.aspx?action=0&ccid={0}&overlay=true"
+            ),
+            "ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$txtPo": checkout_dom.xpath(
+                "//input[@id='ctl00_cphMainContentHarmony_ucOrderPaymentAndOptionsShop_txtPo']/@value"
+            ).get(),
+            "ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ucSchedulingOptions$": "rbnNoDelayNoRecurring",
+            "ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ucSchedulingOptions$dpStartDate": (
+                checkout_dom.xpath(
+                    "//input[@name='ctl00$cphMainContentHarmony"
+                    "$ucOrderPaymentAndOptionsShop$ucSchedulingOptions$dpStartDate']/@value"
+                ).get()
+            ),
+            "ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ucSchedulingOptions$ddlFrequency": "Weekly",
+            "ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ucSchedulingOptions$dpEndDate": (
+                checkout_dom.xpath(
+                    "//input[@name='ctl00$cphMainContentHarmony"
+                    "$ucOrderPaymentAndOptionsShop$ucSchedulingOptions$dpEndDate']/@value"
+                ).get()
+            ),
+            "ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ucSchedulingOptions$ddlTotal": "Select One",
+            "ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ucSchedulingOptions$checkoutType": "Normal",
+            "dest": "",
+        }
+
+        params = {
+            "PaymentIndex": "0",
+        }
+
+        headers = CHECKOUT_HEADER.copy()
+        headers["referer"] = "https://www.henryschein.com/us-en/Checkout/BillingShipping.aspx?PaymentIndex=0"
+        async with self.session.post(
+            "https://www.henryschein.com/us-en/Checkout/BillingShipping.aspx",
+            headers=headers,
+            params=params,
+            data=data,
+        ) as resp:
+            return Selector(text=await resp.text())
+
+    async def review_order(self, review_checkout_dom):
+        subtotal = self.extract_first(
+            review_checkout_dom,
+            "//div[@id='ctl00_cphMainContentHarmony_divOrderSummarySubTotal']/strong//text()",
+        )
+        tax = self.extract_first(
+            review_checkout_dom, "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryTax']/strong//text()"
+        )
+        shipping = self.extract_first(
+            review_checkout_dom, "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryShipping']/strong//text()"
+        )
+        total = self.extract_first(
+            review_checkout_dom, "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryTotal']/strong//text()"
+        )
+        saving = self.extract_first(
+            review_checkout_dom, "//div[@id='ctl00_cphMainContentHarmony_divOrderSummarySaving']/strong//text()"
+        )
+        shipping_method = self.extract_first(
+            review_checkout_dom,
+            "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryShippingMethod']/strong//text()",
+        )
+        payment_method = self.extract_first(
+            review_checkout_dom, "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryPaymentMethod']/strong//text()"
+        )
+        shipping_address = self.merge_strip_values(
+            review_checkout_dom,
+            "//section[contains(@class, 'order-details')]"
+            "//section[contains(@class, 'half')]/div[@class='half'][1]//address/p/span[2]/text()",
+        )
+        billing_address = self.merge_strip_values(
+            review_checkout_dom,
+            "//section[contains(@class, 'order-details')]"
+            "//section[contains(@class, 'half')]/div[@class='half'][2]//address/p/span[2]/text()",
+        )
+        headers = CHECKOUT_HEADER.copy()
+        headers["referer"] = "https://www.henryschein.com/us-en/Checkout/OrderReview.aspx"
+
+        data = {
+            "ctl00_ScriptManager_TSM": ";;System.Web.Extensions, Version=4.0.0.0, Culture=neutral, "
+            "PublicKeyToken=31bf3856ad364e35:en-US:f319b152-218f-4c14-829d-050a68bb1a61:ea597d4b:b25378d2",
+            "__EVENTTARGET": "ctl00$cphMainContentHarmony$lnkNextShop",
+            "__EVENTARGUMENT": "",
+            "__VIEWSTATE": review_checkout_dom.xpath("//input[@name='__VIEWSTATE']/@value").get(),
+            "__VIEWSTATEGENERATOR": review_checkout_dom.xpath("//input[@name='__VIEWSTATEGENERATOR']/@value").get(),
+            "ctl00_cpAsideMenu_AsideMenu_SideMenuControl1000txtItemCodeId": "",
+            "ctl00_cpAsideMenu_AsideMenu_SideMenuControl1000txtItemQtyId": "",
+            "layout": "on",
+            "dest": "",
+        }
+        data.update(self.get_checkout_products_sensitive_data(review_checkout_dom))
+        return {
+            "subtotal": subtotal,
+            "tax": tax,
+            "shipping": shipping,
+            "total": total,
+            "saving": saving,
+            "shipping_method": shipping_method,
+            "payment_method": payment_method,
+            "shipping_address": shipping_address,
+            "billing_address": billing_address,
+            "context": data,
+        }
+
+    async def create_order(self, products: List[CartProduct]):
+        await self.login()
+        await self.clear_cart()
+        await self.add_products_to_cart(products)
+        checkout_dom = await self.checkout(products)
+        review_checkout_dom = await self.review_checkout(checkout_dom)
+        return await self.review_order(review_checkout_dom)
+
+    async def confirm_order(self, data):
+        pass
+        # headers = CHECKOUT_HEADER.copy()
+        # headers["referer"] = "https://www.henryschein.com/us-en/Checkout/OrderReview.aspx"
+        # async with self.session.post(
+        #     'https://www.henryschein.com/us-en/Checkout/OrderReview.aspx',
+        #     headers=headers,
+        #     data=data
+        # ) as resp:
+        #     response = await resp.text()
+        #     return response.split("dataLayer.push(", 1)[1].split(");")[0]
+        # return ast.literal_eval(data)
