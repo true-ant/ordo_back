@@ -151,3 +151,4 @@ class CartSerializer(serializers.ModelSerializer):
 class OrderVendorStatusSerializer(serializers.Serializer):
     office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
     vendors = serializers.ListSerializer(child=serializers.PrimaryKeyRelatedField(queryset=m.Vendor.objects.all()))
+    status = serializers.ChoiceField(choices=m.OrderProgressStatus.STATUS.choices, required=False)

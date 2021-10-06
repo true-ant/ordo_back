@@ -473,18 +473,24 @@ def get_checkout_status(office, vendors):
     )
     office_vendors = OfficeVendor.objects.filter(q)
 
-    is_checking = m.OrderProgressStatus.objects.filter(
+    queryset = m.OrderProgressStatus.objects.filter(
         status=m.OrderProgressStatus.STATUS.IN_PROGRESS, office_vendor__in=office_vendors
-    ).exists()
+    ).select_related("updated_by")
+    if queryset:
+        is_checking = True
+        updated_bys = [q.updated_by for q in queryset]
+    else:
+        is_checking = False
+        updated_bys = []
 
-    return office_vendors, is_checking
+    return office_vendors, is_checking, updated_bys
 
 
 class OrderProgressGetStatusAPIView(APIView):
     def post(self, request):
         serializer = s.OrderVendorStatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        _, is_checking = get_checkout_status(
+        _, is_checking, _ = get_checkout_status(
             office=serializer.validated_data["office"],
             vendors=serializer.validated_data["vendors"],
         )
@@ -497,17 +503,24 @@ class OrderProgressUpdateStatusAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         office = serializer.validated_data["office"]
         vendors = serializer.validated_data["vendors"]
-        office_vendors, is_checking = get_checkout_status(office=office, vendors=vendors)
-        if is_checking:
+        status = serializer.validated_data["status"]
+        office_vendors, is_checking, updated_bys = get_checkout_status(office=office, vendors=vendors)
+        if not is_checking or (
+            is_checking
+            and status == m.OrderProgressStatus.STATUS.COMPLETE
+            and (not updated_bys or updated_bys[0] == request.user)
+        ):
+            with transaction.atomic():
+                for office_vendor in office_vendors:
+                    m.OrderProgressStatus.objects.update_or_create(
+                        office_vendor=office_vendor,
+                        defaults={
+                            "status": serializer.validated_data.get("status"),
+                            "updated_by": request.user,
+                        },
+                    )
+            return Response({"message": "Status updated successfully"})
+        else:
             return Response(
                 {"can_checkout": not is_checking, "message": msgs.ORDER_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST
             )
-
-        with transaction.atomic():
-            for office_vendor in office_vendors:
-                m.OrderProgressStatus.objects.update_or_create(
-                    office_vendor=office_vendor,
-                    defaults={
-                        "status": m.OrderProgressStatus.STATUS.IN_PROGRESS,
-                    },
-                )

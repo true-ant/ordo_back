@@ -175,9 +175,10 @@ class Cart(TimeStampedModel):
 
 
 class OrderProgressStatus(TimeStampedModel):
-    class STATUS(models.IntegerChoices):
-        COMPLETE = 0
-        IN_PROGRESS = 1
+    class STATUS(models.TextChoices):
+        COMPLETE = "complete", "Complete"
+        IN_PROGRESS = "processing", "In Progress"
 
     office_vendor = models.OneToOneField(OfficeVendor, on_delete=models.CASCADE)
-    status = models.IntegerField(choices=STATUS.choices, default=STATUS.COMPLETE)
+    status = models.CharField(choices=STATUS.choices, default=STATUS.COMPLETE, max_length=16)
+    updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
