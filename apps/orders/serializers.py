@@ -44,6 +44,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     vendor = serializers.PrimaryKeyRelatedField(queryset=m.Vendor.objects.all())
     images = ProductImageSerializer(many=True, required=False)
+    category = ProductCategorySerializer(read_only=True)
 
     class Meta:
         model = m.Product
@@ -146,9 +147,3 @@ class CartSerializer(serializers.ModelSerializer):
                     m.ProductImage.objects.bulk_create(product_images_objs)
 
             return m.Cart.objects.create(product=product, **validated_data)
-
-
-class OrderVendorStatusSerializer(serializers.Serializer):
-    office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
-    vendors = serializers.ListSerializer(child=serializers.PrimaryKeyRelatedField(queryset=m.Vendor.objects.all()))
-    status = serializers.ChoiceField(choices=m.OrderProgressStatus.STATUS.choices, required=False)
