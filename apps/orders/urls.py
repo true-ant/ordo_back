@@ -17,9 +17,17 @@ offices_router.register(r"carts", v.CartViewSet, basename="carts")
 urlpatterns = [
     path("", include(router.urls)),
     path("", include(offices_router.urls)),
-    path("companies/<int:company_id>/orders", v.CompanyOrderAPIView.as_view(), name="company-orders"),
-    path("companies/<int:company_id>/spending", v.CompanySpendAPIView.as_view(), name="company-spending"),
-    path("offices/<int:office_id>/spending", v.OfficeSpendAPIView.as_view(), name="office-spending"),
-    path("checkout/get-status", v.OrderProgressGetStatusAPIView.as_view(), name="get-vendor-order-progress"),
-    path("checkout/update-status", v.OrderProgressUpdateStatusAPIView.as_view(), name="update-vendor-order-progress"),
+    path("companies/<int:company_pk>/orders", v.CompanyOrderAPIView.as_view(), name="company-orders"),
+    path("companies/<int:company_pk>/spending", v.CompanySpendAPIView.as_view(), name="company-spending"),
+    path("offices/<int:office_pk>/spending", v.OfficeSpendAPIView.as_view(), name="office-spending"),
+    path(
+        "companies/<int:company_pk>/offices/<int:office_pk>/checkout/status",
+        v.CheckoutAvailabilityAPIView.as_view(),
+        name="get-checkout-status",
+    ),
+    path(
+        "companies/<int:company_pk>/offices/<int:office_pk>/checkout/status/complete",
+        v.CheckoutCompleteAPIView.as_view(),
+        name="checkout-status-complete",
+    ),
 ]

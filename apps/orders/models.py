@@ -173,12 +173,26 @@ class Cart(TimeStampedModel):
     quantity = models.IntegerField(default=1)
     save_for_later = models.BooleanField(default=False)
 
+    class Meta:
+        unique_together = [
+            "user",
+            "office",
+            "product",
+        ]
+
 
 class OrderProgressStatus(TimeStampedModel):
-    class STATUS(models.TextChoices):
+    class ORDER_STATUS(models.TextChoices):
+        COMPLETE = "complete", "Complete"
+        IN_PROGRESS = "processing", "In Progress"
+
+    class CHECKOUT_STATUS(models.TextChoices):
         COMPLETE = "complete", "Complete"
         IN_PROGRESS = "processing", "In Progress"
 
     office_vendor = models.OneToOneField(OfficeVendor, on_delete=models.CASCADE)
-    status = models.CharField(choices=STATUS.choices, default=STATUS.COMPLETE, max_length=16)
+    checkout_status = models.CharField(
+        choices=CHECKOUT_STATUS.choices, default=CHECKOUT_STATUS.COMPLETE, max_length=16
+    )
+    order_status = models.CharField(choices=ORDER_STATUS.choices, default=ORDER_STATUS.COMPLETE, max_length=16)
     updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)

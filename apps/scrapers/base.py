@@ -8,6 +8,7 @@ from scrapy import Selector
 from apps.scrapers.errors import VendorAuthenticationFailed
 from apps.scrapers.schema import Product, ProductCategory
 from apps.scrapers.utils import catch_network
+from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation, ProductSearch, VendorInformation
 
 
@@ -174,3 +175,7 @@ class Scraper:
             "products": res_products,
             "last_page": last_page,
         }
+
+    @catch_network
+    async def create_order(self, products: List[CartProduct]):
+        pass

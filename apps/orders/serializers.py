@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.utils import IntegrityError
 from rest_framework import serializers
 
 from apps.accounts.serializers import VendorSerializer
@@ -146,4 +147,7 @@ class CartSerializer(serializers.ModelSerializer):
                 if images:
                     m.ProductImage.objects.bulk_create(product_images_objs)
 
-            return m.Cart.objects.create(product=product, **validated_data)
+            try:
+                return m.Cart.objects.create(product=product, **validated_data)
+            except IntegrityError:
+                raise serializers.ValidationError({"message": "This product is already in your cart"})

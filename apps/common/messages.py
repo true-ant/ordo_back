@@ -22,3 +22,6 @@ OFFICE_ID_MISSING = "Missing Office id"
 
 # Order
 ORDER_IN_PROGRESS = "Another user is checking out an order for now. Please try it after some minutes"
+EMPTY_CART = "Cart is emtpy"
+CHECKOUT_COMPLETE = "Now you and other users can check out"
+UNKNOWN_ISSUE = "Unknown issue happened, please contact administrator"

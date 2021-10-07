@@ -43,7 +43,7 @@ class ScraperFactory:
 async def main():
 
     load_dotenv()
-    scraper_name = "patterson"
+    scraper_name = "henry_schein"
     BASE_DATA = {
         "henry_schein": {
             "username": os.getenv("HENRY_SCHEIN_USERNAME"),
@@ -181,12 +181,22 @@ async def main():
         # results = await scraper.get_orders(perform_login=True)
         # results = await scraper.search_products(query="tooth brush", page=1)
         # results = [r.to_dict() for r in results]
-        results = await scraper.get_product(
-            product_id=BASE_DATA[scraper_name]["products"][1]["product_id"],
-            product_url=BASE_DATA[scraper_name]["products"][1]["product_url"],
-            perform_login=True,
-        )
+        # results = await scraper.get_product(
+        #     product_id=BASE_DATA[scraper_name]["products"][0]["product_id"],
+        #     product_url=BASE_DATA[scraper_name]["products"][0]["product_url"],
+        #     perform_login=True,
+        # )
+        # results = await scraper.get_all_products()
         # results = await scraper.get_vendor_categories(perform_login=True)
+
+        products = [
+            {
+                "product_id": 1019278,
+                "quantity": 2,
+            }
+        ]
+
+        results = await scraper.create_order(products)
         print(results)
 
 
