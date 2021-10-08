@@ -10,7 +10,7 @@ from dateutil.relativedelta import relativedelta
 from django.apps import apps
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Count, F, Q, Sum
+from django.db.models import Case, Count, F, Q, Sum, Value, When
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.decorators import action
@@ -134,11 +134,18 @@ class VendorOrderProductViewSet(ModelViewSet):
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
-        return (
+        category_ordering = self.request.query_params.get("category_ordering")
+        queryset = (
             super()
             .get_queryset()
             .filter(Q(vendor_order__order__office__id=self.kwargs["office_pk"]) & Q(is_deleted=False))
+            .order_by("product__category__slug")
         )
+        if category_ordering:
+            queryset = queryset.annotate(
+                category_order=Case(When(product__category__slug=category_ordering, then=Value(0)), default=Value(1))
+            ).order_by("category_order", "product__category__slug")
+        return queryset
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
