@@ -441,12 +441,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
     def get_queryset(self):
         return self.queryset.filter(office_id=self.kwargs["office_pk"]).order_by("-updated_at", "save_for_later")
 
-    async def create(self, request, *args, **kwargs):
-        request.data.setdefault("office", self.kwargs["office_pk"])
-        serializer = self.get_serializer(data=request.data)
-        await sync_to_async(serializer.is_valid)(raise_exception=True)
-        product = serializer.validated_data["product"]
-        vendor = product["vendor"]
+    async def update_vendor_cart(self, product_id, vendor, serializer=None):
         office_vendor = await sync_to_async(get_office_vendor)(office_pk=self.kwargs["office_pk"], vendor_pk=vendor.id)
         session = apps.get_app_config("accounts").session
         scraper = ScraperFactory.create_scraper(
@@ -456,21 +451,42 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             password=office_vendor.password,
         )
         await scraper.login()
-        await scraper.remove_product_from_cart(product_id=product["product_id"], use_bulk=False)
-        vendor_product_detail = await scraper.add_product_to_cart(
-            CartProduct(product_id=product["product_id"], quantity=serializer.validated_data["quantity"])
-        )
-        serializer.validated_data["unit_price"] = vendor_product_detail["price"]
-        serializer_data = await sync_to_async(save_serailizer)(serializer)
+        await scraper.remove_product_from_cart(product_id=product_id, use_bulk=False)
+        if serializer:
+            vendor_product_detail = await scraper.add_product_to_cart(
+                CartProduct(product_id=product_id, quantity=serializer.validated_data["quantity"])
+            )
+            serializer.validated_data["unit_price"] = vendor_product_detail["price"]
 
+    async def create(self, request, *args, **kwargs):
+        data = request.data
+        data["office"] = self.kwargs["office_pk"]
+        serializer = self.get_serializer(data=data)
+        await sync_to_async(serializer.is_valid)(raise_exception=True)
+        product_id = serializer.validated_data["product"]["product_id"]
+        vendor = serializer.validated_data["product"]["vendor"]
+        await self.update_vendor_cart(serializer, product_id, vendor)
+        serializer_data = await sync_to_async(save_serailizer)(serializer)
         return Response(serializer_data, status=HTTP_201_CREATED)
 
-    def update(self, request, *args, **kwargs):
+    @sync_to_async
+    def get_object_with_related(self):
         instance = self.get_object()
+        return instance, instance.product.product_id, instance.product.vendor
+
+    async def update(self, request, *args, **kwargs):
+        instance, product_id, vendor = await self.get_object_with_related()
         serializer = self.get_serializer(instance, request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
-        return Response(serializer.data)
+        await sync_to_async(serializer.is_valid)(raise_exception=True)
+        await self.update_vendor_cart(serializer, product_id, vendor)
+        serializer_data = await sync_to_async(save_serailizer)(serializer)
+        return Response(serializer_data)
+
+    async def destroy(self, request, *args, **kwargs):
+        instance, product_id, vendor = await self.get_object_with_related()
+        await self.update_vendor_cart(product_id, vendor)
+        await sync_to_async(self.perform_destroy)(instance)
+        return Response(status=HTTP_204_NO_CONTENT)
 
     @sync_to_async
     def _create_order(self, office_vendors):
