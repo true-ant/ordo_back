@@ -369,9 +369,9 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
         return Response(product.to_dict())
 
 
-def get_user_cart(office_pk, user):
+def get_user_cart(office_pk):
     cart_products = (
-        m.Cart.objects.filter(office_id=office_pk, user=user, save_for_later=False)
+        m.Cart.objects.filter(office_id=office_pk, save_for_later=False)
         .order_by("-updated_at")
         .select_related("office", "product__vendor")
     )
@@ -423,12 +423,9 @@ class CartViewSet(AsyncMixin, ModelViewSet):
     queryset = m.Cart.objects.all()
 
     def get_queryset(self):
-        return self.queryset.filter(office_id=self.kwargs["office_pk"], user=self.request.user).order_by(
-            "-updated_at", "save_for_later"
-        )
+        return self.queryset.filter(office_id=self.kwargs["office_pk"]).order_by("-updated_at", "save_for_later")
 
     def create(self, request, *args, **kwargs):
-        request.data.setdefault("user", request.user.id)
         request.data.setdefault("office", self.kwargs["office_pk"])
         return super().create(request, *args, **kwargs)
 
@@ -457,9 +454,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=False, url_path="checkout", methods=["get"], permission_classes=[p.OrderCheckoutPermission])
     async def checkout(self, request, *args, **kwargs):
-        cart_products, office, vendors = await sync_to_async(get_user_cart)(
-            office_pk=self.kwargs["office_pk"], user=self.request.user
-        )
+        cart_products, office, vendors = await sync_to_async(get_user_cart)(office_pk=self.kwargs["office_pk"])
         if not cart_products:
             return Response({"can_checkout": False, "message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
 
@@ -526,7 +521,7 @@ class CheckoutAvailabilityAPIView(APIView):
     permission_classes = [p.OrderCheckoutPermission]
 
     def get(self, request, *args, **kwargs):
-        cart_products, office, vendors = get_user_cart(office_pk=kwargs.get("office_pk"), user=request.user)
+        cart_products, office, vendors = get_user_cart(office_pk=kwargs.get("office_pk"))
         if not cart_products:
             return Response({"can_checkout": False, "message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
 
@@ -541,7 +536,7 @@ class CheckoutCompleteAPIView(APIView):
     permission_classes = [p.OrderCheckoutPermission]
 
     def get(self, request, *args, **kwargs):
-        cart_products, office, vendors = get_user_cart(office_pk=kwargs.get("office_pk"), user=request.user)
+        cart_products, office, vendors = get_user_cart(office_pk=kwargs.get("office_pk"))
         if not cart_products:
             return Response({"message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
 

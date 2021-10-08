@@ -167,7 +167,6 @@ class IsoDate(models.Func):
 
 
 class Cart(TimeStampedModel):
-    user = FlexibleForeignKey(User)
     office = FlexibleForeignKey(Office)
     product = FlexibleForeignKey(Product)
     quantity = models.IntegerField(default=1)
@@ -175,7 +174,6 @@ class Cart(TimeStampedModel):
 
     class Meta:
         unique_together = [
-            "user",
             "office",
             "product",
         ]
