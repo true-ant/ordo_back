@@ -66,6 +66,11 @@ async def main():
                     "product_url": "https://www.henryschein.com/us-en/dental/p/infection-control-products"
                     "/protective-eyewear/visor-shield-kit-medium/4434033",
                 },
+                {
+                    "product_id": "5430231",
+                    "product_url": "https://www.henryschein.com/us-en/dental/p/preventive"
+                    "/toothbrushes/colgate-pj-masks-toothbrush/5430231",
+                },
             ],
         },
         "net_32": {
@@ -191,12 +196,19 @@ async def main():
 
         products = [
             {
-                "product_id": 1019278,
-                "quantity": 2,
-            }
+                "product_id": BASE_DATA[scraper_name]["products"][0]["product_id"],
+                "quantity": 1,
+            },
+            {
+                "product_id": BASE_DATA[scraper_name]["products"][2]["product_id"],
+                "quantity": 25,
+            },
         ]
 
-        results = await scraper.create_order(products)
+        await scraper.login()
+        await scraper.remove_product_from_cart(product_id=products[1]["product_id"], use_bulk=False)
+        results = await scraper.add_product_to_cart(product=products[1])
+        # results = await scraper.create_order(products)
         print(results)
 
 

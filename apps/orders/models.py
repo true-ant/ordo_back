@@ -170,6 +170,7 @@ class Cart(TimeStampedModel):
     office = FlexibleForeignKey(Office)
     product = FlexibleForeignKey(Product)
     quantity = models.IntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     save_for_later = models.BooleanField(default=False)
 
     class Meta:

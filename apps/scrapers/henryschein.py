@@ -3,7 +3,7 @@ import datetime
 import json
 import re
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 from aiohttp import ClientResponse
 from scrapy import Selector
@@ -362,7 +362,19 @@ class HenryScheinScraper(Scraper):
             dom = Selector(text=await resp.text())
             return dom
 
-    async def remove_product_from_cart(self, product_id):
+    async def remove_product_from_cart(self, product_id: Union[str, int], use_bulk: bool = True):
+        if not use_bulk:
+            cart_dom = await self.get_cart()
+            for i, product_dom in enumerate(
+                cart_dom.xpath("//div[@id='ctl00_cphMainContentHarmony_ucOrderCartShop_pnlCartDetails']/ol/li")
+            ):
+                key = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{i + 1:02d}$txtQuantity"
+                cart_product_id = product_dom.xpath(f'.//input[@name="{key}"]/@data-item-code-cart').get()
+                if cart_product_id == product_id:
+                    key = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{i + 1:02d}$hdnItemId"
+                    product_id = product_dom.xpath(f'.//input[@name="{key}"]/@value').get()
+                    break
+
         data = {
             "lineItemId": product_id,
             "cartId": "",
@@ -402,7 +414,16 @@ class HenryScheinScraper(Scraper):
             "addproductqty": product["quantity"],
             "allowRedirect": "false",
         }
-        await self.session.get("https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx", params=params)
+        async with self.session.get(
+            "https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx", params=params
+        ) as resp:
+            response_text = await resp.text()
+            # TODO: Error handling
+            ecommerce_data = response_text.split("dataLayer.push(", 1)[1].split(");")[0]
+            ecommerce_data = ecommerce_data.replace("'", '"')
+            ecommerce_data = json.loads(ecommerce_data)
+            products = ecommerce_data["ecommerce"]["checkout"]["products"]
+            return [p for p in products if p["id"] == product["product_id"]][0]
 
     @staticmethod
     def get_checkout_products_sensitive_data(dom):
@@ -425,6 +446,21 @@ class HenryScheinScraper(Scraper):
             ]:
                 key = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{product_index}{key}"
                 data[key] = product_dom.xpath(f'.//input[@name="{key}"]/@value').get()
+        return data
+
+    def get_product_checkout_prices(self, dom):
+        data = {}
+        for i, product_dom in enumerate(
+            dom.xpath("//div[@id='ctl00_cphMainContentHarmony_ucOrderCartShop_pnlCartDetails']/ol/li")
+        ):
+            product_index = f"{i + 1:02d}"
+            product_id = self.extract_first(dom, ".//h2[@class='product-name']/small/strong/text()")
+            unit_price = self.extract_first(
+                dom,
+                ".//div[@id='ctl00_cphMainContentHarmony_ucOrderCartShop_rptBasket_ctl"
+                f"{product_index}_divPrice']/span[1]/text()",
+            ).strip("$")
+            data[product_id] = unit_price
         return data
 
     async def checkout(self, products: List[CartProduct], checkout_time: Optional[datetime.date] = None):
@@ -576,6 +612,7 @@ class HenryScheinScraper(Scraper):
             "dest": "",
         }
         data.update(self.get_checkout_products_sensitive_data(review_checkout_dom))
+        product_prices = self.get_product_checkout_prices(review_checkout_dom)
         return {
             "subtotal": subtotal,
             "tax": tax,
@@ -586,6 +623,7 @@ class HenryScheinScraper(Scraper):
             "payment_method": payment_method,
             "shipping_address": shipping_address,
             "billing_address": billing_address,
+            "product_prices": product_prices,
             "context": data,
         }
 
@@ -595,10 +633,10 @@ class HenryScheinScraper(Scraper):
         await self.add_products_to_cart(products)
         checkout_dom = await self.checkout(products)
         review_checkout_dom = await self.review_checkout(checkout_dom)
-        return await self.review_order(review_checkout_dom)
+        return {self.vendor["slug"]: await self.review_order(review_checkout_dom)}
 
     async def confirm_order(self, data):
-        pass
+        return {"order_id": "order_id"}
         # headers = CHECKOUT_HEADER.copy()
         # headers["referer"] = "https://www.henryschein.com/us-en/Checkout/OrderReview.aspx"
         # async with self.session.post(

@@ -16,7 +16,11 @@ from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.status import HTTP_204_NO_CONTENT, HTTP_400_BAD_REQUEST
+from rest_framework.status import (
+    HTTP_201_CREATED,
+    HTTP_204_NO_CONTENT,
+    HTTP_400_BAD_REQUEST,
+)
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
@@ -369,7 +373,14 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
         return Response(product.to_dict())
 
 
-def get_user_cart(office_pk):
+def get_office_vendor(office_pk, vendor_pk):
+    try:
+        return m.OfficeVendor.objects.get(office_id=office_pk, vendor_id=vendor_pk)
+    except m.OfficeVendor.DoesNotExist:
+        pass
+
+
+def get_cart(office_pk):
     cart_products = (
         m.Cart.objects.filter(office_id=office_pk, save_for_later=False)
         .order_by("-updated_at")
@@ -416,6 +427,11 @@ def update_checkout_status(office_vendors, user, checkout_status, order_status=N
             )
 
 
+def save_serailizer(serializer):
+    serializer.save()
+    return serializer.data
+
+
 class CartViewSet(AsyncMixin, ModelViewSet):
     permission_classes = [IsAuthenticated]
     model = m.Cart
@@ -425,9 +441,29 @@ class CartViewSet(AsyncMixin, ModelViewSet):
     def get_queryset(self):
         return self.queryset.filter(office_id=self.kwargs["office_pk"]).order_by("-updated_at", "save_for_later")
 
-    def create(self, request, *args, **kwargs):
+    async def create(self, request, *args, **kwargs):
         request.data.setdefault("office", self.kwargs["office_pk"])
-        return super().create(request, *args, **kwargs)
+        serializer = self.get_serializer(data=request.data)
+        await sync_to_async(serializer.is_valid)(raise_exception=True)
+        product = serializer.validated_data["product"]
+        vendor = product["vendor"]
+        office_vendor = await sync_to_async(get_office_vendor)(office_pk=self.kwargs["office_pk"], vendor_pk=vendor.id)
+        session = apps.get_app_config("accounts").session
+        scraper = ScraperFactory.create_scraper(
+            vendor=vendor.to_dict(),
+            session=session,
+            username=office_vendor.username,
+            password=office_vendor.password,
+        )
+        await scraper.login()
+        await scraper.remove_product_from_cart(product_id=product["product_id"], use_bulk=False)
+        vendor_product_detail = await scraper.add_product_to_cart(
+            CartProduct(product_id=product["product_id"], quantity=serializer.validated_data["quantity"])
+        )
+        serializer.validated_data["unit_price"] = vendor_product_detail["price"]
+        serializer_data = await sync_to_async(save_serailizer)(serializer)
+
+        return Response(serializer_data, status=HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -454,7 +490,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=False, url_path="checkout", methods=["get"], permission_classes=[p.OrderCheckoutPermission])
     async def checkout(self, request, *args, **kwargs):
-        cart_products, office, vendors = await sync_to_async(get_user_cart)(office_pk=self.kwargs["office_pk"])
+        cart_products, office, vendors = await sync_to_async(get_cart)(office_pk=self.kwargs["office_pk"])
         if not cart_products:
             return Response({"can_checkout": False, "message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
 
@@ -497,7 +533,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
     @action(detail=False, url_path="confirm-order", methods=["post"], permission_classes=[p.OrderCheckoutPermission])
     async def confirm_order(self, request, *args, **kwargs):
         return Response({})
-        # cart_products, office, vendors = await sync_to_async(get_user_cart)(
+        # cart_products, office, vendors = await sync_to_async(get_cart)(
         #     office_pk=self.kwargs["office_pk"], user=self.request.user
         # )
         #
@@ -521,7 +557,7 @@ class CheckoutAvailabilityAPIView(APIView):
     permission_classes = [p.OrderCheckoutPermission]
 
     def get(self, request, *args, **kwargs):
-        cart_products, office, vendors = get_user_cart(office_pk=kwargs.get("office_pk"))
+        cart_products, office, vendors = get_cart(office_pk=kwargs.get("office_pk"))
         if not cart_products:
             return Response({"can_checkout": False, "message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
 
@@ -536,7 +572,7 @@ class CheckoutCompleteAPIView(APIView):
     permission_classes = [p.OrderCheckoutPermission]
 
     def get(self, request, *args, **kwargs):
-        cart_products, office, vendors = get_user_cart(office_pk=kwargs.get("office_pk"))
+        cart_products, office, vendors = get_cart(office_pk=kwargs.get("office_pk"))
         if not cart_products:
             return Response({"message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
 

@@ -1,6 +1,6 @@
 import asyncio
 from http.cookies import SimpleCookie
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
@@ -176,8 +176,14 @@ class Scraper:
             "last_page": last_page,
         }
 
+    async def add_product_to_cart(self, products: CartProduct):
+        raise NotImplementedError("Vendor scraper must implement `add_product_to_cart`")
+
     async def add_products_to_cart(self, products: List[CartProduct]):
         raise NotImplementedError("Vendor scraper must implement `add_products_to_cart`")
+
+    async def remove_product_from_cart(self, product_id: Union[str, int], use_bulk: bool = True):
+        raise NotImplementedError("Vendor scraper must implement `remove_product_from_cart`")
 
     async def clear_cart(self):
         raise NotImplementedError("Vendor scraper must implement `clear_cart`")

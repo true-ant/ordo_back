@@ -128,6 +128,14 @@ class CartSerializer(serializers.ModelSerializer):
         model = m.Cart
         fields = "__all__"
 
+    def validate(self, attrs):
+        if not self.instance:
+            product_id = attrs["product"]["product_id"]
+            office = attrs["office"]
+            if m.Cart.objects.filter(office=office, product__product_id=product_id).exists():
+                raise serializers.ValidationError({"message": "This product is already in your cart"})
+        return attrs
+
     def create(self, validated_data):
         with transaction.atomic():
             product_data = validated_data.pop("product")
