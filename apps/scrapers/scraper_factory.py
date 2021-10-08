@@ -43,7 +43,7 @@ class ScraperFactory:
 async def main():
 
     load_dotenv()
-    scraper_name = "henry_schein"
+    scraper_name = "net_32"
     BASE_DATA = {
         "henry_schein": {
             "username": os.getenv("HENRY_SCHEIN_USERNAME"),
@@ -80,10 +80,12 @@ async def main():
                 {
                     "product_id": "113866",
                     "product_url": "https://www.net32.com/ec/house-brand-premium-nitrile-exam-gloves-small-d-113866",
+                    "quantity": 20,
                 },
                 {
                     "product_id": "149881",
                     "product_url": "https://www.net32.com/ec/caviwipes-12-towelettes-large-6-x-675-d-149881",
+                    "quantity": 20,
                 },
             ],
             "vendor": {
@@ -194,22 +196,18 @@ async def main():
         # results = await scraper.get_all_products()
         # results = await scraper.get_vendor_categories(perform_login=True)
 
-        products = [
-            {
-                "product_id": BASE_DATA[scraper_name]["products"][0]["product_id"],
-                "quantity": 1,
-            },
-            {
-                "product_id": BASE_DATA[scraper_name]["products"][2]["product_id"],
-                "quantity": 25,
-            },
-        ]
-
         await scraper.login()
-        await scraper.remove_product_from_cart(product_id=products[1]["product_id"], use_bulk=False)
-        results = await scraper.add_product_to_cart(product=products[1])
+        await scraper.remove_product_from_cart(
+            product_id=BASE_DATA[scraper_name]["products"][0]["product_id"], use_bulk=False
+        )
+        # results = await scraper.add_product_to_cart(
+        #     dict(
+        #         product_id=BASE_DATA[scraper_name]["products"][0]["product_id"],
+        #         quantity=BASE_DATA[scraper_name]["products"][0]["quantity"],
+        #     )
+        # )
         # results = await scraper.create_order(products)
-        print(results)
+        # print(results)
 
 
 if __name__ == "__main__":

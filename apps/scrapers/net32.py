@@ -1,5 +1,5 @@
 import asyncio
-from typing import List
+from typing import List, Union
 
 from aiohttp import ClientResponse
 from django.utils.dateparse import parse_datetime
@@ -312,6 +312,26 @@ class Net32Scraper(Scraper):
                 "last_page": page_size * page >= total_size,
             }
 
+    async def add_product_to_cart(self, product: CartProduct) -> dict:
+        data = [
+            {
+                "mpId": product["product_id"],
+                "quantity": product["quantity"],
+            }
+        ]
+
+        async with self.session.post(
+            "https://www.net32.com/rest/shoppingCart/addMfrProdViaConsolidation", headers=CART_HEADERS, json=data
+        ) as resp:
+            cart_res = await resp.json()
+            for vendor in cart_res["payload"]["vendorOrders"]:
+                for vendor_product in vendor["products"]:
+                    if str(vendor_product["mpId"]) == str(product["product_id"]):
+                        return {
+                            "product_id": product["product_id"],
+                            "unit_price": vendor_product["unitPrice"],
+                        }
+
     async def add_products_to_cart(self, products: List[CartProduct]):
         data = [
             {
@@ -324,6 +344,22 @@ class Net32Scraper(Scraper):
         await self.session.post(
             "https://www.net32.com/rest/shoppingCart/addMfrProdViaConsolidation", headers=CART_HEADERS, json=data
         )
+
+    async def remove_product_from_cart(self, product_id: Union[str, int], use_bulk: bool = True):
+        async with self.session.get("https://www.net32.com/rest/shoppingCart/get", headers=CART_HEADERS) as resp:
+            cart_res = await resp.json()
+            data = [
+                {
+                    "mpId": product["mpId"],
+                    "vendorProductId": product["vendorProductId"],
+                    "minimumQuantity": product["minimumQuantity"],
+                    "quantity": 0,
+                }
+                for vendor in cart_res["payload"]["vendorOrders"]
+                for product in vendor["products"]
+                if str(product["mpId"]) == str(product_id)
+            ]
+        await self.session.post("https://www.net32.com/rest/shoppingCart/modify/rev2", headers=CART_HEADERS, json=data)
 
     async def clear_cart(self):
         async with self.session.get("https://www.net32.com/rest/shoppingCart/get", headers=CART_HEADERS) as resp:
@@ -344,6 +380,7 @@ class Net32Scraper(Scraper):
     async def create_order(self, products: List[CartProduct]):
         await self.login()
         await self.clear_cart()
+        await self.add_products_to_cart(products)
 
     async def confirm_order(self):
         raise NotImplementedError("Vendor scraper must implement `confirm_order`")

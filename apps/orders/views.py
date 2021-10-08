@@ -453,10 +453,10 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         await scraper.login()
         await scraper.remove_product_from_cart(product_id=product_id, use_bulk=False)
         if serializer:
-            vendor_product_detail = await scraper.add_product_to_cart(
+            vendor_cart_product = await scraper.add_product_to_cart(
                 CartProduct(product_id=product_id, quantity=serializer.validated_data["quantity"])
             )
-            serializer.validated_data["unit_price"] = vendor_product_detail["price"]
+            serializer.validated_data["unit_price"] = vendor_cart_product["unit_price"]
 
     async def create(self, request, *args, **kwargs):
         data = request.data

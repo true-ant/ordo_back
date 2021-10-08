@@ -182,10 +182,6 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.accounts.tasks.send_budget_update_notification",
         "schedule": crontab(hour=0, minute=0),
     },
-    "update_checkout_status": {
-        "task": "apps.orders.tasks.update_checkout_status",
-        "schedule": crontab(minute="*/10"),
-    },
 }
 
 # Django Rest Framework

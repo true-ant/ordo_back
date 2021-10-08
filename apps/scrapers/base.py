@@ -8,7 +8,7 @@ from scrapy import Selector
 from apps.scrapers.errors import VendorAuthenticationFailed
 from apps.scrapers.schema import Product, ProductCategory
 from apps.scrapers.utils import catch_network
-from apps.types.orders import CartProduct
+from apps.types.orders import CartProduct, VendorCartProduct
 from apps.types.scraper import LoginInformation, ProductSearch, VendorInformation
 
 
@@ -176,10 +176,10 @@ class Scraper:
             "last_page": last_page,
         }
 
-    async def add_product_to_cart(self, product: CartProduct) -> dict:
+    async def add_product_to_cart(self, product: CartProduct) -> VendorCartProduct:
         raise NotImplementedError("Vendor scraper must implement `add_product_to_cart`")
 
-    async def add_products_to_cart(self, products: List[CartProduct]) -> List[dict]:
+    async def add_products_to_cart(self, products: List[CartProduct]) -> List[VendorCartProduct]:
         raise NotImplementedError("Vendor scraper must implement `add_products_to_cart`")
 
     async def remove_product_from_cart(self, product_id: Union[str, int], use_bulk: bool = True):

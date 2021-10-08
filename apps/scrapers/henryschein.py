@@ -11,7 +11,7 @@ from scrapy import Selector
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory
 from apps.scrapers.utils import catch_network
-from apps.types.orders import CartProduct
+from apps.types.orders import CartProduct, VendorCartProduct
 from apps.types.scraper import LoginInformation, ProductSearch
 
 HEADERS = {
@@ -404,11 +404,11 @@ class HenryScheinScraper(Scraper):
         tasks = (self.remove_product_from_cart(product_id) for product_id in product_ids)
         await asyncio.gather(*tasks)
 
-    async def add_products_to_cart(self, products: List[CartProduct]):
+    async def add_products_to_cart(self, products: List[CartProduct]) -> List[VendorCartProduct]:
         tasks = (self.add_product_to_cart(product) for product in products)
         await asyncio.gather(*tasks)
 
-    async def add_product_to_cart(self, product: CartProduct) -> dict:
+    async def add_product_to_cart(self, product: CartProduct) -> VendorCartProduct:
         params = {
             "addproductid": product["product_id"],
             "addproductqty": product["quantity"],
@@ -423,7 +423,8 @@ class HenryScheinScraper(Scraper):
             ecommerce_data = ecommerce_data.replace("'", '"')
             ecommerce_data = json.loads(ecommerce_data)
             products = ecommerce_data["ecommerce"]["checkout"]["products"]
-            return [p for p in products if p["id"] == product["product_id"]][0]
+            vendor_cart_product = [p for p in products if str(p["id"]) == str(product["product_id"])][0]
+            return {"product_id": product["product_id"], "unit_price": vendor_cart_product["price"]}
 
     @staticmethod
     def get_checkout_products_sensitive_data(dom):
