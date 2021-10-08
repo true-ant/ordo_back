@@ -465,7 +465,11 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         await sync_to_async(serializer.is_valid)(raise_exception=True)
         product_id = serializer.validated_data["product"]["product_id"]
         vendor = serializer.validated_data["product"]["vendor"]
-        await self.update_vendor_cart(serializer, product_id, vendor)
+        await self.update_vendor_cart(
+            product_id,
+            vendor,
+            serializer,
+        )
         serializer_data = await sync_to_async(save_serailizer)(serializer)
         return Response(serializer_data, status=HTTP_201_CREATED)
 
@@ -478,7 +482,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         instance, product_id, vendor = await self.get_object_with_related()
         serializer = self.get_serializer(instance, request.data, partial=True)
         await sync_to_async(serializer.is_valid)(raise_exception=True)
-        await self.update_vendor_cart(serializer, product_id, vendor)
+        await self.update_vendor_cart(product_id, vendor, serializer)
         serializer_data = await sync_to_async(save_serailizer)(serializer)
         return Response(serializer_data)
 
