@@ -176,6 +176,14 @@ class Scraper:
             "last_page": last_page,
         }
 
-    @catch_network
+    async def add_products_to_cart(self, products: List[CartProduct]):
+        raise NotImplementedError("Vendor scraper must implement `add_products_to_cart`")
+
+    async def clear_cart(self):
+        raise NotImplementedError("Vendor scraper must implement `clear_cart`")
+
     async def create_order(self, products: List[CartProduct]):
-        pass
+        raise NotImplementedError("Vendor scraper must implement `create_order`")
+
+    async def confirm_order(self):
+        raise NotImplementedError("Vendor scraper must implement `confirm_order`")

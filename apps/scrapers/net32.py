@@ -312,6 +312,42 @@ class Net32Scraper(Scraper):
                 "last_page": page_size * page >= total_size,
             }
 
+    async def add_products_to_cart(self, products: List[CartProduct]):
+        data = [
+            {
+                "mpId": product["product_id"],
+                "quantity": product["quantity"],
+            }
+            for product in products
+        ]
+
+        await self.session.post(
+            "https://www.net32.com/rest/shoppingCart/addMfrProdViaConsolidation", headers=CART_HEADERS, json=data
+        )
+
+    async def clear_cart(self):
+        async with self.session.get("https://www.net32.com/rest/shoppingCart/get", headers=CART_HEADERS) as resp:
+            cart_res = await resp.json()
+            data = []
+            for vendor in cart_res["payload"]["vendorOrders"]:
+                for product in vendor["products"]:
+                    data.append(
+                        {
+                            "mpId": product["mpId"],
+                            "vendorProductId": product["vendorProductId"],
+                            "minimumQuantity": product["minimumQuantity"],
+                            "quantity": 0,
+                        }
+                    )
+        await self.session.post("https://www.net32.com/rest/shoppingCart/modify/rev2", headers=CART_HEADERS, json=data)
+
+    async def create_order(self, products: List[CartProduct]):
+        await self.login()
+        await self.clear_cart()
+
+    async def confirm_order(self):
+        raise NotImplementedError("Vendor scraper must implement `confirm_order`")
+
     @catch_network
     async def checkout(self, products: List[CartProduct]):
         await self.login()
