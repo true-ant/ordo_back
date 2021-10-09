@@ -9,7 +9,7 @@ from apps.scrapers.base import Scraper
 from apps.scrapers.errors import OrderFetchException
 from apps.scrapers.schema import Order, Product, ProductCategory
 from apps.scrapers.utils import catch_network
-from apps.types.orders import CartProduct
+from apps.types.orders import CartProduct, VendorOrderDetail
 from apps.types.scraper import LoginInformation, ProductSearch
 
 HEADERS = {
@@ -377,20 +377,59 @@ class Net32Scraper(Scraper):
                     )
         await self.session.post("https://www.net32.com/rest/shoppingCart/modify/rev2", headers=CART_HEADERS, json=data)
 
-    async def create_order(self, products: List[CartProduct]):
-        pass
+    async def review_order(self) -> VendorOrderDetail:
+        async with self.session.get("https://www.net32.com/checkout", headers=REVIEW_CHECKOUT_HEADERS) as resp:
+            res = Selector(text=await resp.text())
+            retail_amount = self.remove_thousands_separator(
+                self.extract_first(res, "//table[@class='order-summary-subtotal-table']//tr[1]/td/text()")
+            )
+            savings_amount = self.remove_thousands_separator(
+                self.extract_first(res, "//table[@class='order-summary-subtotal-table']//tr[2]/td/text()")
+            )
+            subtotal_amount = self.remove_thousands_separator(
+                self.extract_first(res, "//table[@class='order-summary-subtotal-table']//tr[3]/td/text()")
+            )
+            shipping_amount = self.remove_thousands_separator(
+                self.extract_first(res, "//table[@class='order-summary-subtotal-table']//tr[4]/td/text()")
+            )
+            tax_amount = self.remove_thousands_separator(
+                self.extract_first(res, "//table[@class='order-summary-subtotal-table']//tr[5]/td/text()")
+            )
+            total_amount = self.remove_thousands_separator(
+                self.extract_first(
+                    res,
+                    "//table[@class='order-summary-grandtotal-table']"
+                    "//span[@class='order-summary-grandtotal-value']/text()",
+                )
+            )
+            payment_method = self.merge_strip_values(res, "//dl[@id='order-details-payment']/dd[1]/strong//text()")
+            shipping_address = self.extract_first(res, "//dl[@id='order-details-shipping']/dd[2]/text()")
 
-    async def confirm_order(self):
-        raise NotImplementedError("Vendor scraper must implement `confirm_order`")
+            return VendorOrderDetail(
+                retail_amount=retail_amount,
+                savings_amount=savings_amount,
+                subtotal_amount=subtotal_amount,
+                shipping_amount=shipping_amount,
+                tax_amount=tax_amount,
+                total_amount=total_amount,
+                payment_method=payment_method,
+                shipping_address=shipping_address,
+            )
 
-    @catch_network
-    async def checkout(self, products: List[CartProduct]):
+    async def create_order(self, products: List[CartProduct]) -> VendorOrderDetail:
         await self.login()
-        # Review checkout
-        await self.session.get("https://www.net32.com/checkout", headers=REVIEW_CHECKOUT_HEADERS)
+        await self.clear_cart()
+        await self.add_products_to_cart(products)
+        return await self.review_order()
 
-        # Place Order
-        # await self.session.post("https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS)
+    async def confirm_order(self, products: List[CartProduct]):
+        await self.create_order(products)
+        async with self.session.post(
+            "https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS
+        ) as resp:
+            response_dom = Selector(text=await resp.text())
+            # order_id = response_dom.xpath("//h2[@class='checkout-confirmation-order-number-header']//a/text()").get()
+            return "order_id" or response_dom
 
     def _get_vendor_categories(self, response) -> List[ProductCategory]:
         return [

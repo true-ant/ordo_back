@@ -36,6 +36,7 @@ class Scraper:
 
     @staticmethod
     def remove_thousands_separator(value):
+        value = value.strip(" $")
         value = value.replace(" ", "")
         value = value.replace(",", "")
         return value
@@ -191,5 +192,5 @@ class Scraper:
     async def create_order(self, products: List[CartProduct]):
         raise NotImplementedError("Vendor scraper must implement `create_order`")
 
-    async def confirm_order(self):
+    async def confirm_order(self, products: List[CartProduct]):
         raise NotImplementedError("Vendor scraper must implement `confirm_order`")

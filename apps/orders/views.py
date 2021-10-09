@@ -395,17 +395,22 @@ def get_cart(office_pk):
         return cart_products, list(office_vendors)
 
 
-def can_use_cart(office, user):
+def get_cart_status_and_order_status(office, user):
     if isinstance(office, str) or isinstance(office, int):
         office = m.Office.objects.get(id=office)
 
     if not hasattr(office, "checkout_status"):
         m.OfficeCheckoutStatus.objects.create(office=office, user=user)
 
-    return (
-        office.checkout_status.checkout_status == m.OfficeCheckoutStatus.CHECKOUT_STATUS.COMPLETE
-        or office.checkout_status.user == user
+    can_use_cart = (
+        office.checkout_status.user == user
+        or office.checkout_status.checkout_status == m.OfficeCheckoutStatus.CHECKOUT_STATUS.COMPLETE
     )
+    can_create_order = (
+        office.checkout_status.user == user
+        or office.checkout_status.order_status == m.OfficeCheckoutStatus.ORDER_STATUS.COMPLETE
+    )
+    return can_use_cart, can_create_order
 
 
 def update_cart_or_checkout_status(office, user, checkout_status=None, order_status=None):
@@ -463,8 +468,8 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         data = request.data
         office_pk = self.kwargs["office_pk"]
         data["office"] = office_pk
-        can_use_cart_ = await sync_to_async(can_use_cart)(office=office_pk, user=request.user)
-        if not can_use_cart_:
+        can_use_cart, _ = await sync_to_async(get_cart_status_and_order_status)(office=office_pk, user=request.user)
+        if not can_use_cart:
             return Response({"message": msgs.CHECKOUT_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
 
         serializer = self.get_serializer(data=data)
@@ -486,8 +491,10 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
     async def update(self, request, *args, **kwargs):
         instance, product_id, vendor = await self.get_object_with_related()
-        can_use_cart_ = await sync_to_async(can_use_cart)(office=self.kwargs["office_pk"], user=request.user)
-        if not can_use_cart_:
+        can_use_cart, _ = await sync_to_async(get_cart_status_and_order_status)(
+            office=self.kwargs["office_pk"], user=request.user
+        )
+        if not can_use_cart:
             return Response({"message": msgs.CHECKOUT_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
 
         serializer = self.get_serializer(instance, request.data, partial=True)
@@ -498,8 +505,10 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
     async def destroy(self, request, *args, **kwargs):
         instance, product_id, vendor = await self.get_object_with_related()
-        can_use_cart_ = await sync_to_async(can_use_cart)(office=self.kwargs["office_pk"], user=request.user)
-        if not can_use_cart_:
+        can_use_cart, _ = await sync_to_async(get_cart_status_and_order_status)(
+            office=self.kwargs["office_pk"], user=request.user
+        )
+        if not can_use_cart:
             return Response({"message": msgs.CHECKOUT_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
 
         await self.update_vendor_cart(product_id, vendor)
@@ -507,9 +516,13 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         return Response(status=HTTP_204_NO_CONTENT)
 
     @sync_to_async
-    def _create_order(self, office_vendors):
+    def _create_order(self, office_vendors, results, cart_products, data):
         with transaction.atomic():
-            m.Order.objects.create(office_id=self.kwargs["office_pk"], created_by=self.request.user, status="PENDING")
+            m.Order.objects.create(
+                office_id=self.kwargs["office_pk"],
+                created_by=self.request.user,
+                status="PENDING",
+            )
             # for office_vendor in office_vendors:
             #     m.VendorOrder.objects.create(
             #         order=order,
@@ -524,8 +537,10 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=False, url_path="checkout", methods=["get"], permission_classes=[p.OrderCheckoutPermission])
     async def checkout(self, request, *args, **kwargs):
-        can_use_cart_ = await sync_to_async(can_use_cart)(office=self.kwargs["office_pk"], user=request.user)
-        if not can_use_cart_:
+        can_use_cart = await sync_to_async(get_cart_status_and_order_status)(
+            office=self.kwargs["office_pk"], user=request.user
+        )
+        if not can_use_cart:
             return Response({"message": msgs.CHECKOUT_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
 
         cart_products, office_vendors = await sync_to_async(get_cart)(office_pk=self.kwargs["office_pk"])
@@ -564,25 +579,33 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=False, url_path="confirm-order", methods=["post"], permission_classes=[p.OrderCheckoutPermission])
     async def confirm_order(self, request, *args, **kwargs):
-        return Response({})
-        # cart_products, office, vendors = await sync_to_async(get_cart)(
-        #     office_pk=self.kwargs["office_pk"], user=self.request.user
-        # )
-        #
-        # if not cart_products:
-        #     return Response({"can_checkout": False, "message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
-        #
-        # office_vendors, is_checking, updated_bys = await sync_to_async(get_checkout_status)(
-        #     office=office, vendors=vendors
-        # )
-        # if is_checking:
-        #     return Response({"message": msgs.CHECKOUT_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
-        #
-        # await sync_to_async(update_checkout_status)(
-        #     office_vendors=office_vendors,
-        #     user=request.user,
-        #     checkout_status=m.OrderProgressStatus.CHECKOUT_STATUS.IN_PROGRESS,
-        # )
+        data = request.data
+        cart_products, office_vendors = await sync_to_async(get_cart)(office_pk=self.kwargs["office_pk"])
+
+        if not cart_products:
+            return Response({"can_checkout": False, "message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
+
+        session = apps.get_app_config("accounts").session
+        tasks = []
+        for office_vendor in office_vendors:
+            vendor_data = office_vendor.vendor.to_dict()
+            vendor_slug = vendor_data["slug"]
+            scraper = ScraperFactory.create_scraper(
+                vendor=vendor_data,
+                session=session,
+                username=office_vendor.username,
+                password=office_vendor.password,
+            )
+            tasks.append(scraper.confirm_order(data[vendor_slug]))
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        self._create_order(office_vendors, results, cart_products, data)
+        await sync_to_async(update_cart_or_checkout_status)(
+            office_vendors=office_vendors,
+            user=request.user,
+            checkout_status=m.OfficeCheckoutStatus.CHECKOUT_STATUS.COMPLETE,
+            order_status=m.OfficeCheckoutStatus.ORDER_STATUS.COMPLETE,
+        )
 
 
 class CheckoutAvailabilityAPIView(APIView):
@@ -593,8 +616,8 @@ class CheckoutAvailabilityAPIView(APIView):
         if not cart_products:
             return Response({"message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
 
-        can_use_cart_ = can_use_cart(office=office_vendors[0].office, user=request.user)
-        return Response({"can_use_cart": can_use_cart_})
+        can_use_cart, _ = get_cart_status_and_order_status(office=office_vendors[0].office, user=request.user)
+        return Response({"can_use_cart": can_use_cart})
 
 
 class CheckoutUpdateStatusAPIView(APIView):

@@ -625,7 +625,6 @@ class HenryScheinScraper(Scraper):
             "shipping_address": shipping_address,
             "billing_address": billing_address,
             "product_prices": product_prices,
-            "context": data,
         }
 
     async def create_order(self, products: List[CartProduct]):
@@ -636,8 +635,9 @@ class HenryScheinScraper(Scraper):
         review_checkout_dom = await self.review_checkout(checkout_dom)
         return {self.vendor["slug"]: await self.review_order(review_checkout_dom)}
 
-    async def confirm_order(self, data):
-        return {"order_id": "order_id"}
+    async def confirm_order(self, products: List[CartProduct]):
+        pass
+
         # headers = CHECKOUT_HEADER.copy()
         # headers["referer"] = "https://www.henryschein.com/us-en/Checkout/OrderReview.aspx"
         # async with self.session.post(
@@ -646,5 +646,7 @@ class HenryScheinScraper(Scraper):
         #     data=data
         # ) as resp:
         #     response = await resp.text()
-        #     return response.split("dataLayer.push(", 1)[1].split(");")[0]
-        # return ast.literal_eval(data)
+        #     res_data = response.split("dataLayer.push(", 1)[1].split(");")[0]
+        #     res_data = res_data.replace("'", '"')
+        #     res_data = json.loads(res_data)
+        #     return res_data
