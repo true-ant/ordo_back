@@ -450,7 +450,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         if updated_save_for_later and serializer.validated_data["save_for_later"]:
             return True
 
-        if updated_save_for_later and serializer.validated_data["save_for_later"]:
+        if updated_save_for_later and not serializer.validated_data["save_for_later"]:
             quantity = serializer.instance.quantity
         else:
             quantity = serializer.validated_data["quantity"]
