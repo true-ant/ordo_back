@@ -400,7 +400,7 @@ def can_use_cart(office, user):
         office = m.Office.objects.get(id=office)
 
     if not hasattr(office, "checkout_status"):
-        m.OfficeCheckoutStatus.objects.create(office=office)
+        m.OfficeCheckoutStatus.objects.create(office=office, user=user)
 
     return (
         office.checkout_status.checkout_status == m.OfficeCheckoutStatus.CHECKOUT_STATUS.COMPLETE
@@ -408,7 +408,8 @@ def can_use_cart(office, user):
     )
 
 
-def update_cart_or_checkout_status(office, checkout_status=None, order_status=None):
+def update_cart_or_checkout_status(office, user, checkout_status=None, order_status=None):
+    office.checkout_status.user = user
     if checkout_status:
         office.checkout_status.checkout_status = checkout_status
     if order_status:
@@ -533,6 +534,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
         await sync_to_async(update_cart_or_checkout_status)(
             office=office_vendors[0].office,
+            user=request.user,
             checkout_status=m.OfficeCheckoutStatus.CHECKOUT_STATUS.IN_PROGRESS,
         )
         try:
@@ -589,29 +591,30 @@ class CheckoutAvailabilityAPIView(APIView):
     def get(self, request, *args, **kwargs):
         cart_products, office_vendors = get_cart(office_pk=kwargs.get("office_pk"))
         if not cart_products:
-            return Response({"can_checkout": False, "message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
+            return Response({"message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
 
         can_use_cart_ = can_use_cart(office=office_vendors[0].office, user=request.user)
-        return Response({"can_user_cart": can_use_cart_})
+        return Response({"can_use_cart": can_use_cart_})
 
 
-# class CheckoutCompleteAPIView(APIView):
-#     permission_classes = [p.OrderCheckoutPermission]
-#
-#     def get(self, request, *args, **kwargs):
-#         cart_products, office_vendors = get_cart(office_pk=kwargs.get("office_pk"))
-#         if not cart_products:
-#             return Response({"message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
-#
-#         office = office_vendors[0].office
-#         can_use_cart = can_use_cart_or_checkout(office)
-#
-#         if can_use_cart:
-#             return Response({"message": msgs.CHECKOUT_COMPLETE})
-#
-#         office, checkout_status = None, order_status = None
-#         update_cart_or_checkout_status(
-#             office=office,
-#             checkout_status=m.OfficeCheckoutStatus.CHECKOUT_STATUS.COMPLETE,
-#         )
-#         return Response({"message": "Status updated successfully"})
+class CheckoutUpdateStatusAPIView(APIView):
+    permission_classes = [p.OrderCheckoutPermission]
+
+    def post(self, request, *args, **kwargs):
+        cart_products, office_vendors = get_cart(office_pk=kwargs.get("office_pk"))
+        if not cart_products:
+            return Response({"message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
+
+        office = office_vendors[0].office
+        serializer = s.OfficeCheckoutStatusUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if office.checkout_status.user != request.user:
+            return Response({"message": msgs.WAIT_UNTIL_ORDER_FINISH}, status=HTTP_400_BAD_REQUEST)
+        else:
+            update_cart_or_checkout_status(
+                office=office,
+                user=request.user,
+                checkout_status=serializer.validated_data["checkout_status"],
+            )
+            return Response({"message": "Status updated successfully"})

@@ -159,3 +159,7 @@ class CartSerializer(serializers.ModelSerializer):
                 return m.Cart.objects.create(product=product, **validated_data)
             except IntegrityError:
                 raise serializers.ValidationError({"message": "This product is already in your cart"})
+
+
+class OfficeCheckoutStatusUpdateSerializer(serializers.Serializer):
+    checkout_status = serializers.ChoiceField(choices=m.OfficeCheckoutStatus.CHECKOUT_STATUS.choices)
