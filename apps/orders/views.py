@@ -386,10 +386,13 @@ def get_cart(office_pk):
         .order_by("-updated_at")
         .select_related("product__vendor")
     )
-    vendors = set(cart_product.product.vendor for cart_product in cart_products)
-    q = reduce(operator.or_, [Q(office_id=office_pk) & Q(vendor=vendor) for vendor in vendors])
-    office_vendors = OfficeVendor.objects.filter(q).select_related("vendor", "office")
-    return cart_products, list(office_vendors)
+    if not cart_products:
+        return cart_products, []
+    else:
+        vendors = set(cart_product.product.vendor for cart_product in cart_products)
+        q = reduce(operator.or_, [Q(office_id=office_pk) & Q(vendor=vendor) for vendor in vendors])
+        office_vendors = OfficeVendor.objects.filter(q).select_related("vendor", "office")
+        return cart_products, list(office_vendors)
 
 
 def can_use_cart(office, user):
@@ -438,15 +441,22 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         )
         await scraper.login()
         await scraper.remove_product_from_cart(product_id=product_id, use_bulk=False)
-        if serializer and (
-            "save_for_later" not in serializer.validated_data or not serializer.validated_data["save_for_later"]
-        ):
-            print("fa")
-            vendor_cart_product = await scraper.add_product_to_cart(
-                CartProduct(product_id=product_id, quantity=serializer.validated_data["quantity"])
-            )
-            print(vendor_cart_product)
-            serializer.validated_data["unit_price"] = vendor_cart_product["unit_price"]
+
+        if not serializer:
+            return True
+
+        updated_save_for_later = serializer.instance and "save_for_later" in serializer.validated_data
+
+        if updated_save_for_later and serializer.validated_data["save_for_later"]:
+            return True
+
+        if updated_save_for_later and serializer.validated_data["save_for_later"]:
+            quantity = serializer.instance.quantity
+        else:
+            quantity = serializer.validated_data["quantity"]
+
+        vendor_cart_product = await scraper.add_product_to_cart(CartProduct(product_id=product_id, quantity=quantity))
+        serializer.validated_data["unit_price"] = vendor_cart_product["unit_price"]
 
     async def create(self, request, *args, **kwargs):
         data = request.data

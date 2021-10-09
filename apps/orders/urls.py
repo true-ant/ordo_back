@@ -20,14 +20,14 @@ urlpatterns = [
     path("companies/<int:company_pk>/orders", v.CompanyOrderAPIView.as_view(), name="company-orders"),
     path("companies/<int:company_pk>/spending", v.CompanySpendAPIView.as_view(), name="company-spending"),
     path("offices/<int:office_pk>/spending", v.OfficeSpendAPIView.as_view(), name="office-spending"),
-    path(
-        "companies/<int:company_pk>/offices/<int:office_pk>/checkout/status",
-        v.CheckoutAvailabilityAPIView.as_view(),
-        name="get-checkout-status",
-    ),
-    path(
-        "companies/<int:company_pk>/offices/<int:office_pk>/checkout/status/complete",
-        v.CheckoutCompleteAPIView.as_view(),
-        name="checkout-status-complete",
-    ),
+    # path(
+    #     "companies/<int:company_pk>/offices/<int:office_pk>/checkout/status",
+    #     v.CheckoutAvailabilityAPIView.as_view(),
+    #     name="get-checkout-status",
+    # ),
+    # path(
+    #     "companies/<int:company_pk>/offices/<int:office_pk>/checkout/status/complete",
+    #     v.CheckoutCompleteAPIView.as_view(),
+    #     name="checkout-status-complete",
+    # ),
 ]

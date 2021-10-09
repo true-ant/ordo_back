@@ -43,7 +43,7 @@ class ScraperFactory:
 async def main():
 
     load_dotenv()
-    scraper_name = "net_32"
+    scraper_name = "henry_schein"
     BASE_DATA = {
         "henry_schein": {
             "username": os.getenv("HENRY_SCHEIN_USERNAME"),
@@ -60,16 +60,19 @@ async def main():
                     "product_id": "3840072",
                     "product_url": "https://www.henryschein.com/us-en/dental/p/restorative-cosmetic"
                     "/articulating/articulating-paper-40-microns/3840072",
+                    "quantity": 1,
                 },
                 {
                     "product_id": "4434033",
                     "product_url": "https://www.henryschein.com/us-en/dental/p/infection-control-products"
                     "/protective-eyewear/visor-shield-kit-medium/4434033",
+                    "quantity": 1,
                 },
                 {
                     "product_id": "5430231",
                     "product_url": "https://www.henryschein.com/us-en/dental/p/preventive"
                     "/toothbrushes/colgate-pj-masks-toothbrush/5430231",
+                    "quantity": 1,
                 },
             ],
         },
@@ -200,14 +203,14 @@ async def main():
         await scraper.remove_product_from_cart(
             product_id=BASE_DATA[scraper_name]["products"][0]["product_id"], use_bulk=False
         )
-        # results = await scraper.add_product_to_cart(
-        #     dict(
-        #         product_id=BASE_DATA[scraper_name]["products"][0]["product_id"],
-        #         quantity=BASE_DATA[scraper_name]["products"][0]["quantity"],
-        #     )
-        # )
+        results = await scraper.add_product_to_cart(
+            dict(
+                product_id=BASE_DATA[scraper_name]["products"][0]["product_id"],
+                quantity=BASE_DATA[scraper_name]["products"][0]["quantity"],
+            )
+        )
         # results = await scraper.create_order(products)
-        # print(results)
+        print(results)
 
 
 if __name__ == "__main__":
