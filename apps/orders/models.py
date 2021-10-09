@@ -5,7 +5,7 @@ from django.db.models import Q
 from django.utils import timezone
 from django_extensions.db.fields import AutoSlugField
 
-from apps.accounts.models import Office, OfficeVendor, User, Vendor
+from apps.accounts.models import Office, User, Vendor
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
 from apps.scrapers.schema import Product as ProductDataClass
 from apps.scrapers.schema import ProductImage as ProductImageDataClass
@@ -180,7 +180,7 @@ class Cart(TimeStampedModel):
         ]
 
 
-class OrderProgressStatus(TimeStampedModel):
+class OfficeCheckoutStatus(TimeStampedModel):
     class ORDER_STATUS(models.TextChoices):
         COMPLETE = "complete", "Complete"
         IN_PROGRESS = "processing", "In Progress"
@@ -189,9 +189,9 @@ class OrderProgressStatus(TimeStampedModel):
         COMPLETE = "complete", "Complete"
         IN_PROGRESS = "processing", "In Progress"
 
-    office_vendor = models.OneToOneField(OfficeVendor, on_delete=models.CASCADE)
+    office = models.OneToOneField(Office, on_delete=models.CASCADE, related_name="checkout_status")
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     checkout_status = models.CharField(
         choices=CHECKOUT_STATUS.choices, default=CHECKOUT_STATUS.COMPLETE, max_length=16
     )
     order_status = models.CharField(choices=ORDER_STATUS.choices, default=ORDER_STATUS.COMPLETE, max_length=16)
-    updated_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
