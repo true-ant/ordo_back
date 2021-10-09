@@ -375,8 +375,8 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
 
 def get_office_vendor(office_pk, vendor_pk):
     try:
-        return m.OfficeVendor.objects.get(office_id=office_pk, vendor_id=vendor_pk)
-    except m.OfficeVendor.DoesNotExist:
+        return OfficeVendor.objects.get(office_id=office_pk, vendor_id=vendor_pk)
+    except OfficeVendor.DoesNotExist:
         pass
 
 
@@ -384,47 +384,33 @@ def get_cart(office_pk):
     cart_products = (
         m.Cart.objects.filter(office_id=office_pk, save_for_later=False)
         .order_by("-updated_at")
-        .select_related("office", "product__vendor")
+        .select_related("product__vendor")
     )
-    office = cart_products[0].office if cart_products else None
-    vendors = [cart_product.product.vendor for cart_product in cart_products]
-    return cart_products, office, vendors
+    vendors = set(cart_product.product.vendor for cart_product in cart_products)
+    q = reduce(operator.or_, [Q(office_id=office_pk) & Q(vendor=vendor) for vendor in vendors])
+    office_vendors = OfficeVendor.objects.filter(q).select_related("vendor", "office")
+    return cart_products, list(office_vendors)
 
 
-def get_checkout_status(office, vendors):
-    q = reduce(
-        operator.or_,
-        [Q(office=office) & Q(vendor=vendor) for vendor in vendors],
+def can_use_cart(office, user):
+    if isinstance(office, str) or isinstance(office, int):
+        office = m.Office.objects.get(id=office)
+
+    if not hasattr(office, "checkout_status"):
+        m.OfficeCheckoutStatus.objects.create(office=office)
+
+    return (
+        office.checkout_status.checkout_status == m.OfficeCheckoutStatus.CHECKOUT_STATUS.COMPLETE
+        or office.checkout_status.user == user
     )
-    office_vendors = OfficeVendor.objects.filter(q).select_related("vendor")
-
-    queryset = m.OrderProgressStatus.objects.filter(
-        checkout_status=m.OrderProgressStatus.CHECKOUT_STATUS.IN_PROGRESS,
-        office_vendor__in=office_vendors,
-    ).select_related("updated_by")
-    if queryset:
-        is_checking = True
-        updated_bys = [q.updated_by for q in queryset]
-    else:
-        is_checking = False
-        updated_bys = []
-
-    return list(office_vendors), is_checking, updated_bys
 
 
-def update_checkout_status(office_vendors, user, checkout_status, order_status=None):
-    defaults = {
-        "checkout_status": checkout_status,
-        "updated_by": user,
-    }
+def update_cart_or_checkout_status(office, checkout_status=None, order_status=None):
+    if checkout_status:
+        office.checkout_status.checkout_status = checkout_status
     if order_status:
-        defaults["order_status"] = order_status
-    with transaction.atomic():
-        for office_vendor in office_vendors:
-            m.OrderProgressStatus.objects.update_or_create(
-                office_vendor=office_vendor,
-                defaults=defaults,
-            )
+        office.checkout_status.order_status = order_status
+    office.checkout_status.save()
 
 
 def save_serailizer(serializer):
@@ -452,15 +438,24 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         )
         await scraper.login()
         await scraper.remove_product_from_cart(product_id=product_id, use_bulk=False)
-        if serializer:
+        if serializer and (
+            "save_for_later" not in serializer.validated_data or not serializer.validated_data["save_for_later"]
+        ):
+            print("fa")
             vendor_cart_product = await scraper.add_product_to_cart(
                 CartProduct(product_id=product_id, quantity=serializer.validated_data["quantity"])
             )
+            print(vendor_cart_product)
             serializer.validated_data["unit_price"] = vendor_cart_product["unit_price"]
 
     async def create(self, request, *args, **kwargs):
         data = request.data
-        data["office"] = self.kwargs["office_pk"]
+        office_pk = self.kwargs["office_pk"]
+        data["office"] = office_pk
+        can_use_cart_ = await sync_to_async(can_use_cart)(office=office_pk, user=request.user)
+        if not can_use_cart_:
+            return Response({"message": msgs.CHECKOUT_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
+
         serializer = self.get_serializer(data=data)
         await sync_to_async(serializer.is_valid)(raise_exception=True)
         product_id = serializer.validated_data["product"]["product_id"]
@@ -480,6 +475,10 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
     async def update(self, request, *args, **kwargs):
         instance, product_id, vendor = await self.get_object_with_related()
+        can_use_cart_ = await sync_to_async(can_use_cart)(office=self.kwargs["office_pk"], user=request.user)
+        if not can_use_cart_:
+            return Response({"message": msgs.CHECKOUT_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
+
         serializer = self.get_serializer(instance, request.data, partial=True)
         await sync_to_async(serializer.is_valid)(raise_exception=True)
         await self.update_vendor_cart(product_id, vendor, serializer)
@@ -488,6 +487,10 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
     async def destroy(self, request, *args, **kwargs):
         instance, product_id, vendor = await self.get_object_with_related()
+        can_use_cart_ = await sync_to_async(can_use_cart)(office=self.kwargs["office_pk"], user=request.user)
+        if not can_use_cart_:
+            return Response({"message": msgs.CHECKOUT_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
+
         await self.update_vendor_cart(product_id, vendor)
         await sync_to_async(self.perform_destroy)(instance)
         return Response(status=HTTP_204_NO_CONTENT)
@@ -510,20 +513,17 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=False, url_path="checkout", methods=["get"], permission_classes=[p.OrderCheckoutPermission])
     async def checkout(self, request, *args, **kwargs):
-        cart_products, office, vendors = await sync_to_async(get_cart)(office_pk=self.kwargs["office_pk"])
+        can_use_cart_ = await sync_to_async(can_use_cart)(office=self.kwargs["office_pk"], user=request.user)
+        if not can_use_cart_:
+            return Response({"message": msgs.CHECKOUT_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
+
+        cart_products, office_vendors = await sync_to_async(get_cart)(office_pk=self.kwargs["office_pk"])
         if not cart_products:
             return Response({"can_checkout": False, "message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
 
-        office_vendors, is_checking, updated_bys = await sync_to_async(get_checkout_status)(
-            office=office, vendors=vendors
-        )
-        if is_checking:
-            return Response({"message": msgs.ORDER_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
-
-        await sync_to_async(update_checkout_status)(
-            office_vendors=office_vendors,
-            user=request.user,
-            checkout_status=m.OrderProgressStatus.CHECKOUT_STATUS.IN_PROGRESS,
+        await sync_to_async(update_cart_or_checkout_status)(
+            office=office_vendors[0].office,
+            checkout_status=m.OfficeCheckoutStatus.CHECKOUT_STATUS.IN_PROGRESS,
         )
         try:
             session = apps.get_app_config("accounts").session
@@ -564,7 +564,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         #     office=office, vendors=vendors
         # )
         # if is_checking:
-        #     return Response({"message": msgs.ORDER_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
+        #     return Response({"message": msgs.CHECKOUT_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
         #
         # await sync_to_async(update_checkout_status)(
         #     office_vendors=office_vendors,
@@ -577,35 +577,31 @@ class CheckoutAvailabilityAPIView(APIView):
     permission_classes = [p.OrderCheckoutPermission]
 
     def get(self, request, *args, **kwargs):
-        cart_products, office, vendors = get_cart(office_pk=kwargs.get("office_pk"))
+        cart_products, office_vendors = get_cart(office_pk=kwargs.get("office_pk"))
         if not cart_products:
             return Response({"can_checkout": False, "message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
 
-        _, is_checking, _ = get_checkout_status(
-            office=office,
-            vendors=vendors,
-        )
-        return Response({"can_checkout": not is_checking})
+        can_use_cart_ = can_use_cart(office=office_vendors[0].office, user=request.user)
+        return Response({"can_user_cart": can_use_cart_})
 
 
-class CheckoutCompleteAPIView(APIView):
-    permission_classes = [p.OrderCheckoutPermission]
-
-    def get(self, request, *args, **kwargs):
-        cart_products, office, vendors = get_cart(office_pk=kwargs.get("office_pk"))
-        if not cart_products:
-            return Response({"message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
-
-        office_vendors, is_checking, updated_bys = get_checkout_status(office=office, vendors=vendors)
-        if not is_checking:
-            return Response({"message": msgs.CHECKOUT_COMPLETE})
-
-        if len(updated_bys) > 1 or updated_bys[0] != request.user:
-            return Response({"message": msgs.UNKNOWN_ISSUE}, status=HTTP_400_BAD_REQUEST)
-
-        update_checkout_status(
-            office_vendors=office_vendors,
-            user=request.user,
-            checkout_status=m.OrderProgressStatus.CHECKOUT_STATUS.COMPLETE,
-        )
-        return Response({"message": "Status updated successfully"})
+# class CheckoutCompleteAPIView(APIView):
+#     permission_classes = [p.OrderCheckoutPermission]
+#
+#     def get(self, request, *args, **kwargs):
+#         cart_products, office_vendors = get_cart(office_pk=kwargs.get("office_pk"))
+#         if not cart_products:
+#             return Response({"message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
+#
+#         office = office_vendors[0].office
+#         can_use_cart = can_use_cart_or_checkout(office)
+#
+#         if can_use_cart:
+#             return Response({"message": msgs.CHECKOUT_COMPLETE})
+#
+#         office, checkout_status = None, order_status = None
+#         update_cart_or_checkout_status(
+#             office=office,
+#             checkout_status=m.OfficeCheckoutStatus.CHECKOUT_STATUS.COMPLETE,
+#         )
+#         return Response({"message": "Status updated successfully"})
