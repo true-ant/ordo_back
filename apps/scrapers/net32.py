@@ -1,5 +1,5 @@
 import asyncio
-from typing import List, Union
+from typing import Dict, List, Union
 
 from aiohttp import ClientResponse
 from django.utils.dateparse import parse_datetime
@@ -416,20 +416,21 @@ class Net32Scraper(Scraper):
                 shipping_address=shipping_address,
             )
 
-    async def create_order(self, products: List[CartProduct]) -> VendorOrderDetail:
+    async def create_order(self, products: List[CartProduct]) -> Dict[str, VendorOrderDetail]:
         await self.login()
         await self.clear_cart()
         await self.add_products_to_cart(products)
-        return await self.review_order()
+        vendor_order_detail = await self.review_order()
+        return {self.vendor["slug"]: vendor_order_detail}
 
     async def confirm_order(self, products: List[CartProduct]):
-        await self.create_order(products)
+        result = await self.create_order(products)
         async with self.session.post(
             "https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS
         ) as resp:
             response_dom = Selector(text=await resp.text())
             # order_id = response_dom.xpath("//h2[@class='checkout-confirmation-order-number-header']//a/text()").get()
-            return "order_id" or response_dom
+            return {**result, "order_id": "order_id" or response_dom}
 
     def _get_vendor_categories(self, response) -> List[ProductCategory]:
         return [

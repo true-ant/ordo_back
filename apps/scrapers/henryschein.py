@@ -11,7 +11,7 @@ from scrapy import Selector
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory
 from apps.scrapers.utils import catch_network
-from apps.types.orders import CartProduct, VendorCartProduct
+from apps.types.orders import CartProduct, VendorCartProduct, VendorOrderDetail
 from apps.types.scraper import LoginInformation, ProductSearch
 
 HEADERS = {
@@ -406,7 +406,7 @@ class HenryScheinScraper(Scraper):
 
     async def add_products_to_cart(self, products: List[CartProduct]) -> List[VendorCartProduct]:
         tasks = (self.add_product_to_cart(product) for product in products)
-        await asyncio.gather(*tasks)
+        return await asyncio.gather(*tasks, return_exceptions=True)
 
     async def add_product_to_cart(self, product: CartProduct) -> VendorCartProduct:
         params = {
@@ -497,7 +497,7 @@ class HenryScheinScraper(Scraper):
         headers = CHECKOUT_HEADER.copy()
         headers["referer"] = "https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx"
         async with self.session.post(
-            "https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx", headers=CHECKOUT_HEADER, data=data
+            "https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx", headers=headers, data=data
         ) as resp:
             return Selector(text=await resp.text())
 
@@ -554,7 +554,7 @@ class HenryScheinScraper(Scraper):
         }
 
         headers = CHECKOUT_HEADER.copy()
-        headers["referer"] = "https://www.henryschein.com/us-en/Checkout/BillingShipping.aspx?PaymentIndex=0"
+        headers["referer"] = "https://www.henryschein.com/us-en/Checkout/BillingShipping.aspx"
         async with self.session.post(
             "https://www.henryschein.com/us-en/Checkout/BillingShipping.aspx",
             headers=headers,
@@ -564,26 +564,26 @@ class HenryScheinScraper(Scraper):
             return Selector(text=await resp.text())
 
     async def review_order(self, review_checkout_dom):
-        subtotal = self.extract_first(
+        subtotal_amount = self.extract_first(
             review_checkout_dom,
             "//div[@id='ctl00_cphMainContentHarmony_divOrderSummarySubTotal']/strong//text()",
         )
-        tax = self.extract_first(
+        tax_amount = self.extract_first(
             review_checkout_dom, "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryTax']/strong//text()"
         )
-        shipping = self.extract_first(
+        shipping_amount = self.extract_first(
             review_checkout_dom, "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryShipping']/strong//text()"
         )
-        total = self.extract_first(
+        total_amount = self.extract_first(
             review_checkout_dom, "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryTotal']/strong//text()"
         )
-        saving = self.extract_first(
+        savings_amount = self.extract_first(
             review_checkout_dom, "//div[@id='ctl00_cphMainContentHarmony_divOrderSummarySaving']/strong//text()"
         )
-        shipping_method = self.extract_first(
-            review_checkout_dom,
-            "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryShippingMethod']/strong//text()",
-        )
+        # shipping_method = self.extract_first(
+        #     review_checkout_dom,
+        #     "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryShippingMethod']/strong//text()",
+        # )
         payment_method = self.extract_first(
             review_checkout_dom, "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryPaymentMethod']/strong//text()"
         )
@@ -592,11 +592,11 @@ class HenryScheinScraper(Scraper):
             "//section[contains(@class, 'order-details')]"
             "//section[contains(@class, 'half')]/div[@class='half'][1]//address/p/span[2]/text()",
         )
-        billing_address = self.merge_strip_values(
-            review_checkout_dom,
-            "//section[contains(@class, 'order-details')]"
-            "//section[contains(@class, 'half')]/div[@class='half'][2]//address/p/span[2]/text()",
-        )
+        # billing_address = self.merge_strip_values(
+        #     review_checkout_dom,
+        #     "//section[contains(@class, 'order-details')]"
+        #     "//section[contains(@class, 'half')]/div[@class='half'][2]//address/p/span[2]/text()",
+        # )
         headers = CHECKOUT_HEADER.copy()
         headers["referer"] = "https://www.henryschein.com/us-en/Checkout/OrderReview.aspx"
 
@@ -613,21 +613,19 @@ class HenryScheinScraper(Scraper):
             "dest": "",
         }
         data.update(self.get_checkout_products_sensitive_data(review_checkout_dom))
-        product_prices = self.get_product_checkout_prices(review_checkout_dom)
-        return {
-            "subtotal": subtotal,
-            "tax": tax,
-            "shipping": shipping,
-            "total": total,
-            "saving": saving,
-            "shipping_method": shipping_method,
-            "payment_method": payment_method,
-            "shipping_address": shipping_address,
-            "billing_address": billing_address,
-            "product_prices": product_prices,
-        }
+        # product_prices = self.get_product_checkout_prices(review_checkout_dom)
+        return VendorOrderDetail(
+            retail_amount=Decimal(0),
+            savings_amount=savings_amount,
+            subtotal_amount=subtotal_amount,
+            shipping_amount=shipping_amount,
+            tax_amount=tax_amount,
+            total_amount=total_amount,
+            payment_method=payment_method,
+            shipping_address=shipping_address,
+        )
 
-    async def create_order(self, products: List[CartProduct]):
+    async def create_order(self, products: List[CartProduct]) -> Dict[str, VendorOrderDetail]:
         await self.login()
         await self.clear_cart()
         await self.add_products_to_cart(products)

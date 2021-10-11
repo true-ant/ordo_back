@@ -1,6 +1,6 @@
 import asyncio
 from http.cookies import SimpleCookie
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
@@ -8,7 +8,7 @@ from scrapy import Selector
 from apps.scrapers.errors import VendorAuthenticationFailed
 from apps.scrapers.schema import Product, ProductCategory
 from apps.scrapers.utils import catch_network
-from apps.types.orders import CartProduct, VendorCartProduct
+from apps.types.orders import CartProduct, VendorCartProduct, VendorOrderDetail
 from apps.types.scraper import LoginInformation, ProductSearch, VendorInformation
 
 
@@ -189,7 +189,7 @@ class Scraper:
     async def clear_cart(self):
         raise NotImplementedError("Vendor scraper must implement `clear_cart`")
 
-    async def create_order(self, products: List[CartProduct]):
+    async def create_order(self, products: List[CartProduct]) -> Dict[str, VendorOrderDetail]:
         raise NotImplementedError("Vendor scraper must implement `create_order`")
 
     async def confirm_order(self, products: List[CartProduct]):

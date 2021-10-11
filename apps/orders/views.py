@@ -516,24 +516,51 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         return Response(status=HTTP_204_NO_CONTENT)
 
     @sync_to_async
-    def _create_order(self, office_vendors, results, cart_products, data):
+    def _create_order(self, office_vendors, vendor_order_results, cart_products, data):
+        order_date = timezone.now()
         with transaction.atomic():
-            m.Order.objects.create(
+            order = m.Order.objects.create(
                 office_id=self.kwargs["office_pk"],
                 created_by=self.request.user,
+                order_date=order_date,
                 status="PENDING",
             )
-            # for office_vendor in office_vendors:
-            #     m.VendorOrder.objects.create(
-            #         order=order,
-            #         vendor=vendor,
-            #         vendor_order_id="vendor",
-            #         total_amount=1,
-            #         total_items=1,
-            #         currency="USD",
-            #         order_date=timezone.now()
-            #         status="PENDING"
-            #     )
+            total_amount = 0
+            total_items = 0
+
+            for office_vendor, vendor_order_result in zip(office_vendors, vendor_order_results):
+                if not isinstance(vendor_order_result, dict):
+                    continue
+
+                vendor = office_vendor.vendor
+                vendor_order_id = vendor_order_result.get("order_id", "")
+                vendor_total_amount = vendor_order_result.get("total_amount", 0)
+                total_amount += vendor_total_amount
+                vendor_order_products = cart_products.filter(product__vendor=vendor)
+                total_items += (vendor_total_items := vendor_order_products.count())
+                vendor_order = m.VendorOrder.objects.create(
+                    order=order,
+                    vendor=office_vendor.vendor,
+                    vendor_order_id=vendor_order_id,
+                    total_amount=vendor_total_amount,
+                    total_items=vendor_total_items,
+                    currency="USD",
+                    order_date=timezone.now(),
+                    status="PENDING",
+                )
+                objs = [
+                    m.VendorOrderProduct(
+                        vendor_order=vendor_order,
+                        product=vendor_order_product.product,
+                        quantity=vendor_order_product.quantity,
+                    )
+                    for vendor_order_product in vendor_order_products
+                ]
+                m.VendorOrderProduct.objects.bulk_create(objs)
+
+            order.total_amount = total_amount
+            order.total_items = total_items
+            order.save()
 
     @action(detail=False, url_path="checkout", methods=["get"], permission_classes=[p.OrderCheckoutPermission])
     async def checkout(self, request, *args, **kwargs):
@@ -572,6 +599,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                     )
                 )
             results = await asyncio.gather(*tasks, return_exceptions=True)
+
         except Exception as e:
             return Response({"message": f"{e}"}, status=HTTP_400_BAD_REQUEST)
 
@@ -632,7 +660,7 @@ class CheckoutUpdateStatusAPIView(APIView):
         serializer = s.OfficeCheckoutStatusUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        if office.checkout_status.user != request.user:
+        if office.checkout_status.checkout_status and office.checkout_status.user != request.user:
             return Response({"message": msgs.WAIT_UNTIL_ORDER_FINISH}, status=HTTP_400_BAD_REQUEST)
         else:
             update_cart_or_checkout_status(
