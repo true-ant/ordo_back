@@ -62,17 +62,17 @@ async def main():
                     "/articulating/articulating-paper-40-microns/3840072",
                     "quantity": 1,
                 },
-                {
-                    "product_id": "4434033",
-                    "product_url": "https://www.henryschein.com/us-en/dental/p/infection-control-products"
-                    "/protective-eyewear/visor-shield-kit-medium/4434033",
-                    "quantity": 1,
-                },
+                # {
+                #     "product_id": "4434033",
+                #     "product_url": "https://www.henryschein.com/us-en/dental/p/infection-control-products"
+                #     "/protective-eyewear/visor-shield-kit-medium/4434033",
+                #     "quantity": 1,
+                # },
                 {
                     "product_id": "5430231",
                     "product_url": "https://www.henryschein.com/us-en/dental/p/preventive"
                     "/toothbrushes/colgate-pj-masks-toothbrush/5430231",
-                    "quantity": 1,
+                    "quantity": 10,
                 },
             ],
         },

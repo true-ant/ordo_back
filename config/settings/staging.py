@@ -20,4 +20,7 @@ BROKER_TRANSPORT_OPTIONS = {
 }
 BROKER_URL = f"sqs://{AWS_ACCESS_KEY_ID}:{AWS_SECRET_ACCESS_KEY}@"  # noqa
 CELERY_BROKER_URL = BROKER_URL
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = [
+    "https://staging.joinordo.com",
+    "http://localhost:8080",
+]
