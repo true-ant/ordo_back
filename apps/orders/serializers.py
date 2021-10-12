@@ -142,13 +142,10 @@ class CartSerializer(serializers.ModelSerializer):
             vendor = product_data.pop("vendor")
             product_id = product_data.pop("product_id")
             images = product_data.pop("images", [])
-            try:
-                product = m.Product.objects.get(vendor=vendor, product_id=product_id)
-                for k, v in product_data.items():
-                    setattr(product, k, v)
-                product.save()
-            except m.Product.DoesNotExist:
-                product = m.Product.objects.create(vendor=vendor, product_id=product_id, **product_data)
+            product, created = m.Product.objects.get_or_create(
+                vendor=vendor, product_id=product_id, defaults=product_data
+            )
+            if created:
                 product_images_objs = []
                 for image in images:
                     product_images_objs.append(m.ProductImage(product=product, image=image))
@@ -163,3 +160,41 @@ class CartSerializer(serializers.ModelSerializer):
 
 class OfficeCheckoutStatusUpdateSerializer(serializers.Serializer):
     checkout_status = serializers.ChoiceField(choices=m.OfficeCheckoutStatus.CHECKOUT_STATUS.choices)
+
+
+class FavouriteProductSerializer(serializers.ModelSerializer):
+    product = ProductSerializer()
+    office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
+
+    class Meta:
+        model = m.FavouriteProduct
+        fields = "__all__"
+
+    def validate(self, attrs):
+        product_id = attrs["product"]["product_id"]
+        office = attrs["office"]
+        if m.FavouriteProduct.objects.filter(office=office, product__product_id=product_id).exists():
+            raise serializers.ValidationError({"message": "This product is already in your favourite"})
+        return attrs
+
+    def create(self, validated_data):
+        with transaction.atomic():
+            product_data = validated_data.pop("product")
+            vendor = product_data.pop("vendor")
+            product_id = product_data.pop("product_id")
+            images = product_data.pop("images", [])
+            product, created = m.Product.objects.get_or_create(
+                vendor=vendor, product_id=product_id, defaults=product_data
+            )
+
+            if created:
+                product_images_objs = []
+                for image in images:
+                    product_images_objs.append(m.ProductImage(product=product, image=image))
+                if images:
+                    m.ProductImage.objects.bulk_create(product_images_objs)
+
+            try:
+                return m.FavouriteProduct.objects.create(product=product, **validated_data)
+            except IntegrityError:
+                raise serializers.ValidationError({"message": "This product is already in your cart"})

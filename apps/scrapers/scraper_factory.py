@@ -57,10 +57,10 @@ async def main():
             },
             "products": [
                 {
-                    "product_id": "3840072",
+                    "product_id": "1019278",
                     "product_url": "https://www.henryschein.com/us-en/dental/p/restorative-cosmetic"
                     "/articulating/articulating-paper-40-microns/3840072",
-                    "quantity": 1,
+                    "quantity": 20,
                 },
                 # {
                 #     "product_id": "4434033",

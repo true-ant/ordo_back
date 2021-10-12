@@ -13,6 +13,7 @@ offices_router = NestedSimpleRouter(company_router, r"offices", lookup="office")
 offices_router.register(r"orders", v.OrderViewSet, basename="orders")
 offices_router.register(r"order-products", v.VendorOrderProductViewSet, basename="order-products")
 offices_router.register(r"carts", v.CartViewSet, basename="carts")
+offices_router.register(r"favorites", v.FavouriteProductViewSet, basename="favorites")
 
 urlpatterns = [
     path("", include(router.urls)),

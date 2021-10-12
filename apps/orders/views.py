@@ -14,6 +14,7 @@ from django.db.models import Case, Count, F, Q, Sum, Value, When
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.decorators import action
+from rest_framework.mixins import CreateModelMixin, DestroyModelMixin, ListModelMixin
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.status import (
@@ -22,7 +23,7 @@ from rest_framework.status import (
     HTTP_400_BAD_REQUEST,
 )
 from rest_framework.views import APIView
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.viewsets import GenericViewSet, ModelViewSet
 
 from apps.accounts.models import Company, CompanyMember, Office, OfficeVendor
 from apps.common import messages as msgs
@@ -669,3 +670,10 @@ class CheckoutUpdateStatusAPIView(APIView):
                 checkout_status=serializer.validated_data["checkout_status"],
             )
             return Response({"message": "Status updated successfully"})
+
+
+class FavouriteProductViewSet(CreateModelMixin, DestroyModelMixin, ListModelMixin, GenericViewSet):
+    permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
+    queryset = m.FavouriteProduct.objects.all()
+    serializer_class = s.FavouriteProductSerializer

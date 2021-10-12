@@ -195,3 +195,14 @@ class OfficeCheckoutStatus(TimeStampedModel):
         choices=CHECKOUT_STATUS.choices, default=CHECKOUT_STATUS.COMPLETE, max_length=16
     )
     order_status = models.CharField(choices=ORDER_STATUS.choices, default=ORDER_STATUS.COMPLETE, max_length=16)
+
+
+class FavouriteProduct(TimeStampedModel):
+    office = models.OneToOneField(Office, on_delete=models.CASCADE, related_name="favorite_products")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = [
+            "office",
+            "product",
+        ]
