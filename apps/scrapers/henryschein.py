@@ -505,7 +505,11 @@ class HenryScheinScraper(Scraper):
         async with self.session.post(
             "https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx", headers=headers, data=data
         ) as resp:
-            return Selector(text=await resp.text())
+            response_dom = Selector(text=await resp.text())
+            if len(response_dom.xpath("//div[@id='MessagePanel']/div[contains(@class, 'informational')]")):
+                return await self.checkout(products)
+            else:
+                return response_dom
 
     async def review_checkout(self, checkout_dom):
         data = {
