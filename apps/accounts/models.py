@@ -131,7 +131,7 @@ class OfficeBudget(TimeStampedModel):
 class OfficeVendor(models.Model):
     vendor = FlexibleForeignKey(Vendor)
     office = FlexibleForeignKey(Office)
-    username = models.CharField(max_length=100)
+    username = models.CharField(max_length=100, unique=True)
     password = models.CharField(max_length=100)
 
     class Meta:

@@ -3,7 +3,7 @@ import uuid
 
 import six
 from django.core.files.base import ContentFile
-from rest_framework.serializers import ImageField
+from rest_framework.serializers import ImageField, ValidationError
 
 
 class Base64ImageField(ImageField):
@@ -34,3 +34,9 @@ class Base64ImageField(ImageField):
         extension = "jpg" if extension == "jpeg" else extension
 
         return extension
+
+
+class PhoneNumberValidator:
+    def __call__(self, phone_number):
+        if not phone_number.isdigit():
+            raise ValidationError("Only digits are allowed")
