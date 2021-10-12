@@ -287,6 +287,8 @@ class HenryScheinScraper(Scraper):
         ) as resp:
             res = await resp.json()
             for product_price in res["ItemDataToPrice"]:
+                if product_price["InventoryStatus"] in ["Unavailable", "Error", "Discontinued", "Unknown"]:
+                    continue
                 product_prices[product_price["ProductId"]] = product_price["CustomerPrice"]
         return product_prices
 
@@ -336,15 +338,19 @@ class HenryScheinScraper(Scraper):
             "product_units": [product["product_unit"] for product in products],
         }
         product_prices = await self.get_product_prices([product["product_id"] for product in products], **kwargs)
+        res_products = []
         for product in products:
+            if product["product_id"] not in product_prices:
+                continue
             product["price"] = product_prices[product["product_id"]]
+            res_products.append(product)
 
         return {
             "vendor_slug": self.vendor["slug"],
             "total_size": total_size,
             "page": page,
             "page_size": page_size,
-            "products": [Product.from_dict(product) for product in products],
+            "products": [Product.from_dict(product) for product in res_products],
             "last_page": page_size * page >= total_size,
         }
 
