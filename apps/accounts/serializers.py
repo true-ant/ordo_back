@@ -1,3 +1,4 @@
+from celery.result import AsyncResult
 from creditcards.validators import CCNumberValidator, CSCValidator, ExpiryDateValidator
 from django.db import transaction
 from phonenumber_field.serializerfields import PhoneNumberField
@@ -6,6 +7,7 @@ from rest_framework import serializers
 from apps.common.serializers import Base64ImageField
 
 from . import models as m
+from .tasks import fetch_orders_from_vendor
 
 
 class CompanyMemberSerializer(serializers.ModelSerializer):
@@ -180,6 +182,7 @@ class OfficeVendorSerializer(serializers.ModelSerializer):
 
 class OfficeVendorListSerializer(serializers.ModelSerializer):
     vendor = VendorSerializer()
+    status = serializers.SerializerMethodField()
 
     class Meta:
         model = m.OfficeVendor
@@ -187,6 +190,12 @@ class OfficeVendorListSerializer(serializers.ModelSerializer):
             "office",
             "password",
         )
+
+    def get_status(self, instance):
+        if not instance.task_id:
+            return "SUCCESS"
+        ar: AsyncResult = fetch_orders_from_vendor.AsyncResult(instance.task_id)
+        return ar.status
 
 
 class UserSerializer(serializers.ModelSerializer):

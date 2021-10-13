@@ -182,6 +182,8 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
                 office = office_vendor.office
 
             save_order_to_db(office, office_vendor.vendor, order_data)
+            office_vendor.task_id = ""
+            office_vendor.save()
 
 
 @shared_task

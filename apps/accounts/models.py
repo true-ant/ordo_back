@@ -131,6 +131,7 @@ class OfficeVendor(models.Model):
     office = FlexibleForeignKey(Office)
     username = models.CharField(max_length=100, unique=True)
     password = models.CharField(max_length=100)
+    task_id = models.CharField(max_length=64, null=True, blank=True)
 
     class Meta:
         unique_together = ["office", "vendor"]

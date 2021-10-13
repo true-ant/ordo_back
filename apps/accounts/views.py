@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 from asgiref.sync import sync_to_async
+from celery.result import AsyncResult
 from django.apps import apps
 from django.db import transaction
 from django.db.utils import IntegrityError
@@ -279,6 +280,12 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
     def get_queryset(self):
         return m.OfficeVendor.objects.filter(office_id=self.kwargs["office_pk"])
 
+    def get_serializer_class(self):
+        if self.action == "list":
+            return s.OfficeVendorListSerializer
+        else:
+            return s.OfficeVendorSerializer
+
     @sync_to_async
     def _validate(self, data):
         office = get_object_or_404(m.Office, id=data["office"])
@@ -293,10 +300,6 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
         serializer.is_valid(raise_exception=True)
         return serializer
 
-    @sync_to_async
-    def _save(self, serializer):
-        return serializer.save()
-
     async def create(self, request, *args, **kwargs):
         serializer = await self._validate({**request.data, "office": kwargs["office_pk"]})
         session = apps.get_app_config("accounts").session
@@ -309,13 +312,16 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
                 session=session,
             )
             login_cookies = await scraper.login()
-            office_vendor = await self._save(serializer)
-            fetch_orders_from_vendor.delay(
+            office_vendor = await sync_to_async(serializer.save)()
+            ar: AsyncResult = fetch_orders_from_vendor.delay(
                 office_vendor_id=office_vendor.id,
                 login_cookies=login_cookies.output(),
                 # all scrapers work with login_cookies, but henryschein not working with login_cookies
                 perform_login=True,
             )
+            office_vendor.task_id = ar.id
+            await sync_to_async(office_vendor.save)()
+
         except VendorNotSupported:
             return Response(
                 {
@@ -333,8 +339,21 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
     @action(detail=True, methods=["post"], url_path="fetch")
     def fetch_orders(self, request, *args, **kwargs):
         instance = self.get_object()
-        fetch_orders_from_vendor.delay(office_vendor_id=instance.id, login_cookies=None, perform_login=True)
-        return Response({})
+        ar: AsyncResult = fetch_orders_from_vendor.delay(
+            office_vendor_id=instance.id, login_cookies=None, perform_login=True
+        )
+        instance.task_id = ar.id
+        instance.save()
+        return Response(s.OfficeVendorSerializer(instance).data)
+
+    @action(detail=True, methods=["get"], url_path="fetch-status")
+    def get_fetching_status(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if not instance.task_id:
+            return Response({"status": "SUCCESS", "message": "Fetching Orders has been finished"})
+
+        ar: AsyncResult = fetch_orders_from_vendor.AsyncResult(instance.task_id)
+        return Response({"status": ar.status})
 
 
 class UserViewSet(ModelViewSet):
