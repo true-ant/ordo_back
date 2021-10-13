@@ -383,8 +383,10 @@ class Net32Scraper(Scraper):
             retail_amount = self.remove_thousands_separator(
                 self.extract_first(res, "//table[@class='order-summary-subtotal-table']//tr[1]/td/text()")
             )
-            savings_amount = self.remove_thousands_separator(
-                self.extract_first(res, "//table[@class='order-summary-subtotal-table']//tr[2]/td/text()")
+            savings_amount = self.extract_price(
+                self.remove_thousands_separator(
+                    self.extract_first(res, "//table[@class='order-summary-subtotal-table']//tr[2]/td/text()")
+                )
             )
             subtotal_amount = self.remove_thousands_separator(
                 self.extract_first(res, "//table[@class='order-summary-subtotal-table']//tr[3]/td/text()")

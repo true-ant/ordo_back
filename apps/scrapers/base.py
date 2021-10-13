@@ -1,4 +1,5 @@
 import asyncio
+import re
 from http.cookies import SimpleCookie
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -47,6 +48,11 @@ class Scraper:
             return value.split("/")[-1]
         except (AttributeError, IndexError):
             pass
+
+    @staticmethod
+    def extract_price(value):
+        prices = re.findall("\\d+\\.\\d+", value)
+        return prices[0] if prices else None
 
     async def _get_check_login_state(self) -> Tuple[bool, dict]:
         return False, {}
