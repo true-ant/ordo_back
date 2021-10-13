@@ -21,10 +21,14 @@ class ProductCategorySerializer(serializers.ModelSerializer):
         office = self.context.get("office")
         vendors = self.context.get("vendors")
         if office:
-            vendor_order_products_queryset = m.VendorOrderProduct.objects.filter(
-                vendor_order__order__office=office,
-                product__category=instance,
-                is_deleted=False,
+            vendor_order_products_queryset = (
+                m.VendorOrderProduct.objects.filter(
+                    vendor_order__order__office=office,
+                    product__category=instance,
+                    is_deleted=False,
+                )
+                .order_by("product__product_id")
+                .distinct("product__product_id")
             )
             vendor_ids = set(vendor_order_products_queryset.values_list("vendor_order__vendor__id", flat=True))
             ret["vendors"] = [vendor.to_dict() for vendor in vendors if vendor.id in vendor_ids]
