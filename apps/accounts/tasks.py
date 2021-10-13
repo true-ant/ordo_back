@@ -130,20 +130,21 @@ def save_order_to_db(office, vendor, order_data):
         product, created = Product.objects.get_or_create(
             vendor=vendor, product_id=product_id, defaults=order_product_data["product"]
         )
-        if not created:
-            continue
+        if created:
+            for order_product_image in order_product_images:
+                ProductImage.objects.create(
+                    product=product,
+                    image=order_product_image["image"],
+                )
 
-        for order_product_image in order_product_images:
-            ProductImage.objects.create(
-                product=product,
-                image=order_product_image["image"],
-            )
-        VendorOrderProduct.objects.create(
+        VendorOrderProduct.objects.get_or_create(
             vendor_order=vendor_order,
             product=product,
-            quantity=order_product_data["quantity"],
-            unit_price=order_product_data["unit_price"],
-            status=order_product_data["status"],
+            defaults={
+                "quantity": order_product_data["quantity"],
+                "unit_price": order_product_data["unit_price"],
+                "status": order_product_data["status"],
+            },
         )
 
 
