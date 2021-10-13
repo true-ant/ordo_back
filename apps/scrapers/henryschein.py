@@ -626,13 +626,13 @@ class HenryScheinScraper(Scraper):
         # product_prices = self.get_product_checkout_prices(review_checkout_dom)
         return VendorOrderDetail(
             retail_amount=Decimal(0),
-            savings_amount=savings_amount,
-            subtotal_amount=subtotal_amount,
-            shipping_amount=shipping_amount,
-            tax_amount=tax_amount,
-            total_amount=total_amount,
-            payment_method=payment_method,
-            shipping_address=shipping_address,
+            savings_amount=savings_amount.strip("$") if isinstance(savings_amount, str) else savings_amount,
+            subtotal_amount=subtotal_amount.strip("$") if isinstance(subtotal_amount, str) else subtotal_amount,
+            shipping_amount=shipping_amount.strip("$") if isinstance(shipping_amount, str) else shipping_amount,
+            tax_amount=tax_amount.strip("$") if isinstance(tax_amount, str) else tax_amount,
+            total_amount=total_amount.strip("$") if isinstance(total_amount, str) else total_amount,
+            payment_method=payment_method.strip("$") if isinstance(payment_method, str) else payment_method,
+            shipping_address=shipping_address.strip("$") if isinstance(shipping_address, str) else shipping_address,
         )
 
     async def create_order(self, products: List[CartProduct]) -> Dict[str, VendorOrderDetail]:
