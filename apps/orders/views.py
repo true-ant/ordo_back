@@ -46,9 +46,6 @@ class OrderViewSet(ModelViewSet):
     pagination_class = StandardResultsSetPagination
     filterset_class = f.OrderFilter
 
-    def get_serializer_class(self):
-        return s.OrderListSerializer if self.action == "list" else self.serializer_class
-
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
         # queryset = (
