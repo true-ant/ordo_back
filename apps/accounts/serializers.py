@@ -1,10 +1,9 @@
 from creditcards.validators import CCNumberValidator, CSCValidator, ExpiryDateValidator
 from django.db import transaction
-
-# from phonenumber_field.serializerfields import PhoneNumberField
+from phonenumber_field.serializerfields import PhoneNumberField
 from rest_framework import serializers
 
-from apps.common.serializers import Base64ImageField, PhoneNumberValidator
+from apps.common.serializers import Base64ImageField
 
 from . import models as m
 
@@ -46,9 +45,9 @@ class OfficeSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
     company = serializers.PrimaryKeyRelatedField(queryset=m.Company.objects.all(), required=False)
     addresses = OfficeAddressSerializer(many=True, required=False)
-    phone_number = serializers.CharField(validators=[PhoneNumberValidator()])
     logo = Base64ImageField()
     vendors = VendorSerializer(many=True, required=False)
+    phone_number = PhoneNumberField()
     cc_number = serializers.CharField(validators=[CCNumberValidator()])
     cc_expiry = serializers.DateField(validators=[ExpiryDateValidator()], input_formats=["%m/%y"], format="%m/%y")
     cc_code = serializers.CharField(validators=[CSCValidator()])
@@ -84,8 +83,8 @@ class CompanySerializer(serializers.ModelSerializer):
             office = m.Office.objects.create(
                 company=company,
                 name=kwargs["name"],
-                phone_number=kwargs["phone_number"],
-                website=kwargs["website"],
+                phone_number=kwargs.get("phone_number"),
+                website=kwargs.get("website"),
             )
 
         for address in addresses:

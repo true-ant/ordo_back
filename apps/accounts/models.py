@@ -9,13 +9,11 @@ from django.db import models
 from django.utils import timezone
 from month import Month
 from month.models import MonthField
+from phonenumber_field.modelfields import PhoneNumberField
 
 from apps.accounts import managers
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
 from apps.common.utils import generate_token
-
-# from phonenumber_field.modelfields import PhoneNumberField
-
 
 INVITE_EXPIRES_DAYS = 7
 
@@ -72,8 +70,8 @@ class Office(TimeStampedModel):
 
     # Basic Information
     name = models.CharField(max_length=100)
-    phone_number = models.CharField(max_length=25, null=True, blank=True)
-    website = models.CharField(max_length=100, null=True, blank=True)
+    phone_number = PhoneNumberField(null=True, blank=True)
+    website = models.URLField(max_length=100, null=True, blank=True)
     logo = models.ImageField(null=True, blank=True, upload_to="offices")
     # Budget & Card Information
     cc_number = CardNumberField("Card Number", null=True, blank=True)

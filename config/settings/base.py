@@ -227,3 +227,7 @@ STATICFILES_STORAGE = "apps.common.storage_backends.StaticStorage"
 PUBLIC_MEDIA_LOCATION = "/media/"
 # MEDIA_URL = f"https://cdn.staging.joinordo.com/{PUBLIC_MEDIA_LOCATION}/"
 DEFAULT_FILE_STORAGE = "apps.common.storage_backends.PublicMediaStorage"
+
+# phone number field settings
+PHONENUMBER_DB_FORMAT = "NATIONAL"
+PHONENUMBER_DEFAULT_REGION = "US"
