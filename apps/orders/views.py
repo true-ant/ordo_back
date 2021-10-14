@@ -515,7 +515,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
     @sync_to_async
     def _create_order(self, office_vendors, vendor_order_results, cart_products, data):
-        order_date = timezone.now()
+        order_date = timezone.now().date()
         with transaction.atomic():
             order = m.Order.objects.create(
                 office_id=self.kwargs["office_pk"],
@@ -543,7 +543,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                     total_amount=vendor_total_amount,
                     total_items=vendor_total_items,
                     currency="USD",
-                    order_date=timezone.now(),
+                    order_date=order_date,
                     status="PENDING",
                 )
                 objs = [
@@ -551,6 +551,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                         vendor_order=vendor_order,
                         product=vendor_order_product.product,
                         quantity=vendor_order_product.quantity,
+                        unit_price=vendor_order_product.unit_price,
                     )
                     for vendor_order_product in vendor_order_products
                 ]
@@ -559,6 +560,16 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             order.total_amount = total_amount
             order.total_items = total_items
             order.save()
+
+            update_cart_or_checkout_status(
+                office=office_vendors[0].office,
+                user=self.request.user,
+                checkout_status=m.OfficeCheckoutStatus.CHECKOUT_STATUS.COMPLETE,
+                order_status=m.OfficeCheckoutStatus.ORDER_STATUS.COMPLETE,
+            )
+
+        cart_products.delete()
+        return s.OrderSerializer(order).data
 
     @action(detail=False, url_path="checkout", methods=["get"], permission_classes=[p.OrderCheckoutPermission])
     async def checkout(self, request, *args, **kwargs):
@@ -577,6 +588,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             user=request.user,
             checkout_status=m.OfficeCheckoutStatus.CHECKOUT_STATUS.IN_PROGRESS,
         )
+        ret = {}
         try:
             session = apps.get_app_config("accounts").session
             tasks = []
@@ -597,15 +609,16 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                     )
                 )
             results = await asyncio.gather(*tasks, return_exceptions=True)
-
+            for result in results:
+                ret.update(result)
         except Exception as e:
             return Response({"message": f"{e}"}, status=HTTP_400_BAD_REQUEST)
 
-        return Response(results)
+        return Response(ret)
 
     @action(detail=False, url_path="confirm-order", methods=["post"], permission_classes=[p.OrderCheckoutPermission])
     async def confirm_order(self, request, *args, **kwargs):
-        data = request.data
+        data = request.data["data"]
         cart_products, office_vendors = await sync_to_async(get_cart)(office_pk=self.kwargs["office_pk"])
 
         if not cart_products:
@@ -615,23 +628,27 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         tasks = []
         for office_vendor in office_vendors:
             vendor_data = office_vendor.vendor.to_dict()
-            vendor_slug = vendor_data["slug"]
+            # vendor_slug = vendor_data["slug"]
             scraper = ScraperFactory.create_scraper(
                 vendor=vendor_data,
                 session=session,
                 username=office_vendor.username,
                 password=office_vendor.password,
             )
-            tasks.append(scraper.confirm_order(data[vendor_slug]))
+
+            tasks.append(
+                scraper.confirm_order(
+                    [
+                        CartProduct(product_id=cart_product.product.product_id, quantity=cart_product.quantity)
+                        for cart_product in cart_products
+                        if cart_product.product.vendor.id == office_vendor.vendor.id
+                    ]
+                )
+            )
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        self._create_order(office_vendors, results, cart_products, data)
-        await sync_to_async(update_cart_or_checkout_status)(
-            office_vendors=office_vendors,
-            user=request.user,
-            checkout_status=m.OfficeCheckoutStatus.CHECKOUT_STATUS.COMPLETE,
-            order_status=m.OfficeCheckoutStatus.ORDER_STATUS.COMPLETE,
-        )
+        order_data = await self._create_order(office_vendors, results, cart_products, data)
+        return Response(order_data)
 
 
 class CheckoutAvailabilityAPIView(APIView):

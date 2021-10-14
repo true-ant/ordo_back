@@ -18,14 +18,3 @@ class CartProduct(TypedDict):
 class VendorCartProduct(TypedDict):
     product_id: Union[str, int]
     unit_price: PriceType
-
-
-class VendorOrderDetail(TypedDict):
-    retail_amount: PriceType
-    savings_amount: PriceType
-    subtotal_amount: PriceType
-    shipping_amount: PriceType
-    tax_amount: PriceType
-    total_amount: PriceType
-    payment_method: str
-    shipping_address: str

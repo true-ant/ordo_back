@@ -7,9 +7,9 @@ from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
 
 from apps.scrapers.errors import VendorAuthenticationFailed
-from apps.scrapers.schema import Product, ProductCategory
+from apps.scrapers.schema import Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network
-from apps.types.orders import CartProduct, VendorCartProduct, VendorOrderDetail
+from apps.types.orders import CartProduct, VendorCartProduct
 from apps.types.scraper import LoginInformation, ProductSearch, VendorInformation
 
 

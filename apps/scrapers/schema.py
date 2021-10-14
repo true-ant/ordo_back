@@ -114,3 +114,15 @@ class Order(BaseDataClass):
         ret = super().to_dict()
         ret["total_items"] = len(self.products)
         return ret
+
+
+@dataclass(frozen=True)
+class VendorOrderDetail(BaseDataClass):
+    retail_amount: Decimal
+    savings_amount: Decimal
+    subtotal_amount: Decimal
+    shipping_amount: Decimal
+    tax_amount: Decimal
+    total_amount: Decimal
+    payment_method: str
+    shipping_address: str

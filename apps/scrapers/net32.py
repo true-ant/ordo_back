@@ -7,9 +7,9 @@ from scrapy import Selector
 
 from apps.scrapers.base import Scraper
 from apps.scrapers.errors import OrderFetchException
-from apps.scrapers.schema import Order, Product, ProductCategory
+from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network
-from apps.types.orders import CartProduct, VendorOrderDetail
+from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation, ProductSearch
 
 HEADERS = {
@@ -407,15 +407,17 @@ class Net32Scraper(Scraper):
             payment_method = self.merge_strip_values(res, "//dl[@id='order-details-payment']/dd[1]/strong//text()")
             shipping_address = self.extract_first(res, "//dl[@id='order-details-shipping']/dd[2]/text()")
 
-            return VendorOrderDetail(
-                retail_amount=retail_amount,
-                savings_amount=savings_amount,
-                subtotal_amount=subtotal_amount,
-                shipping_amount=shipping_amount,
-                tax_amount=tax_amount,
-                total_amount=total_amount,
-                payment_method=payment_method,
-                shipping_address=shipping_address,
+            return VendorOrderDetail.from_dict(
+                {
+                    "retail_amount": retail_amount,
+                    "savings_amount": savings_amount,
+                    "subtotal_amount": subtotal_amount,
+                    "shipping_amount": shipping_amount,
+                    "tax_amount": tax_amount,
+                    "total_amount": total_amount,
+                    "payment_method": payment_method,
+                    "shipping_address": shipping_address,
+                }
             )
 
     async def create_order(self, products: List[CartProduct]) -> Dict[str, VendorOrderDetail]:
@@ -423,16 +425,16 @@ class Net32Scraper(Scraper):
         await self.clear_cart()
         await self.add_products_to_cart(products)
         vendor_order_detail = await self.review_order()
-        return {self.vendor["slug"]: vendor_order_detail}
+        return {self.vendor["slug"]: vendor_order_detail.to_dict()}
 
     async def confirm_order(self, products: List[CartProduct]):
         result = await self.create_order(products)
-        async with self.session.post(
-            "https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS
-        ) as resp:
-            response_dom = Selector(text=await resp.text())
-            # order_id = response_dom.xpath("//h2[@class='checkout-confirmation-order-number-header']//a/text()").get()
-            return {**result, "order_id": "order_id" or response_dom}
+        # async with self.session.post(
+        #     "https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS
+        # ) as resp:
+        #     response_dom = Selector(text=await resp.text())
+        #     # order_id = response_dom.xpath("//h2[@class='checkout-confirmation-order-number-header']//a/text()").get()
+        return {**result[self.vendor["slug"]], "order_id": "order_id"}
 
     def _get_vendor_categories(self, response) -> List[ProductCategory]:
         return [

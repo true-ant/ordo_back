@@ -9,9 +9,9 @@ from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
-from apps.scrapers.schema import Order, Product, ProductCategory
+from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network
-from apps.types.orders import CartProduct, VendorCartProduct, VendorOrderDetail
+from apps.types.orders import CartProduct, VendorCartProduct
 from apps.types.scraper import LoginInformation, ProductSearch
 
 HEADERS = {
@@ -624,15 +624,17 @@ class HenryScheinScraper(Scraper):
         }
         data.update(self.get_checkout_products_sensitive_data(review_checkout_dom))
         # product_prices = self.get_product_checkout_prices(review_checkout_dom)
-        return VendorOrderDetail(
-            retail_amount=Decimal(0),
-            savings_amount=savings_amount.strip("$") if isinstance(savings_amount, str) else savings_amount,
-            subtotal_amount=subtotal_amount.strip("$") if isinstance(subtotal_amount, str) else subtotal_amount,
-            shipping_amount=shipping_amount.strip("$") if isinstance(shipping_amount, str) else shipping_amount,
-            tax_amount=tax_amount.strip("$") if isinstance(tax_amount, str) else tax_amount,
-            total_amount=total_amount.strip("$") if isinstance(total_amount, str) else total_amount,
-            payment_method=payment_method.strip("$") if isinstance(payment_method, str) else payment_method,
-            shipping_address=shipping_address.strip("$") if isinstance(shipping_address, str) else shipping_address,
+        return VendorOrderDetail.from_dict(
+            {
+                "retail_amount": 0,
+                "savings_amount": savings_amount.strip("$") if isinstance(savings_amount, str) else savings_amount,
+                "subtotal_amount": subtotal_amount.strip("$") if isinstance(subtotal_amount, str) else subtotal_amount,
+                "shipping_amount": shipping_amount.strip("$") if isinstance(shipping_amount, str) else shipping_amount,
+                "tax_amount": tax_amount.strip("$") if isinstance(tax_amount, str) else tax_amount,
+                "total_amount": total_amount.strip("$") if isinstance(total_amount, str) else total_amount,
+                "payment_method": payment_method,
+                "shipping_address": shipping_address,
+            }
         )
 
     async def create_order(self, products: List[CartProduct]) -> Dict[str, VendorOrderDetail]:
@@ -641,10 +643,14 @@ class HenryScheinScraper(Scraper):
         await self.add_products_to_cart(products)
         checkout_dom = await self.checkout(products)
         review_checkout_dom = await self.review_checkout(checkout_dom)
-        return {self.vendor["slug"]: await self.review_order(review_checkout_dom)}
+        vendor_order_detail = await self.review_order(review_checkout_dom)
+        return {
+            self.vendor["slug"]: vendor_order_detail.to_dict(),
+        }
 
     async def confirm_order(self, products: List[CartProduct]):
-        pass
+        result = await self.create_order(products)
+        return {**result[self.vendor["slug"]], "order_id": "order_id"}
 
         # headers = CHECKOUT_HEADER.copy()
         # headers["referer"] = "https://www.henryschein.com/us-en/Checkout/OrderReview.aspx"
