@@ -137,17 +137,16 @@ class VendorOrderProductViewSet(ModelViewSet):
 
     def get_queryset(self):
         category_ordering = self.request.query_params.get("category_ordering")
-        queryset = (
+        return (
             super()
             .get_queryset()
             .filter(Q(vendor_order__order__office__id=self.kwargs["office_pk"]) & Q(is_deleted=False))
-            .order_by("product__category__slug")
-        )
-        if category_ordering:
-            queryset = queryset.annotate(
+            .annotate(
                 category_order=Case(When(product__category__slug=category_ordering, then=Value(0)), default=Value(1))
-            ).order_by("category_order", "product__category__slug")
-        return queryset.order_by("product__product_id").distinct("product__product_id")
+            )
+            .order_by("category_order", "product__category__slug", "product__product_id")
+            .distinct("category_order", "product__category__slug", "product__product_id")
+        )
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
