@@ -4,7 +4,7 @@ from django.db import transaction
 from phonenumber_field.serializerfields import PhoneNumberField
 from rest_framework import serializers
 
-from apps.common.serializers import Base64ImageField
+from apps.common.serializers import Base64ImageField, OptionalSchemeURLValidator
 
 from . import models as m
 from .tasks import fetch_orders_from_vendor
@@ -50,6 +50,7 @@ class OfficeSerializer(serializers.ModelSerializer):
     logo = Base64ImageField()
     vendors = VendorSerializer(many=True, required=False)
     phone_number = PhoneNumberField()
+    website = serializers.CharField(validators=[OptionalSchemeURLValidator()])
     cc_number = serializers.CharField(validators=[CCNumberValidator()])
     cc_expiry = serializers.DateField(validators=[ExpiryDateValidator()], input_formats=["%m/%y"], format="%m/%y")
     cc_code = serializers.CharField(validators=[CSCValidator()])

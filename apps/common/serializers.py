@@ -3,6 +3,7 @@ import uuid
 
 import six
 from django.core.files.base import ContentFile
+from django.core.validators import URLValidator
 from rest_framework.serializers import ImageField, ValidationError
 
 
@@ -40,3 +41,10 @@ class PhoneNumberValidator:
     def __call__(self, phone_number):
         if not phone_number.isdigit():
             raise ValidationError("Only digits are allowed")
+
+
+class OptionalSchemeURLValidator(URLValidator):
+    def __call__(self, value):
+        if "://" not in value:
+            value = f"https://{value}"
+        super(OptionalSchemeURLValidator, self).__call__(value)
