@@ -129,12 +129,15 @@ class OfficeBudget(TimeStampedModel):
 class OfficeVendor(models.Model):
     vendor = FlexibleForeignKey(Vendor)
     office = FlexibleForeignKey(Office)
-    username = models.CharField(max_length=100, unique=True)
+    username = models.CharField(max_length=100)
     password = models.CharField(max_length=100)
     task_id = models.CharField(max_length=64, null=True, blank=True)
 
     class Meta:
-        unique_together = ["office", "vendor"]
+        unique_together = [
+            ["office", "vendor"],
+            ["vendor", "username"],
+        ]
 
 
 def default_expires_at():
