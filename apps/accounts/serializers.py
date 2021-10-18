@@ -30,11 +30,15 @@ class VendorSerializer(serializers.ModelSerializer):
 
 class OfficeBudgetSerializer(serializers.ModelSerializer):
     office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), required=False)
-    spend = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    # spend = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    remaining_budget = serializers.SerializerMethodField()
 
     class Meta:
         model = m.OfficeBudget
         exclude = ("created_at", "updated_at")
+
+    def get_remaining_budget(self, instance):
+        return instance.budget - instance.spend
 
 
 class OfficeAddressSerializer(serializers.ModelSerializer):
