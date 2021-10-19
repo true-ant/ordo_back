@@ -429,12 +429,12 @@ class Net32Scraper(Scraper):
 
     async def confirm_order(self, products: List[CartProduct]):
         result = await self.create_order(products)
-        # async with self.session.post(
-        #     "https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS
-        # ) as resp:
-        #     response_dom = Selector(text=await resp.text())
-        #     # order_id = response_dom.xpath("//h2[@class='checkout-confirmation-order-number-header']//a/text()").get()
-        return {**result[self.vendor["slug"]], "order_id": "order_id"}
+        async with self.session.post(
+            "https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS
+        ) as resp:
+            response_dom = Selector(text=await resp.text())
+            order_id = response_dom.xpath("//h2[@class='checkout-confirmation-order-number-header']//a/text()").get()
+        return {**result[self.vendor["slug"]], "order_id": order_id}
 
     def _get_vendor_categories(self, response) -> List[ProductCategory]:
         return [

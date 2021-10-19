@@ -607,22 +607,6 @@ class HenryScheinScraper(Scraper):
         #     "//section[contains(@class, 'order-details')]"
         #     "//section[contains(@class, 'half')]/div[@class='half'][2]//address/p/span[2]/text()",
         # )
-        headers = CHECKOUT_HEADER.copy()
-        headers["referer"] = "https://www.henryschein.com/us-en/Checkout/OrderReview.aspx"
-
-        data = {
-            "ctl00_ScriptManager_TSM": ";;System.Web.Extensions, Version=4.0.0.0, Culture=neutral, "
-            "PublicKeyToken=31bf3856ad364e35:en-US:f319b152-218f-4c14-829d-050a68bb1a61:ea597d4b:b25378d2",
-            "__EVENTTARGET": "ctl00$cphMainContentHarmony$lnkNextShop",
-            "__EVENTARGUMENT": "",
-            "__VIEWSTATE": review_checkout_dom.xpath("//input[@name='__VIEWSTATE']/@value").get(),
-            "__VIEWSTATEGENERATOR": review_checkout_dom.xpath("//input[@name='__VIEWSTATEGENERATOR']/@value").get(),
-            "ctl00_cpAsideMenu_AsideMenu_SideMenuControl1000txtItemCodeId": "",
-            "ctl00_cpAsideMenu_AsideMenu_SideMenuControl1000txtItemQtyId": "",
-            "layout": "on",
-            "dest": "",
-        }
-        data.update(self.get_checkout_products_sensitive_data(review_checkout_dom))
         # product_prices = self.get_product_checkout_prices(review_checkout_dom)
         return VendorOrderDetail.from_dict(
             {
@@ -649,18 +633,35 @@ class HenryScheinScraper(Scraper):
         }
 
     async def confirm_order(self, products: List[CartProduct]):
-        result = await self.create_order(products)
-        return {**result[self.vendor["slug"]], "order_id": "order_id"}
+        await self.login()
+        await self.clear_cart()
+        await self.add_products_to_cart(products)
+        checkout_dom = await self.checkout(products)
+        review_checkout_dom = await self.review_checkout(checkout_dom)
+        vendor_order_detail = await self.review_order(review_checkout_dom)
 
-        # headers = CHECKOUT_HEADER.copy()
-        # headers["referer"] = "https://www.henryschein.com/us-en/Checkout/OrderReview.aspx"
-        # async with self.session.post(
-        #     'https://www.henryschein.com/us-en/Checkout/OrderReview.aspx',
-        #     headers=headers,
-        #     data=data
-        # ) as resp:
-        #     response = await resp.text()
-        #     res_data = response.split("dataLayer.push(", 1)[1].split(");")[0]
-        #     res_data = res_data.replace("'", '"')
-        #     res_data = json.loads(res_data)
-        #     return res_data
+        headers = CHECKOUT_HEADER.copy()
+        headers["referer"] = "https://www.henryschein.com/us-en/Checkout/OrderReview.aspx"
+
+        data = {
+            "ctl00_ScriptManager_TSM": ";;System.Web.Extensions, Version=4.0.0.0, Culture=neutral, "
+            "PublicKeyToken=31bf3856ad364e35:en-US:f319b152-218f-4c14-829d-050a68bb1a61:ea597d4b:b25378d2",
+            "__EVENTTARGET": "ctl00$cphMainContentHarmony$lnkNextShop",
+            "__EVENTARGUMENT": "",
+            "__VIEWSTATE": review_checkout_dom.xpath("//input[@name='__VIEWSTATE']/@value").get(),
+            "__VIEWSTATEGENERATOR": review_checkout_dom.xpath("//input[@name='__VIEWSTATEGENERATOR']/@value").get(),
+            "ctl00_cpAsideMenu_AsideMenu_SideMenuControl1000txtItemCodeId": "",
+            "ctl00_cpAsideMenu_AsideMenu_SideMenuControl1000txtItemQtyId": "",
+            "layout": "on",
+            "dest": "",
+        }
+        data.update(self.get_checkout_products_sensitive_data(review_checkout_dom))
+
+        async with self.session.post(
+            "https://www.henryschein.com/us-en/Checkout/OrderReview.aspx", headers=headers, data=data
+        ) as resp:
+            response = await resp.text()
+            res_data = response.split("dataLayer.push(", 1)[1].split(");")[0]
+            res_data = res_data.replace("'", '"')
+            res_data = json.loads(res_data)
+            return {**vendor_order_detail.to_dict(), "order_id": res_data["purchase"]["actionField"]["id"]}
