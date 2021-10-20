@@ -424,6 +424,11 @@ def save_serailizer(serializer):
     return serializer.data
 
 
+def get_serializer_data(serializer_class, data, many=True):
+    serializer = serializer_class(data, many=True)
+    return serializer.data
+
+
 class CartViewSet(AsyncMixin, ModelViewSet):
     permission_classes = [IsAuthenticated]
     model = m.Cart
@@ -613,7 +618,8 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         except Exception as e:
             return Response({"message": f"{e}"}, status=HTTP_400_BAD_REQUEST)
 
-        return Response(ret)
+        products = get_serializer_data(s.CartSerializer, cart_products, many=True)
+        return Response({"products": products, "order_details": ret})
 
     @action(detail=False, url_path="confirm-order", methods=["post"], permission_classes=[p.OrderCheckoutPermission])
     async def confirm_order(self, request, *args, **kwargs):

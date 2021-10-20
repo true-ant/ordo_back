@@ -423,7 +423,7 @@ class Net32Scraper(Scraper):
     async def create_order(self, products: List[CartProduct]) -> Dict[str, VendorOrderDetail]:
         await self.login()
         await self.clear_cart()
-        await self.add_products_to_cart(products)
+        cart_products = await self.add_products_to_cart(products)
         vendor_order_detail = await self.review_order()
         return {
             self.vendor["slug"]: {

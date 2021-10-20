@@ -638,7 +638,7 @@ class HenryScheinScraper(Scraper):
     async def confirm_order(self, products: List[CartProduct]):
         await self.login()
         await self.clear_cart()
-        await self.add_products_to_cart(products)
+        cart_products = await self.add_products_to_cart(products)
         checkout_dom = await self.checkout(products)
         review_checkout_dom = await self.review_checkout(checkout_dom)
         vendor_order_detail = await self.review_order(review_checkout_dom)
