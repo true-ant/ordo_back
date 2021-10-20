@@ -629,7 +629,10 @@ class HenryScheinScraper(Scraper):
         review_checkout_dom = await self.review_checkout(checkout_dom)
         vendor_order_detail = await self.review_order(review_checkout_dom)
         return {
-            self.vendor["slug"]: vendor_order_detail.to_dict(),
+            self.vendor["slug"]: {
+                **vendor_order_detail.to_dict(),
+                **self.vendor,
+            },
         }
 
     async def confirm_order(self, products: List[CartProduct]):
