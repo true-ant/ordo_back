@@ -511,7 +511,7 @@ class BencoScraper(Scraper):
             "prodNum": product["product_id"],
         }
         async with self.session.post(
-            "https://shop.benco.com/Cart/AddQOEItem", headers=ADD_CART_HEADERS, data=data
+            "https://shop.benco.com/Cart/AddQOEItem", headers=ADD_CART_HEADERS, data=data, ssl=self._ssl_context
         ) as resp:
             # text = await resp.text()
             # dom = Selector(text=text)
