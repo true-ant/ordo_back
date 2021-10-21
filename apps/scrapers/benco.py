@@ -518,7 +518,8 @@ class BencoScraper(Scraper):
             return {"product_id": product["product_id"], "unit_price": ""}
 
     async def add_products_to_cart(self, products: List[CartProduct]) -> List[VendorCartProduct]:
-        raise NotImplementedError("Vendor scraper must implement `add_products_to_cart`")
+        tasks = (self.add_product_to_cart(product) for product in products)
+        return await asyncio.gather(*tasks, return_exceptions=True)
 
     async def remove_product_from_cart(self, product_id: Union[str, int], use_bulk: bool = True):
         raise NotImplementedError("Vendor scraper must implement `remove_product_from_cart`")
