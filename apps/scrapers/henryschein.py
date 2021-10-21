@@ -638,7 +638,7 @@ class HenryScheinScraper(Scraper):
     async def confirm_order(self, products: List[CartProduct]):
         await self.login()
         await self.clear_cart()
-        cart_products = await self.add_products_to_cart(products)
+        await self.add_products_to_cart(products)
         checkout_dom = await self.checkout(products)
         review_checkout_dom = await self.review_checkout(checkout_dom)
         vendor_order_detail = await self.review_order(review_checkout_dom)
@@ -667,4 +667,7 @@ class HenryScheinScraper(Scraper):
             res_data = response.split("dataLayer.push(", 1)[1].split(");")[0]
             res_data = res_data.replace("'", '"')
             res_data = json.loads(res_data)
-            return {**vendor_order_detail.to_dict(), "order_id": res_data["purchase"]["actionField"]["id"]}
+            return {
+                **vendor_order_detail.to_dict(),
+                "order_id": res_data["ecommerce"]["purchase"]["actionField"]["id"],
+            }
