@@ -531,7 +531,12 @@ class BencoScraper(Scraper):
                 "cartId": cart_id,
             }
 
-        await self.session.get("https://shop.benco.com/Cart/RemoveAllItems", headers=CLEAR_CART_HEADERS, params=params)
+        await self.session.get(
+            "https://shop.benco.com/Cart/RemoveAllItems",
+            headers=CLEAR_CART_HEADERS,
+            params=params,
+            ssl=self._ssl_context,
+        )
 
     async def create_order(self, products: List[CartProduct]) -> Dict[str, VendorOrderDetail]:
         raise NotImplementedError("Vendor scraper must implement `create_order`")
