@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 from typing import Dict, List, Union
 
 from aiohttp import ClientResponse
@@ -423,7 +424,7 @@ class Net32Scraper(Scraper):
     async def create_order(self, products: List[CartProduct]) -> Dict[str, VendorOrderDetail]:
         await self.login()
         await self.clear_cart()
-        cart_products = await self.add_products_to_cart(products)
+        await self.add_products_to_cart(products)
         vendor_order_detail = await self.review_order()
         return {
             self.vendor["slug"]: {
@@ -432,14 +433,19 @@ class Net32Scraper(Scraper):
             }
         }
 
-    async def confirm_order(self, products: List[CartProduct]):
+    async def confirm_order(self, products: List[CartProduct], fake=False):
         result = await self.create_order(products)
-        async with self.session.post(
-            "https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS
-        ) as resp:
-            response_dom = Selector(text=await resp.text())
-            order_id = response_dom.xpath("//h2[@class='checkout-confirmation-order-number-header']//a/text()").get()
-        return {**result[self.vendor["slug"]], "order_id": order_id}
+        if fake:
+            return {**result[self.vendor["slug"]], "order_id": f"{uuid.uuid4()}"}
+        else:
+            async with self.session.post(
+                "https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS
+            ) as resp:
+                response_dom = Selector(text=await resp.text())
+                order_id = response_dom.xpath(
+                    "//h2[@class='checkout-confirmation-order-number-header']//a/text()"
+                ).get()
+            return {**result[self.vendor["slug"]], "order_id": order_id}
 
     def _get_vendor_categories(self, response) -> List[ProductCategory]:
         return [

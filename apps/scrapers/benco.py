@@ -513,8 +513,8 @@ class BencoScraper(Scraper):
         async with self.session.post(
             "https://shop.benco.com/Cart/AddQOEItem", headers=ADD_CART_HEADERS, data=data
         ) as resp:
-            text = await resp.text()
-            dom = Selector(text=text)
+            # text = await resp.text()
+            # dom = Selector(text=text)
             return {"product_id": product["product_id"], "unit_price": ""}
 
     async def add_products_to_cart(self, products: List[CartProduct]) -> List[VendorCartProduct]:
@@ -536,5 +536,5 @@ class BencoScraper(Scraper):
     async def create_order(self, products: List[CartProduct]) -> Dict[str, VendorOrderDetail]:
         raise NotImplementedError("Vendor scraper must implement `create_order`")
 
-    async def confirm_order(self, products: List[CartProduct]):
+    async def confirm_order(self, products: List[CartProduct], fake=False):
         raise NotImplementedError("Vendor scraper must implement `confirm_order`")
