@@ -618,7 +618,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         except Exception as e:
             return Response({"message": f"{e}"}, status=HTTP_400_BAD_REQUEST)
 
-        products = get_serializer_data(s.CartSerializer, cart_products, many=True)
+        products = await sync_to_async(get_serializer_data)(s.CartSerializer, cart_products, many=True)
         return Response({"products": products, "order_details": ret})
 
     @action(detail=False, url_path="confirm-order", methods=["post"], permission_classes=[p.OrderCheckoutPermission])
