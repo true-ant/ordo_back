@@ -5,7 +5,7 @@ import os
 import ssl
 from decimal import Decimal
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, TypedDict, Union
 
 from aiohttp import ClientResponse
 from scrapy import Selector
@@ -138,6 +138,25 @@ ADD_CART_HEADERS = {
     "Referer": "https://shop.benco.com/Cart",
     "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
 }
+REMOVE_PRODUCT_CART_HEADERS = {
+    "Connection": "keep-alive",
+    "sec-ch-ua": '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
+    "sec-ch-ua-mobile": "?0",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36",
+    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+    "Accept": "*/*",
+    "X-Requested-With": "XMLHttpRequest",
+    "Request-Context": "appId=cid-v1:c74c9cb3-54a4-4cfa-b480-a6dc8f0d3cdc",
+    "Request-Id": "|/ZBP6.Z1DPB",
+    "sec-ch-ua-platform": '"Windows"',
+    "Origin": "https://shop.benco.com",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "empty",
+    "Referer": "https://shop.benco.com/Cart",
+    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
+}
 CLEAR_CART_HEADERS = {
     "Connection": "keep-alive",
     "sec-ch-ua": '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
@@ -155,6 +174,36 @@ CLEAR_CART_HEADERS = {
     "Referer": "https://shop.benco.com/Cart",
     "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
 }
+CREATE_ORDER_HEADERS = {
+    "Connection": "keep-alive",
+    "Cache-Control": "max-age=0",
+    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    "Upgrade-Insecure-Requests": "1",
+    "Origin": "https://shop.benco.com",
+    "Content-Type": "application/x-www-form-urlencoded",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
+    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-User": "?1",
+    "Sec-Fetch-Dest": "document",
+    "Referer": "https://shop.benco.com/ProductReminder",
+    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
+}
+
+
+class CartProductDetail(TypedDict):
+    product_id: str
+    quantity: str
+    name: str
+    unit_price: Decimal
+    total_price: Decimal
+    item_id: str
+    token: str
 
 
 class BencoScraper(Scraper):
@@ -494,15 +543,47 @@ class BencoScraper(Scraper):
             for category in response.xpath("//div[@class='tab-header']/a")
         ]
 
-    async def add_product_to_cart(self, product: CartProduct) -> VendorCartProduct:
+    async def get_cart(self) -> Tuple[str, str, List[CartProductDetail]]:
         async with self.session.get("https://shop.benco.com/Cart", ssl=self._ssl_context) as resp:
             cart_page_dom = Selector(text=await resp.text())
+            cart_id = cart_page_dom.xpath("//table[@id='cart_items_table']//tbody//input[@name='cartId']/@value").get()
+            request_verification_token = cart_page_dom.xpath(
+                "//table[@id='cart_items_table']//tbody//input[@name='__RequestVerificationToken']/@value"
+            ).get()
 
-        cart_id = cart_page_dom.xpath("//table[@id='cart_items_table']//tbody//input[@name='cartId']/@value").get()
-        request_verification_token = cart_page_dom.xpath(
-            "//table[@id='cart_items_table']//tbody//input[@name='__RequestVerificationToken']/@value"
-        ).get()
+            products = []
+            for product_row in cart_page_dom.xpath("//table[@id='cart_items_table']/tbody[@class='cart-items']/tr"):
+                product_row_classes = product_row.xpath("./@class").get()
+                if not product_row_classes or "hidden" in product_row_classes:
+                    continue
 
+                product_id = product_row.xpath("./td[4]/a//text()").get()
+                quantity = product_row.xpath("./td[3]//input[@name='Quantity']//@value").get()
+                name = product_row.xpath("./td[5]/b//text()").get()
+                unit_price = product_row.xpath("./td[7]//text()").get()
+                total_price = product_row.xpath("./td[8]//text()").get()
+                item_id = (item_id := product_row.xpath(".//input[@name='ItemId']/@value").get()) and item_id.strip()
+                token = product_row.xpath(
+                    ".//form[contains(@action, 'UpdateItemQuantity')]/input[@name='__RequestVerificationToken']/@value"
+                ).get()
+
+                products.append(
+                    CartProductDetail(
+                        product_id=product_id,
+                        quantity=quantity,
+                        name=name,
+                        unit_price=unit_price,
+                        total_price=total_price,
+                        item_id=item_id,
+                        token=token,
+                    )
+                )
+
+            return cart_id, request_verification_token, products
+
+    async def _add_product_to_cart(
+        self, product: CartProduct, cart_id, request_verification_token
+    ) -> VendorCartProduct:
         data = {
             "__RequestVerificationToken": request_verification_token,
             "cartId": cart_id,
@@ -510,27 +591,48 @@ class BencoScraper(Scraper):
             "quantity": str(product["quantity"]),
             "prodNum": product["product_id"],
         }
-        async with self.session.post(
+        await self.session.post(
             "https://shop.benco.com/Cart/AddQOEItem", headers=ADD_CART_HEADERS, data=data, ssl=self._ssl_context
-        ) as resp:
-            # text = await resp.text()
-            # dom = Selector(text=text)
-            return {"product_id": product["product_id"], "unit_price": ""}
+        )
+
+    async def add_product_to_cart(self, product: CartProduct) -> VendorCartProduct:
+        cart_id, request_verification_token, _ = await self.get_cart()
+        await self._add_product_to_cart(product, cart_id, request_verification_token)
+        _, _, cart_products = await self.get_cart()
+        return [
+            VendorCartProduct(product_id=cart_product["product_id"], unit_price=cart_product["unit_price"])
+            for cart_product in cart_products
+            if product["product_id"] == product["product_id"]
+        ][0]
 
     async def add_products_to_cart(self, products: List[CartProduct]) -> List[VendorCartProduct]:
-        tasks = (self.add_product_to_cart(product) for product in products)
-        return await asyncio.gather(*tasks, return_exceptions=True)
+        cart_id, request_verification_token, _ = await self.get_cart()
+        tasks = (self._add_product_to_cart(product, cart_id, request_verification_token) for product in products)
+        await asyncio.gather(*tasks, return_exceptions=True)
+        _, _, cart_products = await self.get_cart()
+        return [
+            VendorCartProduct(product_id=cart_product["product_id"], unit_price=cart_product["unit_price"])
+            for cart_product in cart_products
+        ]
 
     async def remove_product_from_cart(self, product_id: Union[str, int], use_bulk: bool = True):
-        raise NotImplementedError("Vendor scraper must implement `remove_product_from_cart`")
+        cart_id, request_verification_token, cart_products = await self.get_cart()
+        product = [cart_product for cart_product in cart_products if cart_product["product_id"] == product_id][0]
+
+        data = {"__RequestVerificationToken": product["token"], "ItemId": product["item_id"], "CartId": cart_id}
+
+        await self.session.post(
+            "https://shop.benco.com/Cart/RemoveItem",
+            headers=REMOVE_PRODUCT_CART_HEADERS,
+            data=data,
+            ssl=self._ssl_context,
+        )
 
     async def clear_cart(self):
-        async with self.session.get("https://shop.benco.com/Cart", ssl=self._ssl_context) as resp:
-            cart_page_dom = Selector(text=await resp.text())
-            cart_id = cart_page_dom.xpath("//table[@id='cart_items_table']//tbody//input[@name='cartId']/@value").get()
-            params = {
-                "cartId": cart_id,
-            }
+        cart_id, _, _ = await self.get_cart()
+        params = {
+            "cartId": cart_id,
+        }
 
         await self.session.get(
             "https://shop.benco.com/Cart/RemoveAllItems",
@@ -540,7 +642,55 @@ class BencoScraper(Scraper):
         )
 
     async def create_order(self, products: List[CartProduct]) -> Dict[str, VendorOrderDetail]:
-        raise NotImplementedError("Vendor scraper must implement `create_order`")
+        await self.login()
+        await self.clear_cart()
+        await self.add_products_to_cart(products)
+        cart_id, request_verification_token, cart_products = await self.get_cart()
+        data = {
+            "cartId": cart_id,
+            "__RequestVerificationToken": request_verification_token,
+        }
+
+        async with self.session.post(
+            "https://shop.benco.com/Checkout/BeginCheckout",
+            headers=CREATE_ORDER_HEADERS,
+            data=data,
+            ssl=self._ssl_context,
+        ) as resp:
+            text = await resp.text()
+            response_dom = Selector(text=text)
+
+        async with self.session.get(
+            f"https://shop.benco.com/Cart/TaxesAndFees/{cart_id}", ssl=self._ssl_context
+        ) as resp:
+            cart_status_dom = Selector(text=await resp.text())
+            # billing_address = self.merge_strip_values(response_dom, "//fieldset[contains(@class, 'bill-to')]/text()")
+            shipping_address = self.merge_strip_values(response_dom, "//fieldset[contains(@class, 'ship-to')]/text()")
+            # shipping_method = self.merge_strip_values(
+            #     response_dom, "//fieldset[contains(@class, 'shipping-method')]/text()"
+            # )
+            payment_method = self.merge_strip_values(
+                response_dom, "//fieldset[contains(@class, 'payment-method')]/text()"
+            )
+            subtotal_amount = self.extract_first(cart_status_dom, "//th[@id='item_subtotal_value']/p/text()")
+            shipping_amount = self.extract_first(cart_status_dom, "//tr[3]/td[last()]//text()")
+            tax_amount = self.extract_first(cart_status_dom, "//tr[4]/td[last()]//text()")
+            savings_amount = self.extract_first(cart_status_dom, "//tr[5]/td[last()]//text()")
+            total_amount = cart_status_dom.xpath("//tr[last()]/th[last()]/p/text()").get()
+
+        return {
+            self.vendor["slug"]: {
+                "retail_amount": "",
+                "savings_amount": savings_amount,
+                "subtotal_amount": subtotal_amount,
+                "shipping_amount": shipping_amount,
+                "tax_amount": tax_amount,
+                "total_amount": total_amount,
+                "payment_method": payment_method,
+                "shipping_address": shipping_address,
+                **self.vendor,
+            },
+        }
 
     async def confirm_order(self, products: List[CartProduct], fake=False):
         raise NotImplementedError("Vendor scraper must implement `confirm_order`")

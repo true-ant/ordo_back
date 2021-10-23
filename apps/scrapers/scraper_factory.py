@@ -43,7 +43,7 @@ class ScraperFactory:
 async def main():
 
     load_dotenv()
-    scraper_name = "henry_schein"
+    scraper_name = "benco"
     BASE_DATA = {
         "henry_schein": {
             "username": os.getenv("HENRY_SCHEIN_USERNAME"),
@@ -57,7 +57,7 @@ async def main():
             },
             "products": [
                 {
-                    "product_id": "1019278",
+                    "product_id": "3840072",
                     "product_url": "https://www.henryschein.com/us-en/dental/p/restorative-cosmetic"
                     "/articulating/articulating-paper-40-microns/3840072",
                     "quantity": 20,
@@ -68,12 +68,12 @@ async def main():
                 #     "/protective-eyewear/visor-shield-kit-medium/4434033",
                 #     "quantity": 1,
                 # },
-                {
-                    "product_id": "5430231",
-                    "product_url": "https://www.henryschein.com/us-en/dental/p/preventive"
-                    "/toothbrushes/colgate-pj-masks-toothbrush/5430231",
-                    "quantity": 10,
-                },
+                # {
+                #     "product_id": "5430231",
+                #     "product_url": "https://www.henryschein.com/us-en/dental/p/preventive"
+                #     "/toothbrushes/colgate-pj-masks-toothbrush/5430231",
+                #     "quantity": 10,
+                # },
             ],
         },
         "net_32": {
@@ -161,11 +161,13 @@ async def main():
                 {
                     "product_id": "2127-717",
                     "product_url": "https://shop.benco.com/Product/2127-717/turbosensor-ultrasonic-scaler",
+                    "quantity": 2,
                 },
                 {
                     "product_id": "2452-311",
                     "product_url": "https://shop.benco.com/Product/2452-311"
                     "/periosonic-multi-fluid-irrigator#product-detail-tab",
+                    "quantity": 3,
                 },
             ],
             "vendor": {
@@ -179,6 +181,13 @@ async def main():
     }
 
     scraper_data = BASE_DATA[scraper_name]
+    products = [
+        {
+            "product_id": product["product_id"],
+            "quantity": product["quantity"],
+        }
+        for product in scraper_data["products"]
+    ]
     async with ClientSession() as session:
         scraper = ScraperFactory.create_scraper(
             vendor=scraper_data["vendor"],
@@ -200,23 +209,14 @@ async def main():
         # results = await scraper.get_vendor_categories(perform_login=True)
 
         # await scraper.login()
-        # await scraper.remove_product_from_cart(
-        #     product_id=BASE_DATA[scraper_name]["products"][0]["product_id"], use_bulk=False
+        # results = await scraper.clear_cart()
+        # results = await scraper.add_product_to_cart(products[0])
+        # results = await scraper.remove_product_from_cart(
+        #     product_id=products[0]["product_id"], use_bulk=False
         # )
-        # results = await scraper.add_product_to_cart(
-        #     dict(
-        #         product_id=BASE_DATA[scraper_name]["products"][0]["product_id"],
-        #         quantity=BASE_DATA[scraper_name]["products"][0]["quantity"],
-        #     )
-        # )
+        # results = await scraper.add_products_to_cart(products)
+        # results = await scraper.clear_cart()
 
-        products = [
-            {
-                "product_id": product["product_id"],
-                "quantity": product["quantity"],
-            }
-            for product in BASE_DATA[scraper_name]["products"]
-        ]
         results = await scraper.create_order(products)
         print(results)
 
