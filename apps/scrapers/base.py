@@ -37,10 +37,13 @@ class Scraper:
 
     @staticmethod
     def remove_thousands_separator(value):
-        value = value.strip(" $")
-        value = value.replace(" ", "")
-        value = value.replace(",", "")
-        return value
+        try:
+            value = value.strip(" $")
+            value = value.replace(" ", "")
+            value = value.replace(",", "")
+            return value
+        except AttributeError:
+            return "0"
 
     @staticmethod
     def get_category_slug(value) -> Optional[str]:

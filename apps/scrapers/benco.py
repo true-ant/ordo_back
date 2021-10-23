@@ -3,6 +3,7 @@ import datetime
 import json
 import os
 import ssl
+import uuid
 from decimal import Decimal
 from pathlib import Path
 from typing import Dict, List, Tuple, TypedDict, Union
@@ -191,8 +192,27 @@ CREATE_ORDER_HEADERS = {
     "Sec-Fetch-Mode": "navigate",
     "Sec-Fetch-User": "?1",
     "Sec-Fetch-Dest": "document",
-    "Referer": "https://shop.benco.com/ProductReminder",
+    "Referer": "https://shop.benco.com/Cart",
     "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
+}
+CONFIRM_ORDER_HEADERS = {
+    "Connection": "keep-alive",
+    "Cache-Control": "max-age=0",
+    "sec-ch-ua": '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    "Upgrade-Insecure-Requests": "1",
+    "Origin": "https://shop.benco.com",
+    "Content-Type": "application/x-www-form-urlencoded",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
+    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-User": "?1",
+    "Sec-Fetch-Dest": "document",
+    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
 }
 
 
@@ -531,9 +551,6 @@ class BencoScraper(Scraper):
             "last_page": page_size * page >= total_size,
         }
 
-    async def checkout(self, products: List[CartProduct]):
-        pass
-
     def _get_vendor_categories(self, response) -> List[ProductCategory]:
         return [
             ProductCategory(
@@ -641,20 +658,16 @@ class BencoScraper(Scraper):
             ssl=self._ssl_context,
         )
 
-    async def create_order(self, products: List[CartProduct]) -> Dict[str, VendorOrderDetail]:
-        await self.login()
-        await self.clear_cart()
-        await self.add_products_to_cart(products)
+    async def checkout(self) -> Tuple[str, str, VendorOrderDetail]:
         cart_id, request_verification_token, cart_products = await self.get_cart()
-        data = {
+        params = {
             "cartId": cart_id,
-            "__RequestVerificationToken": request_verification_token,
         }
 
-        async with self.session.post(
+        async with self.session.get(
             "https://shop.benco.com/Checkout/BeginCheckout",
+            params=params,
             headers=CREATE_ORDER_HEADERS,
-            data=data,
             ssl=self._ssl_context,
         ) as resp:
             text = await resp.text()
@@ -672,25 +685,68 @@ class BencoScraper(Scraper):
             payment_method = self.merge_strip_values(
                 response_dom, "//fieldset[contains(@class, 'payment-method')]/text()"
             )
-            subtotal_amount = self.extract_first(cart_status_dom, "//th[@id='item_subtotal_value']/p/text()")
-            shipping_amount = self.extract_first(cart_status_dom, "//tr[3]/td[last()]//text()")
-            tax_amount = self.extract_first(cart_status_dom, "//tr[4]/td[last()]//text()")
-            savings_amount = self.extract_first(cart_status_dom, "//tr[5]/td[last()]//text()")
-            total_amount = cart_status_dom.xpath("//tr[last()]/th[last()]/p/text()").get()
+            subtotal_amount = self.remove_thousands_separator(
+                self.extract_first(cart_status_dom, "//th[@id='item_subtotal_value']/p/text()")
+            )
+            shipping_amount = self.remove_thousands_separator(
+                self.extract_first(cart_status_dom, "//tr[3]/td[last()]//text()")
+            )
+            tax_amount = self.remove_thousands_separator(
+                self.extract_first(cart_status_dom, "//tr[4]/td[last()]//text()")
+            )
+            savings_amount = self.remove_thousands_separator(
+                self.extract_first(cart_status_dom, "//tr[5]/td[last()]//text()")
+            )
+            total_amount = self.remove_thousands_separator(
+                self.extract_first(cart_status_dom, "//tr[last()]/th[last()]/p/text()")
+            )
+            return (
+                cart_id,
+                request_verification_token,
+                VendorOrderDetail(
+                    retail_amount=Decimal(0),
+                    savings_amount=Decimal(savings_amount),
+                    subtotal_amount=Decimal(subtotal_amount),
+                    shipping_amount=Decimal(shipping_amount),
+                    tax_amount=Decimal(tax_amount),
+                    total_amount=Decimal(total_amount),
+                    payment_method=payment_method,
+                    shipping_address=shipping_address,
+                ),
+            )
 
+    async def create_order(self, products: List[CartProduct]) -> Dict[str, VendorOrderDetail]:
+        await self.login()
+        await self.clear_cart()
+        await self.add_products_to_cart(products)
+        _, _, vendor_order_detail = await self.checkout()
         return {
             self.vendor["slug"]: {
-                "retail_amount": "",
-                "savings_amount": savings_amount,
-                "subtotal_amount": subtotal_amount,
-                "shipping_amount": shipping_amount,
-                "tax_amount": tax_amount,
-                "total_amount": total_amount,
-                "payment_method": payment_method,
-                "shipping_address": shipping_address,
+                **vendor_order_detail.to_dict(),
                 **self.vendor,
             },
         }
 
     async def confirm_order(self, products: List[CartProduct], fake=False):
-        raise NotImplementedError("Vendor scraper must implement `confirm_order`")
+        await self.login()
+        await self.clear_cart()
+        await self.add_products_to_cart(products)
+        cart_id, request_verification_token, vendor_order_detail = await self.checkout()
+        if fake:
+            return {
+                **vendor_order_detail.to_dict(),
+                "order_id": f"{uuid.uuid4()}",
+            }
+        else:
+            data = {"__RequestVerificationToken": request_verification_token}
+            headers = CONFIRM_ORDER_HEADERS.copy()
+            headers["Referer"] = f"https://shop.benco.com/Checkout/BeginCheckout?cartId={cart_id}"
+            async with self.session.post(
+                "https://shop.benco.com/Checkout/Confirm", headers=headers, data=data, ssl=self._ssl_context
+            ) as resp:
+                response_dom = Selector(text=await resp.text())
+                order_id = response_dom.xpath("//h4//span[@class='alt-dark-text']//text()").get()
+                return {
+                    **vendor_order_detail.to_dict(),
+                    "order_id": order_id,
+                }

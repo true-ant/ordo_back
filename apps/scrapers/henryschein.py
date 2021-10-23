@@ -34,7 +34,6 @@ HEADERS = {
     "referer": "https://www.henryschein.com/us-en/Profiles/Logout.aspx?redirdone=1",
     "accept-language": "en-US,en;q=0.9",
 }
-
 SEARCH_HEADERS = {
     "authority": "www.henryschein.com",
     "cache-control": "max-age=0",
@@ -52,7 +51,6 @@ SEARCH_HEADERS = {
     "sec-fetch-dest": "document",
     "accept-language": "en-US,en;q=0.9",
 }
-
 REMOVE_PRODUCT_FROM_CART_HEADERS = {
     "authority": "www.henryschein.com",
     "sec-ch-ua": '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
@@ -71,7 +69,6 @@ REMOVE_PRODUCT_FROM_CART_HEADERS = {
     "referer": "https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx",
     "accept-language": "en-US,en;q=0.9,ko;q=0.8",
 }
-
 CHECKOUT_HEADER = {
     "authority": "www.henryschein.com",
     "cache-control": "max-age=0",

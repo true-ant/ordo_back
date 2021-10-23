@@ -158,16 +158,22 @@ async def main():
             "username": os.getenv("BENCO_USERNAME"),
             "password": os.getenv("BENCO_PASSWORD"),
             "products": [
+                # {
+                #     "product_id": "2127-717",
+                #     "product_url": "https://shop.benco.com/Product/2127-717/turbosensor-ultrasonic-scaler",
+                #     "quantity": 2,
+                # },
+                # {
+                #     "product_id": "2452-311",
+                #     "product_url": "https://shop.benco.com/Product/2452-311"
+                #     "/periosonic-multi-fluid-irrigator#product-detail-tab",
+                #     "quantity": 3,
+                # },
                 {
-                    "product_id": "2127-717",
-                    "product_url": "https://shop.benco.com/Product/2127-717/turbosensor-ultrasonic-scaler",
-                    "quantity": 2,
-                },
-                {
-                    "product_id": "2452-311",
+                    "product_id": "4556-394",
                     "product_url": "https://shop.benco.com/Product/2452-311"
                     "/periosonic-multi-fluid-irrigator#product-detail-tab",
-                    "quantity": 3,
+                    "quantity": 1,
                 },
             ],
             "vendor": {
@@ -217,7 +223,7 @@ async def main():
         # results = await scraper.add_products_to_cart(products)
         # results = await scraper.clear_cart()
 
-        results = await scraper.create_order(products)
+        results = await scraper.confirm_order(products)
         print(results)
 
 
