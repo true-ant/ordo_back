@@ -1,3 +1,7 @@
+class VendorSiteError(Exception):
+    pass
+
+
 class VendorNotSupported(Exception):
     pass
 

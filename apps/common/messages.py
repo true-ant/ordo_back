@@ -21,6 +21,7 @@ NO_SEARCH_PRODUCT_RESULT = "No result"
 OFFICE_ID_MISSING = "Missing Office id"
 
 # Order
+VENDOR_SITE_ERROR = "Vendor Site might be down or something similar"
 CHECKOUT_IN_PROGRESS = "Another user is checking out an order for now. Please try it after some minutes"
 EMPTY_CART = "Cart is emtpy"
 CHECKOUT_COMPLETE = "Now you and other users can check out"

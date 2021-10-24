@@ -21,6 +21,7 @@ from rest_framework.status import (
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
+    HTTP_500_INTERNAL_SERVER_ERROR,
 )
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
@@ -29,7 +30,7 @@ from apps.accounts.models import Company, CompanyMember, Office, OfficeVendor
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
 from apps.common.pagination import StandardResultsSetPagination
-from apps.scrapers.errors import VendorNotSupported
+from apps.scrapers.errors import VendorNotSupported, VendorSiteError
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import CartProduct
 
@@ -447,8 +448,11 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             username=office_vendor.username,
             password=office_vendor.password,
         )
-        await scraper.login()
-        await scraper.remove_product_from_cart(product_id=product_id, use_bulk=False)
+        try:
+            await scraper.login()
+            await scraper.remove_product_from_cart(product_id=product_id, use_bulk=False)
+        except Exception:
+            raise VendorSiteError()
 
         if not serializer:
             return True
@@ -463,8 +467,13 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         else:
             quantity = serializer.validated_data["quantity"]
 
-        vendor_cart_product = await scraper.add_product_to_cart(CartProduct(product_id=product_id, quantity=quantity))
-        serializer.validated_data["unit_price"] = vendor_cart_product["unit_price"]
+        try:
+            vendor_cart_product = await scraper.add_product_to_cart(
+                CartProduct(product_id=product_id, quantity=quantity)
+            )
+            serializer.validated_data["unit_price"] = vendor_cart_product["unit_price"]
+        except Exception:
+            raise VendorSiteError()
 
     async def create(self, request, *args, **kwargs):
         data = request.data
@@ -478,11 +487,14 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         await sync_to_async(serializer.is_valid)(raise_exception=True)
         product_id = serializer.validated_data["product"]["product_id"]
         vendor = serializer.validated_data["product"]["vendor"]
-        await self.update_vendor_cart(
-            product_id,
-            vendor,
-            serializer,
-        )
+        try:
+            await self.update_vendor_cart(
+                product_id,
+                vendor,
+                serializer,
+            )
+        except VendorSiteError:
+            return Response({"message": msgs.VENDOR_SITE_ERROR}, status=HTTP_500_INTERNAL_SERVER_ERROR)
         serializer_data = await sync_to_async(save_serailizer)(serializer)
         return Response(serializer_data, status=HTTP_201_CREATED)
 
@@ -501,7 +513,10 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
         serializer = self.get_serializer(instance, request.data, partial=True)
         await sync_to_async(serializer.is_valid)(raise_exception=True)
-        await self.update_vendor_cart(product_id, vendor, serializer)
+        try:
+            await self.update_vendor_cart(product_id, vendor, serializer)
+        except VendorSiteError:
+            return Response({"message": msgs.VENDOR_SITE_ERROR}, status=HTTP_500_INTERNAL_SERVER_ERROR)
         serializer_data = await sync_to_async(save_serailizer)(serializer)
         return Response(serializer_data)
 
@@ -513,7 +528,10 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         if not can_use_cart:
             return Response({"message": msgs.CHECKOUT_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
 
-        await self.update_vendor_cart(product_id, vendor)
+        try:
+            await self.update_vendor_cart(product_id, vendor)
+        except VendorSiteError:
+            return Response({"message": msgs.VENDOR_SITE_ERROR}, status=HTTP_500_INTERNAL_SERVER_ERROR)
         await sync_to_async(self.perform_destroy)(instance)
         return Response(status=HTTP_204_NO_CONTENT)
 
