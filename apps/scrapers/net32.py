@@ -175,6 +175,7 @@ class Net32Scraper(Scraper):
                             "region_code": order["shippingAdress"]["RegionCD"],
                             "postal_code": order["shippingAdress"]["PostalCD"],
                         },
+                        "invoice_link": f"https://www.net32.com/account/orders/invoice/{order['id']}",
                         "products": [
                             {
                                 "product": {

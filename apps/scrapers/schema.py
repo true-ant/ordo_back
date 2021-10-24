@@ -108,6 +108,7 @@ class Order(BaseDataClass):
     status: str
     shipping_address: Address
     products: List[OrderProduct]
+    invoice_link: str
     total_items: int = 0
 
     def to_dict(self) -> dict:

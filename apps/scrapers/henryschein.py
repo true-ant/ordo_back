@@ -159,6 +159,27 @@ class HenryScheinScraper(Scraper):
                 product_price = re.search(r"\$(.*)/", product_price)
                 product_price = product_price.group(1)
 
+                if "invoice_link" not in order:
+                    invoice_link = self.extract_first(
+                        order_product_dom, "./td[@colspan='4' or @colspan='5']//table//tr[1]//td[2]/a/@href"
+                    )
+
+                    try:
+                        invoice_link = (
+                            invoice_link.split("javascript:checkInvoice")[1].strip("()'\"")
+                            if invoice_link and "javascript:checkInvoice" in invoice_link
+                            else ""
+                        )
+                        invoice_link = (
+                            "https://www.henryschein.com/us-en/olp/"
+                            f"invoiceloading.aspx?type=inv&invoice_num={invoice_link}"
+                            if invoice_link
+                            else ""
+                        )
+                    except (ValueError, AttributeError, KeyError):
+                        invoice_link = ""
+                    order["invoice_link"] = invoice_link
+
                 status = self.merge_strip_values(
                     dom=order_product_dom, xpath=".//span[contains(@id, 'itemStatusLbl')]//text()"
                 )
@@ -237,7 +258,7 @@ class HenryScheinScraper(Scraper):
             orders_dom = response_dom.xpath(
                 "//table[@class='SimpleList']//tr[@class='ItemRow' or @class='AlternateItemRow']"
             )
-            tasks = (self.get_order(order_dom) for order_dom in orders_dom)
+            tasks = (self.get_order(order_dom) for order_dom in orders_dom[6:7])
             orders = await asyncio.gather(*tasks, return_exceptions=True)
 
         return [Order.from_dict(order) for order in orders if isinstance(order, dict)]

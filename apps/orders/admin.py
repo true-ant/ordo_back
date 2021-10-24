@@ -26,8 +26,12 @@ class VendorOrderProductInline(ReadOnlyAdminMixin, NestedTabularInline):
 class VendorOrderInline(ReadOnlyAdminMixin, NestedTabularInline):
     model = m.VendorOrder
     fk_name = "order"
-    readonly_fields = ("vendor", "vendor_order_id", "order_date", "total_amount", "total_items", "currency", "status")
+    fields = ("vendor", "invoice", "order_date", "total_amount", "total_items", "currency", "status")
+    readonly_fields = fields
     inlines = (VendorOrderProductInline,)
+
+    def invoice(self, obj):
+        return mark_safe("<a href='{}'> {} </a>".format(obj.invoice_link, obj.vendor_order_id))
 
 
 class OrderVendorFilter(SimpleListFilter):

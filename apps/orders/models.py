@@ -119,6 +119,7 @@ class VendorOrder(TimeStampedModel):
     order_date = models.DateField()
     status = models.CharField(max_length=100)
     products = models.ManyToManyField(Product, through="VendorOrderProduct")
+    invoice_link = models.URLField(null=True, blank=True)
 
     objects = models.Manager()
     current_months = OrderMonthManager()
