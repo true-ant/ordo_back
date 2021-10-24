@@ -535,6 +535,17 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         await sync_to_async(self.perform_destroy)(instance)
         return Response(status=HTTP_204_NO_CONTENT)
 
+    @action(detail=False, methods=["post"], url_path="clear")
+    def clear_cart(self, request, *args, **kwargs):
+        serializer = s.ClearCartSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        cart_products = self.get_queryset()
+        if serializer.validated_data["remove"] == "save_for_later":
+            cart_products.filter(save_for_later=True).delete()
+        elif serializer.validated_data["remove"] == "cart":
+            cart_products.filter(save_for_later=False).delete()
+        return Response({"message": msgs.SUCCESS})
+
     @sync_to_async
     def _create_order(self, office_vendors, vendor_order_results, cart_products, data):
         order_date = timezone.now().date()

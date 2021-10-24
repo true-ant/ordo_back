@@ -202,3 +202,7 @@ class FavouriteProductSerializer(serializers.ModelSerializer):
                 return m.FavouriteProduct.objects.create(product=product, **validated_data)
             except IntegrityError:
                 raise serializers.ValidationError({"message": "This product is already in your cart"})
+
+
+class ClearCartSerializer(serializers.Serializer):
+    remove = serializers.ChoiceField(choices=["save_for_later", "cart"])

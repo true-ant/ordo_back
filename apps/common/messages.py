@@ -1,3 +1,4 @@
+SUCCESS = "Success"
 SIGNUP_DUPLICATE_EMAIL = "Email existed"
 
 # Invite
