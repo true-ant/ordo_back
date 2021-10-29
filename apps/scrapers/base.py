@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import re
 from http.cookies import SimpleCookie
 from typing import Dict, List, Optional, Tuple, Union
@@ -7,7 +8,7 @@ from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
 
 from apps.scrapers.errors import VendorAuthenticationFailed
-from apps.scrapers.schema import Product, ProductCategory, VendorOrderDetail
+from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct, VendorCartProduct
 from apps.types.scraper import LoginInformation, ProductSearch, VendorInformation
@@ -95,6 +96,11 @@ class Scraper:
 
     def _get_vendor_categories(self, response) -> List[ProductCategory]:
         pass
+
+    async def get_orders(
+        self, perform_login=False, from_date: Optional[datetime.date] = None, to_date: Optional[datetime.date] = None
+    ) -> List[Order]:
+        raise NotImplementedError()
 
     async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
         raise NotImplementedError()

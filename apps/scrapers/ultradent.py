@@ -1,5 +1,6 @@
 import asyncio
-from typing import List
+import datetime
+from typing import List, Optional
 
 from aiohttp import ClientResponse
 from asgiref.sync import sync_to_async
@@ -308,7 +309,9 @@ class UltraDentScraper(Scraper):
         return order
 
     @catch_network
-    async def get_orders(self, perform_login=False) -> List[Order]:
+    async def get_orders(
+        self, perform_login=False, from_date: Optional[datetime.date] = None, to_date: Optional[datetime.date] = None
+    ) -> List[Order]:
         url = "https://www.ultradent.com/api/ecommerce"
 
         json_data = {
@@ -320,9 +323,15 @@ class UltraDentScraper(Scraper):
 
         async with self.session.post(url, headers=ORDER_HEADERS, json=json_data) as resp:
             orders_data = (await resp.json())["data"]["orders"]
+            tasks = []
+            for order_data in orders_data:
+                order_date = datetime.date.fromisoformat(order_data["orderDate"])
+                if from_date and to_date and (order_date < from_date or order_date > to_date):
+                    continue
+                tasks.append(self.get_order(order_data))
 
-            tasks = (self.get_order(order_data) for order_data in orders_data)
-            orders = await asyncio.gather(*tasks, return_exceptions=True)
+            if tasks:
+                orders = await asyncio.gather(*tasks, return_exceptions=True)
             return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
 
     @sync_to_async

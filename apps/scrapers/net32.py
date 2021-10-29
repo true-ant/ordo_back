@@ -1,6 +1,7 @@
 import asyncio
+import datetime
 import uuid
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 from aiohttp import ClientResponse
 from django.utils.dateparse import parse_datetime
@@ -142,7 +143,9 @@ class Net32Scraper(Scraper):
         }
 
     @catch_network
-    async def get_orders(self, perform_login=False) -> List[Order]:
+    async def get_orders(
+        self, perform_login=False, from_date: Optional[datetime.date] = None, to_date: Optional[datetime.date] = None
+    ) -> List[Order]:
         url = f"{self.BASE_URL}/rest/order/orderHistory"
         headers = HEADERS.copy()
         headers["Referer"] = f"{self.BASE_URL}/account/orders"
@@ -163,6 +166,10 @@ class Net32Scraper(Scraper):
         try:
             orders = []
             for order in res["Payload"]["orders"]:
+                order_date = parse_datetime(order["coTime"]).date()
+                if from_date and to_date and (order_date < from_date or order_date > to_date):
+                    continue
+
                 orders.append(
                     {
                         "order_id": order["id"],

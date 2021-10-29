@@ -246,13 +246,20 @@ class HenryScheinScraper(Scraper):
             }
 
     @catch_network
-    async def get_orders(self, perform_login=False):
+    async def get_orders(
+        self, perform_login=False, from_date: Optional[datetime.date] = None, to_date: Optional[datetime.date] = None
+    ):
+
+        params = {}
+        if from_date and to_date:
+            params["Search"] = f"dateRangeSF|{from_date.strftime('%m/%d/%Y')}|{to_date.strftime('%m/%d/%Y')}"
+
         url = f"{self.BASE_URL}/us-en/Orders/OrderStatus.aspx"
 
         if perform_login:
             await self.login()
 
-        async with self.session.get(url) as resp:
+        async with self.session.get(url, params=params) as resp:
             text = await resp.text()
             response_dom = Selector(text=text)
             orders_dom = response_dom.xpath(

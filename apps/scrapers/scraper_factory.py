@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import os
 from typing import Optional
 
@@ -43,7 +44,7 @@ class ScraperFactory:
 async def main():
 
     load_dotenv()
-    scraper_name = "benco"
+    scraper_name = "darby"
     BASE_DATA = {
         "henry_schein": {
             "username": os.getenv("HENRY_SCHEIN_USERNAME"),
@@ -107,11 +108,13 @@ async def main():
                     "product_id": "323-3644",
                     "product_url": "https://www.darbydental.com/categories/Infection-Control"
                     "/Sterilization-Bags--Pouches--and-Tubing/CSR-Sterilization-Wrap/3233644",
+                    "quantity": 1,
                 },
                 {
                     "product_id": "5250698",
                     "product_url": "https://www.darbydental.com/categories/Preventive-Products"
                     "/Toothbrushes/Oral-B-Orthodontic-Brush/5250698",
+                    "quantity": 1,
                 },
             ],
             "vendor": {
@@ -187,13 +190,13 @@ async def main():
     }
 
     scraper_data = BASE_DATA[scraper_name]
-    products = [
-        {
-            "product_id": product["product_id"],
-            "quantity": product["quantity"],
-        }
-        for product in scraper_data["products"]
-    ]
+    # products = [
+    #     {
+    #         "product_id": product["product_id"],
+    #         "quantity": product["quantity"],
+    #     }
+    #     for product in scraper_data["products"]
+    # ]
     async with ClientSession() as session:
         scraper = ScraperFactory.create_scraper(
             vendor=scraper_data["vendor"],
@@ -203,7 +206,9 @@ async def main():
         )
         # await scraper.login()
 
-        # results = await scraper.get_orders(perform_login=True)
+        orders_from_date = datetime.date(year=2021, month=9, day=1)
+        orders_to_date = datetime.date(year=2021, month=9, day=1)
+        results = await scraper.get_orders(perform_login=True, from_date=orders_from_date, to_date=orders_to_date)
         # results = await scraper.search_products(query="tooth brush", page=1)
         # results = [r.to_dict() for r in results]
         # results = await scraper.get_product(
@@ -223,7 +228,7 @@ async def main():
         # results = await scraper.add_products_to_cart(products)
         # results = await scraper.clear_cart()
 
-        results = await scraper.confirm_order(products)
+        # results = await scraper.confirm_order(products)
         print(results)
 
 
