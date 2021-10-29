@@ -768,3 +768,8 @@ class BencoScraper(Scraper):
                     **vendor_order_detail.to_dict(),
                     "order_id": order_id,
                 }
+
+    async def download_invoice(self, invoice_link) -> bytes:
+        await self.login()
+        async with self.session.get(invoice_link, ssl=self._ssl_context) as resp:
+            return await resp.content.read()
