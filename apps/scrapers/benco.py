@@ -321,6 +321,9 @@ class BencoScraper(Scraper):
                 .strip()
             )
             order["order_date"] = datetime.datetime.strptime(order_date, "%B %d, %Y").date()
+            invoice_link = response_dom.xpath("//h3[contains(@class, 'pull-right')]/a/@href").get()
+            if invoice_link:
+                order["invoice_link"] = f"{self.BASE_URL}{invoice_link}"
             order["order_id"] = (
                 response_dom.xpath("//p[@class='order-details-summary']/span[2]/text()").get().split("#", 1)[1].strip()
             )
