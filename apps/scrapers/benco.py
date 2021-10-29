@@ -6,7 +6,7 @@ import ssl
 import uuid
 from decimal import Decimal
 from pathlib import Path
-from typing import Dict, List, Tuple, TypedDict, Union
+from typing import Dict, List, Optional, Tuple, TypedDict, Union
 
 from aiohttp import ClientResponse
 from scrapy import Selector
@@ -392,12 +392,27 @@ class BencoScraper(Scraper):
         return order
 
     @catch_network
-    async def get_orders(self, perform_login=False) -> List[Order]:
-        url = f"{self.BASE_URL}/PurchaseHistory"
+    async def get_orders(
+        self, perform_login=False, from_date: Optional[datetime.date] = None, to_date: Optional[datetime.date] = None
+    ) -> List[Order]:
+        url = f"{self.BASE_URL}/PurchaseHistory/NewIndex"
         if perform_login:
             await self.login()
 
-        async with self.session.get(url, headers=ORDER_HISTORY_HEADERS, ssl=self._ssl_context) as resp:
+        # TODO: pagination not tested
+
+        if from_date and to_date:
+            params = {
+                "DateRangeOption": "CustomRange",
+                "OrderStatus": "all",
+                "PageNumber": 0,
+                "StartDate": from_date.isoformat(),
+                "EndDate": to_date.isoformat(),
+            }
+        else:
+            params = {}
+
+        async with self.session.get(url, headers=ORDER_HISTORY_HEADERS, params=params, ssl=self._ssl_context) as resp:
             url = str(resp.url)
             response_dom = Selector(text=await resp.text())
             orders_links = response_dom.xpath(

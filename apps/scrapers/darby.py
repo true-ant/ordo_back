@@ -1,7 +1,7 @@
 import asyncio
 import re
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from aiohttp import ClientResponse
 from scrapy import Selector
@@ -154,34 +154,48 @@ class DarbyScraper(Scraper):
         )
         return order
 
-    async def get_order(self, order_dom):
+    async def get_order(self, order_dom, order_date: Optional[datetime.date] = None):
         link = self.merge_strip_values(order_dom, "./td[1]/a/@href")
         order_id = self.merge_strip_values(order_dom, "./td[1]//text()")
         order = {
             "order_id": order_id,
             "total_amount": self.merge_strip_values(order_dom, ".//td[8]//text()"),
             "currency": "USD",
-            "order_date": datetime.strptime(self.merge_strip_values(order_dom, ".//td[2]//text()"), "%m/%d/%Y").date(),
+            "order_date": order_date
+            if order_date
+            else datetime.strptime(self.merge_strip_values(order_dom, ".//td[2]//text()"), "%m/%d/%Y").date(),
         }
         await asyncio.gather(self.get_order_products(order, link), self.get_shipping_track(order, order_id))
 
         return order
 
     @catch_network
-    async def get_orders(self, perform_login=False):
+    async def get_orders(
+        self, perform_login=False, from_date: Optional[datetime.date] = None, to_date: Optional[datetime.date] = None
+    ):
         url = f"{self.BASE_URL}/Scripts/InvoiceHistory.aspx"
 
         if perform_login:
             await self.login()
 
+        orders = []
         async with self.session.get(url, headers=HEADERS) as resp:
             text = await resp.text()
             response_dom = Selector(text=text)
             orders_dom = response_dom.xpath(
                 "//table[@id='MainContent_gvInvoiceHistory']//tr[@class='pdpHelltPrimary']"
             )
-            tasks = (self.get_order(order_dom) for order_dom in orders_dom)
-            orders = await asyncio.gather(*tasks, return_exceptions=True)
+            tasks = []
+            for order_dom in orders_dom:
+                order_date = datetime.strptime(
+                    self.merge_strip_values(order_dom, ".//td[2]//text()"), "%m/%d/%Y"
+                ).date()
+                if from_date and to_date and (order_date < from_date or order_date > to_date):
+                    continue
+                tasks.append(self.get_order(order_dom, order_date))
+
+            if tasks:
+                orders = await asyncio.gather(*tasks, return_exceptions=True)
 
         return [Order.from_dict(order) for order in orders]
 

@@ -1,6 +1,7 @@
 import asyncio
+import datetime
 from decimal import Decimal
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from aiohttp import ClientResponse
 from scrapy import Selector
@@ -142,7 +143,9 @@ class PattersonScraper(Scraper):
             text = await resp.text()
             return text
 
-    async def get_orders(self, perform_login=False) -> List[Order]:
+    async def get_orders(
+        self, perform_login=False, from_date: Optional[datetime.date] = None, to_date: Optional[datetime.date] = None
+    ) -> List[Order]:
         return []
 
     async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
