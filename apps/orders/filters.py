@@ -6,10 +6,11 @@ from .models import Order, VendorOrderProduct
 class OrderFilter(filters.FilterSet):
     start_date = filters.DateFilter(field_name="order_date", lookup_expr="gte")
     end_date = filters.DateFilter(field_name="order_date", lookup_expr="lte")
+    vendor = filters.CharFilter(field_name="vendor_orders__vendor__slug", lookup_expr="iexact")
 
     class Meta:
         model = Order
-        fields = ["start_date", "end_date", "status"]
+        fields = ["start_date", "end_date", "status", "vendor"]
 
 
 class VendorOrderProductFilter(filters.FilterSet):

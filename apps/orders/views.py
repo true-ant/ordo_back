@@ -1,6 +1,9 @@
 import asyncio
 import decimal
 import operator
+import os
+import tempfile
+import zipfile
 from datetime import datetime, timedelta
 from decimal import Decimal
 from functools import reduce
@@ -11,6 +14,7 @@ from django.apps import apps
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Case, Count, F, Q, Sum, Value, When
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.decorators import action
@@ -40,12 +44,34 @@ from . import permissions as p
 from . import serializers as s
 
 
-class OrderViewSet(ModelViewSet):
+class OrderViewSet(AsyncMixin, ModelViewSet):
     queryset = m.Order.objects.all()
     permission_classes = [IsAuthenticated]
     serializer_class = s.OrderSerializer
     pagination_class = StandardResultsSetPagination
     filterset_class = f.OrderFilter
+
+    @sync_to_async
+    def _get_vendor_orders(self):
+        order = self.get_object()
+        vendor_orders = order.vendor_orders.all()
+        vendors = [vendor_order.vendor for vendor_order in vendor_orders]
+        office_vendors = OfficeVendor.objects.filter(office_id=self.kwargs["office_pk"], vendor__in=vendors)
+        office_vendors = {office_vendor.vendor_id: office_vendor for office_vendor in office_vendors}
+        ret = []
+        for vendor_order in vendor_orders:
+            if not vendor_order.invoice_link:
+                continue
+            ret.append(
+                {
+                    "invoice_link": vendor_order.invoice_link,
+                    "vendor": vendor_order.vendor.to_dict(),
+                    "username": office_vendors[vendor_order.vendor.id].username,
+                    "password": office_vendors[vendor_order.vendor.id].password,
+                }
+            )
+
+        return ret
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
@@ -127,6 +153,38 @@ class OrderViewSet(ModelViewSet):
             ],
         }
         return Response(ret)
+
+    @action(detail=True, methods=["get"], url_path="invoice-download")
+    async def download_invoice(self, request, *args, **kwargs):
+        vendor_orders = await self._get_vendor_orders()
+        session = apps.get_app_config("accounts").session
+        tasks = []
+        if len(vendor_orders) == 0:
+            return Response({"message": msgs.NO_INVOICE})
+
+        for vendor_order in vendor_orders:
+            scraper = ScraperFactory.create_scraper(
+                vendor=vendor_order["vendor"],
+                session=session,
+                username=vendor_order["username"],
+                password=vendor_order["password"],
+            )
+            tasks.append(scraper.download_invoice(invoice_link=vendor_order["invoice_link"]))
+        ret = await asyncio.gather(*tasks, return_exceptions=True)
+
+        temp = tempfile.NamedTemporaryFile()
+
+        with zipfile.ZipFile(temp, "w", zipfile.ZIP_DEFLATED) as zf:
+            for vendor_order, content in zip(vendor_orders, ret):
+                zf.writestr(f"{vendor_order['vendor']['name']}.pdf", content)
+
+        filesize = os.path.getsize(temp.name)
+        data = open(temp.name, "rb").read()
+        response = HttpResponse(data, content_type="application/zip")
+        response["Content-Disposition"] = "attachment; filename=invoice.zip"
+        response["Content-Length"] = filesize
+        temp.seek(0)
+        return response
 
 
 class VendorOrderProductViewSet(ModelViewSet):
