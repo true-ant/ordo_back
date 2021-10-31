@@ -34,6 +34,7 @@ from apps.accounts.models import Company, CompanyMember, Office, OfficeVendor
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
 from apps.common.pagination import StandardResultsSetPagination
+from apps.common.utils import group_products
 from apps.scrapers.errors import VendorNotSupported, VendorSiteError
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import CartProduct
@@ -378,28 +379,7 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
             )
 
         search_results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # filter
-        products = []
-        meta = {
-            "total_size": 0,
-            "vendors": [],
-        }
-        for search_result in search_results:
-            if not isinstance(search_result, dict):
-                continue
-            meta["total_size"] += search_result["total_size"]
-            meta["vendors"].append(
-                {
-                    "vendor": search_result["vendor_slug"],
-                    "page": search_result["page"],
-                    "last_page": search_result["last_page"],
-                }
-            )
-            products.extend([product.to_dict() for product in search_result["products"]])
-
-        meta["last_page"] = all([vendor_search["last_page"] for vendor_search in meta["vendors"]])
-
+        meta, products = group_products(search_results)
         return Response({"meta": meta, "products": products})
 
     @sync_to_async

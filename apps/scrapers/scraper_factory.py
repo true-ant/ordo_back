@@ -6,6 +6,7 @@ from typing import Optional
 from aiohttp import ClientSession
 from dotenv import load_dotenv
 
+from apps.common.utils import group_products
 from apps.scrapers.benco import BencoScraper
 from apps.scrapers.darby import DarbyScraper
 from apps.scrapers.errors import VendorNotSupported
@@ -41,11 +42,8 @@ class ScraperFactory:
         return SCRAPERS[vendor["slug"]](session, vendor, username, password)
 
 
-async def main():
-
-    load_dotenv()
-    scraper_name = "henry_schein"
-    BASE_DATA = {
+def get_scraper_data():
+    return {
         "henry_schein": {
             "username": os.getenv("HENRY_SCHEIN_USERNAME"),
             "password": os.getenv("HENRY_SCHEIN_PASSWORD"),
@@ -189,7 +187,11 @@ async def main():
         },
     }
 
-    scraper_data = BASE_DATA[scraper_name]
+
+async def main():
+    scraper_name = "henry_schein"
+    base_data = get_scraper_data()
+    scraper_data = base_data[scraper_name]
     # products = [
     #     {
     #         "product_id": product["product_id"],
@@ -232,9 +234,32 @@ async def main():
         print(results)
 
 
+async def search_products():
+    tasks = []
+    base_data = get_scraper_data()
+    async with ClientSession() as session:
+        for scraper_name, scraper_data in base_data.items():
+            if scraper_name not in ["henry_schein", "net_32"]:
+                continue
+            scraper = ScraperFactory.create_scraper(
+                vendor=scraper_data["vendor"],
+                session=session,
+                username=scraper_data["username"],
+                password=scraper_data["password"],
+            )
+            tasks.append(scraper.search_products(query="Septocaine", page=1))
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    meta, products = group_products(results)
+    print(meta)
+    print(products)
+
+
 if __name__ == "__main__":
     import time
 
+    load_dotenv()
     start_time = time.perf_counter()
-    asyncio.run(main())
+    # asyncio.run(main())
+    asyncio.run(search_products())
     print(time.perf_counter() - start_time)

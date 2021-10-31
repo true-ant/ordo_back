@@ -1,13 +1,20 @@
+import itertools
 import re
 import uuid
-from itertools import product
 
 
 def generate_token():
     return uuid.uuid4().hex + uuid.uuid4().hex
 
 
-def get_similarity(s1, s2):
+def get_similarity(product1, product2, key=None):
+    if isinstance(product1, str) and isinstance(product2, str):
+        s1 = product1
+        s2 = product2
+    else:
+        s1 = getattr(product1, key)
+        s2 = getattr(product2, key)
+
     s1_numeric_values = set(map(str.lower, re.findall(r"\w*[\d]+\w*", s1)))
     s2_numeric_values = set(map(str.lower, re.findall(r"\w*[\d]+\w*", s2)))
     s1_words = set(map(str.lower, re.findall(r"\w+", s1)))
@@ -24,12 +31,68 @@ def get_similarity(s1, s2):
     return percentage
 
 
-def n_similarities(*args):
+def n_similarities(*args, **kwargs):
     base_s = args[0]
     similarity = 1
+    key = kwargs.get("key", None)
     for arg in args[1:]:
-        similarity *= get_similarity(base_s, arg)
+        similarity *= get_similarity(base_s, arg, key)
     return similarity
+
+
+def group_products(search_results):
+    meta = {
+        "total_size": 0,
+        "vendors": [],
+    }
+
+    vendors_search_result_products = []
+    for search_result in search_results:
+        if not isinstance(search_result, dict):
+            continue
+        meta["total_size"] += search_result["total_size"]
+        meta["vendors"].append(
+            {
+                "vendor": search_result["vendor_slug"],
+                "page": search_result["page"],
+                "last_page": search_result["last_page"],
+            }
+        )
+        vendors_search_result_products.append(search_result["products"])
+
+    meta["last_page"] = all([vendor_search["last_page"] for vendor_search in meta["vendors"]])
+
+    # group by similar products
+    products = []
+    similar_candidate_products = []
+    vendors_matched_products = [set() for _ in range(len(vendors_search_result_products))]
+    threshold = 0.7 ** len(vendors_search_result_products)
+    for vendor_products in itertools.product(*vendors_search_result_products):
+        similarity = n_similarities(*vendor_products, key="name")
+        if similarity > threshold:
+            similar_candidate_products.append([f"{similarity:.2f}", *vendor_products])
+
+    # remove duplicates in candidate list
+    if similar_candidate_products:
+        for similar_candidate_product in sorted(similar_candidate_products, key=lambda x: x[0], reverse=True):
+            similar_candidate_product_without_similarity = similar_candidate_product[1:]
+            for vendor_matched_products, product in zip(
+                vendors_matched_products, similar_candidate_product_without_similarity
+            ):
+                if product not in vendor_matched_products:
+                    vendor_matched_products.add(product)
+                else:
+                    break
+            else:
+                products.append([p.to_dict() for p in similar_candidate_product_without_similarity])
+
+    for vendor_search_result_products, vendor_matched_products in zip(
+        vendors_search_result_products, vendors_matched_products
+    ):
+        for vendor_product in vendor_search_result_products:
+            if vendor_product not in vendor_matched_products:
+                products.append(vendor_product.to_dict())
+    return meta, products
 
 
 if __name__ == "__main__":
@@ -68,7 +131,7 @@ if __name__ == "__main__":
 
     similarities = []
     products_list = [net32_products, henry_products, benco_products]
-    for products in product(*products_list):
+    for products in itertools.product(*products_list):
         similarity = n_similarities(*products)
         similarities.append((f"{similarity:.2f}", *products))
 

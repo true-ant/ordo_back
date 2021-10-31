@@ -83,6 +83,9 @@ class Product(BaseDataClass):
     # stars: Decimal
     # ratings: Decimal
 
+    def __hash__(self):
+        return hash(f"{self.vendor.id}{self.product_id}")
+
 
 @dataclass(frozen=True)
 class OrderProduct(BaseDataClass):
