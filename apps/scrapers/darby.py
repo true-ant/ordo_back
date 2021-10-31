@@ -268,6 +268,8 @@ class DarbyScraper(Scraper):
             products_dom = response_dom.xpath("//div[@id='productContainer']//div[contains(@class, 'prodcard')]")
             for product_dom in products_dom:
                 price = self.extract_first(product_dom, ".//div[contains(@class, 'prod-price')]//text()")
+                if "@" not in price:
+                    continue
                 _, price = price.split("@")
                 product_id = self.extract_first(product_dom, ".//div[@class='prodno']/label//text()")
                 product_name = self.extract_first(product_dom, ".//div[@class='prod-title']//text()")
