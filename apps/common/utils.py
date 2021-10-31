@@ -18,6 +18,7 @@ def get_similarity(*products, key=None):
         product_numeric_values = set(map(str.lower, re.findall(r"\w*[\d]+\w*", product_name)))
         product_words = set(map(str.lower, re.findall(r"\w+", product_name)))
         product_words = product_words - product_numeric_values
+        product_words -= {"of", "and", "with"}
         total_words.update(product_words)
         total_numeric_values.update(product_numeric_values)
         if product_i == 0:
@@ -27,24 +28,74 @@ def get_similarity(*products, key=None):
             matched_words &= product_words
             matched_numeric_values &= product_numeric_values
 
-    percentage = 0.3 * len(matched_words) / len(total_words) + 0.7 * len(matched_numeric_values) / len(
-        total_numeric_values
-    )
+    if len(total_numeric_values):
+        percentage = 0.4 * len(matched_words) / len(total_words) + 0.6 * len(matched_numeric_values) / len(
+            total_numeric_values
+        )
+    else:
+        percentage = len(matched_words) / len(total_words)
     return percentage
 
 
-def group_products(search_results):
+def group_products(vendors_search_result_products):
+    search_result_vendors_count = len(vendors_search_result_products)
+    matched_products = set()
+    well_matching_pairs = set()
+    similar_candidate_products = []
+    products = []
+    n_similarity = 2
+    threshold = 0.6
+    while n_similarity <= search_result_vendors_count:
+        vendors_products_combinations = itertools.combinations(vendors_search_result_products, n_similarity)
+        for vendors_products_combination in vendors_products_combinations:
+            for vendor_products in itertools.product(*vendors_products_combination):
+                # when finding more than 3-length similar products we need to check that
+                # sub-set of products belongs to well matching pairs. If well matching set contains subset of products
+                # it is worth to check similarity but otherwise, we don't have to calculate it.
+                if n_similarity > 2:
+                    contains_well_matching_pair = any(
+                        [
+                            set(well_matching_pair).issubset(vendor_products)
+                            for well_matching_pair in well_matching_pairs
+                        ]
+                    )
+                    if not contains_well_matching_pair:
+                        continue
+
+                similarity = get_similarity(*vendor_products, key="name")
+                if similarity > threshold:
+                    similar_candidate_products.append((f"{similarity:.2f}", *vendor_products))
+                    well_matching_pairs.add(vendor_products)
+
+        n_similarity += 1
+
+    for similar_candidate_product in sorted(similar_candidate_products, key=lambda x: (len(x), x[0]), reverse=True):
+        similar_candidate_product_without_similarity = similar_candidate_product[1:]
+        for product in similar_candidate_product_without_similarity:
+            if product in matched_products:
+                break
+        else:
+            matched_products.update(similar_candidate_product_without_similarity)
+            products.append([p.to_dict() for p in similar_candidate_product_without_similarity])
+
+    for vendor_search_result_products in vendors_search_result_products:
+        for vendor_product in vendor_search_result_products:
+            if vendor_product not in matched_products:
+                products.append(vendor_product.to_dict())
+
+    return products
+
+
+def group_products_from_search_result(search_results):
     meta = {
         "total_size": 0,
         "vendors": [],
     }
 
     vendors_search_result_products = []
-    vendors_matched_products = {}
     for search_result in search_results:
         if not isinstance(search_result, dict):
             continue
-        vendor_slug = search_result["vendor_slug"]
         meta["total_size"] += search_result["total_size"]
         meta["vendors"].append(
             {
@@ -53,63 +104,12 @@ def group_products(search_results):
                 "last_page": search_result["last_page"],
             }
         )
-        vendors_search_result_products.append(search_result["products"])
-        vendors_matched_products[vendor_slug] = set()
+        if len(search_result["products"]):
+            vendors_search_result_products.append(search_result["products"])
 
     meta["last_page"] = all([vendor_search["last_page"] for vendor_search in meta["vendors"]])
 
-    # group by similar products
-    search_result_vendors_count = len(vendors_search_result_products)
-    mismatching_pairs = set()
-    longest_mismatching_pair_length = 2
-    products = []
-    similar_candidate_products = []
-    n_similarity = 2
-    while n_similarity <= search_result_vendors_count:
-        threshold = 0.6 ** (n_similarity - 1)
-        vendors_products_combinations = itertools.combinations(vendors_search_result_products, n_similarity)
-        for vendors_products_combination in vendors_products_combinations:
-            for vendor_products in itertools.product(*vendors_products_combination):
-                # when finding more than 3-length similar products we need to check that
-                # sub-set of products belongs to mismatching pairs. If mismatching set contains subset of products
-                # we don't need to calculate the similarity
-                if n_similarity > longest_mismatching_pair_length:
-                    contains_mismatching_pair = any(
-                        [set(mismatching_pair) & set(vendor_products) for mismatching_pair in mismatching_pairs]
-                    )
-                    if contains_mismatching_pair:
-                        continue
-
-                similarity = get_similarity(*vendor_products, key="name")
-                if similarity < threshold:
-                    mismatching_pairs.add(vendor_products)
-                    longest_mismatching_pair_length = len(vendor_products)
-                else:
-                    similar_candidate_products.append([f"{similarity:.2f}", *vendor_products])
-
-        n_similarity += 1
-
-    # remove duplicates in candidate list
-    if similar_candidate_products:
-        for similar_candidate_product in sorted(similar_candidate_products, key=lambda x: x[0], reverse=True):
-            similar_candidate_product_without_similarity = similar_candidate_product[1:]
-            for vendor_matched_products, product in zip(
-                vendors_matched_products, similar_candidate_product_without_similarity
-            ):
-                if product not in vendor_matched_products:
-                    vendor_matched_products.add(product)
-                else:
-                    break
-            else:
-                products.append([p.to_dict() for p in similar_candidate_product_without_similarity])
-
-    for vendor_search_result_products, vendor_matched_products in zip(
-        vendors_search_result_products, vendors_matched_products
-    ):
-        for vendor_product in vendor_search_result_products:
-            if vendor_product not in vendor_matched_products:
-                products.append(vendor_product.to_dict())
-
+    products = group_products(vendors_search_result_products)
     return meta, products
 
 
@@ -148,8 +148,7 @@ if __name__ == "__main__":
     ]
 
     similarities = []
-    products_list = [net32_products, henry_products, benco_products]
-    for products in itertools.product(*products_list):
+    for products in itertools.product(*net32_products, henry_products, benco_products):
         similarity = get_similarity(*products)
         similarities.append((f"{similarity:.2f}", *products))
 

@@ -70,7 +70,7 @@ class ProductCategory(BaseDataClass):
     slug: str
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class Product(BaseDataClass):
     product_id: str
     name: str
@@ -85,6 +85,12 @@ class Product(BaseDataClass):
 
     def __hash__(self):
         return hash(f"{self.vendor.id}{self.product_id}")
+
+    def __str__(self):
+        return f"Product(product_id={self.product_id})"
+
+    def __repr__(self):
+        return f"Product(product_id={self.product_id})"
 
 
 @dataclass(frozen=True)

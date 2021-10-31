@@ -34,7 +34,7 @@ from apps.accounts.models import Company, CompanyMember, Office, OfficeVendor
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
 from apps.common.pagination import StandardResultsSetPagination
-from apps.common.utils import group_products
+from apps.common.utils import group_products_from_search_result
 from apps.scrapers.errors import VendorNotSupported, VendorSiteError
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import CartProduct
@@ -379,7 +379,7 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
             )
 
         search_results = await asyncio.gather(*tasks, return_exceptions=True)
-        meta, products = group_products(search_results)
+        meta, products = group_products_from_search_result(search_results)
         return Response({"meta": meta, "products": products})
 
     @sync_to_async

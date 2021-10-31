@@ -6,13 +6,14 @@ from typing import Optional
 from aiohttp import ClientSession
 from dotenv import load_dotenv
 
-from apps.common.utils import group_products
+from apps.common.utils import group_products, group_products_from_search_result
 from apps.scrapers.benco import BencoScraper
 from apps.scrapers.darby import DarbyScraper
 from apps.scrapers.errors import VendorNotSupported
 from apps.scrapers.henryschein import HenryScheinScraper
 from apps.scrapers.net32 import Net32Scraper
 from apps.scrapers.patterson import PattersonScraper
+from apps.scrapers.schema import Product
 from apps.scrapers.ultradent import UltraDentScraper
 from apps.types.scraper import VendorInformation
 
@@ -234,25 +235,74 @@ async def main():
         print(results)
 
 
-async def search_products():
+async def search_products(mock=True):
     tasks = []
-    base_data = get_scraper_data()
-    async with ClientSession() as session:
-        for scraper_name, scraper_data in base_data.items():
-            if scraper_name not in ["henry_schein", "net_32"]:
-                continue
-            scraper = ScraperFactory.create_scraper(
-                vendor=scraper_data["vendor"],
-                session=session,
-                username=scraper_data["username"],
-                password=scraper_data["password"],
-            )
-            tasks.append(scraper.search_products(query="Septocaine", page=1))
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+    if mock:
+        net32_product_names = [
+            "Septocaine Articaine 4% with Epinephrine 1:100,000. Box of 50 - 1.7 mL",
+            "Septocaine Articaine HCl 4% with Epinephrine 1:200,000. Box of 50 - 1.7 mL",
+            "Orabloc Articaine HCl 4% with Epinephrine 1:100,000 Injection Cartridges, 1.8",
+            "House Brand Articaine HCl 4% with Epinephrine 1:100,000 Injection Cartridges",
+            "Orabloc Articaine HCl 4% with Epinephrine 1:200,000 Injection Cartridges, 1.8",
+            "Cook-Waite Zorcaine (Articaine Hydrochloride 4%) Local Anesthetic",
+            "House Brand Articaine HCl 4% with Epinephrine 1:200,000 Injection Cartridges",
+        ]
+        net32_products = [
+            Product.from_dict({"product_id": f"net32_{i}", "name": product_name, "vendor": {"slug": "net32"}})
+            for i, product_name in enumerate(net32_product_names)
+        ]
+        henry_product_names = [
+            "Septocaine Articaine HCl 4% Epinephrine 1:200,000 50/Bx",
+            "Articadent Articaine HCl 4% Epinephrine 1:100,000 50/Bx",
+            "Articaine HCl 4% Epinephrine 1:100,000 50/Bx",
+            "Orabloc Articaine HCl 4% Epinephrine 1:200,000 50/Bx",
+            "Articaine HCl 4% Epinephrine 1:200,000 50/Bx",
+        ]
+        henry_products = [
+            Product.from_dict({"product_id": f"henry_{i}", "name": product_name, "vendor": {"slug": "henry"}})
+            for i, product_name in enumerate(henry_product_names)
+        ]
+        benco_product_names = [
+            "Septocaine® Articaine HCl 4% and Epinephrine 1:200,000 Silver Box of 50",
+            "Septocaine® Articaine HCl 4% and Epinephrine 1:100,000 Gold Box of 50",
+            "SNAP Liquid Monomer 4oz.",
+            "Hemodent® Liquid 10cc",
+            "IRM Ivory Powder Immediate Restorative Material 38gm",
+            "Wizard Wedges® Matrix Small Wedges Pack of 500",
+            "Benco Dental™ Non-Skid Base Mix Pads 3” x 3” Pad of 50 Sheets",
+            "Dr. Thompson's Applicator Pack of 100",
+            'Econoback™ Patient Bib 13" x 19" Blue 3-Ply Case of 500',
+            'Benco Dental™ Cotton Tip Applicators 6" Box of 1000',
+            "Cook-Waite Lidocaine 1:100,000 Red Box of 50",
+            "Jeltrate® Alginate Impression Material Fast Set Pink 1 pound package",
+            "IRM COMB P&L IVORY",
+            "Dental Floss Waxed Mint 200yd Refill",
+        ]
+        benco_products = [
+            Product.from_dict({"product_id": f"benco_{i}", "name": product_name, "vendor": {"slug": "benco"}})
+            for i, product_name in enumerate(benco_product_names)
+        ]
+        results = [net32_products, henry_products, benco_products]
+        products = group_products(results)
+        print(products)
+    else:
+        base_data = get_scraper_data()
+        async with ClientSession() as session:
+            for scraper_name, scraper_data in base_data.items():
+                if scraper_name not in ["henry_schein", "net_32"]:
+                    continue
+                scraper = ScraperFactory.create_scraper(
+                    vendor=scraper_data["vendor"],
+                    session=session,
+                    username=scraper_data["username"],
+                    password=scraper_data["password"],
+                )
+                tasks.append(scraper.search_products(query="Septocaine", page=1))
+            results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    meta, products = group_products(results)
-    print(meta)
-    print(products)
+        meta, products = group_products_from_search_result(results)
+        print(meta)
+        print(products)
 
 
 if __name__ == "__main__":
