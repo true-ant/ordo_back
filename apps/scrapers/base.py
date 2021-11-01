@@ -209,7 +209,7 @@ class Scraper:
     async def remove_product_from_cart(self, product_id: SmartProductID, use_bulk: bool = True):
         raise NotImplementedError("Vendor scraper must implement `remove_product_from_cart`")
 
-    async def remove_products_from_cart(self, product_ids: List[SmartProductID], use_bulk: bool = True):
+    async def remove_products_from_cart(self, product_ids: List[SmartProductID]):
         tasks = (self.remove_product_from_cart(product_id, use_bulk=False) for product_id in product_ids)
         await asyncio.gather(*tasks)
 
