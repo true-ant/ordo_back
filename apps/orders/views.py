@@ -722,6 +722,34 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         order_data = await self._create_order(office_vendors, results, cart_products, data)
         return Response(order_data)
 
+    @action(detail=False, url_path="add-multiple-products", methods=["post"])
+    async def add_multiple_products(self, request, *args, **kwargs):
+        products = request.data
+        office_pk = self.kwargs["office_pk"]
+        can_use_cart, _ = await sync_to_async(get_cart_status_and_order_status)(office=office_pk, user=request.user)
+        if not can_use_cart:
+            return Response({"message": msgs.CHECKOUT_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
+        if not isinstance(products, list):
+            return Response({"message": msgs.PAYLOAD_ISSUE}, status=HTTP_400_BAD_REQUEST)
+        result = []
+        for product in products:
+            product["office"] = office_pk
+            serializer = self.get_serializer(data=product)
+            await sync_to_async(serializer.is_valid)(raise_exception=True)
+            product_id = serializer.validated_data["product"]["product_id"]
+            vendor = serializer.validated_data["product"]["vendor"]
+            try:
+                await self.update_vendor_cart(
+                    product_id,
+                    vendor,
+                    serializer,
+                )
+            except VendorSiteError:
+                return Response({"message": msgs.VENDOR_SITE_ERROR}, status=HTTP_500_INTERNAL_SERVER_ERROR)
+            serializer_data = await sync_to_async(save_serailizer)(serializer)
+            result.append(serializer_data)
+        return Response(result, status=HTTP_201_CREATED)
+
 
 class CheckoutAvailabilityAPIView(APIView):
     permission_classes = [p.OrderCheckoutPermission]
