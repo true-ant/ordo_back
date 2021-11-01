@@ -206,3 +206,16 @@ class FavouriteProductSerializer(serializers.ModelSerializer):
 
 class ClearCartSerializer(serializers.Serializer):
     remove = serializers.ChoiceField(choices=["save_for_later", "cart"])
+
+
+class InventoryProductSerializer(serializers.ModelSerializer):
+    vendor = VendorSerializer(read_only=True)
+
+    class Meta:
+        model = m.InventoryProduct
+        exclude = ("office",)
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        ret["category"] = ProductCategorySerializer(instance.category).data
+        return ret

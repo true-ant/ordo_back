@@ -105,6 +105,11 @@ class ProductImageInline(ReadOnlyAdminMixin, admin.TabularInline):
     image_preview.short_description = "Preview"
 
 
+@admin.register(m.InventoryProduct)
+class InventoryProductAdmin(admin.ModelAdmin):
+    pass
+
+
 @admin.register(m.Product)
 class ProductAdmin(admin.ModelAdmin):
     list_per_page = 20

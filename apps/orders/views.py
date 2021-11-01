@@ -188,6 +188,34 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
         return response
 
 
+class InventoryProductViewSet(ModelViewSet):
+    permission_classes = [IsAuthenticated]
+    queryset = m.InventoryProduct.objects.all()
+    serializer_class = s.InventoryProductSerializer
+    filterset_class = f.InventoryProductFilter
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        category_ordering = self.request.query_params.get("category_ordering")
+        return (
+            super()
+            .get_queryset()
+            .filter(Q(office__id=self.kwargs["office_pk"]) & Q(is_deleted=False))
+            .annotate(category_order=Case(When(category__slug=category_ordering, then=Value(0)), default=Value(1)))
+            .order_by("category_order", "category__slug")
+        )
+
+    def update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_deleted = True
+        instance.save()
+        return Response(status=HTTP_204_NO_CONTENT)
+
+
 class VendorOrderProductViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = m.VendorOrderProduct.objects.all()

@@ -20,6 +20,7 @@ from slugify import slugify
 
 from apps.accounts.models import CompanyMember, Office, OfficeBudget, OfficeVendor, User
 from apps.orders.models import (
+    InventoryProduct,
     Order,
     Product,
     ProductCategory,
@@ -145,6 +146,13 @@ def save_order_to_db(office, vendor, order_data):
                 "unit_price": order_product_data["unit_price"],
                 "status": order_product_data["status"],
             },
+        )
+
+        order_product_data["product"].pop("price")
+        InventoryProduct.objects.get_or_create(
+            office=office,
+            vendor=vendor,
+            defaults=order_product_data["product"],
         )
 
 
