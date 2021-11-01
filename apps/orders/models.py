@@ -105,6 +105,9 @@ class Order(TimeStampedModel):
     objects = models.Manager()
     current_months = OrderMonthManager()
 
+    class Meta:
+        ordering = ("-order_date",)
+
     def __str__(self):
         return f"{self.office.name}(#{self.pk})"
 
