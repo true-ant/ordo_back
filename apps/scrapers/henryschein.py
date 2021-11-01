@@ -4,7 +4,7 @@ import json
 import re
 import uuid
 from decimal import Decimal
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 
 from aiohttp import ClientResponse
 from scrapy import Selector
@@ -13,7 +13,7 @@ from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct, VendorCartProduct
-from apps.types.scraper import LoginInformation, ProductSearch
+from apps.types.scraper import LoginInformation, ProductSearch, SmartProductID
 
 HEADERS = {
     "authority": "www.henryschein.com",
@@ -394,7 +394,7 @@ class HenryScheinScraper(Scraper):
             dom = Selector(text=await resp.text())
             return dom
 
-    async def remove_product_from_cart(self, product_id: Union[str, int], use_bulk: bool = True):
+    async def remove_product_from_cart(self, product_id: SmartProductID, use_bulk: bool = True):
         if not use_bulk:
             cart_dom = await self.get_cart()
             for i, product_dom in enumerate(

@@ -2,7 +2,7 @@ import asyncio
 import datetime
 import re
 from http.cookies import SimpleCookie
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
@@ -11,7 +11,12 @@ from apps.scrapers.errors import VendorAuthenticationFailed
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct, VendorCartProduct
-from apps.types.scraper import LoginInformation, ProductSearch, VendorInformation
+from apps.types.scraper import (
+    LoginInformation,
+    ProductSearch,
+    SmartProductID,
+    VendorInformation,
+)
 
 
 class Scraper:
@@ -201,8 +206,12 @@ class Scraper:
     async def add_products_to_cart(self, products: List[CartProduct]) -> List[VendorCartProduct]:
         raise NotImplementedError("Vendor scraper must implement `add_products_to_cart`")
 
-    async def remove_product_from_cart(self, product_id: Union[str, int], use_bulk: bool = True):
+    async def remove_product_from_cart(self, product_id: SmartProductID, use_bulk: bool = True):
         raise NotImplementedError("Vendor scraper must implement `remove_product_from_cart`")
+
+    async def remove_products_from_cart(self, product_ids: List[SmartProductID], use_bulk: bool = True):
+        tasks = (self.remove_product_from_cart(product_id, use_bulk=False) for product_id in product_ids)
+        await asyncio.gather(*tasks)
 
     async def clear_cart(self):
         raise NotImplementedError("Vendor scraper must implement `clear_cart`")

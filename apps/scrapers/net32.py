@@ -1,7 +1,7 @@
 import asyncio
 import datetime
 import uuid
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 
 from aiohttp import ClientResponse
 from django.utils.dateparse import parse_datetime
@@ -12,7 +12,7 @@ from apps.scrapers.errors import OrderFetchException
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct
-from apps.types.scraper import LoginInformation, ProductSearch
+from apps.types.scraper import LoginInformation, ProductSearch, SmartProductID
 
 HEADERS = {
     "Connection": "keep-alive",
@@ -354,7 +354,7 @@ class Net32Scraper(Scraper):
             "https://www.net32.com/rest/shoppingCart/addMfrProdViaConsolidation", headers=CART_HEADERS, json=data
         )
 
-    async def remove_product_from_cart(self, product_id: Union[str, int], use_bulk: bool = True):
+    async def remove_product_from_cart(self, product_id: SmartProductID, use_bulk: bool = True):
         async with self.session.get("https://www.net32.com/rest/shoppingCart/get", headers=CART_HEADERS) as resp:
             cart_res = await resp.json()
             data = [

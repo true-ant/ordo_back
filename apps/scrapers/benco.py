@@ -6,7 +6,7 @@ import ssl
 import uuid
 from decimal import Decimal
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, TypedDict, Union
+from typing import Dict, List, Optional, Tuple, TypedDict
 
 from aiohttp import ClientResponse
 from scrapy import Selector
@@ -15,7 +15,7 @@ from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct, VendorCartProduct
-from apps.types.scraper import LoginInformation, ProductSearch
+from apps.types.scraper import LoginInformation, ProductSearch, SmartProductID
 
 CERTIFICATE_BASE_PATH = Path(__file__).parent.resolve()
 
@@ -650,7 +650,7 @@ class BencoScraper(Scraper):
             for cart_product in cart_products
         ]
 
-    async def remove_product_from_cart(self, product_id: Union[str, int], use_bulk: bool = True):
+    async def remove_product_from_cart(self, product_id: SmartProductID, use_bulk: bool = True):
         cart_id, request_verification_token, cart_products = await self.get_cart()
         product = [cart_product for cart_product in cart_products if cart_product["product_id"] == product_id][0]
 
