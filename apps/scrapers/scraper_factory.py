@@ -56,11 +56,35 @@ def get_scraper_data():
                 "url": "https://www.henryschein.com/",
             },
             "products": [
+                # {
+                #     "product_id": "3840072",
+                #     "product_url": "https://www.henryschein.com/us-en/dental/p/restorative-cosmetic"
+                #     "/articulating/articulating-paper-40-microns/3840072",
+                #     "quantity": 20,
+                # },
                 {
-                    "product_id": "3840072",
-                    "product_url": "https://www.henryschein.com/us-en/dental/p/restorative-cosmetic"
-                    "/articulating/articulating-paper-40-microns/3840072",
-                    "quantity": 20,
+                    "product_id": "2290224",
+                    "quantity": 1,
+                },
+                {
+                    "product_id": "1125510",
+                    "quantity": 1,
+                },
+                {
+                    "product_id": "1125511",
+                    "quantity": 1,
+                },
+                {
+                    "product_id": "2288210",
+                    "quantity": 1,
+                },
+                {
+                    "product_id": "5619254",
+                    "quantity": 1,
+                },
+                {
+                    "product_id": "1238703",
+                    "quantity": 1,
                 },
                 # {
                 #     "product_id": "4434033",
@@ -80,14 +104,30 @@ def get_scraper_data():
             "username": os.getenv("NET32_USERNAME"),
             "password": os.getenv("NET32_PASSWORD"),
             "products": [
+                # {
+                #     "product_id": "113866",
+                #     "product_url": "https://www.net32.com/ec/house-brand-premium-nitrile-exam-gloves-small-d-113866",
+                #     "quantity": 1,
+                # },
+                # {
+                #     "product_id": "149881",
+                #     "product_url": "https://www.net32.com/ec/caviwipes-12-towelettes-large-6-x-675-d-149881",
+                #     "quantity": 1,
+                # },
                 {
-                    "product_id": "113866",
-                    "product_url": "https://www.net32.com/ec/house-brand-premium-nitrile-exam-gloves-small-d-113866",
+                    "product_id": "101047",
                     "quantity": 1,
                 },
                 {
-                    "product_id": "149881",
-                    "product_url": "https://www.net32.com/ec/caviwipes-12-towelettes-large-6-x-675-d-149881",
+                    "product_id": "147024",
+                    "quantity": 1,
+                },
+                {
+                    "product_id": "138937",
+                    "quantity": 1,
+                },
+                {
+                    "product_id": "40817",
                     "quantity": 1,
                 },
             ],
@@ -189,50 +229,95 @@ def get_scraper_data():
     }
 
 
-async def main():
-    scraper_name = "henry_schein"
+def get_test_products(scraper_name):
     base_data = get_scraper_data()
-    scraper_data = base_data[scraper_name]
-    # products = [
-    #     {
-    #         "product_id": product["product_id"],
-    #         "quantity": product["quantity"],
-    #     }
-    #     for product in scraper_data["products"]
-    # ]
-    async with ClientSession() as session:
-        scraper = ScraperFactory.create_scraper(
-            vendor=scraper_data["vendor"],
-            session=session,
-            username=scraper_data["username"],
-            password=scraper_data["password"],
-        )
-        # await scraper.login()
+    return [
+        {
+            "product_id": product["product_id"],
+            "quantity": product["quantity"],
+        }
+        for product in base_data[scraper_name]["products"]
+    ]
 
+
+def get_task(scraper, scraper_name, test="login"):
+    base_data = get_scraper_data()
+    if test == "login":
+        return scraper.login()
+    elif test == "order_history":
+        return scraper.get_orders(perform_login=True)
+    elif test == "order_history_date_range":
         orders_from_date = datetime.date(year=2021, month=9, day=1)
         orders_to_date = datetime.date(year=2021, month=9, day=1)
-        results = await scraper.get_orders(perform_login=True, from_date=orders_from_date, to_date=orders_to_date)
-        # results = await scraper.search_products(query="tooth brush", page=1)
-        # results = [r.to_dict() for r in results]
-        # results = await scraper.get_product(
-        #     product_id=BASE_DATA[scraper_name]["products"][0]["product_id"],
-        #     product_url=BASE_DATA[scraper_name]["products"][0]["product_url"],
-        #     perform_login=True,
-        # )
-        # results = await scraper.get_all_products()
-        # results = await scraper.get_vendor_categories(perform_login=True)
+        return scraper.get_orders(perform_login=True, from_date=orders_from_date, to_date=orders_to_date)
+    elif test == "create_order":
+        return scraper.create_order(get_test_products(scraper_name))
+    elif test == "search_product":
+        return scraper.search_products(query="tooth brush", page=1)
+    elif test == "get_product":
+        return scraper.get_product(
+            product_id=base_data[scraper_name]["products"][0]["product_id"],
+            product_url=base_data[scraper_name]["products"][0]["product_url"],
+            perform_login=True,
+        )
+    elif test == "add_product_to_cart":
+        products = get_test_products(scraper_name)
+        return scraper.add_product_to_cart(products[0])
+    elif test == "add_products_to_cart":
+        products = get_test_products(scraper_name)
+        return scraper.add_products_to_cart(products)
+    elif test == "clear_cart":
+        return scraper.clear_cart()
+    elif test == "remove_product_from_cart":
+        # products = get_test_products(scraper_name)
+        # return scraper.remove_product_from_cart(products[0]["product_id"])
+        return scraper.remove_product_from_cart("2290224")
 
-        # await scraper.login()
-        # results = await scraper.clear_cart()
-        # results = await scraper.add_product_to_cart(products[0])
-        # results = await scraper.remove_product_from_cart(
-        #     product_id=products[0]["product_id"], use_bulk=False
-        # )
-        # results = await scraper.add_products_to_cart(products)
-        # results = await scraper.clear_cart()
 
-        # results = await scraper.confirm_order(products)
-        print(results)
+async def main():
+    scraper_names = ["henry_schein"]
+    base_data = get_scraper_data()
+    tasks = []
+    async with ClientSession() as session:
+        for scraper_name in scraper_names:
+            scraper_data = base_data[scraper_name]
+            scraper = ScraperFactory.create_scraper(
+                vendor=scraper_data["vendor"],
+                session=session,
+                username=scraper_data["username"],
+                password=scraper_data["password"],
+            )
+            tasks.append(get_task(scraper, scraper_name, "remove_product_from_cart"))
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+    # products = [
+    #     {
+    #         "product_id": "2290224",
+    #         "quantity": 1,
+    #     },
+    #     {
+    #         "product_id": "1125510",
+    #         "quantity": 1,
+    #     },
+    #     {
+    #         "product_id": "1125511",
+    #         "quantity": 1,
+    #     },
+    #     {
+    #         "product_id": "2288210",
+    #         "quantity": 1,
+    #     },
+    #     {
+    #         "product_id": "5619254",
+    #         "quantity": 1,
+    #     },
+    #     {
+    #         "product_id": "1238703",
+    #         "quantity": 1,
+    #     },
+    # ]
+
+    print(results)
 
 
 async def search_products(mock=True):
@@ -310,6 +395,6 @@ if __name__ == "__main__":
 
     load_dotenv()
     start_time = time.perf_counter()
-    # asyncio.run(main())
-    asyncio.run(search_products())
+    asyncio.run(main())
+    # asyncio.run(search_products())
     print(time.perf_counter() - start_time)
