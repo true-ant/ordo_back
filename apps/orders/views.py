@@ -515,8 +515,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             password=office_vendor.password,
         )
         try:
-            await scraper.login()
-            await scraper.remove_product_from_cart(product_id=product_id, use_bulk=False)
+            await scraper.remove_product_from_cart(product_id=product_id, use_bulk=False, perform_login=True)
         except Exception:
             raise VendorSiteError()
 

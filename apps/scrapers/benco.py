@@ -650,7 +650,11 @@ class BencoScraper(Scraper):
             for cart_product in cart_products
         ]
 
-    async def remove_product_from_cart(self, product_id: SmartProductID, use_bulk: bool = True):
+    async def remove_product_from_cart(
+        self, product_id: SmartProductID, perform_login: bool = False, use_bulk: bool = True
+    ):
+        if perform_login:
+            await self.login()
         cart_id, request_verification_token, cart_products = await self.get_cart()
         product = [cart_product for cart_product in cart_products if cart_product["product_id"] == product_id][0]
 

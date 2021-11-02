@@ -394,7 +394,12 @@ class HenryScheinScraper(Scraper):
             dom = Selector(text=await resp.text())
             return dom
 
-    async def remove_product_from_cart(self, product_id: SmartProductID, use_bulk: bool = True):
+    async def remove_product_from_cart(
+        self, product_id: SmartProductID, perform_login: bool = False, use_bulk: bool = True
+    ):
+        if perform_login:
+            await self.login()
+
         if not use_bulk:
             cart_dom = await self.get_cart()
             for i, product_dom in enumerate(

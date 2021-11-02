@@ -206,7 +206,9 @@ class Scraper:
     async def add_products_to_cart(self, products: List[CartProduct]) -> List[VendorCartProduct]:
         raise NotImplementedError("Vendor scraper must implement `add_products_to_cart`")
 
-    async def remove_product_from_cart(self, product_id: SmartProductID, use_bulk: bool = True):
+    async def remove_product_from_cart(
+        self, product_id: SmartProductID, perform_login: bool = False, use_bulk: bool = True
+    ):
         raise NotImplementedError("Vendor scraper must implement `remove_product_from_cart`")
 
     async def remove_products_from_cart(self, product_ids: List[SmartProductID]):
