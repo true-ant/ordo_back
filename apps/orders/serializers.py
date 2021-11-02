@@ -152,7 +152,7 @@ class CartSerializer(serializers.ModelSerializer):
             if created:
                 product_images_objs = []
                 for image in images:
-                    product_images_objs.append(m.ProductImage(product=product, image=image))
+                    product_images_objs.append(m.ProductImage(product=product, image=image["image"]))
                 if images:
                     m.ProductImage.objects.bulk_create(product_images_objs)
 

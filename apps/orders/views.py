@@ -561,8 +561,8 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                 vendor,
                 serializer,
             )
-        except VendorSiteError:
-            return Response({"message": msgs.VENDOR_SITE_ERROR}, status=HTTP_500_INTERNAL_SERVER_ERROR)
+        except VendorSiteError as e:
+            return Response({"message": f"{msgs.VENDOR_SITE_ERROR} - {e}"}, status=HTTP_500_INTERNAL_SERVER_ERROR)
         serializer_data = await sync_to_async(save_serailizer)(serializer)
         return Response(serializer_data, status=HTTP_201_CREATED)
 
