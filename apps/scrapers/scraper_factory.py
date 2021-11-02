@@ -262,7 +262,8 @@ def get_task(scraper, scraper_name, test="login"):
         )
     elif test == "add_product_to_cart":
         products = get_test_products(scraper_name)
-        return scraper.add_product_to_cart(products[0])
+        product = {"product_id": "114303", "quantity": 1}
+        return scraper.add_product_to_cart(product, perform_login=True)
     elif test == "add_products_to_cart":
         products = get_test_products(scraper_name)
         return scraper.add_products_to_cart(products)
@@ -271,7 +272,7 @@ def get_task(scraper, scraper_name, test="login"):
     elif test == "remove_product_from_cart":
         # products = get_test_products(scraper_name)
         # return scraper.remove_product_from_cart(products[0]["product_id"])
-        return scraper.remove_product_from_cart("2290224")
+        return scraper.remove_product_from_cart("2288210", perform_login=True, use_bulk=False)
 
 
 async def main():
@@ -287,7 +288,7 @@ async def main():
                 username=scraper_data["username"],
                 password=scraper_data["password"],
             )
-            tasks.append(get_task(scraper, scraper_name, "remove_product_from_cart"))
+            tasks.append(get_task(scraper, scraper_name, "add_product_to_cart"))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
     # products = [

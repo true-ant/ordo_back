@@ -518,8 +518,8 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         )
         try:
             await scraper.remove_product_from_cart(product_id=product_id, use_bulk=False, perform_login=True)
-        except Exception:
-            raise VendorSiteError()
+        except Exception as e:
+            raise VendorSiteError(f"{e}")
 
         if not serializer:
             return True
@@ -536,11 +536,12 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
         try:
             vendor_cart_product = await scraper.add_product_to_cart(
-                CartProduct(product_id=product_id, quantity=quantity)
+                CartProduct(product_id=product_id, quantity=quantity),
+                perform_login=True,
             )
             serializer.validated_data["unit_price"] = vendor_cart_product["unit_price"]
-        except Exception:
-            raise VendorSiteError()
+        except Exception as e:
+            raise VendorSiteError(f"{e}")
 
     async def create(self, request, *args, **kwargs):
         data = request.data
@@ -773,8 +774,8 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                     vendor,
                     serializer,
                 )
-            except VendorSiteError:
-                return Response({"message": msgs.VENDOR_SITE_ERROR}, status=HTTP_500_INTERNAL_SERVER_ERROR)
+            except VendorSiteError as e:
+                return Response({"message": f"{msgs.VENDOR_SITE_ERROR} - {e}"}, status=HTTP_500_INTERNAL_SERVER_ERROR)
             serializer_data = await sync_to_async(save_serailizer)(serializer)
             result.append(serializer_data)
         return Response(result, status=HTTP_201_CREATED)

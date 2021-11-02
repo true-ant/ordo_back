@@ -321,7 +321,10 @@ class Net32Scraper(Scraper):
                 "last_page": page_size * page >= total_size,
             }
 
-    async def add_product_to_cart(self, product: CartProduct) -> dict:
+    async def add_product_to_cart(self, product: CartProduct, perform_login=False) -> dict:
+        if perform_login:
+            await self.login()
+
         data = [
             {
                 "mpId": product["product_id"],

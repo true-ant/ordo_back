@@ -200,7 +200,7 @@ class Scraper:
             "last_page": last_page,
         }
 
-    async def add_product_to_cart(self, product: CartProduct) -> VendorCartProduct:
+    async def add_product_to_cart(self, product: CartProduct, perform_login=False) -> VendorCartProduct:
         raise NotImplementedError("Vendor scraper must implement `add_product_to_cart`")
 
     async def add_products_to_cart(self, products: List[CartProduct]) -> List[VendorCartProduct]:

@@ -445,7 +445,10 @@ class HenryScheinScraper(Scraper):
         tasks = (self.add_product_to_cart(product) for product in products)
         return await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def add_product_to_cart(self, product: CartProduct) -> VendorCartProduct:
+    async def add_product_to_cart(self, product: CartProduct, perform_login=False) -> VendorCartProduct:
+        if perform_login:
+            await self.login()
+
         params = {
             "addproductid": product["product_id"],
             "addproductqty": product["quantity"],

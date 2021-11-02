@@ -630,7 +630,10 @@ class BencoScraper(Scraper):
             "https://shop.benco.com/Cart/AddQOEItem", headers=ADD_CART_HEADERS, data=data, ssl=self._ssl_context
         )
 
-    async def add_product_to_cart(self, product: CartProduct) -> VendorCartProduct:
+    async def add_product_to_cart(self, product: CartProduct, perform_login=False) -> VendorCartProduct:
+        if perform_login:
+            await self.login()
+
         cart_id, request_verification_token, _ = await self.get_cart()
         await self._add_product_to_cart(product, cart_id, request_verification_token)
         _, _, cart_products = await self.get_cart()
