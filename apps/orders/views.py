@@ -7,6 +7,7 @@ import zipfile
 from datetime import datetime, timedelta
 from decimal import Decimal
 from functools import reduce
+from typing import Union
 
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
@@ -38,6 +39,7 @@ from apps.common.utils import group_products_from_search_result
 from apps.scrapers.errors import VendorNotSupported, VendorSiteError
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import CartProduct
+from apps.types.scraper import SmartID
 
 from . import filters as f
 from . import models as m
@@ -298,6 +300,19 @@ def get_spending(by, orders, company):
         ]
 
 
+def get_inventory_products(office: Union[SmartID, m.Office]):
+    if not isinstance(office, m.Office):
+        office = get_object_or_404(m.Office, pk=office)
+
+    office_inventory_products = office.inventory_products.values("product_id", "vendor")
+    return set(
+        [
+            f"{office_inventory_product['product_id']}-{office_inventory_product['vendor']}"
+            for office_inventory_product in office_inventory_products
+        ]
+    )
+
+
 class CompanySpendAPIView(APIView):
     permission_classes = [p.CompanyOfficeReadPermission]
 
@@ -408,7 +423,27 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
 
         search_results = await asyncio.gather(*tasks, return_exceptions=True)
         meta, products = group_products_from_search_result(search_results)
-        return Response({"meta": meta, "products": products})
+
+        # get inventory products
+        inventory_products = await sync_to_async(get_inventory_products)(office_id)
+        results = []
+        for product_or_products in products:
+            if isinstance(product_or_products, list):
+                ret = []
+                for product in product_or_products:
+                    key = f"{product['product_id']}-{product['vendor']['id']}"
+                    if key in inventory_products:
+                        continue
+                    ret.append(product)
+            else:
+                key = f"{product_or_products['product_id']}-{product_or_products['vendor']['id']}"
+                if key in inventory_products:
+                    continue
+                ret = product_or_products
+            if ret:
+                results.append(ret)
+
+        return Response({"meta": meta, "products": results})
 
     @sync_to_async
     def _validate_product_detail_serializer(self, request):

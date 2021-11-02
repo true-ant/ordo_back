@@ -2,7 +2,8 @@ from typing import List, TypedDict, Union
 
 from apps.scrapers.schema import Product
 
-SmartProductID = Union[str, int]
+SmartID = Union[str, int]
+SmartProductID = SmartID
 
 
 class LoginInformation(TypedDict):
