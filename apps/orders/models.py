@@ -202,7 +202,7 @@ class OfficeCheckoutStatus(TimeStampedModel):
 
 
 class FavouriteProduct(TimeStampedModel):
-    office = models.OneToOneField(Office, on_delete=models.CASCADE, related_name="favorite_products")
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name="favorite_products")
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
 
     class Meta:
@@ -214,7 +214,7 @@ class FavouriteProduct(TimeStampedModel):
 
 # TODO: cna simplify by using inheritance
 class InventoryProduct(TimeStampedModel):
-    office = models.OneToOneField(Office, on_delete=models.CASCADE, related_name="inventory_products")
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name="inventory_products")
     vendor = FlexibleForeignKey(Vendor, related_name="inventory_products")
     product_id = models.CharField(max_length=100)
     category = models.ForeignKey(ProductCategory, null=True, blank=True, on_delete=models.SET_NULL)

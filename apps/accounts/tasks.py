@@ -152,6 +152,7 @@ def save_order_to_db(office, vendor, order_data):
         InventoryProduct.objects.get_or_create(
             office=office,
             vendor=vendor,
+            product_id=product_id,
             defaults=order_product_data["product"],
         )
 
