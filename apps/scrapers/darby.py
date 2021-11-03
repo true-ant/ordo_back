@@ -138,7 +138,7 @@ class DarbyScraper(Scraper):
                             "category": "",
                             "images": [{"image": product_image}],
                             "price": product_price,
-                            "vendor": self.vendor,
+                            "vendor": self.vendor.to_dict(),
                         },
                         "unit_price": product_price,
                         "quantity": quantity,
@@ -154,7 +154,7 @@ class DarbyScraper(Scraper):
         )
         return order
 
-    async def get_order(self, order_dom, order_date: Optional[datetime.date] = None):
+    async def get_order(self, order_dom, order_date: Optional[datetime.date] = None, office=None):
         link = self.merge_strip_values(order_dom, "./td[1]/a/@href")
         order_id = self.merge_strip_values(order_dom, "./td[1]//text()")
         order = {
@@ -171,7 +171,11 @@ class DarbyScraper(Scraper):
 
     @catch_network
     async def get_orders(
-        self, perform_login=False, from_date: Optional[datetime.date] = None, to_date: Optional[datetime.date] = None
+        self,
+        office=None,
+        perform_login=False,
+        from_date: Optional[datetime.date] = None,
+        to_date: Optional[datetime.date] = None,
     ):
         url = f"{self.BASE_URL}/Scripts/InvoiceHistory.aspx"
 
@@ -192,7 +196,7 @@ class DarbyScraper(Scraper):
                 ).date()
                 if from_date and to_date and (order_date < from_date or order_date > to_date):
                     continue
-                tasks.append(self.get_order(order_dom, order_date))
+                tasks.append(self.get_order(order_dom, order_date, office))
 
             if tasks:
                 orders = await asyncio.gather(*tasks, return_exceptions=True)
@@ -226,7 +230,7 @@ class DarbyScraper(Scraper):
                 ],
                 "category": product_category,
                 "price": product_price,
-                "vendor": self.vendor,
+                "vendor": self.vendor.to_dict(),
             }
 
     async def _search_products(
@@ -288,12 +292,12 @@ class DarbyScraper(Scraper):
                                 }
                             ],
                             "price": price,
-                            "vendor": self.vendor,
+                            "vendor": self.vendor.to_dict(),
                         }
                     )
                 )
         return {
-            "vendor_slug": self.vendor["slug"],
+            "vendor_slug": self.vendor.slug,
             "total_size": total_size,
             "page": page,
             "page_size": page_size,

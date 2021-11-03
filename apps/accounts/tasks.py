@@ -11,23 +11,12 @@ from celery import shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
-from django.db import transaction
 from django.db.models import Q
 from django.template.loader import render_to_string
 from django.utils import timezone
 from month import Month
-from slugify import slugify
 
 from apps.accounts.models import CompanyMember, Office, OfficeBudget, OfficeVendor, User
-from apps.orders.models import (
-    InventoryProduct,
-    Order,
-    Product,
-    ProductCategory,
-    ProductImage,
-    VendorOrder,
-    VendorOrderProduct,
-)
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import CompanyInvite
 
@@ -82,79 +71,15 @@ def send_company_invite_email(company_email_invites: List[CompanyInvite]):
         )
 
 
-async def get_orders(company_vendor, login_cookies, perform_login):
+async def get_orders(office_vendor, login_cookies, perform_login):
     async with ClientSession(cookies=login_cookies) as session:
         scraper = ScraperFactory.create_scraper(
-            vendor=company_vendor.vendor.to_dict(),
+            vendor=office_vendor.vendor,
             session=session,
-            username=company_vendor.username,
-            password=company_vendor.password,
+            username=office_vendor.username,
+            password=office_vendor.password,
         )
-        return await scraper.get_orders(perform_login=perform_login)
-
-
-def save_order_to_db(office, vendor, order_data):
-    order_products_data = order_data.pop("products")
-    order_id = order_data["order_id"]
-    try:
-        vendor_order = VendorOrder.objects.get(vendor=vendor, vendor_order_id=order_id)
-    except VendorOrder.DoesNotExist:
-        order = Order.objects.create(
-            office=office,
-            status=order_data["status"],
-            order_date=order_data["order_date"],
-            total_items=order_data["total_items"],
-            total_amount=order_data["total_amount"],
-        )
-        vendor_order = VendorOrder.from_dataclass(vendor=vendor, order=order, dict_data=order_data)
-
-    other_category = ProductCategory.objects.filter(slug="other").first()
-
-    for order_product_data in order_products_data:
-        vendor_data = order_product_data["product"].pop("vendor")
-        order_product_images = order_product_data["product"].pop("images", [])
-        product_id = order_product_data["product"].pop("product_id")
-        product_category = order_product_data["product"].pop("category")
-
-        if product_category:
-            product_category = slugify(product_category[0])
-            q = {f"vendor_categories__{vendor_data['slug']}__contains": product_category}
-            q = Q(**q)
-            product_category = ProductCategory.objects.filter(q).first()
-            if product_category:
-                order_product_data["product"]["category_id"] = product_category.id
-            else:
-                order_product_data["product"]["category_id"] = other_category.id
-        else:
-            order_product_data["product"]["category_id"] = other_category.id
-
-        product, created = Product.objects.get_or_create(
-            vendor=vendor, product_id=product_id, defaults=order_product_data["product"]
-        )
-        if created:
-            for order_product_image in order_product_images:
-                ProductImage.objects.create(
-                    product=product,
-                    image=order_product_image["image"],
-                )
-
-        VendorOrderProduct.objects.get_or_create(
-            vendor_order=vendor_order,
-            product=product,
-            defaults={
-                "quantity": order_product_data["quantity"],
-                "unit_price": order_product_data["unit_price"],
-                "status": order_product_data["status"],
-            },
-        )
-
-        order_product_data["product"].pop("price")
-        InventoryProduct.objects.get_or_create(
-            office=office,
-            vendor=vendor,
-            product_id=product_id,
-            defaults=order_product_data["product"],
-        )
+        return await scraper.get_orders(office=office_vendor.office, perform_login=perform_login)
 
 
 @shared_task
@@ -164,9 +89,9 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
 
     # TODO: we don't have to fetch orders that already in our db
     office_vendor = OfficeVendor.objects.select_related("office", "vendor").get(id=office_vendor_id)
-    offices_vendors = OfficeVendor.objects.filter(
-        office__company=office_vendor.office.company, vendor=office_vendor.vendor
-    )
+    # offices_vendors = OfficeVendor.objects.filter(
+    #     office__company=office_vendor.office.company, vendor=office_vendor.vendor
+    # )
 
     if login_cookies:
         cookie = SimpleCookie()
@@ -175,24 +100,24 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
             cookie.load(login_cookie)
     else:
         cookie = None
-    orders = asyncio.run(get_orders(office_vendor, cookie, perform_login))
+    asyncio.run(get_orders(office_vendor, cookie, perform_login))
 
-    with transaction.atomic():
-        for order_data_cls in orders:
-            order_data = order_data_cls.to_dict()
-            shipping_address = order_data.pop("shipping_address")
-            try:
-                office = [
-                    office_vendor.office
-                    for office_vendor in offices_vendors
-                    if office_vendor.office.shipping_zip_code[:5] == shipping_address["postal_code"][:5]
-                ][0]
-            except (TypeError, IndexError):
-                office = office_vendor.office
+    # with transaction.atomic():
+    #     for order_data_cls in orders:
+    #         order_data = order_data_cls.to_dict()
+    #         shipping_address = order_data.pop("shipping_address")
+    #         try:
+    #             office = [
+    #                 office_vendor.office
+    #                 for office_vendor in offices_vendors
+    #                 if office_vendor.office.shipping_zip_code[:5] == shipping_address["postal_code"][:5]
+    #             ][0]
+    #         except (TypeError, IndexError):
+    #             office = office_vendor.office
 
-            save_order_to_db(office, office_vendor.vendor, order_data)
-            office_vendor.task_id = ""
-            office_vendor.save()
+    #         save_order_to_db(office, office_vendor.vendor, order_data)
+    #         office_vendor.task_id = ""
+    #         office_vendor.save()
 
 
 @shared_task

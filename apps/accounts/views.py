@@ -306,7 +306,7 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
         session._cookie_jar.clear()
         try:
             scraper = ScraperFactory.create_scraper(
-                vendor=serializer.validated_data["vendor"].to_dict(),
+                vendor=serializer.validated_data["vendor"],
                 username=serializer.validated_data["username"],
                 password=serializer.validated_data["password"],
                 session=session,

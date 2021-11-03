@@ -115,7 +115,7 @@ class HenryScheinScraper(Scraper):
             },
         }
 
-    async def get_order(self, order_dom):
+    async def get_order(self, order_dom, office=None):
         link = order_dom.xpath("./td[8]/a/@href").extract_first().strip()
         order = {
             "total_amount": order_dom.xpath("./td[6]//text()").extract_first()[1:],
@@ -193,7 +193,7 @@ class HenryScheinScraper(Scraper):
                             "images": [],
                             "category": "",
                             "price": product_price,
-                            "vendor": self.vendor,
+                            "vendor": self.vendor.to_dict(),
                         },
                         "quantity": quantity,
                         "unit_price": product_price,
@@ -209,6 +209,8 @@ class HenryScheinScraper(Scraper):
                 "category",
             ),
         )
+        if office:
+            await self.save_order_to_db(office, order=Order.from_dict(order))
         return order
 
     async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
@@ -242,14 +244,17 @@ class HenryScheinScraper(Scraper):
                 "images": [{"image": f"{self.BASE_URL}{product_image}"} for product_image in product_images],
                 "category": product_category,
                 "price": product_price,
-                "vendor": self.vendor,
+                "vendor": self.vendor.to_dict(),
             }
 
     @catch_network
     async def get_orders(
-        self, perform_login=False, from_date: Optional[datetime.date] = None, to_date: Optional[datetime.date] = None
+        self,
+        office=None,
+        perform_login=False,
+        from_date: Optional[datetime.date] = None,
+        to_date: Optional[datetime.date] = None,
     ):
-
         params = {}
         if from_date and to_date:
             params["Search"] = f"dateRangeSF|{from_date.strftime('%m/%d/%Y')}|{to_date.strftime('%m/%d/%Y')}"
@@ -265,7 +270,7 @@ class HenryScheinScraper(Scraper):
             orders_dom = response_dom.xpath(
                 "//table[@class='SimpleList']//tr[@class='ItemRow' or @class='AlternateItemRow']"
             )
-            tasks = (self.get_order(order_dom) for order_dom in orders_dom)
+            tasks = (self.get_order(order_dom, office) for order_dom in orders_dom[:1])
             orders = await asyncio.gather(*tasks, return_exceptions=True)
 
         return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
@@ -355,7 +360,7 @@ class HenryScheinScraper(Scraper):
                         }
                     ],
                     "price": Decimal(0),
-                    "vendor": self.vendor,
+                    "vendor": self.vendor.to_dict(),
                 }
             )
 
@@ -372,7 +377,7 @@ class HenryScheinScraper(Scraper):
             res_products.append(product)
 
         return {
-            "vendor_slug": self.vendor["slug"],
+            "vendor_slug": self.vendor.slug,
             "total_size": total_size,
             "page": page,
             "page_size": page_size,
@@ -662,10 +667,11 @@ class HenryScheinScraper(Scraper):
         checkout_dom = await self.checkout(products)
         review_checkout_dom = await self.review_checkout(checkout_dom)
         vendor_order_detail = await self.review_order(review_checkout_dom)
+        vendor_slug: str = self.vendor.slug
         return {
-            self.vendor["slug"]: {
+            vendor_slug: {
                 **vendor_order_detail.to_dict(),
-                **self.vendor,
+                **self.vendor.to_dict(),
             },
         }
 

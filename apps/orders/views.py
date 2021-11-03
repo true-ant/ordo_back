@@ -409,7 +409,7 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
                 continue
             try:
                 scraper = ScraperFactory.create_scraper(
-                    vendor=office_vendor.vendor.to_dict(),
+                    vendor=office_vendor.vendor,
                     session=session,
                     username=office_vendor.username,
                     password=office_vendor.password,
@@ -460,7 +460,7 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
         office_vendor = office_vendor[0]
         session = apps.get_app_config("accounts").session
         scraper = ScraperFactory.create_scraper(
-            vendor=validated_data["vendor"].to_dict(),
+            vendor=validated_data["vendor"],
             session=session,
             username=office_vendor.username,
             password=office_vendor.password,
@@ -546,7 +546,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         office_vendor = await sync_to_async(get_office_vendor)(office_pk=self.kwargs["office_pk"], vendor_pk=vendor.id)
         session = apps.get_app_config("accounts").session
         scraper = ScraperFactory.create_scraper(
-            vendor=vendor.to_dict(),
+            vendor=vendor,
             session=session,
             username=office_vendor.username,
             password=office_vendor.password,
@@ -730,7 +730,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             tasks = []
             for office_vendor in office_vendors:
                 scraper = ScraperFactory.create_scraper(
-                    vendor=office_vendor.vendor.to_dict(),
+                    vendor=office_vendor.vendor,
                     session=session,
                     username=office_vendor.username,
                     password=office_vendor.password,
@@ -764,10 +764,9 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         session = apps.get_app_config("accounts").session
         tasks = []
         for office_vendor in office_vendors:
-            vendor_data = office_vendor.vendor.to_dict()
             # vendor_slug = vendor_data["slug"]
             scraper = ScraperFactory.create_scraper(
-                vendor=vendor_data,
+                vendor=office_vendor.vendor,
                 session=session,
                 username=office_vendor.username,
                 password=office_vendor.password,
