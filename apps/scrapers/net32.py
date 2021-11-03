@@ -144,7 +144,11 @@ class Net32Scraper(Scraper):
 
     @catch_network
     async def get_orders(
-        self, perform_login=False, from_date: Optional[datetime.date] = None, to_date: Optional[datetime.date] = None
+        self,
+        office=None,
+        perform_login=False,
+        from_date: Optional[datetime.date] = None,
+        to_date: Optional[datetime.date] = None,
     ) -> List[Order]:
         url = f"{self.BASE_URL}/rest/order/orderHistory"
         headers = HEADERS.copy()
@@ -193,7 +197,7 @@ class Net32Scraper(Scraper):
                                     "images": [{"image": f"{self.BASE_URL}/media{line_item['mediaPath']}"}],
                                     "category": [line_item["catName"]],
                                     "price": line_item["oliProdPrice"],
-                                    "vendor": self.vendor,
+                                    "vendor": self.vendor.to_dict(),
                                 },
                                 "quantity": line_item["quantity"],
                                 "unit_price": line_item["oliProdPrice"],
@@ -218,7 +222,13 @@ class Net32Scraper(Scraper):
                 for order_product in order["products"]:
                     order_product["product"]["category"] = product_categories[order_product["product"]["product_id"]]
 
-            return [Order.from_dict(order) for order in orders]
+            orders = [Order.from_dict(order) for order in orders]
+
+            if office:
+                for order in orders:
+                    await self.save_order_to_db(office, order=order)
+
+            return orders
         except KeyError:
             raise OrderFetchException()
 
@@ -238,7 +248,7 @@ class Net32Scraper(Scraper):
             product_data_dict["description"] = res["description"]
             product_data_dict["images"] = [{"image": f"{self.BASE_URL}/media{res['mediaPath']}"}]
             product_data_dict["price"] = res["retailPrice"]
-            product_data_dict["vendor"] = self.vendor
+            product_data_dict["vendor"] = self.vendor.to_dict()
 
     async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
         product_data_dict = {
@@ -307,13 +317,13 @@ class Net32Scraper(Scraper):
                             "price": self.extract_first(
                                 product_dom, ".//ins[@class='localsearch-result-best-price']//text()"
                             ),
-                            "vendor": self.vendor,
+                            "vendor": self.vendor.to_dict(),
                         }
                     )
                 )
 
             return {
-                "vendor_slug": self.vendor["slug"],
+                "vendor_slug": self.vendor.slug,
                 "total_size": total_size,
                 "page": page,
                 "page_size": page_size,
@@ -442,17 +452,18 @@ class Net32Scraper(Scraper):
         await self.clear_cart()
         await self.add_products_to_cart(products)
         vendor_order_detail = await self.review_order()
+        vendor_slug: str = self.vendor.slug
         return {
-            self.vendor["slug"]: {
+            vendor_slug: {
                 **vendor_order_detail.to_dict(),
-                **self.vendor,
+                **self.vendor.to_dict(),
             }
         }
 
     async def confirm_order(self, products: List[CartProduct], fake=False):
         result = await self.create_order(products)
         if fake:
-            return {**result[self.vendor["slug"]], "order_id": f"{uuid.uuid4()}"}
+            return {**result[self.vendor.slug], "order_id": f"{uuid.uuid4()}"}
         else:
             async with self.session.post(
                 "https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS
@@ -461,7 +472,7 @@ class Net32Scraper(Scraper):
                 order_id = response_dom.xpath(
                     "//h2[@class='checkout-confirmation-order-number-header']//a/text()"
                 ).get()
-            return {**result[self.vendor["slug"]], "order_id": order_id}
+            return {**result[self.vendor.slug], "order_id": order_id}
 
     def _get_vendor_categories(self, response) -> List[ProductCategory]:
         return [

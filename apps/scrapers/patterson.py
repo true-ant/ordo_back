@@ -144,7 +144,11 @@ class PattersonScraper(Scraper):
             return text
 
     async def get_orders(
-        self, perform_login=False, from_date: Optional[datetime.date] = None, to_date: Optional[datetime.date] = None
+        self,
+        office=None,
+        perform_login=False,
+        from_date: Optional[datetime.date] = None,
+        to_date: Optional[datetime.date] = None,
     ) -> List[Order]:
         return []
 
@@ -162,7 +166,7 @@ class PattersonScraper(Scraper):
                 "images": [{"image": product_image} for product_image in product_images],
                 "category": "",
                 "price": "",
-                "vendor": self.vendor,
+                "vendor": self.vendor.to_dict(),
             }
 
         product_description_detail = res.xpath(
@@ -252,7 +256,7 @@ class PattersonScraper(Scraper):
                     "url": product_url,
                     "images": [{"image": product_image}],
                     "price": Decimal(0),
-                    "vendor": self.vendor,
+                    "vendor": self.vendor.to_dict(),
                     "category": "",
                 }
             )
@@ -263,7 +267,7 @@ class PattersonScraper(Scraper):
             product["price"] = product_prices[product["product_id"]]
 
         return {
-            "vendor_slug": self.vendor["slug"],
+            "vendor_slug": self.vendor.slug,
             "total_size": total_size,
             "page": page,
             "page_size": page_size,

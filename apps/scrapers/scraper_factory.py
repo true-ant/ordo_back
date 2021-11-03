@@ -15,7 +15,6 @@ from apps.scrapers.net32 import Net32Scraper
 from apps.scrapers.patterson import PattersonScraper
 from apps.scrapers.schema import Product
 from apps.scrapers.ultradent import UltraDentScraper
-from apps.types.scraper import VendorInformation
 
 SCRAPERS = {
     "henry_schein": HenryScheinScraper,
@@ -32,15 +31,15 @@ class ScraperFactory:
     def create_scraper(
         cls,
         *,
-        vendor: VendorInformation,
+        vendor,
         session: ClientSession,
         username: Optional[str] = None,
         password: Optional[str] = None,
     ):
-        if vendor["slug"] not in SCRAPERS:
-            raise VendorNotSupported(vendor["slug"])
+        if vendor.slug not in SCRAPERS:
+            raise VendorNotSupported(vendor.slug)
 
-        return SCRAPERS[vendor["slug"]](session, vendor, username, password)
+        return SCRAPERS[vendor.slug](session, vendor, username, password)
 
 
 def get_scraper_data():
@@ -48,13 +47,6 @@ def get_scraper_data():
         "henry_schein": {
             "username": os.getenv("HENRY_SCHEIN_USERNAME"),
             "password": os.getenv("HENRY_SCHEIN_PASSWORD"),
-            "vendor": {
-                "id": 1,
-                "slug": "henry_schein",
-                "logo": "vendors/henry_schein.jpg",
-                "name": "Henry Schein",
-                "url": "https://www.henryschein.com/",
-            },
             "products": [
                 # {
                 #     "product_id": "3840072",
@@ -131,13 +123,6 @@ def get_scraper_data():
                     "quantity": 1,
                 },
             ],
-            "vendor": {
-                "id": 2,
-                "slug": "net_32",
-                "logo": "vendors/net_32.jpg",
-                "name": "Net 32",
-                "url": "https://www.net32.com/",
-            },
         },
         "darby": {
             "username": os.getenv("DARBY_SCHEIN_USERNAME"),
@@ -156,24 +141,10 @@ def get_scraper_data():
                     "quantity": 1,
                 },
             ],
-            "vendor": {
-                "id": 3,
-                "slug": "darby",
-                "logo": "vendors/darby.jpg",
-                "name": "Darby",
-                "url": "https://www.darbydental.com/",
-            },
         },
         "patterson": {
             "username": os.getenv("PATTERSON_USERNAME"),
             "password": os.getenv("PATTERSON_PASSWORD"),
-            "vendor": {
-                "id": 4,
-                "slug": "patterson",
-                "logo": "vendors/patterson.jpg",
-                "name": "Patterson",
-                "url": "https://www.pattersondental.com/",
-            },
             "products": [
                 {
                     "product_id": "PIF_63718",
@@ -188,13 +159,6 @@ def get_scraper_data():
         "ultradent": {
             "username": os.getenv("ULTRADENT_SCHEIN_USERNAME"),
             "password": os.getenv("ULTRADENT_SCHEIN_PASSWORD"),
-            "vendor": {
-                "id": 6,
-                "slug": "ultradent",
-                "logo": "vendors/ultradent.jpg",
-                "name": "Ultradent",
-                "url": "https://www.ultradent.com/",
-            },
         },
         "benco": {
             "username": os.getenv("BENCO_USERNAME"),
@@ -218,13 +182,6 @@ def get_scraper_data():
                     "quantity": 1,
                 },
             ],
-            "vendor": {
-                "id": 7,
-                "slug": "benco",
-                "logo": "vendors/benco.jpg",
-                "name": "Benco",
-                "url": "https://www.benco.com/",
-            },
         },
     }
 
@@ -240,20 +197,22 @@ def get_test_products(scraper_name):
     ]
 
 
-def get_task(scraper, scraper_name, test="login"):
+def get_task(scraper, scraper_name, test="login", **kwargs):
     base_data = get_scraper_data()
     if test == "login":
         return scraper.login()
     elif test == "order_history":
-        return scraper.get_orders(perform_login=True)
+        office = kwargs.get("office")
+        return scraper.get_orders(office, perform_login=True)
     elif test == "order_history_date_range":
+        office = kwargs.get("office")
         orders_from_date = datetime.date(year=2021, month=9, day=1)
         orders_to_date = datetime.date(year=2021, month=9, day=1)
-        return scraper.get_orders(perform_login=True, from_date=orders_from_date, to_date=orders_to_date)
+        return scraper.get_orders(office, perform_login=True, from_date=orders_from_date, to_date=orders_to_date)
     elif test == "create_order":
         return scraper.create_order(get_test_products(scraper_name))
     elif test == "search_product":
-        return scraper.search_products(query="tooth brush", page=1)
+        return scraper.search_products(query="bite registration", page=1)
     elif test == "get_product":
         return scraper.get_product(
             product_id=base_data[scraper_name]["products"][0]["product_id"],
@@ -275,20 +234,21 @@ def get_task(scraper, scraper_name, test="login"):
         return scraper.remove_product_from_cart("2288210", perform_login=True, use_bulk=False)
 
 
-async def main():
-    scraper_names = ["henry_schein"]
+async def main(office, vendors):
+    scraper_names = ["net_32"]
     base_data = get_scraper_data()
     tasks = []
     async with ClientSession() as session:
         for scraper_name in scraper_names:
             scraper_data = base_data[scraper_name]
+            vendor = [vendor for vendor in vendors if vendor.slug == scraper_name][0]
             scraper = ScraperFactory.create_scraper(
-                vendor=scraper_data["vendor"],
+                vendor=vendor,
                 session=session,
                 username=scraper_data["username"],
                 password=scraper_data["password"],
             )
-            tasks.append(get_task(scraper, scraper_name, "add_product_to_cart"))
+            tasks.append(get_task(scraper, scraper_name, "order_history", office=office))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
     # products = [
@@ -394,8 +354,19 @@ async def search_products(mock=True):
 if __name__ == "__main__":
     import time
 
+    import django
+
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+    django.setup()
+
     load_dotenv()
+
+    from apps.accounts.models import Vendor
+    from apps.orders.models import Office
+
+    vendors = Vendor.objects.all()
+    office = Office.objects.first()
     start_time = time.perf_counter()
-    asyncio.run(main())
+    asyncio.run(main(office, vendors))
     # asyncio.run(search_products())
     print(time.perf_counter() - start_time)

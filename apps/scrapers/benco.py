@@ -307,7 +307,7 @@ class BencoScraper(Scraper):
     async def _after_login_hook(self, response: ClientResponse):
         pass
 
-    async def get_order(self, order_link, referer) -> dict:
+    async def get_order(self, order_link, referer, office=None) -> dict:
         headers = ORDER_DETAIL_HEADERS.copy()
         headers["Referer"] = referer
 
@@ -375,7 +375,7 @@ class BencoScraper(Scraper):
                                     "images": [],
                                     "category": "",
                                     "price": product_price,
-                                    "vendor": self.vendor,
+                                    "vendor": self.vendor.to_dict(),
                                     # "images": [{"image": product_image for product_image in product_images}],
                                 },
                                 "unit_price": product_price,
@@ -396,7 +396,11 @@ class BencoScraper(Scraper):
 
     @catch_network
     async def get_orders(
-        self, perform_login=False, from_date: Optional[datetime.date] = None, to_date: Optional[datetime.date] = None
+        self,
+        office=None,
+        perform_login=False,
+        from_date: Optional[datetime.date] = None,
+        to_date: Optional[datetime.date] = None,
     ) -> List[Order]:
         url = f"{self.BASE_URL}/PurchaseHistory/NewIndex"
         if perform_login:
@@ -422,7 +426,7 @@ class BencoScraper(Scraper):
                 "//div[@class='order-history']"
                 "//div[contains(@class, 'order-container')]/div[@class='panel-heading']//a/@href"
             ).extract()
-            tasks = (self.get_order(order_link, url) for order_link in orders_links)
+            tasks = (self.get_order(order_link, url, office) for order_link in orders_links)
             orders = await asyncio.gather(*tasks, return_exceptions=True)
             return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
 
@@ -448,7 +452,7 @@ class BencoScraper(Scraper):
                 "images": [{"image": product_image} for product_image in product_images],
                 "category": product_category,
                 "price": product_price,
-                "vendor": self.vendor,
+                "vendor": self.vendor.to_dict(),
             }
 
     async def get_product_prices(self, product_ids, perform_login=False, **kwargs) -> Dict[str, Decimal]:
@@ -522,7 +526,7 @@ class BencoScraper(Scraper):
                                     }
                                 ],
                                 "price": Decimal(0),
-                                "vendor_id": self.vendor,
+                                "vendor_id": self.vendor.to_dict(),
                             }
                         )
                 else:
@@ -551,7 +555,7 @@ class BencoScraper(Scraper):
                                 }
                             ],
                             "price": Decimal(0),
-                            "vendor": self.vendor,
+                            "vendor": self.vendor.to_dict(),
                         }
                     )
 
@@ -561,7 +565,7 @@ class BencoScraper(Scraper):
             product["price"] = product_prices[product["product_id"]]
 
         return {
-            "vendor_slug": self.vendor["slug"],
+            "vendor_slug": self.vendor.slug,
             "total_size": total_size,
             "page": page,
             "page_size": page_size,
@@ -745,10 +749,11 @@ class BencoScraper(Scraper):
         await self.clear_cart()
         await self.add_products_to_cart(products)
         _, _, vendor_order_detail = await self.checkout()
+        vendor_slug: str = self.vendor.slug
         return {
-            self.vendor["slug"]: {
+            vendor_slug: {
                 **vendor_order_detail.to_dict(),
-                **self.vendor,
+                **self.vendor.to_dict(),
             },
         }
 

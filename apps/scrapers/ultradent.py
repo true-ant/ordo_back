@@ -207,7 +207,7 @@ class UltraDentScraper(Scraper):
             },
         }
 
-    async def get_order(self, order) -> dict:
+    async def get_order(self, order, office=None) -> dict:
         json_data = {
             "variables": {"orderNumber": order["orderNumber"]},
             "query": GET_ORDER_QUERY,
@@ -284,7 +284,7 @@ class UltraDentScraper(Scraper):
                                 "name": self.extract_first(order_detail, "./span[@class='sku-product-name']//text()"),
                                 "images": order_product_images,
                                 "price": price,
-                                "vendor": self.vendor,
+                                "vendor": self.vendor.to_dict(),
                             },
                             "quantity": self.extract_first(order_detail, "./span[@class='sku-qty']//text()"),
                             "unit_price": price,
@@ -310,7 +310,11 @@ class UltraDentScraper(Scraper):
 
     @catch_network
     async def get_orders(
-        self, perform_login=False, from_date: Optional[datetime.date] = None, to_date: Optional[datetime.date] = None
+        self,
+        office=None,
+        perform_login=False,
+        from_date: Optional[datetime.date] = None,
+        to_date: Optional[datetime.date] = None,
     ) -> List[Order]:
         url = "https://www.ultradent.com/api/ecommerce"
 
@@ -328,7 +332,7 @@ class UltraDentScraper(Scraper):
                 order_date = datetime.date.fromisoformat(order_data["orderDate"])
                 if from_date and to_date and (order_date < from_date or order_date > to_date):
                     continue
-                tasks.append(self.get_order(order_data))
+                tasks.append(self.get_order(order_data, office))
 
             if tasks:
                 orders = await asyncio.gather(*tasks, return_exceptions=True)
@@ -338,7 +342,7 @@ class UltraDentScraper(Scraper):
     def get_page_queryset(self, page, page_size):
         from apps.orders.models import Product
 
-        products = Product.objects.filter(vendor_id=self.vendor["id"])
+        products = Product.objects.filter(vendor_id=self.vendor.id)
         total_size = products.count()
         if (page - 1) * page_size < total_size:
             page_products = products[(page - 1) * page_size : page * page_size]
@@ -369,7 +373,7 @@ class UltraDentScraper(Scraper):
                 "images": [{"image": product_image["source"]} for product_image in product["images"]],
                 "category": product["url"].split("/")[2:],
                 "price": product["catalogPrice"],
-                "vendor": self.vendor,
+                "vendor": self.vendor.to_dict(),
             }
 
     async def get_product_description_as_dict(self, product_url) -> dict:
@@ -400,7 +404,7 @@ class UltraDentScraper(Scraper):
         total_size, page_products = await self.get_page_queryset(page, page_size)
         last_page = page_size * page >= total_size
         return {
-            "vendor_slug": self.vendor["slug"],
+            "vendor_slug": self.vendor.slug,
             "total_size": total_size,
             "page": page,
             "page_size": page_size,
@@ -440,7 +444,7 @@ class UltraDentScraper(Scraper):
                             for image in ultradent_product["images"]
                         ],
                         # "price": 0,
-                        "vendor": self.vendor,
+                        "vendor": self.vendor.to_dict(),
                         # "category": "category",
                     }
                 )
