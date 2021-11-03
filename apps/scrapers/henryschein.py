@@ -443,8 +443,12 @@ class HenryScheinScraper(Scraper):
             key = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{i + 1:02d}$hdnItemId"
             product_ids.append(product_dom.xpath(f'.//input[@name="{key}"]/@value').get())
 
-        tasks = (self.remove_product_from_cart(product_id) for product_id in product_ids)
-        await asyncio.gather(*tasks)
+        # tasks = (self.remove_product_from_cart(product_id) for product_id in product_ids[:3])
+        # await asyncio.gather(*tasks)
+
+        # Henry don't accept simultaneous requests
+        for product_id in product_ids:
+            await self.remove_product_from_cart(product_id)
 
     async def add_products_to_cart(self, products: List[CartProduct]) -> List[VendorCartProduct]:
         tasks = (self.add_product_to_cart(product) for product in products)
