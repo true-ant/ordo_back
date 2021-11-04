@@ -744,7 +744,11 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                 tasks.append(
                     scraper.create_order(
                         [
-                            CartProduct(product_id=cart_product.product.product_id, quantity=cart_product.quantity)
+                            CartProduct(
+                                product_id=cart_product.product.product_id,
+                                product_unit=cart_product.product.product_unit,
+                                quantity=cart_product.quantity,
+                            )
                             for cart_product in cart_products
                             if cart_product.product.vendor.id == office_vendor.vendor.id
                         ]
@@ -781,7 +785,11 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             tasks.append(
                 scraper.confirm_order(
                     [
-                        CartProduct(product_id=cart_product.product.product_id, quantity=cart_product.quantity)
+                        CartProduct(
+                            product_id=cart_product.product.product_id,
+                            product_unit=cart_product.product.product_unit,
+                            quantity=cart_product.quantity,
+                        )
                         for cart_product in cart_products
                         if cart_product.product.vendor.id == office_vendor.vendor.id
                     ]
