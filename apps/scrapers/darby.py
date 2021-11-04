@@ -10,7 +10,7 @@ from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct
-from apps.types.scraper import LoginInformation, ProductSearch
+from apps.types.scraper import InvoiceFile, LoginInformation, ProductSearch
 
 HEADERS = {
     "Connection": "keep-alive",
@@ -157,6 +157,7 @@ class DarbyScraper(Scraper):
     async def get_order(self, order_dom, order_date: Optional[datetime.date] = None, office=None):
         link = self.merge_strip_values(order_dom, "./td[1]/a/@href")
         order_id = self.merge_strip_values(order_dom, "./td[1]//text()")
+        invoice_link = self.merge_strip_values(order_dom, "./td[9]/a/@href")
         order = {
             "order_id": order_id,
             "total_amount": self.merge_strip_values(order_dom, ".//td[8]//text()"),
@@ -164,6 +165,7 @@ class DarbyScraper(Scraper):
             "order_date": order_date
             if order_date
             else datetime.strptime(self.merge_strip_values(order_dom, ".//td[2]//text()"), "%m/%d/%Y").date(),
+            "invoice_link": f"{self.BASE_URL}{invoice_link}",
         }
         await asyncio.gather(self.get_order_products(order, link), self.get_shipping_track(order, order_id))
 
@@ -329,3 +331,8 @@ class DarbyScraper(Scraper):
                 "//ul[@id='catCage2']//div[contains(@class, 'card-footer')]/a[contains(@class, 'topic-link')]"
             )
         ]
+
+    async def download_invoice(self, invoice_link, order_id) -> InvoiceFile:
+        await self.login()
+        async with self.session.get(invoice_link) as resp:
+            return await resp.content.read()
