@@ -56,7 +56,7 @@ SEARCH_HEADERS = {
     "sec-fetch-dest": "document",
     "accept-language": "en-US,en;q=0.9",
 }
-REMOVE_PRODUCT_FROM_CART_HEADERS = {
+CLEAR_CART_HEADERS = {
     "authority": "www.henryschein.com",
     "sec-ch-ua": '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
     "n": "faMC175siE4Ji7eGjyxEnEahdp30gAd6F12KILNn68E=",
@@ -434,26 +434,43 @@ class HenryScheinScraper(Scraper):
         }
         await self.session.post(
             "https://www.henryschein.com/webservices/JSONRequestHandler.ashx",
-            headers=REMOVE_PRODUCT_FROM_CART_HEADERS,
+            headers=CLEAR_CART_HEADERS,
             data=data,
         )
         return True
 
     async def clear_cart(self):
         cart_dom = await self.get_cart()
-        product_ids = []
-        for i, product_dom in enumerate(
-            cart_dom.xpath("//div[@id='ctl00_cphMainContentHarmony_ucOrderCartShop_pnlCartDetails']/ol/li")
-        ):
-            key = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{i + 1:02d}$hdnItemId"
-            product_ids.append(product_dom.xpath(f'.//input[@name="{key}"]/@value').get())
-
-        # tasks = (self.remove_product_from_cart(product_id) for product_id in product_ids[:3])
-        # await asyncio.gather(*tasks)
-
-        # Henry don't accept simultaneous requests
-        for product_id in product_ids:
-            await self.remove_product_from_cart(product_id)
+        data = {
+            "__LASTFOCUS": "",
+            "ctl00_ScriptManager_TSM": ";;System.Web.Extensions, Version=4.0.0.0, Culture=neutral, "
+            "PublicKeyToken=31bf3856ad364e35:en-US:f319b152-218f-4c14-829d-050a68bb1a61:ea597d4b:b25378d2",
+            "__EVENTTARGET": "ctl00$cphMainContentHarmony$ucOrderActionBarBottomShop$btnClearOrder",
+            "__EVENTARGUMENT": "",
+            "__VIEWSTATE": cart_dom.xpath("//input[@name='__VIEWSTATE']/@value").get(),
+            "__VIEWSTATEGENERATOR": cart_dom.xpath("//input[@name='__VIEWSTATEGENERATOR']/@value").get(),
+            "ctl00$ucHeader$ucSearchBarHeaderbar$txtSearch": "",
+            "ctl00$ucHeader$ucSearchBarHeaderbar$hdnKeywordText": "Keywords",
+            "ctl00$ucHeader$ucSearchBarHeaderbar$hdnCategoryText": "Category",
+            "ctl00$ucHeader$ucSearchBarHeaderbar$hdnManufacturerText": "Manufacturer",
+            "ctl00$ucHeader$ucSearchBarHeaderbar$hdnContentResultsText": "Content Result",
+            "ctl00$ucHeader$ucSearchBarHeaderbar$hdnRecommendedProducts": "Recommended products for",
+            "ctl00$ucHeader$ucSearchBarHeaderbar$hdnAddText": "Add",
+            "ctl00$cphMainContentHarmony$ucOrderTopBarShop$txtItemCode": "",
+            "ctl00$cphMainContentHarmony$ucOrderTopBarShop$txtQty": "",
+            "ctl00$cphMainContentHarmony$ucOrderFinalsShop$txtPurchaseOrder": cart_dom.xpath(
+                '//input[@name="ctl00$cphMainContentHarmony$ucOrderFinalsShop$txtPurchaseOrder"]/@value'
+            ).get(),
+            "ctl00$cphMainContentHarmony$ucOrderFinalsShop$txtPromoCode": cart_dom.xpath(
+                '//input[@name="ctl00$cphMainContentHarmony$ucOrderFinalsShop$txtPromoCode"]/@value'
+            ).get(),
+            "ctl00$cphMainContentHarmony$ucOrderFinalsShop$txtSpecialInstructions": "",
+            "dest": "",
+        }
+        data.update(self.get_checkout_products_sensitive_data(cart_dom))
+        await self.session.post(
+            "https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx", headers=CLEAR_CART_HEADERS, data=data
+        )
 
     async def add_products_to_cart(self, products: List[CartProduct]) -> List[VendorCartProduct]:
         tasks = (self.add_product_to_cart(product) for product in products)
