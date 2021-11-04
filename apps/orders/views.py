@@ -63,10 +63,12 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
         office_vendors = {office_vendor.vendor_id: office_vendor for office_vendor in office_vendors}
         ret = []
         for vendor_order in vendor_orders:
-            if not vendor_order.invoice_link:
+            # TODO: filter by order status as well
+            if vendor_order.vendor.slug != "ultradent" and not vendor_order.invoice_link:
                 continue
             ret.append(
                 {
+                    "vendor_order_id": vendor_order.vendor_order_id,
                     "invoice_link": vendor_order.invoice_link,
                     "vendor": vendor_order.vendor,
                     "username": office_vendors[vendor_order.vendor.id].username,
@@ -172,7 +174,11 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
                 username=vendor_order["username"],
                 password=vendor_order["password"],
             )
-            tasks.append(scraper.download_invoice(invoice_link=vendor_order["invoice_link"]))
+            tasks.append(
+                scraper.download_invoice(
+                    invoice_link=vendor_order["invoice_link"], order_id=vendor_order["vendor_order_id"]
+                )
+            )
         ret = await asyncio.gather(*tasks, return_exceptions=True)
 
         temp = tempfile.NamedTemporaryFile()

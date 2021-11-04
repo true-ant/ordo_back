@@ -488,7 +488,7 @@ class Net32Scraper(Scraper):
             for category in response["TopCategories"]
         ]
 
-    async def download_invoice(self, invoice_link) -> InvoiceFile:
+    async def download_invoice(self, invoice_link, order_id) -> InvoiceFile:
         await self.login()
         async with self.session.get(invoice_link) as resp:
             content = await resp.content.read()

@@ -397,6 +397,8 @@ class BencoScraper(Scraper):
             ),
         )
 
+        if office:
+            await self.save_order_to_db(office, order=Order.from_dict(order))
         return order
 
     @catch_network
@@ -786,7 +788,7 @@ class BencoScraper(Scraper):
                     "order_id": order_id,
                 }
 
-    async def download_invoice(self, invoice_link) -> InvoiceFile:
+    async def download_invoice(self, invoice_link, order_id) -> InvoiceFile:
         await self.login()
         async with self.session.get(invoice_link, ssl=self._ssl_context) as resp:
             return await resp.content.read()

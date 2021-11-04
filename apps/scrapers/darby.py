@@ -167,6 +167,8 @@ class DarbyScraper(Scraper):
         }
         await asyncio.gather(self.get_order_products(order, link), self.get_shipping_track(order, order_id))
 
+        if office:
+            await self.save_order_to_db(office, order=Order.from_dict(order))
         return order
 
     @catch_network

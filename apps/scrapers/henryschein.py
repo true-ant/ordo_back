@@ -729,7 +729,7 @@ class HenryScheinScraper(Scraper):
                     "order_id": res_data["ecommerce"]["purchase"]["actionField"]["id"],
                 }
 
-    async def download_invoice(self, invoice_link) -> InvoiceFile:
+    async def download_invoice(self, invoice_link, order_id) -> InvoiceFile:
         await self.login()
         async with self.session.get(invoice_link) as resp:
             return await resp.content.read()

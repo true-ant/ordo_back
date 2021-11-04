@@ -9,7 +9,7 @@ from scrapy import Selector
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory
 from apps.scrapers.utils import catch_network
-from apps.types.scraper import LoginInformation, ProductSearch
+from apps.types.scraper import InvoiceFile, LoginInformation, ProductSearch
 
 HEADERS = {
     "authority": "www.ultradent.com",
@@ -166,6 +166,15 @@ GET_ORDER_QUERY = """
     }
 """
 
+GET_ORDER_DETAIL_HTML = """
+    query GetOrderDetailHtml($orderNumber: Int!) {
+        orderHtml(orderNumber: $orderNumber) {
+            orderDetailHtml
+            __typename
+        }
+    }
+"""
+
 
 class UltraDentScraper(Scraper):
     BASE_URL = "https://www.ultradent.com"
@@ -306,6 +315,8 @@ class UltraDentScraper(Scraper):
         #         "category",
         #     ),
         # )
+        if office:
+            await self.save_order_to_db(office, order=Order.from_dict(order))
         return order
 
     @catch_network
@@ -452,3 +463,16 @@ class UltraDentScraper(Scraper):
         tasks = (self.get_product(product["product_id"], product["url"]) for product in products[:1])
         products = await asyncio.gather(*tasks, return_exceptions=True)
         return [Product.from_dict(product) for product in products]
+
+    async def download_invoice(self, invoice_link, order_id) -> InvoiceFile:
+        json_data = {
+            "operationName": "GetOrderDetailHtml",
+            "variables": {"orderNumber": order_id},
+            "query": GET_ORDER_DETAIL_HTML,
+        }
+
+        async with self.session.post(
+            "https://www.ultradent.com/api/ecommerce", headers=ORDER_HEADERS, json=json_data
+        ) as resp:
+            order_detail_html = (await resp.json())["data"]["orderHtml"]["orderDetailHtml"]
+            return await self.html2pdf(order_detail_html.encode("utf-8"))

@@ -126,7 +126,7 @@ class Scraper:
         if fields and isinstance(fields, tuple):
             return {k: v for k, v in product.items() if k in fields}
 
-    async def download_invoice(self, invoice_link) -> InvoiceFile:
+    async def download_invoice(self, invoice_link, order_id) -> InvoiceFile:
         raise NotImplementedError("download_invoice must be implemented by the individual scraper")
 
     @staticmethod
