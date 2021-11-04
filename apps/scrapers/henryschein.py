@@ -93,6 +93,25 @@ CHECKOUT_HEADER = {
     "sec-fetch-dest": "document",
     "accept-language": "en-US,en;q=0.9,ko;q=0.8",
 }
+CART_HEADERS = {
+    "authority": "www.henryschein.com",
+    "sec-ch-ua": '"Google Chrome";v="95", "Chromium";v="95", ";Not A Brand";v="99"',
+    "n": "8Q66eFEZrl21cfd7A18MlrVGecsxls25GU/+P6Nw3QM=",
+    "iscallingfromcms": "False",
+    "sec-ch-ua-mobile": "?0",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36",
+    "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+    "accept": "application/json, text/javascript, */*; q=0.01",
+    "x-requested-with": "XMLHttpRequest",
+    "sec-ch-ua-platform": '"Windows"',
+    "origin": "https://www.henryschein.com",
+    "sec-fetch-site": "same-origin",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-dest": "empty",
+    "referer": "https://www.henryschein.com",
+    "accept-language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
+}
 
 
 class HenryScheinScraper(Scraper):
@@ -473,8 +492,33 @@ class HenryScheinScraper(Scraper):
         )
 
     async def add_products_to_cart(self, products: List[CartProduct]) -> List[VendorCartProduct]:
-        tasks = (self.add_product_to_cart(product) for product in products)
-        return await asyncio.gather(*tasks, return_exceptions=True)
+        item_data_to_add = {"ItemDataToAdd": []}
+        for product in products:
+            item_data_to_add["ItemDataToAdd"].append(
+                {
+                    "CheckProductIdForPromoCode": "False",
+                    "CheckExternalMapping": "False",
+                    "CheckBackOrderStatus": "False",
+                    "IsProductInventoryStatusLoaded": "True",
+                    "LineItemId": "",
+                    "ProductId": product["product_id"],
+                    "Qty": product["quantity"],
+                    "Uom": product["product_unit"],
+                }
+            )
+
+        data = {
+            "ItemArray": json.dumps(item_data_to_add),
+            "searchType": "5",
+            "did": "dental",
+            "catalogName": "B_DENTAL",
+            "endecaCatalogName": "DENTAL",
+            "culture": "us-en",
+        }
+
+        await self.session.post(
+            "https://www.henryschein.com/webservices/JSONRequestHandler.ashx", headers=CART_HEADERS, data=data
+        )
 
     async def add_product_to_cart(self, product: CartProduct, perform_login=False) -> VendorCartProduct:
         if perform_login:

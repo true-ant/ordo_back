@@ -80,6 +80,7 @@ class Product(BaseDataClass):
     price: Decimal  # Decimal
     vendor: Vendor
     category: List[str]  # this is a list of categories including sub-categories
+    product_unit: str
     # stars: Decimal
     # ratings: Decimal
 

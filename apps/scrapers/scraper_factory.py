@@ -54,30 +54,21 @@ def get_scraper_data():
                 #     "/articulating/articulating-paper-40-microns/3840072",
                 #     "quantity": 20,
                 # },
-                {
-                    "product_id": "2290224",
-                    "quantity": 1,
-                },
-                {
-                    "product_id": "1125510",
-                    "quantity": 1,
-                },
-                {
-                    "product_id": "1125511",
-                    "quantity": 1,
-                },
-                {
-                    "product_id": "2288210",
-                    "quantity": 1,
-                },
-                {
-                    "product_id": "5619254",
-                    "quantity": 1,
-                },
-                {
-                    "product_id": "1238703",
-                    "quantity": 1,
-                },
+                {"product_id": "1045452", "quantity": 1, "product_unit": "BX"},
+                {"product_id": "3780394", "quantity": 1, "product_unit": "EA"},
+                {"product_id": "1280024", "quantity": 1, "product_unit": "BX"},
+                {"product_id": "3780386", "quantity": 1, "product_unit": "PK"},
+                {"product_id": "9004578", "quantity": 3, "product_unit": "PK"},
+                # {"product_id": "1126865", "quantity": 1, "product_unit": ""},
+                # {"product_id": "1019278", "quantity": 6, "product_unit": ""},
+                # {"product_id": "5430154", "quantity": 2, "product_unit": ""},
+                # {"product_id": "5430262", "quantity": 2, "product_unit": ""},
+                # {"product_id": "7740131", "quantity": 2, "product_unit": ""},
+                # {"product_id": "1073642", "quantity": 2, "product_unit": ""},
+                # {"product_id": "1127015", "quantity": 5, "product_unit": ""},
+                # {"product_id": "7211022", "quantity": 1, "product_unit": ""},
+                # {"product_id": "2220860", "quantity": 1, "product_unit": ""},
+                # {"product_id": "1014060", "quantity": 1, "product_unit": ""},
                 # {
                 #     "product_id": "4434033",
                 #     "product_url": "https://www.henryschein.com/us-en/dental/p/infection-control-products"
@@ -191,6 +182,7 @@ def get_test_products(scraper_name):
     return [
         {
             "product_id": product["product_id"],
+            "product_unit": product["product_unit"],
             "quantity": product["quantity"],
         }
         for product in base_data[scraper_name]["products"]
@@ -213,6 +205,12 @@ def get_task(scraper, scraper_name, test="login", **kwargs):
         return scraper.create_order(get_test_products(scraper_name))
     elif test == "search_product":
         return scraper.search_products(query="bite registration", page=1)
+    elif test == "download_invoice":
+        return scraper.download_invoice(
+            "https://www.darbydental.com/scripts/invoicedownload.ashx?"
+            "invno=9743471&id=416135630f1df27f297dba23b80f2227edf78a73cffec84448dd70d90ee7f4a4",
+            None,
+        )
     elif test == "get_product":
         return scraper.get_product(
             product_id=base_data[scraper_name]["products"][0]["product_id"],
@@ -235,7 +233,7 @@ def get_task(scraper, scraper_name, test="login", **kwargs):
 
 
 async def main(office, vendors):
-    scraper_names = ["net_32"]
+    scraper_names = ["henry_schein"]
     base_data = get_scraper_data()
     tasks = []
     async with ClientSession() as session:
@@ -248,7 +246,7 @@ async def main(office, vendors):
                 username=scraper_data["username"],
                 password=scraper_data["password"],
             )
-            tasks.append(get_task(scraper, scraper_name, "order_history", office=office))
+            tasks.append(get_task(scraper, scraper_name, "create_order", office=office))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
     # products = [

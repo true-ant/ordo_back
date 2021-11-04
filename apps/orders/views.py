@@ -577,7 +577,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
         try:
             vendor_cart_product = await scraper.add_product_to_cart(
-                CartProduct(product_id=product_id, quantity=quantity),
+                CartProduct(product_id=product_id, product_unit=serializer, quantity=quantity),
                 perform_login=True,
             )
             serializer.validated_data["unit_price"] = vendor_cart_product["unit_price"]
