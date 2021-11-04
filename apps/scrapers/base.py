@@ -13,7 +13,12 @@ from apps.scrapers.errors import VendorAuthenticationFailed
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct, VendorCartProduct
-from apps.types.scraper import LoginInformation, ProductSearch, SmartProductID
+from apps.types.scraper import (
+    InvoiceFile,
+    LoginInformation,
+    ProductSearch,
+    SmartProductID,
+)
 
 
 class Scraper:
@@ -121,8 +126,25 @@ class Scraper:
         if fields and isinstance(fields, tuple):
             return {k: v for k, v in product.items() if k in fields}
 
-    async def download_invoice(self, invoice_link) -> bytes:
+    async def download_invoice(self, invoice_link) -> InvoiceFile:
         raise NotImplementedError("download_invoice must be implemented by the individual scraper")
+
+    @staticmethod
+    async def run_command(cmd, data=None):
+        proc = await asyncio.create_subprocess_shell(
+            cmd,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await proc.communicate(data)
+            return stdout
+        except Exception as e:
+            raise e
+
+    async def html2pdf(self, data: bytes):
+        return await self.run_command(cmd="htmldoc --quiet -t pdf --webpage -", data=data)
 
     @sync_to_async
     def save_order_to_db(self, office, order: Order):

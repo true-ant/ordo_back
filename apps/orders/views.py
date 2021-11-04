@@ -68,7 +68,7 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
             ret.append(
                 {
                     "invoice_link": vendor_order.invoice_link,
-                    "vendor": vendor_order.vendor.to_dict(),
+                    "vendor": vendor_order.vendor,
                     "username": office_vendors[vendor_order.vendor.id].username,
                     "password": office_vendors[vendor_order.vendor.id].password,
                 }
@@ -179,7 +179,7 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
 
         with zipfile.ZipFile(temp, "w", zipfile.ZIP_DEFLATED) as zf:
             for vendor_order, content in zip(vendor_orders, ret):
-                zf.writestr(f"{vendor_order['vendor']['name']}.pdf", content)
+                zf.writestr(f"{vendor_order['vendor'].name}.pdf", content)
 
         filesize = os.path.getsize(temp.name)
         data = open(temp.name, "rb").read()

@@ -15,7 +15,12 @@ from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct, VendorCartProduct
-from apps.types.scraper import LoginInformation, ProductSearch, SmartProductID
+from apps.types.scraper import (
+    InvoiceFile,
+    LoginInformation,
+    ProductSearch,
+    SmartProductID,
+)
 
 CERTIFICATE_BASE_PATH = Path(__file__).parent.resolve()
 
@@ -781,7 +786,7 @@ class BencoScraper(Scraper):
                     "order_id": order_id,
                 }
 
-    async def download_invoice(self, invoice_link) -> bytes:
+    async def download_invoice(self, invoice_link) -> InvoiceFile:
         await self.login()
         async with self.session.get(invoice_link, ssl=self._ssl_context) as resp:
             return await resp.content.read()

@@ -4,6 +4,7 @@ from apps.scrapers.schema import Product
 
 SmartID = Union[str, int]
 SmartProductID = SmartID
+InvoiceFile = Union[bytes, str]
 
 
 class LoginInformation(TypedDict):

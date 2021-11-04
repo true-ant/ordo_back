@@ -12,7 +12,12 @@ from apps.scrapers.errors import OrderFetchException
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct
-from apps.types.scraper import LoginInformation, ProductSearch, SmartProductID
+from apps.types.scraper import (
+    InvoiceFile,
+    LoginInformation,
+    ProductSearch,
+    SmartProductID,
+)
 
 HEADERS = {
     "Connection": "keep-alive",
@@ -482,3 +487,9 @@ class Net32Scraper(Scraper):
             )
             for category in response["TopCategories"]
         ]
+
+    async def download_invoice(self, invoice_link) -> InvoiceFile:
+        await self.login()
+        async with self.session.get(invoice_link) as resp:
+            content = await resp.content.read()
+            return await self.html2pdf(content)
