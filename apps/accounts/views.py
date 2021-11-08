@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta
 
 from asgiref.sync import sync_to_async
-from celery.result import AsyncResult
+
+# from celery.result import AsyncResult
 from django.apps import apps
 from django.db import transaction
 from django.db.utils import IntegrityError
@@ -313,13 +314,13 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
             )
             login_cookies = await scraper.login()
             office_vendor = await sync_to_async(serializer.save)()
-            ar: AsyncResult = fetch_orders_from_vendor.delay(
+            fetch_orders_from_vendor.delay(
                 office_vendor_id=office_vendor.id,
                 login_cookies=login_cookies.output(),
                 # all scrapers work with login_cookies, but henryschein not working with login_cookies
                 perform_login=True,
             )
-            office_vendor.task_id = ar.id
+            # office_vendor.task_id = ar.id
             await sync_to_async(office_vendor.save)()
 
         except VendorNotSupported:
@@ -339,21 +340,22 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
     @action(detail=True, methods=["post"], url_path="fetch")
     def fetch_orders(self, request, *args, **kwargs):
         instance = self.get_object()
-        ar: AsyncResult = fetch_orders_from_vendor.delay(
-            office_vendor_id=instance.id, login_cookies=None, perform_login=True
-        )
-        instance.task_id = ar.id
-        instance.save()
+        fetch_orders_from_vendor.delay(office_vendor_id=instance.id, login_cookies=None, perform_login=True)
+        # ar: AsyncResult = fetch_orders_from_vendor.delay(
+        #     office_vendor_id=instance.id, login_cookies=None, perform_login=True
+        # )
+        # instance.task_id = ar.id
+        # instance.save()
         return Response(s.OfficeVendorSerializer(instance).data)
 
-    @action(detail=True, methods=["get"], url_path="fetch-status")
-    def get_fetching_status(self, request, *args, **kwargs):
-        instance = self.get_object()
-        if not instance.task_id:
-            return Response({"status": "SUCCESS", "message": "Fetching Orders has been finished"})
-
-        ar: AsyncResult = fetch_orders_from_vendor.AsyncResult(instance.task_id)
-        return Response({"status": ar.status})
+    # @action(detail=True, methods=["get"], url_path="fetch-status")
+    # def get_fetching_status(self, request, *args, **kwargs):
+    #     instance = self.get_object()
+    #     if not instance.task_id:
+    #         return Response({"status": "SUCCESS", "message": "Fetching Orders has been finished"})
+    #
+    #     ar: AsyncResult = fetch_orders_from_vendor.AsyncResult(instance.task_id)
+    #     return Response({"status": ar.status})
 
 
 class UserViewSet(ModelViewSet):
