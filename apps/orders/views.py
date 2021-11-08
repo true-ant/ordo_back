@@ -45,6 +45,7 @@ from . import filters as f
 from . import models as m
 from . import permissions as p
 from . import serializers as s
+from .tasks import update_product_detail
 
 
 class OrderViewSet(AsyncMixin, ModelViewSet):
@@ -595,6 +596,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         serializer = self.get_serializer(data=data)
         await sync_to_async(serializer.is_valid)(raise_exception=True)
         product_id = serializer.validated_data["product"]["product_id"]
+        product_url = serializer.validated_data["product"]["url"]
         vendor = serializer.validated_data["product"]["vendor"]
         try:
             await self.update_vendor_cart(
@@ -602,6 +604,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                 vendor,
                 serializer,
             )
+            update_product_detail.delay(product_id, product_url, office_pk, vendor.id)
         except VendorSiteError as e:
             return Response({"message": f"{msgs.VENDOR_SITE_ERROR} - {e}"}, status=HTTP_500_INTERNAL_SERVER_ERROR)
         serializer_data = await sync_to_async(save_serailizer)(serializer)
@@ -815,6 +818,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             serializer = self.get_serializer(data=product)
             await sync_to_async(serializer.is_valid)(raise_exception=True)
             product_id = serializer.validated_data["product"]["product_id"]
+            product_url = serializer.validated_data["product"]["url"]
             vendor = serializer.validated_data["product"]["vendor"]
             try:
                 await self.update_vendor_cart(
@@ -822,6 +826,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                     vendor,
                     serializer,
                 )
+                update_product_detail.delay(product_id, product_url, office_pk, vendor.id)
             except VendorSiteError as e:
                 return Response({"message": f"{msgs.VENDOR_SITE_ERROR} - {e}"}, status=HTTP_500_INTERNAL_SERVER_ERROR)
             serializer_data = await sync_to_async(save_serailizer)(serializer)
