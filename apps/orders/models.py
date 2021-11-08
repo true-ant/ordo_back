@@ -220,6 +220,7 @@ class InventoryProduct(TimeStampedModel):
     product_id = models.CharField(max_length=100)
     category = models.ForeignKey(ProductCategory, null=True, blank=True, on_delete=models.SET_NULL)
     name = models.CharField(max_length=255)
+    product_unit = models.CharField(max_length=16, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     url = models.URLField(null=True, blank=True, max_length=300)
     is_deleted = models.BooleanField(default=False)
