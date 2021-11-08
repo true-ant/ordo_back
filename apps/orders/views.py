@@ -702,6 +702,20 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                 ]
                 m.VendorOrderProduct.objects.bulk_create(objs)
 
+                objs = [
+                    m.InventoryProduct(
+                        office=office_vendor.office,
+                        vendor=office_vendor.vendor,
+                        product_id=vendor_order_product.product.product_id,
+                        category=vendor_order_product.product.category,
+                        name=vendor_order_product.product.name,
+                        description=vendor_order_product.product.description,
+                        url=vendor_order_product.product.url,
+                    )
+                    for vendor_order_product in vendor_order_products
+                ]
+                m.InventoryProduct.objects.bulk_create(objs, ignore_conflicts=True)
+
             order.total_amount = total_amount
             order.total_items = total_items
             order.save()

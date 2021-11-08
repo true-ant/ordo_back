@@ -34,8 +34,6 @@ def update_office_cart_status():
 
 
 async def get_product_detail(product_id, product_url, office_vendor, vendor) -> ProductDataClass:
-    print(product_id)
-    print(product_url)
     async with ClientSession() as session:
         scraper = ScraperFactory.create_scraper(
             vendor=vendor,
@@ -56,7 +54,6 @@ def update_product_detail(product_id, product_url, office_id, vendor_id):
     vendor = office_vendor.vendor
 
     if ProductModel.objects.filter(vendor=vendor, product_id=product_id, category__isnull=False).exists():
-        print("fes")
         return
 
     # get product detail

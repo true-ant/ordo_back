@@ -223,3 +223,9 @@ class InventoryProduct(TimeStampedModel):
     description = models.TextField(null=True, blank=True)
     url = models.URLField(null=True, blank=True, max_length=300)
     is_deleted = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = [
+            "office",
+            "product_id",
+        ]
