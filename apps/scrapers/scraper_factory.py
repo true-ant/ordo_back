@@ -352,6 +352,14 @@ async def search_products(mock=True):
         print(products)
 
 
+def test_search_products():
+    from apps.orders.models import Product as ProductModel
+
+    henry_products = ProductModel.objects.filter(tags__keyword__iexact="Septocaine", vendor_id=1)
+    net_products = ProductModel.objects.filter(tags__keyword__iexact="Septocaine", vendor_id=2)
+    group_products([henry_products, net_products], model=True)
+
+
 if __name__ == "__main__":
     import time
 
@@ -368,6 +376,7 @@ if __name__ == "__main__":
     vendors = Vendor.objects.all()
     office = Office.objects.first()
     start_time = time.perf_counter()
-    asyncio.run(main(office, vendors))
+    # asyncio.run(main(office, vendors))
     # asyncio.run(search_products())
+    test_search_products()
     print(time.perf_counter() - start_time)

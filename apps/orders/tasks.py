@@ -8,6 +8,7 @@ from django.utils import timezone
 from slugify import slugify
 
 from apps.accounts.models import OfficeVendor
+from apps.common.utils import group_products
 from apps.orders.models import Keyword as KeyModel
 from apps.orders.models import OfficeCheckoutStatus
 from apps.orders.models import OfficeKeyword as OfficeKeyModel
@@ -151,3 +152,15 @@ def search_products(keyword, office_id, vendor_ids):
         keyword_obj.save()
 
     # pricing comparison
+    # get other linked vendor products
+    other_office_vendors = (
+        OfficeVendor.objects.select_related("office")
+        .select_related("vendor")
+        .filter(Q(office_id=office_id) & ~Q(vendor_id__in=vendor_ids))
+    )
+    for other_office_vendor in other_office_vendors:
+        vendors_products.append(
+            list(ProductModel.objects.filter(vendor=other_office_vendor.vendor, parent__isnull=True))
+        )
+
+    group_products(vendors_products, model=True)

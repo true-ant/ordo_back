@@ -37,10 +37,11 @@ def get_similarity(*products, key=None):
     return percentage
 
 
-def group_products(vendors_search_result_products):
+def group_products(vendors_search_result_products, model=False):
     search_result_vendors_count = len(vendors_search_result_products)
     matched_products = set()
     well_matching_pairs = set()
+    # a list of candidate products which are similar
     similar_candidate_products = []
     products = []
     n_similarity = 2
@@ -76,14 +77,21 @@ def group_products(vendors_search_result_products):
                 break
         else:
             matched_products.update(similar_candidate_product_without_similarity)
-            products.append([p.to_dict() for p in similar_candidate_product_without_similarity])
+            parent_product = similar_candidate_product_without_similarity[0]
+            if model:
+                parent_product.children.set(similar_candidate_product_without_similarity[1:])
+            else:
+                parent_product = parent_product.to_dict()
+                products.append(parent_product)
+                parent_product["children"] = [p.to_dict() for p in similar_candidate_product_without_similarity[1:]]
 
-    for vendor_search_result_products in vendors_search_result_products:
-        for vendor_product in vendor_search_result_products:
-            if vendor_product not in matched_products:
-                products.append(vendor_product.to_dict())
+    if not model:
+        for vendor_search_result_products in vendors_search_result_products:
+            for vendor_product in vendor_search_result_products:
+                if vendor_product not in matched_products:
+                    products.append(vendor_product.to_dict())
 
-    return products
+        return products
 
 
 def group_products_from_search_result(search_results):
@@ -113,7 +121,7 @@ def group_products_from_search_result(search_results):
     return meta, products
 
 
-if __name__ == "__main__":
+def group_products_by_str():
     net32_products = [
         "Septocaine Articaine 4% with Epinephrine 1:100,000. Box of 50 - 1.7 mL",
         "Septocaine Articaine HCl 4% with Epinephrine 1:200,000. Box of 50 - 1.7 mL",
@@ -154,3 +162,7 @@ if __name__ == "__main__":
 
     for i in sorted(similarities, key=lambda x: x[0], reverse=True)[:10]:
         print(i)
+
+
+if __name__ == "__main__":
+    group_products_by_str()
