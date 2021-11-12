@@ -130,8 +130,8 @@ class OfficeBudget(TimeStampedModel):
 
 
 class OfficeVendor(models.Model):
-    vendor = FlexibleForeignKey(Vendor)
-    office = FlexibleForeignKey(Office)
+    vendor = FlexibleForeignKey(Vendor, related_name="connected_offices")
+    office = FlexibleForeignKey(Office, related_name="connected_vendors")
     username = models.CharField(max_length=100)
     password = models.CharField(max_length=100)
     task_id = models.CharField(max_length=64, null=True, blank=True)
