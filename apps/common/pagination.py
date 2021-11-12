@@ -33,7 +33,7 @@ class StandardResultsSetPagination(PageNumberPagination):
 
 
 class SearchProductPagination(PageNumberPagination):
-    page_size = 4
+    page_size = 25
     page_size_query_param = "per_page"
 
     def get_page_number(self, request, paginator):

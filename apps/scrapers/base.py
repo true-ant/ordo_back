@@ -164,7 +164,7 @@ class Scraper:
     async def html2pdf(self, data: bytes):
         return await self.run_command(cmd="htmldoc --quiet -t pdf --webpage -", data=data)
 
-    def save_single_product_to_db(self, product_data, office=None, is_inventory=False):
+    def save_single_product_to_db(self, product_data, office=None, is_inventory=False, keyword=None):
         """save product to product table"""
         from django.db import transaction
         from django.db.models import Q
@@ -203,6 +203,9 @@ class Scraper:
                 product_id=product_id,
                 defaults=product_data,
             )
+            if keyword:
+                product.tags.add(keyword)
+
             if created:
                 product_images = [
                     ProductImageModel(
@@ -344,7 +347,7 @@ class Scraper:
         }
 
     @catch_network
-    async def search_products_v2(self, query: str, office=None):
+    async def search_products_v2(self, keyword, office=None):
         if self.vendor.slug == "ultradent":
             return
 
@@ -353,12 +356,14 @@ class Scraper:
         page = 1
         products_objs = []
         while True:
-            product_search = await self._search_products(query, page)
+            product_search = await self._search_products(keyword.keyword, page)
             last_page = product_search["last_page"]
             products = product_search["products"]
 
             for product in products:
-                product_obj, _ = await sync_to_async(self.save_single_product_to_db)(product.to_dict(), office=office)
+                product_obj, _ = await sync_to_async(self.save_single_product_to_db)(
+                    product.to_dict(), office=office, keyword=keyword
+                )
                 products_objs.append(product_obj)
 
             if last_page:

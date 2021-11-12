@@ -23,6 +23,13 @@ class ProductCategory(models.Model):
         verbose_name_plural = "Product categories"
 
 
+class Keyword(models.Model):
+    keyword = models.CharField(max_length=128, unique=True)
+
+    def __str__(self):
+        return self.keyword
+
+
 class Product(TimeStampedModel):
     """
     This model store basic product info from vendor store
@@ -35,6 +42,7 @@ class Product(TimeStampedModel):
     product_unit = models.CharField(max_length=16, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     url = models.URLField(null=True, blank=True, max_length=300)
+    tags = models.ManyToManyField(Keyword)
     parent = models.ForeignKey(
         "self", on_delete=models.CASCADE, null=True, blank=True, related_name="children", related_query_name="child"
     )
@@ -231,14 +239,14 @@ class OfficeCheckoutStatus(TimeStampedModel):
     order_status = models.CharField(choices=ORDER_STATUS.choices, default=ORDER_STATUS.COMPLETE, max_length=16)
 
 
-class Keyword(models.Model):
+class OfficeKeyword(models.Model):
     class TaskStatus(models.TextChoices):
         NOT_STARTED = "NOT_STARTED", "Not Started"
         IN_PROGRESS = "IN_PROGRESS", "In Progress"
         COMPLETE = "COMPLETE", "Complete"
         FAILED = "FAILED", "Failed"
 
-    keyword = models.CharField(max_length=128)
+    keyword = models.ForeignKey(Keyword, on_delete=models.CASCADE)
     office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name="keywords")
     vendor = FlexibleForeignKey(Vendor, related_name="keywords")
     task_status = models.CharField(max_length=16, choices=TaskStatus.choices, default=TaskStatus.NOT_STARTED)
@@ -247,4 +255,4 @@ class Keyword(models.Model):
         unique_together = ["office", "vendor", "keyword"]
 
     def __str__(self):
-        return self.keyword
+        return self.keyword.keyword

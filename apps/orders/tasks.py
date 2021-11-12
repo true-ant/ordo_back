@@ -8,8 +8,9 @@ from django.utils import timezone
 from slugify import slugify
 
 from apps.accounts.models import OfficeVendor
-from apps.orders.models import Keyword as KeywordModel
+from apps.orders.models import Keyword as KeyModel
 from apps.orders.models import OfficeCheckoutStatus
+from apps.orders.models import OfficeKeyword as OfficeKeyModel
 from apps.orders.models import Product as ProductModel
 from apps.orders.models import ProductCategory
 from apps.orders.models import ProductImage as ProductImageModel
@@ -117,33 +118,36 @@ async def _search_products(keyword, office_vendors):
                 username=office_vendor.username,
                 password=office_vendor.password,
             )
-            tasks.append(scraper.search_products_v2(query=keyword, office=office_vendor.office))
+            tasks.append(scraper.search_products_v2(keyword, office=office_vendor.office))
         return await asyncio.gather(*tasks, return_exceptions=True)
 
 
 @shared_task
 def search_products(keyword, office_id, vendor_ids):
-    office_vendors = list(
+
+    office_vendors_to_be_searched = list(
         OfficeVendor.objects.select_related("office")
         .select_related("vendor")
         .filter(office_id=office_id, vendor_id__in=vendor_ids)
     )
-    keyword_objs = KeywordModel.objects.filter(keyword=keyword, office_id=office_id, vendor_id__in=vendor_ids)
+    keyword = KeyModel.objects.get(keyword=keyword)
+    keyword_objs = OfficeKeyModel.objects.filter(keyword=keyword, office_id=office_id, vendor_id__in=vendor_ids)
     for keyword_obj in keyword_objs:
-        keyword_obj.task_status = KeywordModel.TaskStatus.IN_PROGRESS
-    KeywordModel.objects.bulk_update(keyword_objs, ["task_status"])
+        keyword_obj.task_status = OfficeKeyModel.TaskStatus.IN_PROGRESS
+    OfficeKeyModel.objects.bulk_update(keyword_objs, ["task_status"])
 
-    vendors_products = asyncio.run(_search_products(keyword, office_vendors))
+    searched_vendors_products = asyncio.run(_search_products(keyword, office_vendors_to_be_searched))
 
-    for keyword_obj, vendor_products in zip(keyword_objs, vendors_products):
+    vendors_products = []
+    for keyword_obj, vendor_products in zip(keyword_objs, searched_vendors_products):
         if isinstance(vendor_products, list) and all(
             [isinstance(vendor_product, ProductModel) for vendor_product in vendor_products]
         ):
-            keyword_obj.task_status = KeywordModel.TaskStatus.COMPLETE
+            keyword_obj.task_status = OfficeKeyModel.TaskStatus.COMPLETE
+            vendors_products.append(vendor_products)
         else:
             # TODO: if it fails, we need to retry
-            keyword_obj.task_status = KeywordModel.TaskStatus.FAILED
+            keyword_obj.task_status = OfficeKeyModel.TaskStatus.FAILED
         keyword_obj.save()
 
     # pricing comparison
-    # meta, products = group_products_from_search_result(products)

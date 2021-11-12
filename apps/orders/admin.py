@@ -142,6 +142,11 @@ class ProductAdmin(admin.ModelAdmin):
 
 @admin.register(m.Keyword)
 class KeywordAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(m.OfficeKeyword)
+class OfficeKeywordAdmin(admin.ModelAdmin):
     list_per_page = 20
     list_display = (
         "keyword",

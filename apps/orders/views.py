@@ -856,7 +856,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         max_price = data.get("max_price", 0)
         vendors_slugs = [vendor_meta["vendor"] for vendor_meta in pagination_meta.get("vendors", [])]
         queryset = m.OfficeProduct.objects.filter(office__id=self.kwargs["office_pk"]).filter(
-            product__name__icontains=keyword, is_inventory=False
+            Q(is_inventory=False) & (Q(product__name__icontains=keyword) | Q(product__tags__keyword__iexact=keyword))
         )
 
         product_filters = Q()
@@ -892,10 +892,11 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
             ):
                 continue
 
-            keyword_obj, created = m.Keyword.objects.get_or_create(
-                keyword=keyword, office_id=self.kwargs["office_pk"], vendor=office_vendor.vendor
+            keyword_obj, _ = m.Keyword.objects.get_or_create(keyword=keyword)
+            office_keyword_obj, created = m.OfficeKeyword.objects.get_or_create(
+                keyword=keyword_obj, office_id=self.kwargs["office_pk"], vendor=office_vendor.vendor
             )
-            if created or keyword_obj.task_status != m.Keyword.TaskStatus.COMPLETE:
+            if created or office_keyword_obj.task_status != m.OfficeKeyword.TaskStatus.COMPLETE:
                 vendor_ids.append(office_vendor.vendor.id)
 
         if vendor_ids:
