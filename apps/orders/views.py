@@ -19,7 +19,6 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.decorators import action
-from rest_framework.mixins import CreateModelMixin, DestroyModelMixin, ListModelMixin
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.status import (
@@ -29,7 +28,7 @@ from rest_framework.status import (
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 from rest_framework.views import APIView
-from rest_framework.viewsets import GenericViewSet, ModelViewSet
+from rest_framework.viewsets import ModelViewSet
 
 from apps.accounts.models import Company, CompanyMember, Office, OfficeVendor
 from apps.common import messages as msgs
@@ -197,34 +196,6 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
         return response
 
 
-class InventoryProductViewSet(ModelViewSet):
-    permission_classes = [IsAuthenticated]
-    queryset = m.InventoryProduct.objects.all()
-    serializer_class = s.InventoryProductSerializer
-    filterset_class = f.InventoryProductFilter
-    pagination_class = StandardResultsSetPagination
-
-    def get_queryset(self):
-        category_ordering = self.request.query_params.get("category_ordering")
-        return (
-            super()
-            .get_queryset()
-            .filter(Q(office__id=self.kwargs["office_pk"]) & Q(is_deleted=False))
-            .annotate(category_order=Case(When(category__slug=category_ordering, then=Value(0)), default=Value(1)))
-            .order_by("category_order", "category__slug")
-        )
-
-    def update(self, request, *args, **kwargs):
-        kwargs["partial"] = True
-        return super().update(request, *args, **kwargs)
-
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        instance.is_deleted = True
-        instance.save()
-        return Response(status=HTTP_204_NO_CONTENT)
-
-
 class VendorOrderProductViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = m.VendorOrderProduct.objects.all()
@@ -237,35 +208,13 @@ class VendorOrderProductViewSet(ModelViewSet):
         return (
             super()
             .get_queryset()
-            .filter(Q(vendor_order__order__office__id=self.kwargs["office_pk"]) & Q(is_deleted=False))
+            .filter(vendor_order__order__office__id=self.kwargs["office_pk"])
             .annotate(
                 category_order=Case(When(product__category__slug=category_ordering, then=Value(0)), default=Value(1))
             )
             .order_by("category_order", "product__category__slug", "product__product_id")
             .distinct("category_order", "product__category__slug", "product__product_id")
         )
-
-    def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
-        instance.is_deleted = True
-        instance.save()
-        return Response(status=HTTP_204_NO_CONTENT)
-
-
-class CompanyOrderAPIView(APIView, StandardResultsSetPagination):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, company_pk):
-        queryset = m.Order.objects.filter(office__company__id=company_pk)
-        queryset = (
-            queryset.values("id", "status")
-            .annotate(order_date=m.IsoDate("created_at"))
-            .annotate(total_amount=Sum("vendor_orders__total_amount"))
-            .annotate(total_items=Sum("vendor_orders__total_items"))
-        )
-        paginate_queryset = self.paginate_queryset(queryset, request, view=self)
-        serializer = s.OrderListSerializer(paginate_queryset, many=True)
-        return self.get_paginated_response(serializer.data)
 
 
 def get_spending(by, orders, company):
@@ -702,20 +651,6 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                 ]
                 m.VendorOrderProduct.objects.bulk_create(objs)
 
-                objs = [
-                    m.InventoryProduct(
-                        office=office_vendor.office,
-                        vendor=office_vendor.vendor,
-                        product_id=vendor_order_product.product.product_id,
-                        category=vendor_order_product.product.category,
-                        name=vendor_order_product.product.name,
-                        description=vendor_order_product.product.description,
-                        url=vendor_order_product.product.url,
-                    )
-                    for vendor_order_product in vendor_order_products
-                ]
-                m.InventoryProduct.objects.bulk_create(objs, ignore_conflicts=True)
-
             order.total_amount = total_amount
             order.total_items = total_items
             order.save()
@@ -809,7 +744,8 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                         )
                         for cart_product in cart_products
                         if cart_product.product.vendor.id == office_vendor.vendor.id
-                    ]
+                    ],
+                    fake=True,
                 )
             )
 
@@ -883,8 +819,25 @@ class CheckoutUpdateStatusAPIView(APIView):
             return Response({"message": "Status updated successfully"})
 
 
-class FavouriteProductViewSet(CreateModelMixin, DestroyModelMixin, ListModelMixin, GenericViewSet):
-    permission_classes = [IsAuthenticated]
+class OfficeProductViewSet(ModelViewSet):
+    queryset = m.OfficeProduct.objects.all()
+    serializer_class = s.OfficeProductSerializer
     pagination_class = StandardResultsSetPagination
-    queryset = m.FavouriteProduct.objects.all()
-    serializer_class = s.FavouriteProductSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_class = f.OfficeProductFilter
+
+    def get_queryset(self):
+        category_ordering = self.request.query_params.get("category_ordering")
+        return (
+            super()
+            .get_queryset()
+            .filter(office__id=self.kwargs["office_pk"])
+            .annotate(
+                category_order=Case(When(office_category__slug=category_ordering, then=Value(0)), default=Value(1))
+            )
+            .order_by("category_order", "office_category__slug")
+        )
+
+    def update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return super().update(request, *args, **kwargs)
