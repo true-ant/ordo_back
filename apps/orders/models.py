@@ -7,9 +7,6 @@ from django_extensions.db.fields import AutoSlugField
 
 from apps.accounts.models import Office, User, Vendor
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
-from apps.scrapers.schema import Product as ProductDataClass
-from apps.scrapers.schema import ProductImage as ProductImageDataClass
-from apps.scrapers.schema import Vendor as VendorDataClass
 
 
 class ProductCategory(models.Model):
@@ -27,43 +24,76 @@ class ProductCategory(models.Model):
 
 
 class Product(TimeStampedModel):
-    vendor = FlexibleForeignKey(Vendor, related_name="products")
+    """
+    This model store basic product info from vendor store
+    """
+
+    vendor = FlexibleForeignKey(Vendor, related_name="products", db_index=True)
     product_id = models.CharField(max_length=100)
-    category = models.ForeignKey(ProductCategory, null=True, blank=True, on_delete=models.SET_NULL)
+    category = models.ForeignKey(ProductCategory, null=True, blank=True, on_delete=models.SET_NULL, db_index=True)
     name = models.CharField(max_length=255)
     product_unit = models.CharField(max_length=16, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     url = models.URLField(null=True, blank=True, max_length=300)
-    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    parent = models.ForeignKey(
+        "self", on_delete=models.CASCADE, null=True, blank=True, related_name="children", related_query_name="child"
+    )
+
+    class Meta:
+        unique_together = [
+            "vendor",
+            "product_id",
+        ]
 
     def __str__(self):
-        return self.name
-
-    @classmethod
-    def from_dataclass(cls, vendor, dict_data):
-        return cls.objects.create(vendor=vendor, **dict_data)
-
-    def to_dataclass(self):
-        return ProductDataClass(
-            product_id=self.product_id,
-            name=self.name,
-            description=self.description,
-            url=self.url,
-            images=[ProductImageDataClass(image=image.image) for image in self.images.all()],
-            price=self.price,
-            vendor=VendorDataClass(
-                id=self.vendor.id,
-                name=self.vendor.name,
-                slug=self.vendor.slug,
-                url=self.vendor.url,
-                logo=self.vendor.logo,
-            ),
-        )
+        return f"{self.name} from {self.vendor}"
 
 
 class ProductImage(TimeStampedModel):
     product = FlexibleForeignKey(Product, related_name="images")
     image = models.URLField(max_length=300)
+
+    def __str__(self):
+        return f"{self.product}'s Image"
+
+
+class OfficeProduct(TimeStampedModel):
+    """
+    This model is actually used for storing products fetched from search result.
+    prices will vary depending on vendor account, so we follow this inheritance
+    """
+
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name="products", db_index=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    office_category = models.ForeignKey(ProductCategory, null=True, blank=True, on_delete=models.SET_NULL)
+    is_favorite = models.BooleanField(default=False)
+    is_inventory = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.product} for {self.office}"
+
+    @classmethod
+    def from_dataclass(cls, vendor, dict_data):
+        return cls.objects.create(vendor=vendor, **dict_data)
+
+    # def to_dataclass(self):
+    #     return ProductDataClass(
+    #         product_id=self.product_id,
+    #         name=self.name,
+    #         description=self.description,
+    #         url=self.url,
+    #         images=[ProductImageDataClass(image=image.image) for image in self.images.all()],
+    #         price=self.price,
+    #         vendor=VendorDataClass(
+    #             id=self.vendor.id,
+    #             name=self.vendor.name,
+    #             slug=self.vendor.slug,
+    #             url=self.vendor.url,
+    #             logo=self.vendor.logo,
+    #         ),
+    #     )
+    #
 
 
 class OrderStatus(models.IntegerChoices):
@@ -151,7 +181,6 @@ class VendorOrderProduct(TimeStampedModel):
     quantity = models.IntegerField(default=0)
     unit_price = models.DecimalField(decimal_places=2, max_digits=10)
     status = models.CharField(max_length=100, null=True, blank=True)
-    is_deleted = models.BooleanField(default=False)
     # status = models.IntegerField(choices=Status.choices, default=Status.OPEN)
 
     @classmethod
@@ -202,31 +231,20 @@ class OfficeCheckoutStatus(TimeStampedModel):
     order_status = models.CharField(choices=ORDER_STATUS.choices, default=ORDER_STATUS.COMPLETE, max_length=16)
 
 
-class FavouriteProduct(TimeStampedModel):
-    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name="favorite_products")
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+class Keyword(models.Model):
+    class TaskStatus(models.TextChoices):
+        NOT_STARTED = "NOT_STARTED", "Not Started"
+        IN_PROGRESS = "IN_PROGRESS", "In Progress"
+        COMPLETE = "COMPLETE", "Complete"
+        FAILED = "FAILED", "Failed"
+
+    keyword = models.CharField(max_length=128)
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name="keywords")
+    vendor = FlexibleForeignKey(Vendor, related_name="keywords")
+    task_status = models.CharField(max_length=16, choices=TaskStatus.choices, default=TaskStatus.NOT_STARTED)
 
     class Meta:
-        unique_together = [
-            "office",
-            "product",
-        ]
+        unique_together = ["office", "vendor", "keyword"]
 
-
-# TODO: cna simplify by using inheritance
-class InventoryProduct(TimeStampedModel):
-    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name="inventory_products")
-    vendor = FlexibleForeignKey(Vendor, related_name="inventory_products")
-    product_id = models.CharField(max_length=100)
-    category = models.ForeignKey(ProductCategory, null=True, blank=True, on_delete=models.SET_NULL)
-    name = models.CharField(max_length=255)
-    product_unit = models.CharField(max_length=16, null=True, blank=True)
-    description = models.TextField(null=True, blank=True)
-    url = models.URLField(null=True, blank=True, max_length=300)
-    is_deleted = models.BooleanField(default=False)
-
-    class Meta:
-        unique_together = [
-            "office",
-            "product_id",
-        ]
+    def __str__(self):
+        return self.keyword
