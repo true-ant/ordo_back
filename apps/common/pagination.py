@@ -30,3 +30,26 @@ class StandardResultsSetPagination(PageNumberPagination):
                 "data": data,
             }
         )
+
+
+class SearchProductPagination(PageNumberPagination):
+    page_size = 4
+    page_size_query_param = "per_page"
+
+    def get_page_number(self, request, paginator):
+        return request.data.get("page", 1)
+
+    def get_paginated_response(self, data):
+        pagination_meta = {
+            "total_size": self.page.paginator.count,
+            "last_page": not self.page.has_next(),
+        }
+        if vendors_meta := self.request.data.get("meta", {}).get("vendors"):
+            pagination_meta["vendors"] = vendors_meta
+
+        return Response(
+            {
+                "meta": pagination_meta,
+                "products": data,
+            }
+        )
