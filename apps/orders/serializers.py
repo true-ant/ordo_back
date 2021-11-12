@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.db.utils import IntegrityError
 from rest_framework import serializers
+from rest_framework_recursive.fields import RecursiveField
 
 from apps.accounts.serializers import VendorSerializer
 
@@ -21,18 +22,14 @@ class ProductCategorySerializer(serializers.ModelSerializer):
         office = self.context.get("office")
         vendors = self.context.get("vendors")
         if office:
-            vendor_order_products_queryset = (
-                m.VendorOrderProduct.objects.filter(
-                    vendor_order__order__office=office,
-                    product__category=instance,
-                    is_deleted=False,
-                )
-                .order_by("product__product_id")
-                .distinct("product__product_id")
+            office_inventory_products_queryset = m.OfficeProduct.objects.filter(
+                is_inventory=True,
+                office=office,
+                office_category=instance,
             )
-            vendor_ids = set(vendor_order_products_queryset.values_list("vendor_order__vendor__id", flat=True))
+            vendor_ids = set(office_inventory_products_queryset.values_list("product__vendor__id", flat=True))
             ret["vendors"] = [vendor.to_dict() for vendor in vendors if vendor.id in vendor_ids]
-            ret["count"] = vendor_order_products_queryset.count()
+            ret["count"] = office_inventory_products_queryset.count()
         return ret
 
 
@@ -50,6 +47,7 @@ class ProductSerializer(serializers.ModelSerializer):
     vendor = serializers.PrimaryKeyRelatedField(queryset=m.Vendor.objects.all())
     images = ProductImageSerializer(many=True, required=False)
     category = ProductCategorySerializer(read_only=True)
+    children = serializers.ListSerializer(child=RecursiveField())
 
     class Meta:
         model = m.Product
@@ -166,24 +164,28 @@ class OfficeCheckoutStatusUpdateSerializer(serializers.Serializer):
     checkout_status = serializers.ChoiceField(choices=m.OfficeCheckoutStatus.CHECKOUT_STATUS.choices)
 
 
-class FavouriteProductSerializer(serializers.ModelSerializer):
-    product = ProductSerializer()
+class OfficeProductSerializer(serializers.ModelSerializer):
+    product_data = ProductSerializer(write_only=True)
     office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
+    product = ProductSerializer(read_only=True)
+    office_category = serializers.PrimaryKeyRelatedField(queryset=m.ProductCategory.objects.all())
 
     class Meta:
-        model = m.FavouriteProduct
-        fields = "__all__"
-
-    def validate(self, attrs):
-        product_id = attrs["product"]["product_id"]
-        office = attrs["office"]
-        if m.FavouriteProduct.objects.filter(office=office, product__product_id=product_id).exists():
-            raise serializers.ValidationError({"message": "This product is already in your favourite"})
-        return attrs
+        model = m.OfficeProduct
+        fields = (
+            "id",
+            "office",
+            "product",
+            "product_data",
+            "price",
+            "office_category",
+            "is_favorite",
+            "is_inventory",
+        )
 
     def create(self, validated_data):
         with transaction.atomic():
-            product_data = validated_data.pop("product")
+            product_data = validated_data.pop("product_data")
             vendor = product_data.pop("vendor")
             product_id = product_data.pop("product_id")
             images = product_data.pop("images", [])
@@ -198,24 +200,13 @@ class FavouriteProductSerializer(serializers.ModelSerializer):
                 if images:
                     m.ProductImage.objects.bulk_create(product_images_objs)
 
-            try:
-                return m.FavouriteProduct.objects.create(product=product, **validated_data)
-            except IntegrityError:
-                raise serializers.ValidationError({"message": "This product is already in your cart"})
+            return m.OfficeProduct.objects.create(product=product, **validated_data)
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        ret["office_category"] = ProductCategorySerializer(instance.office_category).data
+        return ret
 
 
 class ClearCartSerializer(serializers.Serializer):
     remove = serializers.ChoiceField(choices=["save_for_later", "cart"])
-
-
-class InventoryProductSerializer(serializers.ModelSerializer):
-    vendor = VendorSerializer(read_only=True)
-
-    class Meta:
-        model = m.InventoryProduct
-        exclude = ("office",)
-
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        ret["category"] = ProductCategorySerializer(instance.category).data
-        return ret
