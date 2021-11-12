@@ -1,6 +1,6 @@
 from django_filters import rest_framework as filters
 
-from .models import InventoryProduct, Order, VendorOrderProduct
+from .models import OfficeProduct, Order, VendorOrderProduct
 
 
 class OrderFilter(filters.FilterSet):
@@ -22,10 +22,11 @@ class VendorOrderProductFilter(filters.FilterSet):
         fields = ["product_name", "category"]
 
 
-class InventoryProductFilter(filters.FilterSet):
-    product_name = filters.CharFilter(field_name="name", lookup_expr="icontains")
-    category = filters.CharFilter(field_name="category__slug", lookup_expr="exact")
+class OfficeProductFilter(filters.FilterSet):
+    q = filters.CharFilter(field_name="product__name", lookup_expr="icontains")
+    inventory = filters.BooleanFilter(field_name="is_inventory")
+    favorite = filters.BooleanFilter(field_name="is_favorite")
 
     class Meta:
-        model = InventoryProduct
-        fields = ["product_name", "category"]
+        model = OfficeProduct
+        fields = ["q", "inventory", "favorite"]
