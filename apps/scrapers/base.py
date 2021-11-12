@@ -164,7 +164,7 @@ class Scraper:
     async def html2pdf(self, data: bytes):
         return await self.run_command(cmd="htmldoc --quiet -t pdf --webpage -", data=data)
 
-    def save_single_product_to_db(self, product_data, office=None):
+    def save_single_product_to_db(self, product_data, office=None, is_inventory=False):
         """save product to product table"""
         from django.db import transaction
         from django.db.models import Q
@@ -218,7 +218,7 @@ class Scraper:
                     office=office,
                     product=product,
                     defaults={
-                        "is_inventory": True,
+                        "is_inventory": is_inventory,
                         "office_category": product_data["category"],
                         "price": product_price,
                     },
@@ -254,7 +254,7 @@ class Scraper:
                 vendor_order = VendorOrderModel.from_dataclass(vendor=self.vendor, order=order, dict_data=order_data)
 
             for order_product_data in order_products_data:
-                product, office_product = self.save_single_product_to_db(order_product_data["product"], office)
+                product, _ = self.save_single_product_to_db(order_product_data["product"], office, is_inventory=True)
 
                 VendorOrderProductModel.objects.get_or_create(
                     vendor_order=vendor_order,
