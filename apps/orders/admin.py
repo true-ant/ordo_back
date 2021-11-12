@@ -157,4 +157,6 @@ class OfficeProduct(admin.ModelAdmin):
         "id",
         "product",
         "price",
+        "is_favorite",
+        "is_inventory",
     )
