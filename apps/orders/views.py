@@ -260,10 +260,12 @@ def get_inventory_products(office: Union[SmartID, m.Office]):
     if not isinstance(office, m.Office):
         office = get_object_or_404(m.Office, pk=office)
 
-    office_inventory_products = office.inventory_products.values("product_id", "vendor")
+    office_inventory_products = m.OfficeProduct.objects.filter(office=office, is_inventory=True).values(
+        "product__product_id", "product__vendor"
+    )
     return set(
         [
-            f"{office_inventory_product['product_id']}-{office_inventory_product['vendor']}"
+            f"{office_inventory_product['product__product_id']}-{office_inventory_product['product__vendor']}"
             for office_inventory_product in office_inventory_products
         ]
     )
@@ -963,27 +965,28 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         except ValueError:
             return Response({"message": msgs.SEARCH_PRODUCT_WRONG_PARAMETER}, status=HTTP_400_BAD_REQUEST)
 
-        return Response({})
-        # await self.fetch_products(keyword, min_price, max_price)
-        # meta, products = group_products_from_search_result(search_results)
-        #
-        # # get inventory products
-        # inventory_products = await sync_to_async(get_inventory_products)(office_id)
-        # results = []
-        # for product_or_products in products:
-        #     if isinstance(product_or_products, list):
-        #         ret = []
-        #         for product in product_or_products:
-        #             key = f"{product['product_id']}-{product['vendor']['id']}"
-        #             if key in inventory_products:
-        #                 continue
-        #             ret.append(product)
-        #     else:
-        #         key = f"{product_or_products['product_id']}-{product_or_products['vendor']['id']}"
-        #         if key in inventory_products:
-        #             continue
-        #         ret = product_or_products
-        #     if ret:
-        #         results.append(ret)
-        #
-        # return Response({"meta": meta, "products": results})
+        search_results = await self.fetch_products(keyword, min_price, max_price)
+        meta, products = group_products_from_search_result(search_results)
+
+        # exclude inventory products
+        inventory_products = await sync_to_async(get_inventory_products)(self.kwargs["office_pk"])
+        results = []
+        for product_or_products in products:
+            if isinstance(product_or_products, list):
+                ret = []
+                for product in product_or_products:
+                    key = f"{product['product_id']}-{product['vendor']['id']}"
+                    if key in inventory_products:
+                        continue
+                    ret.append(product)
+            else:
+                key = (
+                    f"{product_or_products['product']['product_id']}-{product_or_products['product']['vendor']['id']}"
+                )
+                if key in inventory_products:
+                    continue
+                ret = product_or_products
+            if ret:
+                results.append(ret)
+
+        return Response({"meta": meta, "products": results})

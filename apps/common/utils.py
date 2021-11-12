@@ -82,14 +82,27 @@ def group_products(vendors_search_result_products, model=False):
                 parent_product.children.set(similar_candidate_product_without_similarity[1:])
             else:
                 parent_product = parent_product.to_dict()
-                products.append(parent_product)
-                parent_product["children"] = [p.to_dict() for p in similar_candidate_product_without_similarity[1:]]
+                products.append(
+                    {
+                        "price": parent_product.pop("price"),
+                        "product": parent_product,
+                    }
+                )
+                parent_product["children"] = [
+                    {"price": (p_ := p.to_dict()).pop("price"), "product": p_}
+                    for p in similar_candidate_product_without_similarity[1:]
+                ]
 
     if not model:
         for vendor_search_result_products in vendors_search_result_products:
             for vendor_product in vendor_search_result_products:
                 if vendor_product not in matched_products:
-                    products.append(vendor_product.to_dict())
+                    products.append(
+                        {
+                            "price": (p := vendor_product.to_dict()).pop("price"),
+                            "product": p,
+                        }
+                    )
 
         return products
 

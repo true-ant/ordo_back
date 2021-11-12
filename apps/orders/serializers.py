@@ -177,7 +177,7 @@ class OfficeCheckoutStatusUpdateSerializer(serializers.Serializer):
 
 class OfficeProductSerializer(serializers.ModelSerializer):
     product_data = ProductSerializer(write_only=True)
-    office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
+    office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), write_only=True)
     product = ProductSerializer(read_only=True)
     office_category = serializers.PrimaryKeyRelatedField(queryset=m.ProductCategory.objects.all())
 
