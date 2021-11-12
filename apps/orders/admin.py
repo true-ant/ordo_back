@@ -105,11 +105,6 @@ class ProductImageInline(ReadOnlyAdminMixin, admin.TabularInline):
     image_preview.short_description = "Preview"
 
 
-@admin.register(m.InventoryProduct)
-class InventoryProductAdmin(admin.ModelAdmin):
-    pass
-
-
 @admin.register(m.Product)
 class ProductAdmin(admin.ModelAdmin):
     list_per_page = 20
@@ -121,7 +116,6 @@ class ProductAdmin(admin.ModelAdmin):
         "vendor",
         "category",
         "get_url",
-        "price",
     )
     search_fields = (
         "product_id",
@@ -130,7 +124,6 @@ class ProductAdmin(admin.ModelAdmin):
     list_filter = (
         "vendor",
         "category",
-        ProductPriceFilter,
     )
     inlines = (ProductImageInline,)
 
@@ -145,3 +138,23 @@ class ProductAdmin(admin.ModelAdmin):
             return mark_safe("<img src='{}'  width='30' height='30' />".format(image.image))
         else:
             return "No Image Found"
+
+
+@admin.register(m.Keyword)
+class KeywordAdmin(admin.ModelAdmin):
+    list_per_page = 20
+    list_display = (
+        "keyword",
+        "office",
+        "vendor",
+        "task_status",
+    )
+
+
+@admin.register(m.OfficeProduct)
+class OfficeProduct(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "product",
+        "price",
+    )
