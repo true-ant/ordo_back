@@ -382,7 +382,7 @@ class UltraDentScraper(Scraper):
                 "name": product["productName"],
                 "url": product_url,
                 "images": [{"image": product_image["source"]} for product_image in product["images"]],
-                "category": product["url"].split("/")[2:],
+                "category": product["url"].split("/")[3:],
                 "price": product["catalogPrice"],
                 "vendor": self.vendor.to_dict(),
             }
@@ -432,7 +432,7 @@ class UltraDentScraper(Scraper):
             for category in response.xpath("//div[contains(@class, 'category-card-grid')]//a")
         ]
 
-    async def get_all_products(self) -> List[Product]:
+    async def get_all_products_data(self):
         async with self.session.post(
             "https://www.ultradent.com/api/ecommerce",
             headers=SEARCH_HEADERS,
@@ -443,11 +443,14 @@ class UltraDentScraper(Scraper):
             products = []
             for ultradent_product in ultradent_products:
                 sku = ultradent_product["sku"]
+                product_url = ultradent_product["url"]
+                if not product_url:
+                    continue
                 products.append(
                     {
                         "product_id": sku,
                         # "name": product["productName"],
-                        "url": f"{self.BASE_URL}{ultradent_product['url']}?sku={sku}",
+                        "url": f"{self.BASE_URL}{product_url}?sku={sku}",
                         "images": [
                             {
                                 "image": image["source"],
@@ -459,10 +462,34 @@ class UltraDentScraper(Scraper):
                         # "category": "category",
                     }
                 )
+            return products
 
+    async def get_all_products(self) -> List[Product]:
+        products = await self.get_all_products_data()
         tasks = (self.get_product(product["product_id"], product["url"]) for product in products[:1])
         products = await asyncio.gather(*tasks, return_exceptions=True)
-        return [Product.from_dict(product) for product in products]
+        return [product for product in products if isinstance(product, Product)]
+
+    async def save_product_to_db(self, queue: asyncio.Queue, office=None):
+        while True:
+            product = await queue.get()
+            await sync_to_async(self.save_single_product_to_db)(product.to_dict(), office)
+            await asyncio.sleep(3)
+            queue.task_done()
+
+    async def get_all_products_v2(self, office=None):
+        products = await self.get_all_products_data()
+        sem = asyncio.Semaphore(value=50)
+        q = asyncio.Queue()
+        producers = (
+            self.get_product_v2(product_id=product["product_id"], product_url=product["url"], semaphore=sem, queue=q)
+            for product in products
+        )
+        consumers = [asyncio.create_task(self.save_product_to_db(q, office)) for _ in range(50)]
+        await asyncio.gather(*producers)
+        await q.join()
+        for c in consumers:
+            c.cancel()
 
     async def download_invoice(self, invoice_link, order_id) -> InvoiceFile:
         json_data = {
