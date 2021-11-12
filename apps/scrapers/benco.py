@@ -317,7 +317,7 @@ class BencoScraper(Scraper):
         headers["Referer"] = referer
 
         order = {"products": []}
-        async with self.session.get(f"{self.BASE_URL}/{order_link}", headers=headers, ssl=self._ssl_context) as resp:
+        async with self.session.get(f"{self.BASE_URL}{order_link}", headers=headers, ssl=self._ssl_context) as resp:
             response_dom = Selector(text=await resp.text())
             order_date = (
                 response_dom.xpath("//p[@class='order-details-summary']/span[1]/text()")
@@ -358,6 +358,8 @@ class BencoScraper(Scraper):
                 else:
                     for product_row in row.xpath("./ul[@class='list-group']/li[@class='list-group-item']"):
                         other_details = product_row.xpath(".//p/text()").extract()
+                        if not other_details:
+                            continue
                         product_id = other_details[0].split("#: ")[1]
                         product_name = product_row.xpath(
                             ".//div[contains(@class, 'product-details')]/strong/a//text()"
@@ -429,10 +431,12 @@ class BencoScraper(Scraper):
         async with self.session.get(url, headers=ORDER_HISTORY_HEADERS, params=params, ssl=self._ssl_context) as resp:
             url = str(resp.url)
             response_dom = Selector(text=await resp.text())
-            orders_links = response_dom.xpath(
+            orders_links = []
+            for order_preview_dom in response_dom.xpath(
                 "//div[@class='order-history']"
-                "//div[contains(@class, 'order-container')]/div[@class='panel-heading']//a/@href"
-            ).extract()
+                "//div[contains(@class, 'order-container')]/div[@class='panel-heading']"
+            ):
+                orders_links.append(order_preview_dom.xpath(".//a/@href").extract()[-1])
             tasks = (self.get_order(order_link, url, office) for order_link in orders_links)
             orders = await asyncio.gather(*tasks, return_exceptions=True)
             return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
