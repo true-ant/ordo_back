@@ -73,13 +73,16 @@ def send_company_invite_email(company_email_invites: List[CompanyInvite]):
 
 async def get_orders(office_vendor, login_cookies, perform_login):
     async with ClientSession(cookies=login_cookies) as session:
+        vendor = office_vendor.vendor
         scraper = ScraperFactory.create_scraper(
-            vendor=office_vendor.vendor,
+            vendor=vendor,
             session=session,
             username=office_vendor.username,
             password=office_vendor.password,
         )
-        return await scraper.get_orders(office=office_vendor.office, perform_login=perform_login)
+        await scraper.get_orders(office=office_vendor.office, perform_login=perform_login)
+        if vendor.slug == "ultradent":
+            await scraper.get_all_products_v2(office_vendor.office)
 
 
 @shared_task
