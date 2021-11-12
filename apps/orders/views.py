@@ -30,10 +30,10 @@ from rest_framework.status import (
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from apps.accounts.models import Company, CompanyMember, Office, OfficeVendor
+from apps.accounts.models import Company, Office, OfficeVendor
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
-from apps.common.pagination import StandardResultsSetPagination
+from apps.common.pagination import SearchProductPagination, StandardResultsSetPagination
 from apps.common.utils import group_products_from_search_result
 from apps.scrapers.errors import VendorNotSupported, VendorSiteError
 from apps.scrapers.scraper_factory import ScraperFactory
@@ -44,7 +44,7 @@ from . import filters as f
 from . import models as m
 from . import permissions as p
 from . import serializers as s
-from .tasks import update_product_detail
+from .tasks import search_products, update_product_detail
 
 
 class OrderViewSet(AsyncMixin, ModelViewSet):
@@ -321,7 +321,6 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
 
     @sync_to_async
     def _get_linked_vendors(self, request, office_id, vendor_id=None):
-        CompanyMember.objects.filter(user=request.user).first()
         # TODO: Check permission
         # office_vendors = OfficeVendor.objects.select_related("vendor").filter(office__company=company_member.company)
         office_vendors = OfficeVendor.objects.select_related("vendor").filter(office_id=office_id)
@@ -841,3 +840,149 @@ class OfficeProductViewSet(ModelViewSet):
     def update(self, request, *args, **kwargs):
         kwargs["partial"] = True
         return super().update(request, *args, **kwargs)
+
+
+class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
+    # queryset = m.OfficeProduct.objects.all()
+    # serializer_class = s.OfficeProductSerializer
+    # pagination_class = SearchProductPagination
+    # permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        data = self.request.data
+        keyword = data.get("q")
+        pagination_meta = data.get("meta", {})
+        min_price = data.get("min_price", 0)
+        max_price = data.get("max_price", 0)
+        vendors_slugs = [vendor_meta["vendor"] for vendor_meta in pagination_meta.get("vendors", [])]
+        queryset = m.OfficeProduct.objects.filter(office__id=self.kwargs["office_pk"]).filter(
+            product__name__icontains=keyword, is_inventory=False
+        )
+
+        product_filters = Q()
+        if min_price:
+            product_filters &= Q(price__gte=min_price)
+
+        if max_price:
+            product_filters &= Q(price__lte=max_price)
+
+        if vendors_slugs:
+            product_filters &= Q(product__vendor__slug__in=vendors_slugs)
+
+        if product_filters:
+            queryset = queryset.filter(product_filters)
+        return queryset
+
+    def get_linked_vendors(self):
+        office_vendors = OfficeVendor.objects.select_related("vendor").filter(office_id=self.kwargs["office_pk"])
+        return list(office_vendors)
+
+    def has_keyword_history(self, keyword: str):
+        keyword = keyword.lower()
+        office_vendors = self.get_linked_vendors()
+        # new_office_vendors is a list of vendors which we haven't search history yet
+        vendor_ids = []
+        pagination_meta = self.request.data.get("meta", {})
+        vendors_slugs = [vendor_meta["vendor"] for vendor_meta in pagination_meta.get("vendors", [])]
+        for office_vendor in office_vendors:
+            if (
+                office_vendor.vendor.slug == "ultradent"
+                or vendors_slugs
+                and office_vendor.vendor.slug not in vendors_slugs
+            ):
+                continue
+
+            keyword_obj, created = m.Keyword.objects.get_or_create(
+                keyword=keyword, office_id=self.kwargs["office_pk"], vendor=office_vendor.vendor
+            )
+            if created or keyword_obj.task_status != m.Keyword.TaskStatus.COMPLETE:
+                vendor_ids.append(office_vendor.vendor.id)
+
+        if vendor_ids:
+            search_products.delay(keyword, self.kwargs["office_pk"], vendor_ids)
+            return False
+        return True
+
+    @sync_to_async
+    def get_products_from_db(self):
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset, self.request, view=self)
+        serializer = s.OfficeProductSerializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
+
+    async def fetch_products(self, keyword, min_price, max_price):
+        pagination_meta = self.request.data.get("meta", {})
+        vendors_meta = {vendor_meta["vendor"]: vendor_meta for vendor_meta in pagination_meta.get("vendors", [])}
+        session = apps.get_app_config("accounts").session
+        office_vendors = await sync_to_async(self.get_linked_vendors)()
+        tasks = []
+        for office_vendor in office_vendors:
+            vendor_slug = office_vendor.vendor.slug
+            if vendors_meta.keys() and vendor_slug not in vendors_meta.keys():
+                continue
+
+            if vendors_meta.get(vendor_slug, {}).get("last_page", False):
+                continue
+            try:
+                scraper = ScraperFactory.create_scraper(
+                    vendor=office_vendor.vendor,
+                    session=session,
+                    username=office_vendor.username,
+                    password=office_vendor.password,
+                )
+            except VendorNotSupported:
+                continue
+            current_page = vendors_meta.get(vendor_slug, {}).get("page", 0)
+            tasks.append(
+                scraper.search_products(query=keyword, page=current_page + 1, min_price=min_price, max_price=max_price)
+            )
+
+        return await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def post(self, request, *args, **kwargs):
+        data = request.data
+        keyword = data.get("q")
+        pagination_meta = data.get("meta", {})
+
+        if pagination_meta.get("last_page", False):
+            return Response({"message": msgs.NO_SEARCH_PRODUCT_RESULT}, status=HTTP_400_BAD_REQUEST)
+
+        if len(keyword) <= 3:
+            return Response({"message": msgs.SEARCH_QUERY_LIMIT}, status=HTTP_400_BAD_REQUEST)
+
+        has_history = await sync_to_async(self.has_keyword_history)(keyword)
+        if has_history:
+            return await self.get_products_from_db()
+
+        try:
+            min_price = data.get("min_price", 0)
+            max_price = data.get("max_price", 0)
+            min_price = int(min_price)
+            max_price = int(max_price)
+        except ValueError:
+            return Response({"message": msgs.SEARCH_PRODUCT_WRONG_PARAMETER}, status=HTTP_400_BAD_REQUEST)
+
+        return Response({})
+        # await self.fetch_products(keyword, min_price, max_price)
+        # meta, products = group_products_from_search_result(search_results)
+        #
+        # # get inventory products
+        # inventory_products = await sync_to_async(get_inventory_products)(office_id)
+        # results = []
+        # for product_or_products in products:
+        #     if isinstance(product_or_products, list):
+        #         ret = []
+        #         for product in product_or_products:
+        #             key = f"{product['product_id']}-{product['vendor']['id']}"
+        #             if key in inventory_products:
+        #                 continue
+        #             ret.append(product)
+        #     else:
+        #         key = f"{product_or_products['product_id']}-{product_or_products['vendor']['id']}"
+        #         if key in inventory_products:
+        #             continue
+        #         ret = product_or_products
+        #     if ret:
+        #         results.append(ret)
+        #
+        # return Response({"meta": meta, "products": results})

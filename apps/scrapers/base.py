@@ -358,7 +358,7 @@ class Scraper:
             products = product_search["products"]
 
             for product in products:
-                product_obj, _ = self.save_single_product_to_db(product.to_dict(), office=office)
+                product_obj, _ = await sync_to_async(self.save_single_product_to_db)(product.to_dict(), office=office)
                 products_objs.append(product_obj)
 
             if last_page:

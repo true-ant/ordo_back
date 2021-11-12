@@ -8,6 +8,7 @@ from django.utils import timezone
 from slugify import slugify
 
 from apps.accounts.models import OfficeVendor
+from apps.orders.models import Keyword as KeywordModel
 from apps.orders.models import OfficeCheckoutStatus
 from apps.orders.models import Product as ProductModel
 from apps.orders.models import ProductCategory
@@ -104,3 +105,45 @@ def update_product_detail(product_id, product_url, office_id, vendor_id):
             product=product,
             image=product_image["image"],
         )
+
+
+async def _search_products(keyword, office_vendors):
+    async with ClientSession() as session:
+        tasks = []
+        for office_vendor in office_vendors:
+            scraper = ScraperFactory.create_scraper(
+                vendor=office_vendor.vendor,
+                session=session,
+                username=office_vendor.username,
+                password=office_vendor.password,
+            )
+            tasks.append(scraper.search_products_v2(query=keyword, office=office_vendor.office))
+        return await asyncio.gather(*tasks, return_exceptions=True)
+
+
+@shared_task
+def search_products(keyword, office_id, vendor_ids):
+    office_vendors = list(
+        OfficeVendor.objects.select_related("office")
+        .select_related("vendor")
+        .filter(office_id=office_id, vendor_id__in=vendor_ids)
+    )
+    keyword_objs = KeywordModel.objects.filter(keyword=keyword, office_id=office_id, vendor_id__in=vendor_ids)
+    for keyword_obj in keyword_objs:
+        keyword_obj.task_status = KeywordModel.TaskStatus.IN_PROGRESS
+    KeywordModel.objects.bulk_update(keyword_objs, ["task_status"])
+
+    vendors_products = asyncio.run(_search_products(keyword, office_vendors))
+
+    for keyword_obj, vendor_products in zip(keyword_objs, vendors_products):
+        if isinstance(vendor_products, list) and all(
+            [isinstance(vendor_product, ProductModel) for vendor_product in vendor_products]
+        ):
+            keyword_obj.task_status = KeywordModel.TaskStatus.COMPLETE
+        else:
+            # TODO: if it fails, we need to retry
+            keyword_obj.task_status = KeywordModel.TaskStatus.FAILED
+        keyword_obj.save()
+
+    # pricing comparison
+    # meta, products = group_products_from_search_result(products)
