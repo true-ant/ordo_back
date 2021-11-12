@@ -34,6 +34,7 @@ class Scraper:
         self.username = username
         self.password = password
         self.orders = {}
+        self.objs = {"product_categories": {}}
 
     @staticmethod
     def extract_first(dom, xpath):
@@ -116,9 +117,26 @@ class Scraper:
     async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
         raise NotImplementedError()
 
-    async def get_product(self, product_id, product_url, perform_login=False) -> Product:
+    async def get_product(self, product_id, product_url, perform_login=False, semaphore=None) -> Product:
         product = await self.get_product_as_dict(product_id, product_url, perform_login)
         return Product.from_dict(product)
+
+    async def get_product_v2(
+        self, product_id, product_url, perform_login=False, semaphore=None, queue: asyncio.Queue = None
+    ) -> Optional[Product]:
+        if semaphore:
+            await semaphore.acquire()
+
+        product = await self.get_product_as_dict(product_id, product_url, perform_login)
+        product = Product.from_dict(product)
+        if queue:
+            await queue.put(product)
+
+        await asyncio.sleep(3)
+        if semaphore:
+            semaphore.release()
+
+        return product
 
     async def get_missing_product_fields(self, product_id, product_url, perform_login=False, fields=None) -> dict:
         product = await self.get_product_as_dict(product_id, product_url, perform_login)
@@ -146,20 +164,77 @@ class Scraper:
     async def html2pdf(self, data: bytes):
         return await self.run_command(cmd="htmldoc --quiet -t pdf --webpage -", data=data)
 
-    @sync_to_async
-    def save_order_to_db(self, office, order: Order):
+    def save_single_product_to_db(self, product_data, office=None):
+        """save product to product table"""
         from django.db import transaction
         from django.db.models import Q
 
-        from apps.orders.models import (
-            InventoryProduct,
-            Order,
-            Product,
-            ProductCategory,
-            ProductImage,
-            VendorOrder,
-            VendorOrderProduct,
-        )
+        from apps.orders.models import OfficeProduct as OfficeProductModel
+        from apps.orders.models import Product as ProductModel
+        from apps.orders.models import ProductCategory as ProductCategoryModel
+        from apps.orders.models import ProductImage as ProductImageModel
+
+        other_category = self.objs["product_categories"].get("other_category", None)
+        if other_category is None:
+            other_category = ProductCategoryModel.objects.filter(slug="other").first()
+            self.objs["product_categories"]["other_category"] = other_category
+
+        vendor_data = product_data.pop("vendor")
+        product_images = product_data.pop("images", [])
+        product_id = product_data.pop("product_id")
+        product_category_hierarchy = product_data.pop("category")
+
+        if product_category_hierarchy:
+            product_root_category = slugify(product_category_hierarchy[0])
+            product_category = self.objs["product_categories"].get(product_root_category, None)
+            if product_category is None:
+                q = {f"vendor_categories__{vendor_data['slug']}__contains": product_root_category}
+                q = Q(**q)
+                product_category = ProductCategoryModel.objects.filter(q).first()
+                self.objs["product_categories"]["product_root_category"] = product_category
+        else:
+            product_category = None
+
+        product_data["category"] = product_category or other_category
+        product_price = product_data.pop("price")
+        with transaction.atomic():
+            product, created = ProductModel.objects.get_or_create(
+                vendor=self.vendor,
+                product_id=product_id,
+                defaults=product_data,
+            )
+            if created:
+                product_images = [
+                    ProductImageModel(
+                        product=product,
+                        image=product_image["image"],
+                    )
+                    for product_image in product_images
+                ]
+                ProductImageModel.objects.bulk_create(product_images)
+
+            if office:
+                office_product = OfficeProductModel.objects.get_or_create(
+                    office=office,
+                    product=product,
+                    defaults={
+                        "is_inventory": True,
+                        "office_category": product_data["category"],
+                        "price": product_price,
+                    },
+                )
+            else:
+                office_product = None
+
+        return product, office_product
+
+    @sync_to_async
+    def save_order_to_db(self, office, order: Order):
+        from django.db import transaction
+
+        from apps.orders.models import Order as OrderModel
+        from apps.orders.models import VendorOrder as VendorOrderModel
+        from apps.orders.models import VendorOrderProduct as VendorOrderProductModel
 
         order_data = order.to_dict()
         order_data.pop("shipping_address")
@@ -167,48 +242,21 @@ class Scraper:
         order_id = order_data["order_id"]
         with transaction.atomic():
             try:
-                vendor_order = VendorOrder.objects.get(vendor=self.vendor, vendor_order_id=order_id)
-            except VendorOrder.DoesNotExist:
-                order = Order.objects.create(
+                vendor_order = VendorOrderModel.objects.get(vendor=self.vendor, vendor_order_id=order_id)
+            except VendorOrderModel.DoesNotExist:
+                order = OrderModel.objects.create(
                     office=office,
                     status=order_data["status"],
                     order_date=order_data["order_date"],
                     total_items=order_data["total_items"],
                     total_amount=order_data["total_amount"],
                 )
-                vendor_order = VendorOrder.from_dataclass(vendor=self.vendor, order=order, dict_data=order_data)
-
-            other_category = ProductCategory.objects.filter(slug="other").first()
+                vendor_order = VendorOrderModel.from_dataclass(vendor=self.vendor, order=order, dict_data=order_data)
 
             for order_product_data in order_products_data:
-                vendor_data = order_product_data["product"].pop("vendor")
-                order_product_images = order_product_data["product"].pop("images", [])
-                product_id = order_product_data["product"].pop("product_id")
-                product_category = order_product_data["product"].pop("category")
+                product, office_product = self.save_single_product_to_db(order_product_data["product"], office)
 
-                if product_category:
-                    product_category = slugify(product_category[0])
-                    q = {f"vendor_categories__{vendor_data['slug']}__contains": product_category}
-                    q = Q(**q)
-                    product_category = ProductCategory.objects.filter(q).first()
-                    if product_category:
-                        order_product_data["product"]["category_id"] = product_category.id
-                    else:
-                        order_product_data["product"]["category_id"] = other_category.id
-                else:
-                    order_product_data["product"]["category_id"] = other_category.id
-
-                product, created = Product.objects.get_or_create(
-                    vendor=self.vendor, product_id=product_id, defaults=order_product_data["product"]
-                )
-                if created:
-                    for order_product_image in order_product_images:
-                        ProductImage.objects.create(
-                            product=product,
-                            image=order_product_image["image"],
-                        )
-
-                VendorOrderProduct.objects.get_or_create(
+                VendorOrderProductModel.objects.get_or_create(
                     vendor_order=vendor_order,
                     product=product,
                     defaults={
@@ -216,14 +264,6 @@ class Scraper:
                         "unit_price": order_product_data["unit_price"],
                         "status": order_product_data["status"],
                     },
-                )
-
-                order_product_data["product"].pop("price")
-                InventoryProduct.objects.get_or_create(
-                    office=office,
-                    vendor=self.vendor,
-                    product_id=product_id,
-                    defaults=order_product_data["product"],
                 )
 
     async def get_missing_products_fields(self, order_products, fields=("description",)):
@@ -302,6 +342,31 @@ class Scraper:
             "products": res_products,
             "last_page": last_page,
         }
+
+    @catch_network
+    async def search_products_v2(self, query: str, office=None):
+        if self.vendor.slug == "ultradent":
+            return
+
+        await self.login()
+
+        page = 1
+        products_objs = []
+        while True:
+            product_search = await self._search_products(query, page)
+            last_page = product_search["last_page"]
+            products = product_search["products"]
+
+            for product in products:
+                product_obj, _ = self.save_single_product_to_db(product.to_dict(), office=office)
+                products_objs.append(product_obj)
+
+            if last_page:
+                break
+
+            page += 1
+
+        return products_objs
 
     async def add_product_to_cart(self, product: CartProduct, perform_login=False) -> VendorCartProduct:
         raise NotImplementedError("Vendor scraper must implement `add_product_to_cart`")

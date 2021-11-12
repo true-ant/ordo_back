@@ -230,10 +230,13 @@ def get_task(scraper, scraper_name, test="login", **kwargs):
         # products = get_test_products(scraper_name)
         # return scraper.remove_product_from_cart(products[0]["product_id"])
         return scraper.remove_product_from_cart("2288210", perform_login=True, use_bulk=False)
+    elif test == "get_all_products_v2":
+        office = kwargs.get("office")
+        return scraper.get_all_products_v2(office)
 
 
 async def main(office, vendors):
-    scraper_names = ["henry_schein"]
+    scraper_names = ["ultradent"]
     base_data = get_scraper_data()
     tasks = []
     async with ClientSession() as session:
@@ -246,7 +249,7 @@ async def main(office, vendors):
                 username=scraper_data["username"],
                 password=scraper_data["password"],
             )
-            tasks.append(get_task(scraper, scraper_name, "create_order", office=office))
+            tasks.append(get_task(scraper, scraper_name, "order_history", office=office))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
     # products = [
