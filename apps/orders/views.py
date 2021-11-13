@@ -857,8 +857,11 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         min_price = data.get("min_price", 0)
         max_price = data.get("max_price", 0)
         vendors_slugs = [vendor_meta["vendor"] for vendor_meta in pagination_meta.get("vendors", [])]
-        queryset = m.OfficeProduct.objects.filter(office__id=self.kwargs["office_pk"]).filter(
-            Q(is_inventory=False) & (Q(product__name__icontains=keyword) | Q(product__tags__keyword__iexact=keyword))
+        queryset = m.OfficeProduct.objects.filter(
+            Q(office__id=self.kwargs["office_pk"])
+            & Q(product__parent__isnull=True)
+            & Q(is_inventory=False)
+            & (Q(product__name__icontains=keyword) | Q(product__tags__keyword__iexact=keyword))
         )
 
         product_filters = Q()
