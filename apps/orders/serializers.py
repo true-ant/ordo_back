@@ -213,9 +213,46 @@ class OfficeProductSerializer(serializers.ModelSerializer):
 
             return m.OfficeProduct.objects.create(product=product, **validated_data)
 
+    def update(self, instance, validated_data):
+        instance = super().update(instance, validated_data)
+        children_product_ids = [child.id for child in instance.children]
+        if children_product_ids:
+            office_products = m.OfficeProduct.objects.filter(
+                office=instance.office, product_id__in=children_product_ids
+            )
+
+            # TODO: code optimization
+            if "is_favorite" in validated_data:
+                for office_product in office_products:
+                    office_product.is_favorite = validated_data["is_favorite"]
+                m.OfficeProduct.objects.bulk_update(office_products, ["is_favorite"])
+
+            if "is_inventory" in validated_data:
+                for office_product in office_products:
+                    office_product.is_favorite = validated_data["is_inventory"]
+                m.OfficeProduct.objects.bulk_update(office_products, ["is_inventory"])
+
+        return instance
+
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         ret["office_category"] = ProductCategorySerializer(instance.office_category).data
+        children_products = ret["product"].get("children", [])
+        if children_products:
+            children_product_ids = [child["id"] for child in children_products]
+            office_products = m.OfficeProduct.objects.filter(
+                office=instance.office, product_id__in=children_product_ids
+            )
+            office_products = {office_product.product.id: office_product for office_product in office_products}
+            ret["product"]["children"] = [
+                {
+                    "product": child_product,
+                    "price": office_products[child_product["id"]].price,
+                }
+                for child_product in children_products
+                if child_product["id"] in office_products
+            ]
+
         return ret
 
 
