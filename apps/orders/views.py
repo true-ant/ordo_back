@@ -886,7 +886,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         keyword = keyword.lower()
         office_vendors = self.get_linked_vendors()
         # new_office_vendors is a list of vendors which we haven't search history yet
-        vendor_ids = []
+        vendor_ids_and_status = []
         pagination_meta = self.request.data.get("meta", {})
         vendors_slugs = [vendor_meta["vendor"] for vendor_meta in pagination_meta.get("vendors", [])]
         for office_vendor in office_vendors:
@@ -902,10 +902,15 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
                 keyword=keyword_obj, office_id=self.kwargs["office_pk"], vendor=office_vendor.vendor
             )
             if created or office_keyword_obj.task_status != m.OfficeKeyword.TaskStatus.COMPLETE:
-                vendor_ids.append(office_vendor.vendor.id)
+                vendor_ids_and_status.append((office_vendor.vendor.id, office_keyword_obj.task_status))
 
-        if vendor_ids:
-            search_products.delay(keyword, self.kwargs["office_pk"], vendor_ids)
+        if vendor_ids_and_status:
+            vendors_to_be_scraped = [
+                vendor_id_and_status[0]
+                for vendor_id_and_status in vendor_ids_and_status
+                if vendor_id_and_status[1] != m.OfficeKeyword.TaskStatus.IN_PROGRESS
+            ]
+            search_products.delay(keyword, self.kwargs["office_pk"], vendors_to_be_scraped)
             return False
         return True
 
