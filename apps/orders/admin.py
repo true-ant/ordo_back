@@ -167,6 +167,8 @@ class OfficeProduct(admin.ModelAdmin):
     )
 
     list_filter = (
+        "is_inventory",
+        "is_favorite",
         "product__vendor",
         "product__category",
     )
