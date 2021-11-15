@@ -243,7 +243,8 @@ class OfficeKeyword(models.Model):
     class TaskStatus(models.TextChoices):
         NOT_STARTED = "NOT_STARTED", "Not Started"
         IN_PROGRESS = "IN_PROGRESS", "In Progress"
-        COMPLETE = "COMPLETE", "Complete"
+        FETCHING_COMPLETE = "FETCH_COMPLETE", "Fetching Completed"
+        COMPLETE = "COMPLETE", "Completed"
         FAILED = "FAILED", "Failed"
 
     keyword = models.ForeignKey(Keyword, on_delete=models.CASCADE)

@@ -124,8 +124,7 @@ async def _search_products(keyword, office_vendors):
 
 
 @shared_task
-def search_products(keyword, office_id, vendor_ids):
-
+def search_and_group_products(keyword, office_id, vendor_ids):
     office_vendors_to_be_searched = list(
         OfficeVendor.objects.select_related("office")
         .select_related("vendor")

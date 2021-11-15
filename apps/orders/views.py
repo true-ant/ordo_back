@@ -44,7 +44,7 @@ from . import filters as f
 from . import models as m
 from . import permissions as p
 from . import serializers as s
-from .tasks import search_products, update_product_detail
+from .tasks import search_and_group_products, update_product_detail
 
 
 class OrderViewSet(AsyncMixin, ModelViewSet):
@@ -886,7 +886,8 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         keyword = keyword.lower()
         office_vendors = self.get_linked_vendors()
         # new_office_vendors is a list of vendors which we haven't search history yet
-        vendor_ids_and_status = []
+        vendors_to_be_scraped = []
+        vendors_to_be_waited = []
         pagination_meta = self.request.data.get("meta", {})
         vendors_slugs = [vendor_meta["vendor"] for vendor_meta in pagination_meta.get("vendors", [])]
         for office_vendor in office_vendors:
@@ -898,20 +899,25 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
                 continue
 
             keyword_obj, _ = m.Keyword.objects.get_or_create(keyword=keyword)
-            office_keyword_obj, created = m.OfficeKeyword.objects.get_or_create(
+            office_keyword_obj, _ = m.OfficeKeyword.objects.get_or_create(
                 keyword=keyword_obj, office_id=self.kwargs["office_pk"], vendor=office_vendor.vendor
             )
-            if created or office_keyword_obj.task_status != m.OfficeKeyword.TaskStatus.COMPLETE:
-                vendor_ids_and_status.append((office_vendor.vendor.id, office_keyword_obj.task_status))
+            if office_keyword_obj.task_status in [
+                m.OfficeKeyword.TaskStatus.NOT_STARTED,
+                m.OfficeKeyword.TaskStatus.FAILED,
+            ]:
+                vendors_to_be_scraped.append(office_vendor.vendor.id)
+            elif office_keyword_obj.task_status in [
+                m.OfficeKeyword.TaskStatus.IN_PROGRESS,
+                m.OfficeKeyword.TaskStatus.FETCHING_COMPLETE,
+            ]:
+                vendors_to_be_waited.append(office_vendor.vendor.id)
 
-        if vendor_ids_and_status:
-            vendors_to_be_scraped = [
-                vendor_id_and_status[0]
-                for vendor_id_and_status in vendor_ids_and_status
-                if vendor_id_and_status[1] != m.OfficeKeyword.TaskStatus.IN_PROGRESS
-            ]
-            search_products.delay(keyword, self.kwargs["office_pk"], vendors_to_be_scraped)
+        if vendors_to_be_scraped:
+            search_and_group_products.delay(keyword, self.kwargs["office_pk"], vendors_to_be_scraped)
             return False
+        if vendors_to_be_waited:
+            return True
         return True
 
     @sync_to_async

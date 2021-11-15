@@ -93,7 +93,9 @@ def group_products(vendors_search_result_products, model=False):
                     for p in similar_candidate_product_without_similarity[1:]
                 ]
 
-    if not model:
+    if model:
+        return True
+    else:
         for vendor_search_result_products in vendors_search_result_products:
             for vendor_product in vendor_search_result_products:
                 if vendor_product not in matched_products:
