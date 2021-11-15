@@ -152,7 +152,7 @@ class OfficeProductReadSerializer(serializers.Serializer):
 
 
 class CartSerializer(serializers.ModelSerializer):
-    office_product = OfficeProductReadSerializer()
+    office_product = OfficeProductReadSerializer(write_only=True)
     product = ProductSerializer(read_only=True, required=False)
     office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
 
@@ -170,7 +170,8 @@ class CartSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         with transaction.atomic():
-            product_data = validated_data.pop("office_product", {}).pop("product")
+            office_product = validated_data.pop("office_product", {})
+            product_data = office_product.pop("product")
             office = validated_data.get("office")
             vendor = product_data.pop("vendor")
             product_id = product_data.pop("product_id")
@@ -186,11 +187,16 @@ class CartSerializer(serializers.ModelSerializer):
                     m.ProductImage.objects.bulk_create(product_images_objs)
 
             try:
-                price = validated_data.pop("price")
+                price = office_product.pop("price")
                 m.OfficeProduct.objects.get_or_create(office=office, product=product, price=price)
                 return m.Cart.objects.create(product=product, **validated_data)
             except IntegrityError:
                 raise serializers.ValidationError({"message": "This product is already in your cart"})
+
+    def to_representation(self, instance):
+        ret = super(CartSerializer, self).to_representation(instance)
+        ret["product"].pop("children")
+        return ret
 
 
 class OfficeCheckoutStatusUpdateSerializer(serializers.Serializer):
