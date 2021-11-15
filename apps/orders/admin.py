@@ -160,7 +160,10 @@ class OfficeKeywordAdmin(admin.ModelAdmin):
 class OfficeProduct(admin.ModelAdmin):
     list_display = (
         "id",
-        "product",
+        "product_id",
+        "product_name",
+        "product_vendor",
+        "product_category",
         "price",
         "is_favorite",
         "is_inventory",
@@ -172,3 +175,19 @@ class OfficeProduct(admin.ModelAdmin):
         "product__vendor",
         "product__category",
     )
+
+    @admin.display(description="Product ID")
+    def product_id(self, obj):
+        return obj.product.product_id
+
+    @admin.display(description="Product Name")
+    def product_name(self, obj):
+        return obj.product.name
+
+    @admin.display(description="Vendor")
+    def product_vendor(self, obj):
+        return obj.product.vendor
+
+    @admin.display(description="Product Category")
+    def product_category(self, obj):
+        return obj.product.category
