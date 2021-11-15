@@ -44,7 +44,11 @@ from . import filters as f
 from . import models as m
 from . import permissions as p
 from . import serializers as s
-from .tasks import search_and_group_products, update_product_detail
+from .tasks import (
+    add_products_to_inventory,
+    search_and_group_products,
+    update_product_detail,
+)
 
 
 class OrderViewSet(AsyncMixin, ModelViewSet):
@@ -623,6 +627,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             total_amount = 0
             total_items = 0
 
+            inventory_products_ids = []
             for office_vendor, vendor_order_result in zip(office_vendors, vendor_order_results):
                 if not isinstance(vendor_order_result, dict):
                     continue
@@ -643,17 +648,20 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                     order_date=order_date,
                     status="PENDING",
                 )
-                objs = [
-                    m.VendorOrderProduct(
-                        vendor_order=vendor_order,
-                        product=vendor_order_product.product,
-                        quantity=vendor_order_product.quantity,
-                        unit_price=vendor_order_product.unit_price,
+                objs = []
+                for vendor_order_product in vendor_order_products:
+                    inventory_products_ids.append(vendor_order_product.product.id)
+                    objs.append(
+                        m.VendorOrderProduct(
+                            vendor_order=vendor_order,
+                            product=vendor_order_product.product,
+                            quantity=vendor_order_product.quantity,
+                            unit_price=vendor_order_product.unit_price,
+                        )
                     )
-                    for vendor_order_product in vendor_order_products
-                ]
                 m.VendorOrderProduct.objects.bulk_create(objs)
 
+            add_products_to_inventory.delay(office_vendors[0].office.id, inventory_products_ids)
             order.total_amount = total_amount
             order.total_items = total_items
             order.save()
@@ -829,6 +837,11 @@ class OfficeProductViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
     filterset_class = f.OfficeProductFilter
 
+    def get_serializer_context(self):
+        ret = super().get_serializer_context()
+        ret["include_children"] = True
+        return ret
+
     def get_queryset(self):
         category_ordering = self.request.query_params.get("category_ordering")
         return (
@@ -926,7 +939,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
     def get_products_from_db(self):
         queryset = self.get_queryset()
         page = self.paginate_queryset(queryset, self.request, view=self)
-        serializer = s.OfficeProductSerializer(page, many=True)
+        serializer = s.OfficeProductSerializer(page, many=True, context={"include_children": True})
         return self.get_paginated_response(serializer.data)
 
     async def fetch_products(self, keyword, min_price, max_price):

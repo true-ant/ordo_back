@@ -12,6 +12,7 @@ from apps.common.utils import group_products
 from apps.orders.models import Keyword as KeyModel
 from apps.orders.models import OfficeCheckoutStatus
 from apps.orders.models import OfficeKeyword as OfficeKeyModel
+from apps.orders.models import OfficeProduct as OfficeProductModel
 from apps.orders.models import Product as ProductModel
 from apps.orders.models import ProductCategory
 from apps.orders.models import ProductImage as ProductImageModel
@@ -168,3 +169,11 @@ def search_and_group_products(keyword, office_id, vendor_ids):
         for keyword_obj in keyword_objs:
             keyword_obj.task_status = OfficeKeyModel.TaskStatus.COMPLETE
         OfficeKeyModel.objects.bulk_update(keyword_objs, ["task_status"])
+
+
+@shared_task
+def add_products_to_inventory(office_id, product_ids):
+    office_products = OfficeProductModel.objects.filter(office_id=office_id, product_id__in=product_ids)
+    for office_product in office_products:
+        office_product.is_inventory = True
+    OfficeProductModel.objects.bulk_update(office_products, ["is_inventory"])
