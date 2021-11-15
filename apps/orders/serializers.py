@@ -47,7 +47,7 @@ class ProductSerializer(serializers.ModelSerializer):
     vendor = serializers.PrimaryKeyRelatedField(queryset=m.Vendor.objects.all())
     images = ProductImageSerializer(many=True, required=False)
     category = ProductCategorySerializer(read_only=True)
-    children = serializers.ListSerializer(child=RecursiveField())
+    children = serializers.ListSerializer(child=RecursiveField(), required=False, read_only=True)
 
     class Meta:
         model = m.Product
@@ -133,8 +133,27 @@ class TotalSpendSerializer(serializers.Serializer):
     total_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
 
 
+class ProductDataSerializer(serializers.Serializer):
+    vendor = serializers.PrimaryKeyRelatedField(queryset=m.Vendor.objects.all())
+    images = ProductImageSerializer(many=True, required=False)
+    product_id = serializers.CharField()
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=m.ProductCategory.objects.all(), allow_null=True, allow_empty=True
+    )
+    name = serializers.CharField()
+    product_unit = serializers.CharField()
+    description = serializers.CharField()
+    url = serializers.CharField()
+
+
+class OfficeProductReadSerializer(serializers.Serializer):
+    product = ProductDataSerializer()
+    price = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+
 class CartSerializer(serializers.ModelSerializer):
-    product = ProductSerializer()
+    office_product = OfficeProductReadSerializer()
+    product = ProductSerializer(read_only=True, required=False)
     office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
 
     class Meta:
@@ -143,7 +162,7 @@ class CartSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         if not self.instance:
-            product_id = attrs["product"]["product_id"]
+            product_id = attrs["office_product"]["product"]["product_id"]
             office = attrs["office"]
             if m.Cart.objects.filter(office=office, product__product_id=product_id).exists():
                 raise serializers.ValidationError({"message": "This product is already in your cart"})
@@ -151,7 +170,8 @@ class CartSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         with transaction.atomic():
-            product_data = validated_data.pop("product")
+            product_data = validated_data.pop("office_product", {}).pop("product")
+            office = validated_data.get("office")
             vendor = product_data.pop("vendor")
             product_id = product_data.pop("product_id")
             images = product_data.pop("images", [])
@@ -166,6 +186,8 @@ class CartSerializer(serializers.ModelSerializer):
                     m.ProductImage.objects.bulk_create(product_images_objs)
 
             try:
+                price = validated_data.pop("price")
+                m.OfficeProduct.objects.get_or_create(office=office, product=product, price=price)
                 return m.Cart.objects.create(product=product, **validated_data)
             except IntegrityError:
                 raise serializers.ValidationError({"message": "This product is already in your cart"})

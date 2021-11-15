@@ -545,16 +545,18 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
         serializer = self.get_serializer(data=data)
         await sync_to_async(serializer.is_valid)(raise_exception=True)
-        product_id = serializer.validated_data["product"]["product_id"]
-        product_url = serializer.validated_data["product"]["url"]
-        vendor = serializer.validated_data["product"]["vendor"]
+        product_id = serializer.validated_data["office_product"]["product"]["product_id"]
+        product_url = serializer.validated_data["office_product"]["product"]["url"]
+        vendor = serializer.validated_data["office_product"]["product"]["vendor"]
+        product_category = serializer.validated_data["office_product"]["product"]["category"]
         try:
             await self.update_vendor_cart(
                 product_id,
                 vendor,
                 serializer,
             )
-            update_product_detail.delay(product_id, product_url, office_pk, vendor.id)
+            if not product_category:
+                update_product_detail.delay(product_id, product_url, office_pk, vendor.id)
         except VendorSiteError as e:
             return Response({"message": f"{msgs.VENDOR_SITE_ERROR} - {e}"}, status=HTTP_500_INTERNAL_SERVER_ERROR)
         serializer_data = await sync_to_async(save_serailizer)(serializer)
@@ -768,9 +770,9 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             product["office"] = office_pk
             serializer = self.get_serializer(data=product)
             await sync_to_async(serializer.is_valid)(raise_exception=True)
-            product_id = serializer.validated_data["product"]["product_id"]
-            product_url = serializer.validated_data["product"]["url"]
-            vendor = serializer.validated_data["product"]["vendor"]
+            product_id = serializer.validated_data["office_product"]["product"]["product_id"]
+            product_url = serializer.validated_data["office_product"]["product"]["url"]
+            vendor = serializer.validated_data["office_product"]["product"]["vendor"]
             try:
                 await self.update_vendor_cart(
                     product_id,
