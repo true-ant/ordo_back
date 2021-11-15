@@ -16,7 +16,7 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from month import Month
 
-from apps.accounts.models import CompanyMember, Office, OfficeBudget, OfficeVendor, User
+from apps.accounts.models import CompanyMember, Office, OfficeVendor, User
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import CompanyInvite
 
@@ -163,12 +163,8 @@ def update_office_budget():
     offices = Office.objects.exclude(budgets__month=current_month)
     for office in offices:
         office_budget = office.budgets.get(month=previous_month)
-        OfficeBudget.objects.create(
-            office=office,
-            budget_type=office_budget.budget_type,
-            total_budget=office_budget.total_budget,
-            percentage=office_budget.percentage,
-            budget=office_budget.budget,
-            spend=office_budget.spend,
-            month=current_month,
-        )
+        office_budget.id = None
+        office_budget.dental_spend = 0
+        office_budget.office_spend = 0
+        office_budget.month = current_month
+        office_budget.save()

@@ -39,7 +39,10 @@ class OfficeBudgetSerializer(serializers.ModelSerializer):
         exclude = ("created_at", "updated_at")
 
     def get_remaining_budget(self, instance):
-        return instance.budget - instance.spend
+        return {
+            "dental": instance.dental_budget - instance.dental_spend,
+            "office": instance.office_budget - instance.office_spend,
+        }
 
 
 class OfficeAddressSerializer(serializers.ModelSerializer):

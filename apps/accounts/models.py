@@ -117,11 +117,20 @@ class OfficeBudget(TimeStampedModel):
         COLLECTION = "collection", "Collection"
 
     office = FlexibleForeignKey(Office, related_name="budgets")
-    budget_type = models.CharField(max_length=10, choices=BudgetType.choices, default=BudgetType.PRODUCTION)
-    total_budget = models.DecimalField(max_digits=10, decimal_places=2)
-    percentage = models.DecimalField(max_digits=5, decimal_places=2)
-    budget = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    spend = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    # dental_* is used for managing budgets for net, henry and dental suppliers
+    dental_budget_type = models.CharField(max_length=10, choices=BudgetType.choices, default=BudgetType.PRODUCTION)
+    dental_total_budget = models.DecimalField(max_digits=10, decimal_places=2)
+    dental_percentage = models.DecimalField(max_digits=5, decimal_places=2)
+    dental_budget = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    dental_spend = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    # office_* is used for managing budgets for amazon
+    office_budget_type = models.CharField(max_length=10, choices=BudgetType.choices, default=BudgetType.PRODUCTION)
+    office_total_budget = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    office_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    office_budget = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    office_spend = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
     month = MonthField()
 
     class Meta:
