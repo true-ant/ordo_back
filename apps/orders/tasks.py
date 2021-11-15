@@ -143,12 +143,13 @@ def search_and_group_products(keyword, office_id, vendor_ids):
         if isinstance(vendor_products, list) and all(
             [isinstance(vendor_product, ProductModel) for vendor_product in vendor_products]
         ):
-            keyword_obj.task_status = OfficeKeyModel.TaskStatus.COMPLETE
+            keyword_obj.task_status = OfficeKeyModel.TaskStatus.FETCHING_COMPLETE
             vendors_products.append(vendor_products)
         else:
             # TODO: if it fails, we need to retry
             keyword_obj.task_status = OfficeKeyModel.TaskStatus.FAILED
-        keyword_obj.save()
+
+    OfficeKeyModel.objects.bulk_update(keyword_objs, ["task_status"])
 
     # pricing comparison
     # get other linked vendor products
@@ -162,4 +163,8 @@ def search_and_group_products(keyword, office_id, vendor_ids):
             list(ProductModel.objects.filter(vendor=other_office_vendor.vendor, parent__isnull=True))
         )
 
-    group_products(vendors_products, model=True)
+    grouped = group_products(vendors_products, model=True)
+    if grouped:
+        for keyword_obj in keyword_objs:
+            keyword_obj.task_status = OfficeKeyModel.TaskStatus.COMPLETE
+        OfficeKeyModel.objects.bulk_update(keyword_objs, ["task_status"])
