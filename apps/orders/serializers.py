@@ -68,7 +68,7 @@ class ProductSerializer(serializers.ModelSerializer):
         ret = super().to_representation(instance)
         ret["vendor"] = VendorSerializer(m.Vendor.objects.get(id=ret["vendor"])).data
         if not self.context.get("include_children", False):
-            ret.pop("children")
+            ret.pop("children", None)
 
         return ret
 
@@ -198,7 +198,7 @@ class CartSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super(CartSerializer, self).to_representation(instance)
-        ret["product"].pop("children")
+        # ret["product"].pop("children")
         return ret
 
 
