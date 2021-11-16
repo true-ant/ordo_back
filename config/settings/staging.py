@@ -13,8 +13,8 @@ ALLOWED_HOSTS = [
 ]
 CORS_ALLOWED_ORIGINS = [
     "https://staging.joinordo.com",
-    "https://local.joinordo.com",
-    "http://local.joinordo.com",
+    "https://local.joinordo.com:8080",
+    "http://local.joinordo.com:8080",
 ]
 CORS_ALLOW_ALL_ORIGINS = True
 
