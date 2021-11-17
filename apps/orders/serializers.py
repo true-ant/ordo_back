@@ -246,7 +246,7 @@ class OfficeProductSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         instance = super().update(instance, validated_data)
-        children_product_ids = [child.id for child in instance.children]
+        children_product_ids = [child.id for child in instance.product.children.all()]
         if children_product_ids:
             office_products = m.OfficeProduct.objects.filter(
                 office=instance.office, product_id__in=children_product_ids
