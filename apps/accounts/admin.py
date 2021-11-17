@@ -63,7 +63,7 @@ class OfficeInline(NestedTabularInline):
 
     @admin.display(description="Logo")
     def logo_thumb(self, obj):
-        return mark_safe("<img src='{}'  width='30' height='30' />".format(obj.logo.url))
+        return mark_safe("<img src='{}'  width='30' height='30' />".format(obj.logo))
 
 
 @admin.register(m.Company)
@@ -82,6 +82,7 @@ class CompanyAdmin(NestedModelAdmin):
 @admin.register(m.Vendor)
 class VendorAdmin(admin.ModelAdmin):
     list_display = (
+        "__str__",
         "logo_thumb",
         "name",
         "slug",
@@ -90,4 +91,4 @@ class VendorAdmin(admin.ModelAdmin):
 
     @admin.display(description="Logo")
     def logo_thumb(self, obj):
-        return mark_safe("<img src='{}'  width='30' height='30' />".format(obj.logo.url))
+        return mark_safe("<img src='{}'  width='30' height='30' />".format(obj.logo))

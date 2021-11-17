@@ -12,7 +12,6 @@ from typing import Union
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
 from django.apps import apps
-from django.conf import settings
 from django.db import transaction
 from django.db.models import Case, Count, F, Q, Sum, Value, When
 from django.http import HttpResponse
@@ -45,7 +44,7 @@ from . import models as m
 from . import permissions as p
 from . import serializers as s
 from .tasks import (
-    add_products_to_inventory,
+    notify_order_creation,
     search_and_group_products,
     update_product_detail,
 )
@@ -153,8 +152,7 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
                 {
                     "id": vendor["vendor_id"],
                     "name": vendor["vendor_name"],
-                    "logo": f"https://{settings.AWS_S3_CUSTOM_DOMAIN}"
-                    f"{settings.PUBLIC_MEDIA_LOCATION}{vendor['vendor_logo']}",
+                    "logo": f"{vendor['vendor_logo']}",
                     "order_counts": vendor["order_counts"],
                     "total_amount": vendor["order_total_amount"],
                 }
@@ -250,8 +248,7 @@ def get_spending(by, orders, company):
                 "vendor": {
                     "id": q["vendor_id"],
                     "name": q["vendor_name"],
-                    "logo": f"https://{settings.AWS_S3_CUSTOM_DOMAIN}"
-                    f"{settings.PUBLIC_MEDIA_LOCATION}{vendors[q['vendor_id']].vendor.logo}",
+                    "logo": f"{vendors[q['vendor_id']].vendor.logo}",
                     "office_associated_id": vendors[q["vendor_id"]].id,
                 },
                 "total_amount": q["total_amount"],
@@ -625,6 +622,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
     @sync_to_async
     def _create_order(self, office_vendors, vendor_order_results, cart_products, data):
         order_date = timezone.now().date()
+        inventory_products_ids = []
         with transaction.atomic():
             order = m.Order.objects.create(
                 office_id=self.kwargs["office_pk"],
@@ -635,7 +633,6 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             total_amount = 0
             total_items = 0
 
-            inventory_products_ids = []
             for office_vendor, vendor_order_result in zip(office_vendors, vendor_order_results):
                 if not isinstance(vendor_order_result, dict):
                     continue
@@ -669,7 +666,6 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                     )
                 m.VendorOrderProduct.objects.bulk_create(objs)
 
-            add_products_to_inventory.delay(office_vendors[0].office.id, inventory_products_ids)
             order.total_amount = total_amount
             order.total_items = total_items
             order.save()
@@ -682,6 +678,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             )
 
         cart_products.delete()
+        notify_order_creation.delay(order.id, inventory_products_ids)
         return s.OrderSerializer(order).data
 
     @action(detail=False, url_path="checkout", methods=["get"], permission_classes=[p.OrderCheckoutPermission])
@@ -982,6 +979,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         return await asyncio.gather(*tasks, return_exceptions=True)
 
     async def post(self, request, *args, **kwargs):
+        request.build_absolute_uri
         data = request.data
         keyword = data.get("q")
         pagination_meta = data.get("meta", {})

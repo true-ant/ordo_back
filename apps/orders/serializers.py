@@ -191,7 +191,7 @@ class CartSerializer(serializers.ModelSerializer):
 
             try:
                 price = office_product.pop("price")
-                m.OfficeProduct.objects.get_or_create(office=office, product=product, price=price)
+                m.OfficeProduct.objects.update_or_create(office=office, product=product, defaults={"price": price})
                 return m.Cart.objects.create(product=product, **validated_data)
             except IntegrityError:
                 raise serializers.ValidationError({"message": "This product is already in your cart"})

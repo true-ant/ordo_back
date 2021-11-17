@@ -4,7 +4,7 @@
         "pk": 1,
         "fields": {
             "slug": "henry_schein",
-            "logo": "vendors/henry_schein.jpg",
+            "logo": "https://cdn.joinordo.com/vendors/henry_schein.jpg",
             "name": "Henry Schein",
             "url": "https://www.henryschein.com/"
         }
@@ -14,7 +14,7 @@
         "pk": 2,
         "fields": {
             "slug": "net_32",
-            "logo": "vendors/net_32.jpg",
+            "logo": "https://cdn.joinordo.com/vendors/net_32.jpg",
             "name": "Net 32",
             "url": "https://www.net32.com/"
         }
@@ -24,7 +24,7 @@
         "pk": 3,
         "fields": {
             "slug": "darby",
-            "logo": "vendors/darby.jpg",
+            "logo": "https://cdn.joinordo.com/vendors/darby.jpg",
             "name": "Darby",
             "url": "https://www.darbydental.com/"
         }
@@ -34,7 +34,7 @@
         "pk": 4,
         "fields": {
             "slug": "patterson",
-            "logo": "vendors/patterson.jpg",
+            "logo": "https://cdn.joinordo.com/vendors/patterson.jpg",
             "name": "Patterson",
             "url": "https://www.pattersondental.com/"
         }
@@ -44,7 +44,7 @@
         "pk": 5,
         "fields": {
             "slug": "amazon",
-            "logo": "vendors/amazon.jpg",
+            "logo": "https://cdn.joinordo.com/vendors/amazon.jpg",
             "name": "Amazon",
             "url": "https://www.amazon.com/"
         }
@@ -54,7 +54,7 @@
         "pk": 6,
         "fields": {
             "slug": "ultradent",
-            "logo": "vendors/ultradent.jpg",
+            "logo": "https://cdn.joinordo.com/vendors/ultradent.jpg",
             "name": "Ultradent",
             "url": "https://www.ultradent.com/"
         }
@@ -64,7 +64,7 @@
         "pk": 7,
         "fields": {
             "slug": "benco",
-            "logo": "vendors/benco.jpg",
+            "logo": "https://cdn.joinordo.com/vendors/benco.jpg",
             "name": "Benco",
             "url": "https://www.benco.com/"
         }

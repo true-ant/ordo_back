@@ -205,6 +205,10 @@ def get_task(scraper, scraper_name, test="login", **kwargs):
         return scraper.create_order(get_test_products(scraper_name))
     elif test == "search_product":
         return scraper.search_products(query="bite registration", page=1)
+    elif test == "search_products_v2":
+        office = kwargs.get("office")
+        keyword = kwargs.get("keyword")
+        return scraper.search_products_v2(keyword, office)
     elif test == "download_invoice":
         return scraper.download_invoice(
             "https://www.darbydental.com/scripts/invoicedownload.ashx?"
@@ -235,8 +239,8 @@ def get_task(scraper, scraper_name, test="login", **kwargs):
         return scraper.get_all_products_v2(office)
 
 
-async def main(office, vendors):
-    scraper_names = ["ultradent"]
+async def main(vendors, **kwargs):
+    scraper_names = ["henry_schein"]
     base_data = get_scraper_data()
     tasks = []
     async with ClientSession() as session:
@@ -249,7 +253,7 @@ async def main(office, vendors):
                 username=scraper_data["username"],
                 password=scraper_data["password"],
             )
-            tasks.append(get_task(scraper, scraper_name, "order_history", office=office))
+            tasks.append(get_task(scraper, scraper_name, "search_products_v2", **kwargs))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
     # products = [
@@ -371,12 +375,18 @@ if __name__ == "__main__":
     load_dotenv()
 
     from apps.accounts.models import Vendor
-    from apps.orders.models import Office
+    from apps.orders.models import Keyword, Office
 
     vendors = Vendor.objects.all()
     office = Office.objects.first()
+    keyword = Keyword.objects.first()
+
     start_time = time.perf_counter()
-    # asyncio.run(main(office, vendors))
+    kwargs = {
+        "office": office,
+        "keyword": keyword,
+    }
+    asyncio.run(main(vendors, **kwargs))
     # asyncio.run(search_products())
-    test_search_products()
+    # test_search_products()
     print(time.perf_counter() - start_time)

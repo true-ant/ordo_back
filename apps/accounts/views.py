@@ -32,7 +32,11 @@ from . import filters as f
 from . import models as m
 from . import permissions as p
 from . import serializers as s
-from .tasks import fetch_orders_from_vendor, send_company_invite_email
+from .tasks import (
+    fetch_orders_from_vendor,
+    send_company_invite_email,
+    send_welcome_email,
+)
 
 
 class UserSignupAPIView(APIView):
@@ -71,13 +75,15 @@ class UserSignupAPIView(APIView):
                     invite_status=m.CompanyMember.InviteStatus.INVITE_APPROVED,
                     date_joined=timezone.now(),
                 )
-            payload = jwt_payload_handler(user)
-            return Response(
-                {
-                    "token": jwt_encode_handler(payload),
-                    "company": s.CompanySerializer(company).data,
-                }
-            )
+
+        payload = jwt_payload_handler(user)
+        send_welcome_email.delay(user_id=user.id)
+        return Response(
+            {
+                "token": jwt_encode_handler(payload),
+                "company": s.CompanySerializer(company).data,
+            }
+        )
 
 
 class CompanyViewSet(

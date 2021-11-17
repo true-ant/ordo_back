@@ -22,8 +22,6 @@ class CompanyMemberSerializer(serializers.ModelSerializer):
 
 
 class VendorSerializer(serializers.ModelSerializer):
-    logo = Base64ImageField()
-
     class Meta:
         model = m.Vendor
         fields = "__all__"

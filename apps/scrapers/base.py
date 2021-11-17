@@ -198,7 +198,7 @@ class Scraper:
         product_data["category"] = product_category or other_category
         product_price = product_data.pop("price")
         with transaction.atomic():
-            product, created = ProductModel.objects.get_or_create(
+            product, created = ProductModel.objects.update_or_create(
                 vendor=self.vendor,
                 product_id=product_id,
                 defaults=product_data,
@@ -217,15 +217,17 @@ class Scraper:
                 ProductImageModel.objects.bulk_create(product_images)
 
             if office:
-                office_product = OfficeProductModel.objects.get_or_create(
+                office_product, _ = OfficeProductModel.objects.get_or_create(
                     office=office,
                     product=product,
                     defaults={
                         "is_inventory": is_inventory,
-                        "office_category": product_data["category"],
                         "price": product_price,
                     },
                 )
+                if office_product.office_category is None:
+                    office_product.office_category = product_data["category"]
+                    office_product.save()
             else:
                 office_product = None
 
