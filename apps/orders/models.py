@@ -85,6 +85,9 @@ class OfficeProduct(TimeStampedModel):
     def from_dataclass(cls, vendor, dict_data):
         return cls.objects.create(vendor=vendor, **dict_data)
 
+    class Meta:
+        unique_together = ["office", "product"]
+
     # def to_dataclass(self):
     #     return ProductDataClass(
     #         product_id=self.product_id,
