@@ -11,11 +11,11 @@ ALLOWED_HOSTS = [
     "ordo-backend-dev.us-east-1.elasticbeanstalk.com",
     "api.staging.joinordo.com",
 ]
-CORS_ALLOWED_ORIGINS = [
-    "https://staging.joinordo.com",
-    "https://local.joinordo.com:8080",
-    "http://local.joinordo.com:8080",
-]
+# CORS_ALLOWED_ORIGINS = [
+#     "https://staging.joinordo.com",
+#     "https://local.joinordo.com:8080",
+#     "http://local.joinordo.com:8080",
+# ]
 CORS_ALLOW_ALL_ORIGINS = True
 
 CELERY_RESULT_BACKEND = None
