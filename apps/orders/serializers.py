@@ -144,7 +144,7 @@ class ProductDataSerializer(serializers.Serializer):
         queryset=m.ProductCategory.objects.all(), allow_null=True, allow_empty=True
     )
     name = serializers.CharField()
-    product_unit = serializers.CharField()
+    product_unit = serializers.CharField(allow_null=True, allow_blank=True)
     description = serializers.CharField()
     url = serializers.CharField()
 
