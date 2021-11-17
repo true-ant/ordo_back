@@ -35,7 +35,7 @@ from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
 from apps.common.pagination import SearchProductPagination, StandardResultsSetPagination
 from apps.common.utils import group_products_from_search_result
-from apps.scrapers.errors import VendorNotSupported, VendorSiteError
+from apps.scrapers.errors import VendorNotConnected, VendorNotSupported, VendorSiteError
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import CartProduct
 from apps.types.scraper import SmartID
@@ -437,7 +437,7 @@ def get_office_vendor(office_pk, vendor_pk):
     try:
         return OfficeVendor.objects.get(office_id=office_pk, vendor_id=vendor_pk)
     except OfficeVendor.DoesNotExist:
-        pass
+        return
 
 
 def get_cart(office_pk):
@@ -505,6 +505,8 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
     async def update_vendor_cart(self, product_id, vendor, serializer=None):
         office_vendor = await sync_to_async(get_office_vendor)(office_pk=self.kwargs["office_pk"], vendor_pk=vendor.id)
+        if office_vendor is None:
+            raise VendorNotConnected()
         session = apps.get_app_config("accounts").session
         scraper = ScraperFactory.create_scraper(
             vendor=vendor,
@@ -563,6 +565,8 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                 update_product_detail.delay(product_id, product_url, office_pk, vendor.id)
         except VendorSiteError as e:
             return Response({"message": f"{msgs.VENDOR_SITE_ERROR} - {e}"}, status=HTTP_500_INTERNAL_SERVER_ERROR)
+        except VendorNotConnected:
+            return Response({"message": "Vendor not connected"}, status=HTTP_400_BAD_REQUEST)
         serializer_data = await sync_to_async(save_serailizer)(serializer)
         return Response(serializer_data, status=HTTP_201_CREATED)
 
@@ -585,6 +589,8 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             await self.update_vendor_cart(product_id, vendor, serializer)
         except VendorSiteError:
             return Response({"message": msgs.VENDOR_SITE_ERROR}, status=HTTP_500_INTERNAL_SERVER_ERROR)
+        except VendorNotConnected:
+            return Response({"message": "Vendor not connected"}, status=HTTP_400_BAD_REQUEST)
         serializer_data = await sync_to_async(save_serailizer)(serializer)
         return Response(serializer_data)
 
@@ -600,6 +606,8 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             await self.update_vendor_cart(product_id, vendor)
         except VendorSiteError:
             return Response({"message": msgs.VENDOR_SITE_ERROR}, status=HTTP_500_INTERNAL_SERVER_ERROR)
+        except VendorNotConnected:
+            return Response({"message": "Vendor not connected"}, status=HTTP_400_BAD_REQUEST)
         await sync_to_async(self.perform_destroy)(instance)
         return Response(status=HTTP_204_NO_CONTENT)
 
@@ -790,6 +798,8 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                 update_product_detail.delay(product_id, product_url, office_pk, vendor.id)
             except VendorSiteError as e:
                 return Response({"message": f"{msgs.VENDOR_SITE_ERROR} - {e}"}, status=HTTP_500_INTERNAL_SERVER_ERROR)
+            except VendorNotConnected:
+                return Response({"message": "Vendor not connected"}, status=HTTP_400_BAD_REQUEST)
             serializer_data = await sync_to_async(save_serailizer)(serializer)
             result.append(serializer_data)
         return Response(result, status=HTTP_201_CREATED)

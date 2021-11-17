@@ -16,3 +16,7 @@ class OrderFetchException(Exception):
 
 class NetworkConnectionException(Exception):
     pass
+
+
+class VendorNotConnected(Exception):
+    pass
