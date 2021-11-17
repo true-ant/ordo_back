@@ -44,7 +44,7 @@ class Command(BaseCommand):
                     "pk": i + 1,
                     "fields": {
                         "slug": (slug := slugify(row["name"], separator="_")),
-                        "logo": f"vendors/{slug}.jpg",
+                        "logo": f"https://cdn.joinordo.com/vendors/{slug}.jpg",
                         **row,
                     },
                 }

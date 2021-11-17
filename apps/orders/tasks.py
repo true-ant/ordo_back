@@ -3,19 +3,24 @@ import datetime
 
 from aiohttp import ClientSession
 from celery import shared_task
-from django.db.models import Q
+from django.conf import settings
+from django.core.mail import send_mail
+from django.db.models import F, Q
+from django.template.loader import render_to_string
 from django.utils import timezone
 from slugify import slugify
 
-from apps.accounts.models import OfficeVendor
+from apps.accounts.models import CompanyMember, OfficeVendor
 from apps.common.utils import group_products
 from apps.orders.models import Keyword as KeyModel
 from apps.orders.models import OfficeCheckoutStatus
 from apps.orders.models import OfficeKeyword as OfficeKeyModel
 from apps.orders.models import OfficeProduct as OfficeProductModel
+from apps.orders.models import Order as OrderModel
 from apps.orders.models import Product as ProductModel
 from apps.orders.models import ProductCategory
 from apps.orders.models import ProductImage as ProductImageModel
+from apps.orders.models import VendorOrderProduct as VendorOrderProductModel
 from apps.scrapers.schema import Product as ProductDataClass
 from apps.scrapers.scraper_factory import ScraperFactory
 
@@ -172,8 +177,64 @@ def search_and_group_products(keyword, office_id, vendor_ids):
 
 
 @shared_task
-def add_products_to_inventory(office_id, product_ids):
-    office_products = OfficeProductModel.objects.filter(office_id=office_id, product_id__in=product_ids)
+def notify_order_creation(order_id, product_ids=()):
+    try:
+        order = OrderModel.objects.get(id=order_id)
+    except OrderModel.DoesNotExist:
+        return
+
+    office = order.office
+
+    # add products to inventory lists
+    office_products = OfficeProductModel.objects.filter(office=office, product__product_id__in=product_ids)
     for office_product in office_products:
         office_product.is_inventory = True
     OfficeProductModel.objects.bulk_update(office_products, ["is_inventory"])
+
+    # send notification
+    emails = (
+        CompanyMember.objects.select_related("user")
+        .filter(
+            Q(invite_status=CompanyMember.InviteStatus.INVITE_APPROVED),
+            Q(company=office.company),
+            (Q(office=office) | Q(office__isnull=True)),
+        )
+        .values_list("user__email")
+    )
+
+    products = VendorOrderProductModel.objects.filter(vendor_order__order_id=order_id).annotate(
+        total_price=F("unit_price") * F("quantity")
+    )
+    # TODO: Compare performance above vs below, I guess below is more faster than above
+    #  because additional query won't happen in django templates
+
+    # products = (
+    #     VendorOrderProductModel.objects.filter(vendor_order__order_id=order_id)
+    #     .annotate(total_price=F("unit_price") * F("quantity"))
+    #     .values(
+    #         "product__images__image",
+    #         "product__name",
+    #         "product__vendor__name",
+    #         "product__vendor__logo",
+    #         "quantity",
+    #         "unit_price",
+    #         "total_price",
+    #     )
+    # )
+
+    htm_content = render_to_string(
+        "emails/order_creation.html",
+        {
+            "order": order,
+            "products": products,
+            "SITE_URL": settings.SITE_URL,
+        },
+    )
+
+    send_mail(
+        subject="Created Order!",
+        message="message",
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=emails,
+        html_message=htm_content,
+    )

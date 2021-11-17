@@ -43,6 +43,23 @@ def send_forgot_password_mail(user_id, token):
 
 
 @shared_task
+def send_welcome_email(user_id):
+    try:
+        user = UserModel.objects.get(id=user_id)
+    except UserModel.DoesNotExist:
+        return
+
+    htm_content = render_to_string("emails/welcome.html")
+    send_mail(
+        subject="Welcome to Ordo!",
+        message="message",
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        html_message=htm_content,
+    )
+
+
+@shared_task
 def send_company_invite_email(company_email_invites: List[CompanyInvite]):
     q = reduce(
         operator.or_,

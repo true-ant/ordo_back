@@ -3,7 +3,6 @@
 from datetime import timedelta
 
 from creditcards.models import CardExpiryField, CardNumberField, SecurityCodeField
-from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
@@ -32,21 +31,13 @@ class Vendor(models.Model):
     name = models.CharField(max_length=100)
     slug = models.SlugField(max_length=100)
     url = models.CharField(max_length=100)
-    logo = models.ImageField(null=True, blank=True, upload_to="vendors")
+    logo = models.URLField(null=True, blank=True)
 
     def __str__(self):
         return self.name
 
     def to_dict(self):
-        ret = {}
-        for k, v in self.__dict__.items():
-            if "_" in k:
-                continue
-            if k == "logo":
-                ret[k] = f"https://{settings.AWS_S3_CUSTOM_DOMAIN}{settings.PUBLIC_MEDIA_LOCATION}{v}"
-            else:
-                ret[k] = v
-        return ret
+        return {k: v for k, v in self.__dict__.items() if "_" not in k}
 
 
 class Company(TimeStampedModel):
@@ -109,6 +100,9 @@ class OfficeAddress(TimeStampedModel):
     city = models.CharField(max_length=100)
     state = models.CharField(max_length=100)
     zip_code = models.CharField(max_length=100)
+
+    class Meta:
+        ordering = ("address_type",)
 
 
 class OfficeBudget(TimeStampedModel):
