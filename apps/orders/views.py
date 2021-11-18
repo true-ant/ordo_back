@@ -979,7 +979,6 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         return await asyncio.gather(*tasks, return_exceptions=True)
 
     async def post(self, request, *args, **kwargs):
-        request.build_absolute_uri
         data = request.data
         keyword = data.get("q")
         pagination_meta = data.get("meta", {})
