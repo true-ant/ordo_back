@@ -120,6 +120,7 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = (
         "product_id",
         "name",
+        "tags__keyword",
     )
     list_filter = (
         "vendor",
@@ -142,7 +143,7 @@ class ProductAdmin(admin.ModelAdmin):
 
 @admin.register(m.Keyword)
 class KeywordAdmin(admin.ModelAdmin):
-    pass
+    search_fields = ("keyword",)
 
 
 @admin.register(m.OfficeKeyword)
@@ -154,10 +155,11 @@ class OfficeKeywordAdmin(admin.ModelAdmin):
         "vendor",
         "task_status",
     )
+    search_fields = ("keyword__keyword",)
 
 
 @admin.register(m.OfficeProduct)
-class OfficeProduct(admin.ModelAdmin):
+class OfficeProductAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "product_id",
@@ -167,6 +169,11 @@ class OfficeProduct(admin.ModelAdmin):
         "price",
         "is_favorite",
         "is_inventory",
+    )
+    search_fields = (
+        "product__product_id",
+        "product__name",
+        "product__tags__keyword",
     )
 
     list_filter = (
