@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import logging
 
 from aiohttp import ClientSession
 from celery import shared_task
@@ -23,6 +24,8 @@ from apps.orders.models import ProductImage as ProductImageModel
 from apps.orders.models import VendorOrderProduct as VendorOrderProductModel
 from apps.scrapers.schema import Product as ProductDataClass
 from apps.scrapers.scraper_factory import ScraperFactory
+
+logger = logging.getLogger(__name__)
 
 
 @shared_task
@@ -166,7 +169,9 @@ def search_and_group_products(keyword, office_id, vendor_ids):
     )
     for other_office_vendor in other_office_vendors:
         vendors_products.append(
-            list(ProductModel.objects.filter(vendor=other_office_vendor.vendor, parent__isnull=True))
+            ProductModel.objects.filter(
+                Q(vendor=other_office_vendor.vendor), (Q(tags=keyword) | Q(name__icontains=keyword.keyword))
+            )
         )
 
     grouped = group_products(vendors_products, model=True)
