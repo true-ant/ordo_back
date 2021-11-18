@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Q
 from django.db.utils import IntegrityError
 from rest_framework import serializers
 from rest_framework_recursive.fields import RecursiveField
@@ -271,9 +272,11 @@ class OfficeProductSerializer(serializers.ModelSerializer):
         children_products = ret["product"].get("children", [])
         if children_products:
             children_product_ids = [child["id"] for child in children_products]
-            office_products = m.OfficeProduct.objects.filter(
-                office=instance.office, product_id__in=children_product_ids
-            )
+            q = Q(office=instance.office) & Q(product_id__in=children_product_ids)
+            if self.context.get("filter_inventory", False):
+                q &= Q(is_inventory=True)
+
+            office_products = m.OfficeProduct.objects.filter(q)
             office_products = {office_product.product.id: office_product for office_product in office_products}
             ret["product"]["children"] = [
                 {

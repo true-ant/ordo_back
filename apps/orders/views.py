@@ -847,6 +847,7 @@ class OfficeProductViewSet(ModelViewSet):
     def get_serializer_context(self):
         ret = super().get_serializer_context()
         ret["include_children"] = True
+        ret["filter_inventory"] = self.request.query_params.get("inventory", False)
         return ret
 
     def get_queryset(self):
@@ -854,7 +855,7 @@ class OfficeProductViewSet(ModelViewSet):
         return (
             super()
             .get_queryset()
-            .filter(office__id=self.kwargs["office_pk"])
+            .filter(Q(office__id=self.kwargs["office_pk"]), Q(product__parent__isnull=True))
             .annotate(
                 category_order=Case(When(office_category__slug=category_ordering, then=Value(0)), default=Value(1))
             )
