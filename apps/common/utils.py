@@ -81,7 +81,7 @@ def group_products(vendors_search_result_products, model=False):
                 parent_product = [
                     product for product in similar_candidate_product_without_similarity if product.parent is None
                 ][0]
-                parent_product.children.clear()
+                # parent_product.children.clear()
                 parent_product.children.set(
                     [product for product in similar_candidate_product_without_similarity if product != parent_product]
                 )

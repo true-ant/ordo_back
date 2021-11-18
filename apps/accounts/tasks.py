@@ -17,6 +17,8 @@ from django.utils import timezone
 from month import Month
 
 from apps.accounts.models import CompanyMember, Office, OfficeVendor, User
+from apps.common.utils import group_products
+from apps.orders.models import Product
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import CompanyInvite
 
@@ -121,6 +123,16 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
     else:
         cookie = None
     asyncio.run(get_orders(office_vendor, cookie, perform_login))
+
+    # inventory group products
+    office_vendors = OfficeVendor.objects.select_related("office", "vendor").filter(office=office_vendor.office)
+    if office_vendors.count() > 1:
+        vendors_products = []
+        for office_vendor in office_vendors:
+            vendors_products.append(Product.objects.filter(vendor=office_vendor.vendor, parent__isnull=True))
+        group_products(vendors_products, model=True)
+
+    # TODO: iterate keyword tables. fetch products for keyword and pricing comparison
 
     # with transaction.atomic():
     #     for order_data_cls in orders:
