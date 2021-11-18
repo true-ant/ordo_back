@@ -77,10 +77,16 @@ def group_products(vendors_search_result_products, model=False):
                 break
         else:
             matched_products.update(similar_candidate_product_without_similarity)
-            parent_product = similar_candidate_product_without_similarity[0]
             if model:
-                parent_product.children.set(similar_candidate_product_without_similarity[1:])
+                parent_product = [
+                    product for product in similar_candidate_product_without_similarity if product.parent is None
+                ][0]
+                parent_product.children.clear()
+                parent_product.children.set(
+                    [product for product in similar_candidate_product_without_similarity if product != parent_product]
+                )
             else:
+                parent_product = similar_candidate_product_without_similarity[0]
                 parent_product = parent_product.to_dict()
                 products.append(
                     {
