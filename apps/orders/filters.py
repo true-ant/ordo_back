@@ -1,6 +1,7 @@
+from django.db.models import Q
 from django_filters import rest_framework as filters
 
-from .models import OfficeProduct, Order, VendorOrderProduct
+from .models import OfficeProduct, Order, Product, VendorOrderProduct
 
 
 class OrderFilter(filters.FilterSet):
@@ -20,6 +21,18 @@ class VendorOrderProductFilter(filters.FilterSet):
     class Meta:
         model = VendorOrderProduct
         fields = ["product_name", "category"]
+
+
+class ProductFilter(filters.FilterSet):
+    q = filters.CharFilter(method="filter_product")
+
+    class Meta:
+        model = Product
+        fields = ["q"]
+
+    def filter_product(self, queryset, name, value):
+        q = Q(product_id=value) | Q(name__icontains=name)
+        return queryset.filter(q)
 
 
 class OfficeProductFilter(filters.FilterSet):

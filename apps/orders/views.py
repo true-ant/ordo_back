@@ -320,7 +320,14 @@ class ProductCategoryViewSet(ModelViewSet):
 class ProductViewSet(AsyncMixin, ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = s.ProductSerializer
+    filterset_class = f.ProductFilter
     queryset = m.Product.objects.all()
+
+    @action(detail=False, methods=["get"], url_path="suggestion")
+    def product_suggestion(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())[:5]
+        serializer = s.ProductSuggestionSerializer(queryset, many=True)
+        return Response(serializer.data)
 
 
 def get_office_vendor(office_pk, vendor_pk):
