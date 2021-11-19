@@ -1,6 +1,7 @@
 from .base import *  # noqa
 
 DEBUG = True
+SITE_URL = "https://staging.joinordo.com"
 EMAIL_HOST = "smtp.mailgun.org"
 EMAIL_PORT = 587
 EMAIL_HOST_USER = EMAIL_HOST_USER  # noqa
