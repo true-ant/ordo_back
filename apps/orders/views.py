@@ -20,12 +20,7 @@ from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.status import (
-    HTTP_201_CREATED,
-    HTTP_204_NO_CONTENT,
-    HTTP_400_BAD_REQUEST,
-    HTTP_500_INTERNAL_SERVER_ERROR,
-)
+from rest_framework.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
@@ -452,61 +447,67 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         product_url = serializer.validated_data["office_product"]["product"]["url"]
         vendor = serializer.validated_data["office_product"]["product"]["vendor"]
         product_category = serializer.validated_data["office_product"]["product"]["category"]
-        try:
-            await self.update_vendor_cart(
-                product_id,
-                vendor,
-                serializer,
-            )
-            if not product_category:
-                update_product_detail.delay(product_id, product_url, office_pk, vendor.id)
-        except VendorSiteError as e:
-            return Response({"message": f"{msgs.VENDOR_SITE_ERROR} - {e}"}, status=HTTP_500_INTERNAL_SERVER_ERROR)
-        except VendorNotConnected:
-            return Response({"message": "Vendor not connected"}, status=HTTP_400_BAD_REQUEST)
+        #     try:
+        #         await self.update_vendor_cart(
+        #             product_id,
+        #             vendor,
+        #             serializer,
+        #         )
+        if not product_category:
+            update_product_detail.delay(product_id, product_url, office_pk, vendor.id)
+            # except VendorSiteError as e:
+            #     return Response(
+            #         {
+            #             "message": f"{msgs.VENDOR_SITE_ERROR} - {e}"
+            #         },
+            #         status=HTTP_500_INTERNAL_SERVER_ERROR
+            #     )
+            # except VendorNotConnected:
+            #     return Response({"message": "Vendor not connected"}, status=HTTP_400_BAD_REQUEST)
         serializer_data = await sync_to_async(save_serailizer)(serializer)
         return Response(serializer_data, status=HTTP_201_CREATED)
 
-    @sync_to_async
-    def get_object_with_related(self):
-        instance = self.get_object()
-        return instance, instance.product.product_id, instance.product.vendor
-
-    async def update(self, request, *args, **kwargs):
-        instance, product_id, vendor = await self.get_object_with_related()
-        can_use_cart, _ = await sync_to_async(get_cart_status_and_order_status)(
-            office=self.kwargs["office_pk"], user=request.user
-        )
-        if not can_use_cart:
-            return Response({"message": msgs.CHECKOUT_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
-
-        serializer = self.get_serializer(instance, request.data, partial=True)
-        await sync_to_async(serializer.is_valid)(raise_exception=True)
-        try:
-            await self.update_vendor_cart(product_id, vendor, serializer)
-        except VendorSiteError:
-            return Response({"message": msgs.VENDOR_SITE_ERROR}, status=HTTP_500_INTERNAL_SERVER_ERROR)
-        except VendorNotConnected:
-            return Response({"message": "Vendor not connected"}, status=HTTP_400_BAD_REQUEST)
-        serializer_data = await sync_to_async(save_serailizer)(serializer)
-        return Response(serializer_data)
-
-    async def destroy(self, request, *args, **kwargs):
-        instance, product_id, vendor = await self.get_object_with_related()
-        can_use_cart, _ = await sync_to_async(get_cart_status_and_order_status)(
-            office=self.kwargs["office_pk"], user=request.user
-        )
-        if not can_use_cart:
-            return Response({"message": msgs.CHECKOUT_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
-
-        try:
-            await self.update_vendor_cart(product_id, vendor)
-        except VendorSiteError:
-            return Response({"message": msgs.VENDOR_SITE_ERROR}, status=HTTP_500_INTERNAL_SERVER_ERROR)
-        except VendorNotConnected:
-            return Response({"message": "Vendor not connected"}, status=HTTP_400_BAD_REQUEST)
-        await sync_to_async(self.perform_destroy)(instance)
-        return Response(status=HTTP_204_NO_CONTENT)
+    #
+    # @sync_to_async
+    # def get_object_with_related(self):
+    #     instance = self.get_object()
+    #     return instance, instance.product.product_id, instance.product.vendor
+    #
+    # async def update(self, request, *args, **kwargs):
+    #     instance, product_id, vendor = await self.get_object_with_related()
+    #     can_use_cart, _ = await sync_to_async(get_cart_status_and_order_status)(
+    #         office=self.kwargs["office_pk"], user=request.user
+    #     )
+    #     if not can_use_cart:
+    #         return Response({"message": msgs.CHECKOUT_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
+    #
+    #     serializer = self.get_serializer(instance, request.data, partial=True)
+    #     await sync_to_async(serializer.is_valid)(raise_exception=True)
+    #     try:
+    #         await self.update_vendor_cart(product_id, vendor, serializer)
+    #     except VendorSiteError:
+    #         return Response({"message": msgs.VENDOR_SITE_ERROR}, status=HTTP_500_INTERNAL_SERVER_ERROR)
+    #     except VendorNotConnected:
+    #         return Response({"message": "Vendor not connected"}, status=HTTP_400_BAD_REQUEST)
+    #     serializer_data = await sync_to_async(save_serailizer)(serializer)
+    #     return Response(serializer_data)
+    #
+    # async def destroy(self, request, *args, **kwargs):
+    #     instance, product_id, vendor = await self.get_object_with_related()
+    #     can_use_cart, _ = await sync_to_async(get_cart_status_and_order_status)(
+    #         office=self.kwargs["office_pk"], user=request.user
+    #     )
+    #     if not can_use_cart:
+    #         return Response({"message": msgs.CHECKOUT_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
+    #
+    #     try:
+    #         await self.update_vendor_cart(product_id, vendor)
+    #     except VendorSiteError:
+    #         return Response({"message": msgs.VENDOR_SITE_ERROR}, status=HTTP_500_INTERNAL_SERVER_ERROR)
+    #     except VendorNotConnected:
+    #         return Response({"message": "Vendor not connected"}, status=HTTP_400_BAD_REQUEST)
+    #     await sync_to_async(self.perform_destroy)(instance)
+    #     return Response(status=HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=["post"], url_path="clear")
     def clear_cart(self, request, *args, **kwargs):
@@ -686,17 +687,22 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             product_id = serializer.validated_data["office_product"]["product"]["product_id"]
             product_url = serializer.validated_data["office_product"]["product"]["url"]
             vendor = serializer.validated_data["office_product"]["product"]["vendor"]
-            try:
-                await self.update_vendor_cart(
-                    product_id,
-                    vendor,
-                    serializer,
-                )
+            product_category = serializer.validated_data["office_product"]["product"]["category"]
+            #     try:
+            #         await self.update_vendor_cart(
+            #             product_id,
+            #             vendor,
+            #             serializer,
+            #         )
+            if not product_category:
                 update_product_detail.delay(product_id, product_url, office_pk, vendor.id)
-            except VendorSiteError as e:
-                return Response({"message": f"{msgs.VENDOR_SITE_ERROR} - {e}"}, status=HTTP_500_INTERNAL_SERVER_ERROR)
-            except VendorNotConnected:
-                return Response({"message": "Vendor not connected"}, status=HTTP_400_BAD_REQUEST)
+                # except VendorSiteError as e:
+                #     return Response(
+                #         {"message": f"{msgs.VENDOR_SITE_ERROR} - {e}"},
+                #         status=HTTP_500_INTERNAL_SERVER_ERROR
+                #     )
+                # except VendorNotConnected:
+                #     return Response({"message": "Vendor not connected"}, status=HTTP_400_BAD_REQUEST)
             serializer_data = await sync_to_async(save_serailizer)(serializer)
             result.append(serializer_data)
         return Response(result, status=HTTP_201_CREATED)
