@@ -334,7 +334,7 @@ def get_office_vendor(office_pk, vendor_pk):
 
 def get_cart(office_pk):
     cart_products = (
-        m.Cart.objects.filter(office_id=office_pk, save_for_later=False)
+        m.Cart.objects.filter(office_id=office_pk, save_for_later=False, instant_checkout=True)
         .order_by("-updated_at")
         .select_related("product__vendor")
     )

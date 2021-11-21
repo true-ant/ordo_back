@@ -217,6 +217,7 @@ class Cart(TimeStampedModel):
     quantity = models.IntegerField(default=1)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     save_for_later = models.BooleanField(default=False)
+    instant_checkout = models.BooleanField(default=True)
 
     class Meta:
         unique_together = [
