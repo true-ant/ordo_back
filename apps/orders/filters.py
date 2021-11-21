@@ -31,7 +31,7 @@ class ProductFilter(filters.FilterSet):
         fields = ["q"]
 
     def filter_product(self, queryset, name, value):
-        q = Q(product_id=value) | Q(name__icontains=name)
+        q = Q(product_id=value) | Q(name__icontains=value)
         return queryset.filter(q)
 
 
