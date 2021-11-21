@@ -474,6 +474,11 @@ class CartViewSet(AsyncMixin, ModelViewSet):
     #     instance = self.get_object()
     #     return instance, instance.product.product_id, instance.product.vendor
     #
+
+    def update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return super().update(request, *args, **kwargs)
+
     # async def update(self, request, *args, **kwargs):
     #     instance, product_id, vendor = await self.get_object_with_related()
     #     can_use_cart, _ = await sync_to_async(get_cart_status_and_order_status)(
