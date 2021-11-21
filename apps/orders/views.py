@@ -447,6 +447,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         product_url = serializer.validated_data["office_product"]["product"]["url"]
         vendor = serializer.validated_data["office_product"]["product"]["vendor"]
         product_category = serializer.validated_data["office_product"]["product"]["category"]
+        serializer.validated_data["unit_price"] = serializer.validated_data["office_product"]["price"]
         #     try:
         #         await self.update_vendor_cart(
         #             product_id,
@@ -688,6 +689,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             product_url = serializer.validated_data["office_product"]["product"]["url"]
             vendor = serializer.validated_data["office_product"]["product"]["vendor"]
             product_category = serializer.validated_data["office_product"]["product"]["category"]
+            serializer.validated_data["unit_price"] = serializer.validated_data["office_product"]["price"]
             #     try:
             #         await self.update_vendor_cart(
             #             product_id,
