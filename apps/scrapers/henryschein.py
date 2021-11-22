@@ -231,6 +231,7 @@ class HenryScheinScraper(Scraper):
                 "description",
                 "images",
                 "category",
+                "product_unit",
             ),
         )
         if office:
@@ -259,6 +260,11 @@ class HenryScheinScraper(Scraper):
             product_category = res.xpath(
                 ".//div[contains(@class, 'product-image')]/ul/li/div[@class='value']/span/text()"
             ).extract()
+            product_unit = self.extract_first(
+                res,
+                ".//li[@id='ctl00_cphMainContentHarmony_ucProductSummary_ucPackagingOptions"
+                "_rptProductList_ctl00_liProductAction']//div[contains(@class, 'uom-opts')]/span/text()",
+            )
 
             return {
                 "product_id": product_id,
@@ -268,6 +274,7 @@ class HenryScheinScraper(Scraper):
                 "images": [{"image": f"{self.BASE_URL}{product_image}"} for product_image in product_images],
                 "category": product_category,
                 "price": product_price,
+                "product_unit": product_unit,
                 "vendor": self.vendor.to_dict(),
             }
 
@@ -294,7 +301,7 @@ class HenryScheinScraper(Scraper):
             orders_dom = response_dom.xpath(
                 "//table[@class='SimpleList']//tr[@class='ItemRow' or @class='AlternateItemRow']"
             )
-            tasks = (self.get_order(order_dom, office) for order_dom in orders_dom)
+            tasks = (self.get_order(order_dom, office) for order_dom in orders_dom[:1])
             orders = await asyncio.gather(*tasks, return_exceptions=True)
 
         return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
