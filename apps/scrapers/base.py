@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import logging
 import re
 from http.cookies import SimpleCookie
 from typing import Dict, List, Optional, Tuple
@@ -19,6 +20,8 @@ from apps.types.scraper import (
     ProductSearch,
     SmartProductID,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class Scraper:
