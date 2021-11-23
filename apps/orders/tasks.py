@@ -204,7 +204,7 @@ def notify_order_creation(order_id, product_ids=()):
             Q(company=office.company),
             (Q(office=office) | Q(office__isnull=True)),
         )
-        .values_list("user__email")
+        .values_list("user__email", flat=True)
     )
 
     products = VendorOrderProductModel.objects.filter(vendor_order__order_id=order_id).annotate(
