@@ -13,8 +13,11 @@ import datetime
 import os
 from pathlib import Path
 
+import sentry_sdk
 from celery.schedules import crontab
 from dotenv import load_dotenv
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.django import DjangoIntegration
 
 load_dotenv()
 
@@ -229,3 +232,11 @@ DEFAULT_FILE_STORAGE = "apps.common.storage_backends.PublicMediaStorage"
 # phone number field settings
 PHONENUMBER_DB_FORMAT = "NATIONAL"
 PHONENUMBER_DEFAULT_REGION = "US"
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration(), CeleryIntegration()],
+        traces_sample_rate=1.0,
+        send_default_pii=True,
+    )
