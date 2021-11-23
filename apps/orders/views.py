@@ -17,6 +17,7 @@ from django.db.models import Case, Count, F, Q, Sum, Value, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from month import Month
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -530,6 +531,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
     def _create_order(self, office_vendors, vendor_order_results, cart_products, data):
         order_date = timezone.now().date()
         inventory_products_ids = []
+        office = office_vendors[0].office
         with transaction.atomic():
             order = m.Order.objects.create(
                 office_id=self.kwargs["office_pk"],
@@ -583,6 +585,12 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                 checkout_status=m.OfficeCheckoutStatus.CHECKOUT_STATUS.COMPLETE,
                 order_status=m.OfficeCheckoutStatus.ORDER_STATUS.COMPLETE,
             )
+
+            current_date = timezone.now().date()
+            month = Month(year=current_date.year, month=current_date.month)
+            office_budget = office.budgets.filter(month=month).first()
+            office_budget.dental_budget = F("dental_budget") - total_amount
+            office_budget.save()
 
         cart_products.delete()
         notify_order_creation.delay(order.id, inventory_products_ids)
