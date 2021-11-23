@@ -51,6 +51,7 @@ class OrderVendorFilter(SimpleListFilter):
 @admin.register(m.Order)
 class OrderAdmin(NestedModelAdmin):
     list_display = ("id", "company", "office", "vendors", "order_date", "status")
+    search_fields = ("vendor_orders__vendor_order_id",)
     list_filter = (
         "status",
         OrderVendorFilter,

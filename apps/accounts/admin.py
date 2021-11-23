@@ -1,5 +1,7 @@
 from django.contrib import admin
+from django.utils import timezone
 from django.utils.safestring import mark_safe
+from month import Month
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
 from apps.common.admins import ReadOnlyAdminMixin
@@ -38,15 +40,28 @@ class CompanyMemberInline(ReadOnlyAdminMixin, NestedTabularInline):
 
 class OfficeVendorInline(ReadOnlyAdminMixin, NestedTabularInline):
     model = m.OfficeVendor
-    readonly_fields = (
-        "vendor",
-        "username",
+    readonly_fields = fields = ("vendor", "username", "password")
+
+
+class OfficeBudgetInline(ReadOnlyAdminMixin, NestedTabularInline):
+    model = m.OfficeBudget
+    readonly_fields = fields = (
+        "month",
+        "dental_budget",
+        "dental_spend",
+        "office_budget",
+        "office_spend",
     )
+
+    def get_queryset(self, request):
+        current_date = timezone.now().date()
+        month = Month(year=current_date.year, month=current_date.month)
+        return super().get_queryset(request).filter(month=month)
 
 
 class OfficeInline(NestedTabularInline):
     model = m.Office
-    inlines = [OfficeVendorInline]
+    inlines = [OfficeVendorInline, OfficeBudgetInline]
     can_delete = False
     readonly_fields = (
         "logo_thumb",
