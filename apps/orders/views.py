@@ -780,7 +780,7 @@ class OfficeProductViewSet(ModelViewSet):
             .annotate(
                 category_order=Case(When(office_category__slug=category_ordering, then=Value(0)), default=Value(1))
             )
-            .order_by("category_order", "office_category__slug")
+            .order_by("category_order", "office_category__slug", "-updated_at")
         )
 
     def update(self, request, *args, **kwargs):
