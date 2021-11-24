@@ -1,4 +1,6 @@
 # from celery.result import AsyncResult
+from decimal import Decimal
+
 from creditcards.validators import CCNumberValidator, CSCValidator, ExpiryDateValidator
 from django.db import transaction
 from phonenumber_field.serializerfields import PhoneNumberField
@@ -37,9 +39,10 @@ class OfficeBudgetSerializer(serializers.ModelSerializer):
         exclude = ("created_at", "updated_at")
 
     def get_remaining_budget(self, instance):
+        TWO_DECIMAL_PLACES = Decimal(10) ** -2
         return {
-            "dental": instance.dental_budget - instance.dental_spend,
-            "office": instance.office_budget - instance.office_spend,
+            "dental": (instance.dental_budget - instance.dental_spend).quantize(TWO_DECIMAL_PLACES),
+            "office": (instance.office_budget - instance.office_spend).quantize(TWO_DECIMAL_PLACES),
         }
 
 
