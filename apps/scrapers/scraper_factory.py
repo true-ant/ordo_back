@@ -182,7 +182,7 @@ def get_test_products(scraper_name):
     return [
         {
             "product_id": product["product_id"],
-            "product_unit": product["product_unit"],
+            "product_unit": product.get("product_unit", None),
             "quantity": product["quantity"],
         }
         for product in base_data[scraper_name]["products"]
@@ -198,11 +198,13 @@ def get_task(scraper, scraper_name, test="login", **kwargs):
         return scraper.get_orders(office, perform_login=True)
     elif test == "order_history_date_range":
         office = kwargs.get("office")
-        orders_from_date = datetime.date(year=2021, month=9, day=1)
-        orders_to_date = datetime.date(year=2021, month=9, day=1)
+        orders_from_date = datetime.date(year=2021, month=11, day=9)
+        orders_to_date = datetime.date(year=2021, month=11, day=9)
         return scraper.get_orders(office, perform_login=True, from_date=orders_from_date, to_date=orders_to_date)
     elif test == "create_order":
         return scraper.create_order(get_test_products(scraper_name))
+    elif test == "confirm_order":
+        return scraper.confirm_order(get_test_products(scraper_name), fake=True)
     elif test == "search_product":
         return scraper.search_products(query="bite registration", page=1)
     elif test == "search_products_v2":
@@ -253,7 +255,7 @@ async def main(vendors, **kwargs):
                 username=scraper_data["username"],
                 password=scraper_data["password"],
             )
-            tasks.append(get_task(scraper, scraper_name, "search_products_v2", **kwargs))
+            tasks.append(get_task(scraper, scraper_name, "create_order", **kwargs))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
     # products = [
@@ -361,7 +363,7 @@ def test_search_products():
 
     henry_products = ProductModel.objects.filter(tags__keyword__iexact="Septocaine", vendor_id=1)
     net_products = ProductModel.objects.filter(tags__keyword__iexact="Septocaine", vendor_id=2)
-    group_products([henry_products, net_products], model=True)
+    group_products([net_products, henry_products], model=True)
 
 
 if __name__ == "__main__":
