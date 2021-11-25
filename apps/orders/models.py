@@ -107,11 +107,6 @@ class OfficeProduct(TimeStampedModel):
     #
 
 
-class OrderStatus(models.IntegerChoices):
-    SHIPPED = 0
-    PROCESSING = 1
-
-
 class OrderMonthManager(models.Manager):
     def get_queryset(self):
         today = timezone.now().date()
@@ -120,6 +115,11 @@ class OrderMonthManager(models.Manager):
         return (
             super().get_queryset().filter(Q(order_date__gte=month_first_day) & Q(order_date__lt=next_month_first_day))
         )
+
+
+class OrderStatus(models.TextChoices):
+    COMPLETE = "complete", "Complete"
+    PROCESSING = "processing", "Processing"
 
 
 class Order(TimeStampedModel):
@@ -134,7 +134,7 @@ class Order(TimeStampedModel):
     order_date = models.DateField()
     total_items = models.IntegerField(default=1)
     total_amount = models.DecimalField(decimal_places=2, max_digits=10, default=0)
-    status = models.CharField(max_length=100)
+    status = models.CharField(max_length=100, choices=OrderStatus.choices, default=OrderStatus.PROCESSING)
     is_approved = models.BooleanField(default=True)
     approved_by = models.ForeignKey(
         User,
@@ -162,7 +162,8 @@ class VendorOrder(TimeStampedModel):
     total_items = models.IntegerField(default=1)
     currency = models.CharField(max_length=100, default="USD")
     order_date = models.DateField()
-    status = models.CharField(max_length=100)
+    status = models.CharField(max_length=100, choices=OrderStatus.choices, default=OrderStatus.PROCESSING)
+    vendor_status = models.CharField(max_length=100, null=True, blank=True)
     products = models.ManyToManyField(Product, through="VendorOrderProduct")
     invoice_link = models.URLField(null=True, blank=True)
 

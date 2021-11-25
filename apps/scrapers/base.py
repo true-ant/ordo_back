@@ -69,6 +69,16 @@ class Scraper:
         prices = re.findall("\\d+\\.\\d+", value)
         return prices[0] if prices else None
 
+    @staticmethod
+    def normalize_order_status(order_status):
+        order_status = order_status.lower()
+        if order_status in ("shipped", "complete", "order shipped"):
+            return "complete"
+        elif order_status in ("in progress", "processing"):
+            return "processing"
+        else:
+            return order_status
+
     async def _get_check_login_state(self) -> Tuple[bool, dict]:
         return False, {}
 
@@ -248,6 +258,8 @@ class Scraper:
         order_data.pop("shipping_address")
         order_products_data = order_data.pop("products")
         order_id = order_data["order_id"]
+        order_data["vendor_status"] = order_data["status"]
+        order_data["status"] = self.normalize_order_status(order_data["status"])
         with transaction.atomic():
             try:
                 vendor_order = VendorOrderModel.objects.get(vendor=self.vendor, vendor_order_id=order_id)
