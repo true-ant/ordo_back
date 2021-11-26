@@ -13,12 +13,7 @@ from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct, VendorCartProduct
-from apps.types.scraper import (
-    InvoiceFile,
-    LoginInformation,
-    ProductSearch,
-    SmartProductID,
-)
+from apps.types.scraper import LoginInformation, ProductSearch, SmartProductID
 
 HEADERS = {
     "authority": "www.henryschein.com",
@@ -796,8 +791,3 @@ class HenryScheinScraper(Scraper):
                     **vendor_order_detail.to_dict(),
                     "order_id": res_data["ecommerce"]["purchase"]["actionField"]["id"],
                 }
-
-    async def download_invoice(self, invoice_link, order_id) -> InvoiceFile:
-        await self.login()
-        async with self.session.get(invoice_link) as resp:
-            return await resp.content.read()

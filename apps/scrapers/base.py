@@ -158,7 +158,9 @@ class Scraper:
             return {k: v for k, v in product.items() if k in fields}
 
     async def download_invoice(self, invoice_link, order_id) -> InvoiceFile:
-        raise NotImplementedError("download_invoice must be implemented by the individual scraper")
+        await self.login()
+        async with self.session.get(invoice_link) as resp:
+            return await resp.content.read()
 
     @staticmethod
     async def run_command(cmd, data=None):

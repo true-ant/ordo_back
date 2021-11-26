@@ -10,7 +10,7 @@ from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct
-from apps.types.scraper import InvoiceFile, LoginInformation, ProductSearch
+from apps.types.scraper import LoginInformation, ProductSearch
 
 HEADERS = {
     "Connection": "keep-alive",
@@ -331,8 +331,3 @@ class DarbyScraper(Scraper):
                 "//ul[@id='catCage2']//div[contains(@class, 'card-footer')]/a[contains(@class, 'topic-link')]"
             )
         ]
-
-    async def download_invoice(self, invoice_link, order_id) -> InvoiceFile:
-        await self.login()
-        async with self.session.get(invoice_link) as resp:
-            return await resp.content.read()
