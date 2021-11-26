@@ -118,6 +118,8 @@ def get_scraper_data():
         "darby": {
             "username": os.getenv("DARBY_SCHEIN_USERNAME"),
             "password": os.getenv("DARBY_SCHEIN_PASSWORD"),
+            "invoice_link": "https://www.darbydental.com/scripts/invoicedownload.ashx?"
+            "invno=9743471&id=416135630f1df27f297dba23b80f2227edf78a73cffec84448dd70d90ee7f4a4",
             "products": [
                 {
                     "product_id": "323-3644",
@@ -136,6 +138,8 @@ def get_scraper_data():
         "patterson": {
             "username": os.getenv("PATTERSON_USERNAME"),
             "password": os.getenv("PATTERSON_PASSWORD"),
+            "invoice_link": "https://www.pattersondental.com/DocumentLibrary/Invoice?"
+            "invoiceNumber=3015913786&customerNumber=410201838",
             "products": [
                 {
                     "product_id": "PIF_63718",
@@ -213,8 +217,7 @@ def get_task(scraper, scraper_name, test="login", **kwargs):
         return scraper.search_products_v2(keyword, office)
     elif test == "download_invoice":
         return scraper.download_invoice(
-            "https://www.darbydental.com/scripts/invoicedownload.ashx?"
-            "invno=9743471&id=416135630f1df27f297dba23b80f2227edf78a73cffec84448dd70d90ee7f4a4",
+            base_data[scraper_name]["invoice_link"],
             None,
         )
     elif test == "get_product":
@@ -242,7 +245,7 @@ def get_task(scraper, scraper_name, test="login", **kwargs):
 
 
 async def main(vendors, **kwargs):
-    scraper_names = ["darby"]
+    scraper_names = ["patterson"]
     base_data = get_scraper_data()
     tasks = []
     async with ClientSession() as session:
@@ -255,7 +258,7 @@ async def main(vendors, **kwargs):
                 username=scraper_data["username"],
                 password=scraper_data["password"],
             )
-            tasks.append(get_task(scraper, scraper_name, "order_history", **kwargs))
+            tasks.append(get_task(scraper, scraper_name, "download_invoice", **kwargs))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
     # products = [
