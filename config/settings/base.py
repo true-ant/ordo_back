@@ -189,6 +189,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.orders.tasks.update_office_cart_status",
         "schedule": crontab(minute="*/10"),
     },
+    "sync_with_vendor_for_orders": {
+        "task": "apps.orders.tasks.sync_with_vendor_for_orders",
+        "schedule": crontab(minute="*/10"),
+    },
 }
 
 # Django Rest Framework

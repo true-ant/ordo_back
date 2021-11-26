@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import logging
+from collections import defaultdict
 
 from aiohttp import ClientSession
 from celery import shared_task
@@ -18,9 +19,11 @@ from apps.orders.models import OfficeCheckoutStatus
 from apps.orders.models import OfficeKeyword as OfficeKeyModel
 from apps.orders.models import OfficeProduct as OfficeProductModel
 from apps.orders.models import Order as OrderModel
+from apps.orders.models import OrderStatus
 from apps.orders.models import Product as ProductModel
 from apps.orders.models import ProductCategory
 from apps.orders.models import ProductImage as ProductImageModel
+from apps.orders.models import VendorOrder as VendorOrderModel
 from apps.orders.models import VendorOrderProduct as VendorOrderProductModel
 from apps.scrapers.schema import Product as ProductDataClass
 from apps.scrapers.scraper_factory import ScraperFactory
@@ -243,3 +246,40 @@ def notify_order_creation(order_id, product_ids=()):
         recipient_list=emails,
         html_message=htm_content,
     )
+
+
+async def _sync_with_vendor_for_orders(orders_by_office_vendors, office_vendors):
+    sem = asyncio.Semaphore(value=50)
+    async with ClientSession() as session:
+        tasks = []
+        for orders_by_office_vendor, office_vendor in zip(orders_by_office_vendors, office_vendors):
+            scraper = ScraperFactory.create_scraper(
+                vendor=office_vendor.vendor,
+                session=session,
+                username=office_vendor.username,
+                password=office_vendor.password,
+            )
+            tasks.extend([scraper.get_order(order.order_id, sem) for order in orders_by_office_vendor])
+        await asyncio.gather(*tasks)
+
+
+@shared_task
+def sync_with_vendor_for_orders():
+    """Sync order status with vendor for pending orders"""
+    # get pending orders
+    processing_vendor_orders = VendorOrderModel.objects.select_related("vendor", "order", "order__office").filter(
+        status=OrderStatus.PROCESSING
+    )
+
+    orders_by_office_vendors = defaultdict(list)
+    office_vendors = []
+    for processing_vendor_order in processing_vendor_orders:
+        office_id = processing_vendor_order.order.office_id
+        vendor_id = processing_vendor_order.vendor_id
+        office_vendor_id = f"{office_id}-{vendor_id}"
+        if office_vendor_id not in orders_by_office_vendors:
+            office_vendors.append(OfficeVendor.objects.get(office_id=office_id, vendor_id=vendor_id))
+
+        orders_by_office_vendors[office_vendor_id].append(processing_vendor_order)
+
+    asyncio.run(_sync_with_vendor_for_orders(orders_by_office_vendors, office_vendors))
