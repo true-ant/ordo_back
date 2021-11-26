@@ -303,7 +303,7 @@ class PattersonScraper(Scraper):
         ) as resp:
             response_dom = Selector(text=await resp.text())
             orders_dom = response_dom.xpath('.//table[@id="orderHistory"]/tbody/tr')
-            tasks = (self.get_order(order_dom) for order_dom in orders_dom)
+            tasks = (self.get_order(order_dom, office) for order_dom in orders_dom)
             orders = await asyncio.gather(*tasks, return_exceptions=True)
 
         return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
@@ -314,14 +314,19 @@ class PattersonScraper(Scraper):
 
         async with self.session.get(product_url) as resp:
             res = Selector(text=await resp.text())
-            product_images = res.xpath(".//div[@id='productFamilyCarouselItem']//img/@src").extract()
+            product_category_and_name = self.merge_strip_values(res, "//div[@class='catalogBreadcrumb']/span//text()")
+            categories = product_category_and_name.split(":")
+            product_name = categories[-1]
+            product_images = res.xpath("//div[contains(@class, 'itemDetailCarousel')]//a/img/@src").extract()
+            product_price = self.extract_first(res, ".//div[@class='priceText']//text()")
+            product_price = self.remove_thousands_separator(self.extract_price(product_price))
             ret = {
                 "product_id": product_id,
-                "name": "",
+                "name": product_name,
                 "url": product_url,
                 "images": [{"image": product_image} for product_image in product_images],
-                "category": "",
-                "price": "",
+                "category": categories[1],
+                "price": product_price,
                 "vendor": self.vendor.to_dict(),
             }
 
