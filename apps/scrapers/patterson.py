@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import json
 from decimal import Decimal
 from typing import Dict, List, Optional
 
@@ -178,7 +179,7 @@ class PattersonScraper(Scraper):
             text = await resp.text()
             return text
 
-    async def get_order(self, order_dom, office=None):
+    async def get_order(self, order_dom, office=None, **kwargs):
         order = {
             "order_id": self.merge_strip_values(order_dom, "./td[3]//text()"),
             "total_amount": self.remove_thousands_separator(self.merge_strip_values(order_dom, "./td[5]//text()")),
@@ -228,7 +229,11 @@ class PattersonScraper(Scraper):
                         ".//div[contains(@class, 'orderHistoryOrderDetailInvoiceOrRejectReasonText')]//text()",
                     )
 
-                    order["invoice_link"] = f"{invoice_number}"
+                    account_id = kwargs.get("account_id")
+                    order["invoice_link"] = (
+                        "https://www.pattersondental.com/DocumentLibrary/Invoice"
+                        f"?invoiceNumber={invoice_number}&customerNumber={account_id}"
+                    )
 
                 order["products"].append(
                     {
@@ -273,10 +278,14 @@ class PattersonScraper(Scraper):
 
         url = "https://www.pattersondental.com/OrderHistory/Search"
         async with self.session.get(url, headers=ORDER_HISTORY_HEADERS) as resp:
-            response_dom = Selector(text=await resp.text())
+            response_html = await resp.text()
+            response_dom = Selector(text=response_html)
             verification_token = response_dom.xpath(
                 '//form[@id="orderHistorySearchForm"]/input[@name="__RequestVerificationToken"]/@value'
             ).get()
+
+        data_layer = json.loads(response_html.split("dataLayer =")[1].split(";")[0].strip())
+        account_id = data_layer[0]["accountid"]
 
         search_params = {
             "usePartial": "true",
@@ -303,7 +312,7 @@ class PattersonScraper(Scraper):
         ) as resp:
             response_dom = Selector(text=await resp.text())
             orders_dom = response_dom.xpath('.//table[@id="orderHistory"]/tbody/tr')
-            tasks = (self.get_order(order_dom, office) for order_dom in orders_dom)
+            tasks = (self.get_order(order_dom, office, **{"account_id": account_id}) for order_dom in orders_dom)
             orders = await asyncio.gather(*tasks, return_exceptions=True)
 
         return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
