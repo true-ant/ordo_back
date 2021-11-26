@@ -121,6 +121,24 @@ ORDER_HISTORY_HEADERS = {
     "Accept-Language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
 }
 
+ORDER_HISTORY_POST_HEADERS = {
+    "Connection": "keep-alive",
+    "sec-ch-ua": '" Not A;Brand";v="99", "Chromium";v="96", "Google Chrome";v="96"',
+    "sec-ch-ua-mobile": "?0",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36",
+    "Accept": "*/*",
+    "X-Requested-With": "XMLHttpRequest",
+    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+    "sec-ch-ua-platform": '"Windows"',
+    "Origin": "https://www.pattersondental.com",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "empty",
+    "Referer": "https://www.pattersondental.com/OrderHistory/Search",
+    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
+}
+
 
 class PattersonScraper(Scraper):
     BASE_URL = "https://www.pattersondental.com"
@@ -161,6 +179,89 @@ class PattersonScraper(Scraper):
             text = await resp.text()
             return text
 
+    async def get_order(self, order_dom, office=None):
+        order = {
+            "order_id": self.merge_strip_values(order_dom, "./td[3]//text()"),
+            "total_amount": self.remove_thousands_separator(self.merge_strip_values(order_dom, "./td[5]//text()")),
+            "currency": "USD",
+            "order_date": datetime.datetime.strptime(
+                self.extract_first(order_dom, "./td[1]//text()"), "%m/%d/%Y"
+            ).date(),
+            "status": self.extract_first(order_dom, "./td[2]//text()"),
+            "products": [],
+        }
+        order_link = self.extract_first(order_dom, "./td[3]/a/@href")
+
+        async with self.session.get(f"{self.BASE_URL}{order_link}") as resp:
+            order_detail_response = Selector(text=await resp.text())
+            # addresses = order_detail_response.xpath(
+            #     "//span[@id='ctl00_cphMainContent_ucShippingAddr_lblAddress']//text()"
+            # ).extract()
+            # _, codes = addresses[-2].split(",")
+            # region_code, postal_code = codes.strip().split(" ")
+            # order["shipping_address"] = {
+            #     "address": addresses[1],
+            #     "region_code": region_code,
+            #     "postal_code": postal_code,
+            # }
+
+            for order_product_dom in order_detail_response.xpath('//div[contains(@class, "itemRecord")]'):
+                product_id = self.merge_strip_values(
+                    order_product_dom, ".//div[contains(@class, 'orderHistoryOrderDetailItemText')]//text()"
+                )
+                # product_name = self.extract_first(product_name_url_dom, ".//a/text()")
+                product_url = self.extract_first(
+                    order_product_dom, ".//div[contains(@class, 'orderHistoryOrderDetailItemText')]//@href"
+                )
+                product_url = f"{self.BASE_URL}{product_url}"
+                product_price = self.remove_thousands_separator(
+                    self.extract_first(
+                        order_product_dom, ".//div[contains(@class, 'orderHistoryOrderDetailPriceText')]//text()"
+                    )
+                )
+                quantity = self.extract_first(
+                    order_product_dom, ".//div[contains(@class, 'orderHistoryOrderDetailQuantityText')]/input/@value"
+                )
+
+                if "invoice_link" not in order:
+                    invoice_number = self.extract_first(
+                        order_product_dom,
+                        ".//div[contains(@class, 'orderHistoryOrderDetailInvoiceOrRejectReasonText')]//text()",
+                    )
+
+                    order["invoice_link"] = f"{invoice_number}"
+
+                order["products"].append(
+                    {
+                        "product": {
+                            "product_id": product_id,
+                            "name": "",
+                            "description": "",
+                            "url": product_url,
+                            "images": [],
+                            "category": "",
+                            "price": product_price,
+                            "vendor": self.vendor.to_dict(),
+                        },
+                        "quantity": quantity,
+                        "unit_price": product_price,
+                        "status": "",
+                    }
+                )
+
+        await self.get_missing_products_fields(
+            order["products"],
+            fields=(
+                "name",
+                "description",
+                "images",
+                "category",
+            ),
+        )
+        if office:
+            await self.save_order_to_db(office, order=Order.from_dict(order))
+        return order
+
     async def get_orders(
         self,
         office=None,
@@ -168,7 +269,45 @@ class PattersonScraper(Scraper):
         from_date: Optional[datetime.date] = None,
         to_date: Optional[datetime.date] = None,
     ) -> List[Order]:
-        return []
+        if perform_login:
+            await self.login()
+
+        url = "https://www.pattersondental.com/OrderHistory/Search"
+        async with self.session.get(url, headers=ORDER_HISTORY_HEADERS) as resp:
+            response_dom = Selector(text=await resp.text())
+            verification_token = response_dom.xpath(
+                '//form[@id="orderHistorySearchForm"]/input[@name="__RequestVerificationToken"]/@value'
+            ).get()
+
+        search_params = {
+            "usePartial": "true",
+        }
+        search_data = {
+            "__RequestVerificationToken": verification_token,
+            "FromDate": "",
+            "ToDate": "",
+            "ItemNumber": "",
+            "ItemDescription": "",
+            "ManufacturerName": "",
+            "PurchaseOrderNumber": "",
+            "OrderNumber": "",
+            "ManufacturerOrNdcNumber": "",
+            "ViewSortByValue": "",
+            "ViewSortDirection": "",
+        }
+        if from_date and to_date:
+            search_data["FromDate"] = from_date.strftime("%m/%d/%Y")
+            search_data["ToDate"] = to_date.strftime("%m/%d/%Y")
+
+        async with self.session.post(
+            url, headers=ORDER_HISTORY_POST_HEADERS, params=search_params, data=search_data
+        ) as resp:
+            response_dom = Selector(text=await resp.text())
+            orders_dom = response_dom.xpath('.//table[@id="orderHistory"]/tbody/tr')
+            tasks = (self.get_order(order_dom) for order_dom in orders_dom)
+            orders = await asyncio.gather(*tasks, return_exceptions=True)
+
+        return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
 
     async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
         # if perform_login:
