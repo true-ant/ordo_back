@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import operator
 from calendar import monthrange
 from datetime import timedelta
@@ -18,11 +19,12 @@ from month import Month
 
 from apps.accounts.models import CompanyMember, Office, OfficeVendor, User
 from apps.common.utils import group_products
-from apps.orders.models import Product
+from apps.orders.models import OfficeProduct, Product
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import CompanyInvite
 
 UserModel = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 @shared_task
@@ -129,8 +131,18 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
     if office_vendors.count() > 1:
         vendors_products = []
         for office_vendor in office_vendors:
-            vendors_products.append(Product.objects.filter(vendor=office_vendor.vendor, parent__isnull=True))
-        group_products(vendors_products, model=True)
+            product_ids = OfficeProduct.objects.filter(
+                is_inventory=True, product__vendor=office_vendor.vendor
+            ).values_list("product__product_id", flat=True)
+            if product_ids:
+                vendors_products.append(
+                    Product.objects.filter(
+                        vendor=office_vendor.vendor, parent__isnull=True, product_id__in=product_ids
+                    )
+                )
+
+        if len(vendors_products) > 1:
+            group_products(vendors_products, model=True)
 
     # TODO: iterate keyword tables. fetch products for keyword and pricing comparison
 

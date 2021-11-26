@@ -324,7 +324,7 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
                 office_vendor_id=office_vendor.id,
                 login_cookies=login_cookies.output(),
                 # all scrapers work with login_cookies, but henryschein not working with login_cookies
-                perform_login=True,
+                perform_login=serializer.validated_data["vendor"].slug == "henry_schein",
             )
             # office_vendor.task_id = ar.id
             await sync_to_async(office_vendor.save)()
