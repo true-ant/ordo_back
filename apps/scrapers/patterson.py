@@ -8,7 +8,6 @@ from scrapy import Selector
 
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product
-from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation, ProductSearch
 
@@ -359,7 +358,6 @@ class PattersonScraper(Scraper):
             res = await resp.json()
             return Decimal(str(res["PriceHigh"]))
 
-    @catch_network
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
     ) -> ProductSearch:
@@ -373,6 +371,10 @@ class PattersonScraper(Scraper):
         products = []
         async with self.session.get(url, headers=SEARCH_HEADERS, params=params) as resp:
             response_dom = Selector(text=await resp.text())
+        products_dom = response_dom.xpath(
+            "//div[@class='container-fluid']//table//tr//div[@ng-controller='SearchResultsController']"
+        )
+        if products_dom:
             try:
                 total_size = int(
                     response_dom.xpath(
@@ -386,42 +388,81 @@ class PattersonScraper(Scraper):
                 )
             except (IndexError, AttributeError, ValueError):
                 total_size = 0
+
+            for product_dom in products_dom:
+                product_description_dom = product_dom.xpath(".//div[contains(@class, 'listViewDescriptionWrapper')]")
+                product_link = product_description_dom.xpath(".//a[@class='itemTitleDescription']")
+                product_id = product_link.attrib["data-objectid"]
+                product_name = self.extract_first(
+                    product_description_dom,
+                    ".//a[@class='itemTitleDescription']//text()",
+                )
+                product_url = self.BASE_URL + self.extract_first(
+                    product_description_dom,
+                    ".//a[@class='itemTitleDescription']/@href",
+                )
+                product_image = self.extract_first(
+                    product_dom, ".//div[contains(@class, 'listViewImageWrapper')]/img/@src"
+                )
+
+                products.append(
+                    {
+                        "product_id": product_id,
+                        "name": product_name,
+                        "description": "",
+                        "url": product_url,
+                        "images": [{"image": product_image}],
+                        "price": Decimal(0),
+                        "vendor": self.vendor.to_dict(),
+                        "category": "",
+                    }
+                )
+
+            product_prices = await self.get_product_prices([product["product_id"] for product in products])
+
+            for product in products:
+                product["price"] = product_prices[product["product_id"]]
+        else:
             products_dom = response_dom.xpath(
-                "//div[@class='container-fluid']//table//tr//div[@ng-controller='SearchResultsController']"
+                "//div[@id='productFamilyDetailsRow']//div[contains(@class, 'productFamilyGridBody')]"
             )
-        for product_dom in products_dom:
-            product_description_dom = product_dom.xpath(".//div[contains(@class, 'listViewDescriptionWrapper')]")
-            product_link = product_description_dom.xpath(".//a[@class='itemTitleDescription']")
-            product_id = product_link.attrib["data-objectid"]
-            product_name = self.extract_first(
-                product_description_dom,
-                ".//a[@class='itemTitleDescription']//text()",
-            )
-            product_url = self.BASE_URL + self.extract_first(
-                product_description_dom,
-                ".//a[@class='itemTitleDescription']/@href",
-            )
-            product_image = (
-                self.extract_first(product_dom, ".//div[contains(@class, 'listViewImageWrapper')]/img/@src"),
-            )
+            total_size = len(products_dom)
+            product_name = self.extract_first(response_dom, ".//div[@id='productFamilyDescriptionHeader']/h1//text()")
 
-            products.append(
-                {
-                    "product_id": product_id,
-                    "name": product_name,
-                    "description": "",
-                    "url": product_url,
-                    "images": [{"image": product_image}],
-                    "price": Decimal(0),
-                    "vendor": self.vendor.to_dict(),
-                    "category": "",
-                }
-            )
+            for product_dom in products_dom:
+                product_title = self.extract_first(
+                    product_dom,
+                    ".//div[@id='productFamilyDetailsGridBodyColumnOneInnerRowDescription']"
+                    "//a[@class='itemTitleDescription']//text()",
+                )
+                product_url = self.BASE_URL + self.extract_first(
+                    product_dom,
+                    ".//div[@id='productFamilyDetailsGridBodyColumnOneInnerRowDescription']"
+                    "//a[@class='itemTitleDescription']/@href",
+                )
+                product_id = self.extract_first(
+                    product_dom, ".//div[@id='productFamilyDetailsGridBodyColumnTwoInnerRowItemNumber']/text()"
+                )
+                product_image = self.extract_first(
+                    product_dom, ".//div[@id='productFamilyDetailsGridBodyColumnOneInnerRowImages']//img/@src"
+                )
+                product_price = self.extract_first(
+                    product_dom, ".//div[contains(@class, 'productFamilyDetailsPriceBreak')]/text()"
+                )
+                product_price = self.extract_price(product_price)
 
-        product_prices = await self.get_product_prices([product["product_id"] for product in products])
-
-        for product in products:
-            product["price"] = product_prices[product["product_id"]]
+                products.append(
+                    {
+                        "product_id": product_id,
+                        "name": product_name + product_title,
+                        "description": "",
+                        "url": product_url,
+                        "images": [{"image": product_image}],
+                        "price": Decimal(product_price),
+                        "vendor": self.vendor.to_dict(),
+                        "category": "",
+                    }
+                )
 
         return {
             "vendor_slug": self.vendor.slug,
