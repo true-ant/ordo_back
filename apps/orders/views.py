@@ -195,24 +195,64 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
 
 
 class VendorOrderProductViewSet(ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [p.ProductStatusUpdatePermission]
     queryset = m.VendorOrderProduct.objects.all()
     serializer_class = s.VendorOrderProductSerializer
     filterset_class = f.VendorOrderProductFilter
     pagination_class = StandardResultsSetPagination
 
-    def get_queryset(self):
-        category_ordering = self.request.query_params.get("category_ordering")
-        return (
-            super()
-            .get_queryset()
-            .filter(vendor_order__order__office__id=self.kwargs["office_pk"])
-            .annotate(
-                category_order=Case(When(product__category__slug=category_ordering, then=Value(0)), default=Value(1))
-            )
-            .order_by("category_order", "product__category__slug", "product__product_id")
-            .distinct("category_order", "product__category__slug", "product__product_id")
-        )
+    def update(self, request, *args, **kwargs):
+        kwargs.setdefault("partial", True)
+        return super().update(request, *args, **kwargs)
+
+    @action(detail=True, methods=["get"], url_path="update-status")
+    def update_status(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.status not in [m.VendorOrderProduct.Status.ARRIVED, m.VendorOrderProduct.Status.RECEIVED]:
+            return Response({"message": msgs.UPDATE_ORDER_PRODUCT_STATUS_ERROR}, status=HTTP_400_BAD_REQUEST)
+
+        vendor_order = instance.vendor_order
+        order = vendor_order.order
+
+        with transaction.atomic():
+            if instance.status == m.VendorOrderProduct.Status.ARRIVED:
+                instance.status = m.VendorOrderProduct.Status.RECEIVED
+                instance.save()
+
+                if not m.VendorOrderProduct.objects.filter(
+                    Q(vendor_order=instance.vendor_order), ~Q(status=m.VendorOrderProduct.Status.RECEIVED)
+                ).exists():
+                    vendor_order.status = m.OrderStatus.COMPLETE
+                    vendor_order.save()
+
+                if not m.VendorOrderProduct.objects.filter(
+                    Q(vendor_order__order=order), ~Q(status=m.VendorOrderProduct.Status.RECEIVED)
+                ).exists():
+                    order.status = m.OrderStatus.COMPLETE
+                    order.save()
+
+            else:
+                instance.status = m.VendorOrderProduct.Status.ARRIVED
+                vendor_order.status = m.OrderStatus.PROCESSING
+                order.status = m.OrderStatus.PROCESSING
+                instance.save()
+                vendor_order.save()
+                order.save()
+
+        return Response(self.get_serializer(instance).data)
+
+    # def get_queryset(self):
+    #     category_ordering = self.request.query_params.get("category_ordering")
+    #     return (
+    #         super()
+    #         .get_queryset()
+    #         .filter(vendor_order__order__office__id=self.kwargs["office_pk"])
+    #         .annotate(
+    #             category_order=Case(When(product__category__slug=category_ordering, then=Value(0)), default=Value(1))
+    #         )
+    #         .order_by("category_order", "product__category__slug", "product__product_id")
+    #         .distinct("category_order", "product__category__slug", "product__product_id")
+    #     )
 
 
 def get_spending(by, orders, company):

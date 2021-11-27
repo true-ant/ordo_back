@@ -183,16 +183,20 @@ class VendorOrder(TimeStampedModel):
 
 
 class VendorOrderProduct(TimeStampedModel):
-    class Status(models.IntegerChoices):
-        OPEN = 0
-        SHIPPED = 1
-        BACKORDER = 2
+    class Status(models.TextChoices):
+
+        OPEN = "open", "Open"
+        SHIPPED = "shipped", "Shipped"
+        ARRIVED = "arrived", "Arrived"
+        RECEIVED = "received", "Received"
 
     vendor_order = FlexibleForeignKey(VendorOrder)
     product = FlexibleForeignKey(Product)
     quantity = models.IntegerField(default=0)
     unit_price = models.DecimalField(decimal_places=2, max_digits=10)
-    status = models.CharField(max_length=100, null=True, blank=True)
+    tracking_link = models.URLField(max_length=512, null=True, blank=True)
+    status = models.CharField(max_length=100, choices=Status.choices, default=Status.OPEN)
+    vendor_status = models.CharField(max_length=100, null=True, blank=True)
     # status = models.IntegerField(choices=Status.choices, default=Status.OPEN)
 
     @classmethod

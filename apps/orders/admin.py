@@ -11,12 +11,14 @@ from . import models as m
 
 class VendorOrderProductInline(ReadOnlyAdminMixin, NestedTabularInline):
     model = m.VendorOrderProduct
-    readonly_fields = (
+    fields = readonly_fields = (
         "product",
         "unit_price",
         "quantity",
         "total_price",
         "status",
+        "vendor_status",
+        "tracking_link",
     )
 
     def total_price(self, obj):

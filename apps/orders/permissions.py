@@ -18,3 +18,8 @@ class OrderCheckoutPermission(BasePermission):
 
         company_pk = view.kwargs.get("company_pk")
         return CompanyMember.objects.filter(user=request.user, company_id=company_pk).exists()
+
+
+class ProductStatusUpdatePermission(IsAuthenticated):
+    def has_object_permission(self, request, view, obj):
+        return CompanyMember.objects.filter(company=obj.vendor_order.order.office.company, user=request.user).exists()
