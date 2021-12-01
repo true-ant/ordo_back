@@ -947,6 +947,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
     async def post(self, request, *args, **kwargs):
         data = request.data
         keyword = data.get("q")
+        keyword = keyword.strip()
         pagination_meta = data.get("meta", {})
 
         if pagination_meta.get("last_page", False):
