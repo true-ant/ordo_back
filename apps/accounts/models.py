@@ -131,6 +131,9 @@ class OfficeBudget(TimeStampedModel):
         ordering = ("-month",)
         unique_together = ["office", "month"]
 
+    def __str__(self):
+        return f"{self.office}'s {self.month} budget"
+
 
 class OfficeVendor(models.Model):
     vendor = FlexibleForeignKey(Vendor, related_name="connected_offices")

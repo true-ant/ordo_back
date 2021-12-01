@@ -1,3 +1,4 @@
+from dateutil.relativedelta import relativedelta
 from django.contrib import admin
 from django.utils import timezone
 from django.utils.safestring import mark_safe
@@ -71,8 +72,9 @@ class OfficeBudgetInline(NestedTabularInline):
 
     def get_queryset(self, request):
         current_date = timezone.now().date()
-        month = Month(year=current_date.year, month=current_date.month)
-        return super().get_queryset(request).filter(month=month)
+        three_months_ago = current_date - relativedelta(months=3)
+        month = Month(year=current_date.year, month=three_months_ago.month)
+        return super().get_queryset(request).filter(month__gte=month).order_by("-month")
 
 
 class OfficeInline(NestedTabularInline):
