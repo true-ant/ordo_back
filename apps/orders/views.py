@@ -194,6 +194,54 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
         return response
 
 
+class VendorOrderViewSet(AsyncMixin, ModelViewSet):
+    queryset = m.VendorOrder.objects.all()
+    serializer_class = s.VendorOrderSerializer
+    pagination_class = StandardResultsSetPagination
+
+    def get_queryset(self):
+        return self.queryset.select_related("order", "vendor", "order__office").order_by("-order_date", "order")
+
+    @sync_to_async
+    def get_office_vendor(self):
+        vendor_order = self.get_object()
+        office_vendor = OfficeVendor.objects.get(office_id=self.kwargs["office_pk"], vendor=vendor_order.vendor)
+        return {
+            "vendor_order_id": vendor_order.vendor_order_id,
+            "invoice_link": vendor_order.invoice_link,
+            "vendor": vendor_order.vendor,
+            "username": office_vendor.username,
+            "password": office_vendor.password,
+        }
+
+    @action(detail=True, methods=["get"], url_path="invoice-download")
+    async def download_invoice(self, request, *args, **kwargs):
+        vendor_order = await self.get_office_vendor()
+        session = apps.get_app_config("accounts").session
+
+        scraper = ScraperFactory.create_scraper(
+            vendor=vendor_order["vendor"],
+            session=session,
+            username=vendor_order["username"],
+            password=vendor_order["password"],
+        )
+        content = await scraper.download_invoice(
+            invoice_link=vendor_order["invoice_link"], order_id=vendor_order["vendor_order_id"]
+        )
+        temp = tempfile.NamedTemporaryFile()
+
+        with zipfile.ZipFile(temp, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr(f"{vendor_order['vendor'].name}.pdf", content)
+
+        filesize = os.path.getsize(temp.name)
+        data = open(temp.name, "rb").read()
+        response = HttpResponse(data, content_type="application/zip")
+        response["Content-Disposition"] = "attachment; filename=invoice.zip"
+        response["Content-Length"] = filesize
+        temp.seek(0)
+        return response
+
+
 class VendorOrderProductViewSet(ModelViewSet):
     permission_classes = [p.ProductStatusUpdatePermission]
     queryset = m.VendorOrderProduct.objects.all()
