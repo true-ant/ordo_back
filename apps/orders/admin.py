@@ -168,6 +168,7 @@ class OfficeProductAdmin(admin.ModelAdmin):
         "product_id",
         "product_name",
         "product_vendor",
+        "office_category",
         "product_category",
         "price",
         "is_favorite",
