@@ -629,7 +629,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             current_date = timezone.now().date()
             month = Month(year=current_date.year, month=current_date.month)
             office_budget = office.budgets.filter(month=month).first()
-            office_budget.spend = F("spend") + total_amount
+            office_budget.dental_spend = F("dental_spend") + total_amount
             office_budget.save()
 
         cart_products.delete()
