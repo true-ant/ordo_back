@@ -165,6 +165,7 @@ class OfficeKeywordAdmin(admin.ModelAdmin):
 class OfficeProductAdmin(admin.ModelAdmin):
     list_display = (
         "id",
+        "office",
         "product_id",
         "product_name",
         "product_vendor",

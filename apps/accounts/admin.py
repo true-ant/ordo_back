@@ -43,9 +43,25 @@ class OfficeVendorInline(ReadOnlyAdminMixin, NestedTabularInline):
     readonly_fields = fields = ("vendor", "username", "password")
 
 
-class OfficeBudgetInline(ReadOnlyAdminMixin, NestedTabularInline):
+# class OfficeBudgetInline(ReadOnlyAdminMixin, NestedTabularInline):
+#     model = m.OfficeBudget
+#     readonly_fields = fields = (
+#         "month",
+#         "dental_budget",
+#         "dental_spend",
+#         "office_budget",
+#         "office_spend",
+#     )
+
+#     def get_queryset(self, request):
+#         current_date = timezone.now().date()
+#         month = Month(year=current_date.year, month=current_date.month)
+#         return super().get_queryset(request).filter(month=month)
+
+
+class OfficeBudgetInline(NestedTabularInline):
     model = m.OfficeBudget
-    readonly_fields = fields = (
+    fields = (
         "month",
         "dental_budget",
         "dental_spend",
@@ -68,9 +84,6 @@ class OfficeInline(NestedTabularInline):
         "name",
         "phone_number",
         "website",
-        "cc_number",
-        "cc_expiry",
-        "cc_code",
         "is_active",
     )
     exclude = ("logo",)
