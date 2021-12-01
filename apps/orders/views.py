@@ -864,7 +864,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
 
         if product_filters:
             queryset = queryset.filter(product_filters)
-        return queryset
+        return queryset.order_by("price")
 
     def get_linked_vendors(self):
         office_vendors = OfficeVendor.objects.select_related("vendor").filter(office_id=self.kwargs["office_pk"])
