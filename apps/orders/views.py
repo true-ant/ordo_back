@@ -818,7 +818,11 @@ class OfficeProductViewSet(ModelViewSet):
             .get_queryset()
             .filter(Q(office__id=self.kwargs["office_pk"]), Q(product__parent__isnull=True))
             .annotate(
-                category_order=Case(When(office_category__slug=category_ordering, then=Value(0)), default=Value(1))
+                category_order=Case(
+                    When(office_category__slug=category_ordering, then=Value(0)),
+                    When(office_category__slug="other", then=Value(2)),
+                    default=Value(1),
+                )
             )
             .order_by("category_order", "office_category__slug", "-updated_at")
         )
