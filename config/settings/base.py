@@ -179,7 +179,7 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULE = {
     "update_office_budget": {
         "task": "apps.accounts.tasks.update_office_budget",
-        "schedule": crontab(day_of_month=1),
+        "schedule": crontab(hour=0, minute=0, day_of_month=1),
     },
     "send_budget_update_notification": {
         "task": "apps.accounts.tasks.send_budget_update_notification",
