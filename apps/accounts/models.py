@@ -6,6 +6,7 @@ from creditcards.models import CardExpiryField, CardNumberField, SecurityCodeFie
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
+from django_extensions.db.fields import AutoSlugField
 from month import Month
 from month.models import MonthField
 from phonenumber_field.modelfields import PhoneNumberField
@@ -42,6 +43,7 @@ class Vendor(models.Model):
 
 class Company(TimeStampedModel):
     name = models.CharField(max_length=100)
+    slug = AutoSlugField(populate_from=["name"])
     on_boarding_step = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
 
@@ -61,6 +63,7 @@ class Office(TimeStampedModel):
 
     # Basic Information
     name = models.CharField(max_length=100)
+    slug = AutoSlugField(populate_from=["name"])
     phone_number = PhoneNumberField(null=True, blank=True)
     website = models.URLField(max_length=100, null=True, blank=True)
     logo = models.ImageField(null=True, blank=True, upload_to="offices")
