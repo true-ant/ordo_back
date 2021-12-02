@@ -31,15 +31,19 @@ class ProductFilter(filters.FilterSet):
         fields = ["q"]
 
     def filter_product(self, queryset, name, value):
-        q = Q(product_id=value) | Q(name__icontains=value)
+        q = Q(product_id=value) | Q(name__icontains=value) | Q(tags__keyword=value)
         return queryset.filter(q)
 
 
 class OfficeProductFilter(filters.FilterSet):
-    q = filters.CharFilter(field_name="product__name", lookup_expr="icontains")
+    q = filters.CharFilter(method="filter_product")
     inventory = filters.BooleanFilter(field_name="is_inventory")
     favorite = filters.BooleanFilter(field_name="is_favorite")
 
     class Meta:
         model = OfficeProduct
         fields = ["q", "inventory", "favorite"]
+
+    def filter_product(self, queryset, name, value):
+        q = Q(product__product_id=value) | Q(product__name__icontains=value) | Q(product__tags__keyword=value)
+        return queryset.filter(q)
