@@ -110,9 +110,9 @@ async def get_orders(office_vendor, login_cookies, perform_login):
         orders = sorted(orders, key=lambda x: x.order_date)
         if len(orders):
             first_order_date = orders[0].order_date
-            first_order_date -= relativedelta(day=1)
+            first_order_date -= relativedelta(days=1)
         else:
-            first_order_date = timezone.now().date() - relativedelta(day=1)
+            first_order_date = timezone.now().date() - relativedelta(days=1)
 
         await scraper.get_orders(
             office=office_vendor.office,
