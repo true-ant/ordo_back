@@ -873,7 +873,7 @@ class OfficeProductViewSet(ModelViewSet):
                 )
             )
             .order_by("category_order", "office_category__slug", "-updated_at")
-        )
+        ).distinct()
 
     def update(self, request, *args, **kwargs):
         kwargs["partial"] = True
