@@ -409,8 +409,16 @@ class UserViewSet(ModelViewSet):
             active_memberships = m.CompanyMember.objects.filter(user=instance)
             for active_membership in active_memberships:
                 active_membership.is_active = False
-            instance.is_active = False
-            instance.save()
+
+            m.CompanyMember.objects.bulk_update(active_memberships, fields=["is_active"])
+
+            # cancel subscription if noone is in office
+            for active_membership in active_memberships:
+                if not m.CompanyMember.objects.filter(
+                    role=m.User.Role.ADMIN, company=active_membership.company
+                ).exists():
+                    for office in active_membership.company.offices.all():
+                        cancel_subscription(office)
 
 
 class OfficeBudgetViewSet(ModelViewSet):
