@@ -9,6 +9,7 @@ from typing import List
 
 from aiohttp import ClientSession
 from celery import shared_task
+from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
@@ -101,7 +102,24 @@ async def get_orders(office_vendor, login_cookies, perform_login):
             username=office_vendor.username,
             password=office_vendor.password,
         )
-        await scraper.get_orders(office=office_vendor.office, perform_login=perform_login)
+
+        orders = await scraper.get_orders(
+            office=office_vendor.office,
+            perform_login=perform_login,
+        )
+        orders = sorted(orders, key=lambda x: x.order_date)
+        if len(orders):
+            first_order_date = orders[0].order_date
+            first_order_date -= relativedelta(day=1)
+        else:
+            first_order_date = timezone.now().date() - relativedelta(day=1)
+
+        await scraper.get_orders(
+            office=office_vendor.office,
+            from_date=first_order_date - relativedelta(months=12),
+            to_date=first_order_date,
+        )
+
         if vendor.slug == "ultradent":
             await scraper.get_all_products_v2(office_vendor.office)
 
