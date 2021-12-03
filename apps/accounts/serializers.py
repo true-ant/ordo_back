@@ -62,7 +62,7 @@ class OfficeSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
     company = serializers.PrimaryKeyRelatedField(queryset=m.Company.objects.all(), required=False)
     addresses = OfficeAddressSerializer(many=True, required=False)
-    logo = Base64ImageField()
+    logo = Base64ImageField(required=False)
     vendors = VendorSerializer(many=True, required=False)
     phone_number = PhoneNumberField()
     website = serializers.CharField(validators=[OptionalSchemeURLValidator()])
