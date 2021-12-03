@@ -9,6 +9,7 @@ from scrapy import Selector
 
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product
+from apps.scrapers.utils import semaphore_coroutine
 from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation, ProductSearch
 
@@ -179,7 +180,8 @@ class PattersonScraper(Scraper):
             text = await resp.text()
             return text
 
-    async def get_order(self, order_dom, office=None, **kwargs):
+    @semaphore_coroutine
+    async def get_order(self, sem, order_dom, office=None, **kwargs):
         order = {
             "order_id": self.merge_strip_values(order_dom, "./td[3]//text()"),
             "total_amount": self.remove_thousands_separator(self.merge_strip_values(order_dom, "./td[5]//text()")),
@@ -273,6 +275,7 @@ class PattersonScraper(Scraper):
         from_date: Optional[datetime.date] = None,
         to_date: Optional[datetime.date] = None,
     ) -> List[Order]:
+        sem = asyncio.Semaphore(value=2)
         if perform_login:
             await self.login()
 
@@ -312,7 +315,7 @@ class PattersonScraper(Scraper):
         ) as resp:
             response_dom = Selector(text=await resp.text())
             orders_dom = response_dom.xpath('.//table[@id="orderHistory"]/tbody/tr')
-            tasks = (self.get_order(order_dom, office, **{"account_id": account_id}) for order_dom in orders_dom)
+            tasks = (self.get_order(sem, order_dom, office, **{"account_id": account_id}) for order_dom in orders_dom)
             orders = await asyncio.gather(*tasks, return_exceptions=True)
 
         return [Order.from_dict(order) for order in orders if isinstance(order, dict)]

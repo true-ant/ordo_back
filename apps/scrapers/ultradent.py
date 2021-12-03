@@ -8,7 +8,7 @@ from scrapy import Selector
 
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory
-from apps.scrapers.utils import catch_network
+from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.scraper import InvoiceFile, LoginInformation, ProductSearch
 
 HEADERS = {
@@ -216,7 +216,8 @@ class UltraDentScraper(Scraper):
             },
         }
 
-    async def get_order(self, order, office=None) -> dict:
+    @semaphore_coroutine
+    async def get_order(self, sem, order, office=None) -> dict:
         json_data = {
             "variables": {"orderNumber": order["orderNumber"]},
             "query": GET_ORDER_QUERY,
@@ -327,6 +328,7 @@ class UltraDentScraper(Scraper):
         from_date: Optional[datetime.date] = None,
         to_date: Optional[datetime.date] = None,
     ) -> List[Order]:
+        sem = asyncio.Semaphore(value=2)
         url = "https://www.ultradent.com/api/ecommerce"
 
         json_data = {
@@ -343,7 +345,7 @@ class UltraDentScraper(Scraper):
                 order_date = datetime.date.fromisoformat(order_data["orderDate"])
                 if from_date and to_date and (order_date < from_date or order_date > to_date):
                     continue
-                tasks.append(self.get_order(order_data, office))
+                tasks.append(self.get_order(sem, order_data, office))
 
             if tasks:
                 orders = await asyncio.gather(*tasks, return_exceptions=True)

@@ -11,7 +11,7 @@ from scrapy import Selector
 
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
-from apps.scrapers.utils import catch_network
+from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct, VendorCartProduct
 from apps.types.scraper import LoginInformation, ProductSearch, SmartProductID
 
@@ -134,7 +134,8 @@ class HenryScheinScraper(Scraper):
             },
         }
 
-    async def get_order(self, order_dom, office=None):
+    @semaphore_coroutine
+    async def get_order(self, sem, order_dom, office=None):
         link = order_dom.xpath("./td[8]/a/@href").extract_first().strip()
         order = {
             "total_amount": order_dom.xpath("./td[6]//text()").extract_first()[1:],
@@ -290,13 +291,14 @@ class HenryScheinScraper(Scraper):
         if perform_login:
             await self.login()
 
+        sem = asyncio.Semaphore(value=2)
         async with self.session.get(url, params=params) as resp:
             text = await resp.text()
             response_dom = Selector(text=text)
             orders_dom = response_dom.xpath(
                 "//table[@class='SimpleList']//tr[@class='ItemRow' or @class='AlternateItemRow']"
             )
-            tasks = (self.get_order(order_dom, office) for order_dom in orders_dom)
+            tasks = (self.get_order(sem, order_dom, office) for order_dom in orders_dom[:3])
             orders = await asyncio.gather(*tasks, return_exceptions=True)
 
         return [Order.from_dict(order) for order in orders if isinstance(order, dict)]

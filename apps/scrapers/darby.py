@@ -8,7 +8,7 @@ from scrapy import Selector
 
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory
-from apps.scrapers.utils import catch_network
+from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation, ProductSearch
 
@@ -154,7 +154,8 @@ class DarbyScraper(Scraper):
         )
         return order
 
-    async def get_order(self, order_dom, order_date: Optional[datetime.date] = None, office=None):
+    @semaphore_coroutine
+    async def get_order(self, sem, order_dom, order_date: Optional[datetime.date] = None, office=None):
         link = self.merge_strip_values(order_dom, "./td[1]/a/@href")
         order_id = self.merge_strip_values(order_dom, "./td[1]//text()")
         invoice_link = self.merge_strip_values(order_dom, "./td[9]/a/@href")
@@ -181,6 +182,7 @@ class DarbyScraper(Scraper):
         from_date: Optional[datetime.date] = None,
         to_date: Optional[datetime.date] = None,
     ):
+        sem = asyncio.Semaphore(value=2)
         url = f"{self.BASE_URL}/Scripts/InvoiceHistory.aspx"
 
         if perform_login:
@@ -200,7 +202,7 @@ class DarbyScraper(Scraper):
                 ).date()
                 if from_date and to_date and (order_date < from_date or order_date > to_date):
                     continue
-                tasks.append(self.get_order(order_dom, order_date, office))
+                tasks.append(self.get_order(sem, order_dom, order_date, office))
 
             if tasks:
                 orders = await asyncio.gather(*tasks, return_exceptions=True)

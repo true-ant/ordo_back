@@ -13,7 +13,7 @@ from scrapy import Selector
 
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
-from apps.scrapers.utils import catch_network
+from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct, VendorCartProduct
 from apps.types.scraper import (
     InvoiceFile,
@@ -312,7 +312,8 @@ class BencoScraper(Scraper):
     async def _after_login_hook(self, response: ClientResponse):
         pass
 
-    async def get_order(self, order_link, referer, office=None) -> dict:
+    @semaphore_coroutine
+    async def get_order(self, sem, order_link, referer, office=None) -> dict:
         headers = ORDER_DETAIL_HEADERS.copy()
         headers["Referer"] = referer
 
@@ -411,6 +412,7 @@ class BencoScraper(Scraper):
         from_date: Optional[datetime.date] = None,
         to_date: Optional[datetime.date] = None,
     ) -> List[Order]:
+        sem = asyncio.Semaphore(value=2)
         url = f"{self.BASE_URL}/PurchaseHistory/NewIndex"
         if perform_login:
             await self.login()
@@ -437,7 +439,7 @@ class BencoScraper(Scraper):
                 "//div[contains(@class, 'order-container')]/div[@class='panel-heading']"
             ):
                 orders_links.append(order_preview_dom.xpath(".//a/@href").extract()[-1])
-            tasks = (self.get_order(order_link, url, office) for order_link in orders_links)
+            tasks = (self.get_order(sem, order_link, url, office) for order_link in orders_links)
             orders = await asyncio.gather(*tasks, return_exceptions=True)
             return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
 
