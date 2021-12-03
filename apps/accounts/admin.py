@@ -77,9 +77,14 @@ class OfficeBudgetInline(NestedTabularInline):
         return super().get_queryset(request).filter(month__gte=month).order_by("-month")
 
 
+class SubscriptionInline(ReadOnlyAdminMixin, NestedTabularInline):
+    model = m.Subscription
+    readonly_fields = ("subscription_id",)
+
+
 class OfficeInline(NestedTabularInline):
     model = m.Office
-    inlines = [OfficeVendorInline, OfficeBudgetInline]
+    inlines = [SubscriptionInline, OfficeVendorInline, OfficeBudgetInline]
     can_delete = False
     readonly_fields = (
         "logo_thumb",

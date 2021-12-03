@@ -2,7 +2,6 @@
 # Create your models here.
 from datetime import timedelta
 
-from creditcards.models import CardExpiryField, CardNumberField, SecurityCodeField
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
@@ -46,6 +45,7 @@ class Company(TimeStampedModel):
     slug = AutoSlugField(populate_from=["name"])
     on_boarding_step = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    billing_together = models.BooleanField(default=False)
 
     objects = managers.CompanyMemeberActiveManager()
 
@@ -68,9 +68,6 @@ class Office(TimeStampedModel):
     website = models.URLField(max_length=100, null=True, blank=True)
     logo = models.ImageField(null=True, blank=True, upload_to="offices")
     # Budget & Card Information
-    cc_number = CardNumberField("Card Number", null=True, blank=True)
-    cc_expiry = CardExpiryField("Expiration Date", null=True, blank=True)
-    cc_code = SecurityCodeField("Security Code", null=True, blank=True)
 
     objects = managers.CompanyMemeberActiveManager()
 
@@ -90,6 +87,24 @@ class Office(TimeStampedModel):
         current_date = timezone.now().date()
         month = Month(year=current_date.year, month=current_date.month)
         return self.budgets.filter(month=month).first()
+
+    @property
+    def active_subscription(self):
+        return self.subscriptions.filter(cancelled_on__isnull=True).order_by("-updated_at").first()
+
+    @property
+    def card(self):
+        return self.cards.first()
+
+
+class Card(TimeStampedModel):
+    last4 = models.CharField(max_length=5, blank=True)
+    customer_id = models.CharField(max_length=70, blank=True)
+    card_token = models.CharField(max_length=100, blank=True)
+    office = models.ForeignKey(Office, null=True, blank=True, on_delete=models.CASCADE, related_name="cards")
+
+    def __str__(self):
+        return self.last4
 
 
 class OfficeAddress(TimeStampedModel):
@@ -185,3 +200,13 @@ class CompanyMember(TimeStampedModel):
 
     class Meta:
         unique_together = ["company", "email"]
+
+
+class Subscription(TimeStampedModel):
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name="subscriptions")
+    subscription_id = models.CharField(max_length=128)
+    start_on = models.DateField()
+    cancelled_on = models.DateField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.office.name}' Subscription"

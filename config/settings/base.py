@@ -244,3 +244,7 @@ if SENTRY_DSN:
         traces_sample_rate=1.0,
         send_default_pii=True,
     )
+
+# Stripe
+STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
+STRIPE_SUBSCRIPTION_PRICE_ID = os.getenv("STRIPE_SUBSCRIPTION_PRICE_ID")

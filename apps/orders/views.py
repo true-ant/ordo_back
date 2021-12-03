@@ -48,7 +48,7 @@ from .tasks import (
 
 class OrderViewSet(AsyncMixin, ModelViewSet):
     queryset = m.Order.objects.all()
-    permission_classes = [IsAuthenticated]
+    permission_classes = [p.OfficeSubscriptionPermission]
     serializer_class = s.OrderSerializer
     pagination_class = StandardResultsSetPagination
     filterset_class = f.OrderFilter
@@ -196,6 +196,7 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
 
 class VendorOrderViewSet(AsyncMixin, ModelViewSet):
     queryset = m.VendorOrder.objects.all()
+    permission_classes = [p.OfficeSubscriptionPermission]
     serializer_class = s.VendorOrderSerializer
     pagination_class = StandardResultsSetPagination
 
@@ -243,7 +244,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
 
 
 class VendorOrderProductViewSet(ModelViewSet):
-    permission_classes = [p.ProductStatusUpdatePermission]
+    permission_classes = [p.ProductStatusUpdatePermission, p.OfficeSubscriptionPermission]
     queryset = m.VendorOrderProduct.objects.all()
     serializer_class = s.VendorOrderProductSerializer
     filterset_class = f.VendorOrderProductFilter
@@ -357,6 +358,7 @@ def get_inventory_products(office: Union[SmartID, m.Office]):
 
 
 class CompanySpendAPIView(APIView):
+    # TODO: Update proper permission
     permission_classes = [p.CompanyOfficeReadPermission]
 
     def get(self, request, company_pk):
@@ -369,6 +371,7 @@ class CompanySpendAPIView(APIView):
 
 
 class OfficeSpendAPIView(APIView):
+    # TODO: update proper permission
     permission_classes = [p.CompanyOfficeReadPermission]
 
     def get(self, request, office_pk):
@@ -474,7 +477,7 @@ def get_serializer_data(serializer_class, data, many=True):
 
 
 class CartViewSet(AsyncMixin, ModelViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [p.OfficeSubscriptionPermission]
     model = m.Cart
     serializer_class = s.CartSerializer
     queryset = m.Cart.objects.all()
@@ -812,7 +815,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
 
 class CheckoutAvailabilityAPIView(APIView):
-    permission_classes = [p.OrderCheckoutPermission]
+    permission_classes = [p.OrderCheckoutPermission, p.OfficeSubscriptionPermission]
 
     def get(self, request, *args, **kwargs):
         cart_products, office_vendors = get_cart(office_pk=kwargs.get("office_pk"))
@@ -824,7 +827,7 @@ class CheckoutAvailabilityAPIView(APIView):
 
 
 class CheckoutUpdateStatusAPIView(APIView):
-    permission_classes = [p.OrderCheckoutPermission]
+    permission_classes = [p.OrderCheckoutPermission, p.OfficeSubscriptionPermission]
 
     def post(self, request, *args, **kwargs):
         cart_products, office_vendors = get_cart(office_pk=kwargs.get("office_pk"))
@@ -850,7 +853,7 @@ class OfficeProductViewSet(ModelViewSet):
     queryset = m.OfficeProduct.objects.all()
     serializer_class = s.OfficeProductSerializer
     pagination_class = StandardResultsSetPagination
-    permission_classes = [IsAuthenticated]
+    permission_classes = [p.OfficeSubscriptionPermission]
     filterset_class = f.OfficeProductFilter
 
     def get_serializer_context(self):
@@ -884,7 +887,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
     # queryset = m.OfficeProduct.objects.all()
     # serializer_class = s.OfficeProductSerializer
     # pagination_class = SearchProductPagination
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [p.OfficeSubscriptionPermission]
 
     def get_queryset(self):
         data = self.request.data

@@ -32,6 +32,7 @@ from . import filters as f
 from . import models as m
 from . import permissions as p
 from . import serializers as s
+from .services import cancel_subscription, create_subscription
 from .tasks import (
     fetch_orders_from_vendor,
     send_company_invite_email,
@@ -119,6 +120,9 @@ class CompanyViewSet(
             instance.is_active = False
             instance.save()
 
+            for office in instance.offices.all():
+                cancel_subscription(office)
+
 
 class OfficeViewSet(ModelViewSet):
     permission_classes = [p.CompanyOfficePermission]
@@ -132,15 +136,32 @@ class OfficeViewSet(ModelViewSet):
         kwargs["partial"] = True
         return super().update(request, *args, **kwargs)
 
+    @action(detail=True, methods=["get"], url_path="renew-subscription")
+    def renew_subscription(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        result, message = create_subscription(instance)
+        return Response({"message": message}, status=HTTP_200_OK if result else HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=["get"], url_path="cancel-subscription")
+    def cancel_subscription(self, request, *args, **kwargs):
+        instance = self.get_object()
+        result, message = cancel_subscription(instance)
+        return Response({"message": message}, status=HTTP_200_OK if result else HTTP_400_BAD_REQUEST)
+
     def perform_destroy(self, instance):
         with transaction.atomic():
             active_members = m.CompanyMember.objects.filter(office=instance)
             for active_member in active_members:
                 active_member.is_active = False
 
-            m.CompanyMember.objects.bulk_update(active_members, ["is_active"])
+            if active_members:
+                m.CompanyMember.objects.bulk_update(active_members, ["is_active"])
             instance.is_active = False
             instance.save()
+
+            # cancel subscription
+            cancel_subscription(instance)
 
 
 class CompanyMemberViewSet(ModelViewSet):

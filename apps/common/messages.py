@@ -32,3 +32,7 @@ WAIT_UNTIL_ORDER_FINISH = "Please wait until current checkout user finish checko
 NO_INVOICE = "Invoice does not exist"
 PAYLOAD_ISSUE = "There must be a problem in the request payload"
 UPDATE_ORDER_PRODUCT_STATUS_ERROR = "This product cannot be updated until it is arrived"
+
+# Subscription
+OFFICE_HAS_ACTIVE_SUBSCRIPTION = "This office has active subscription"
+OFFICE_HAS_NO_SUBSCRIPTION = "This office has no subscription"
