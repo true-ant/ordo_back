@@ -52,6 +52,14 @@ class OfficeBudgetSerializer(serializers.ModelSerializer):
         }
 
 
+class OfficeBudgetChartSerializer(serializers.Serializer):
+    month = serializers.CharField()
+    dental_budget = serializers.DecimalField(max_digits=8, decimal_places=2)
+    dental_spend = serializers.DecimalField(max_digits=8, decimal_places=2)
+    office_budget = serializers.DecimalField(max_digits=8, decimal_places=2)
+    office_spend = serializers.DecimalField(max_digits=8, decimal_places=2)
+
+
 class OfficeAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.OfficeAddress

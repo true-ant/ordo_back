@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 from asgiref.sync import sync_to_async
+from dateutil.relativedelta import relativedelta
 
 # from celery.result import AsyncResult
 from django.apps import apps
@@ -441,6 +443,38 @@ class OfficeBudgetViewSet(ModelViewSet):
         request.data.setdefault("office", self.kwargs["office_pk"])
         request.data.setdefault("month", now_date)
         return super().create(request, *args, **kwargs)
+
+    @action(detail=False, methods=["get"], url_path="charts")
+    def get_chart_data(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        this_month = timezone.now().date().replace(day=1)
+        a_year_ago = this_month - relativedelta(months=11)
+        queryset = list(
+            queryset.filter(month__lte=this_month, month__gte=a_year_ago)
+            .order_by("month")
+            .values("month", "dental_budget", "dental_spend", "office_budget", "office_spend")
+        )
+        queryset = {str(q["month"]): q for q in queryset}
+
+        ret = []
+        for i in range(12):
+            month = a_year_ago + relativedelta(months=i)
+            month_str = month.strftime("%Y-%m")
+            if month_str in queryset:
+                ret.append(queryset[month_str])
+            else:
+                decimal_0 = Decimal(0)
+                ret.append(
+                    {
+                        "month": month_str,
+                        "dental_budget": decimal_0,
+                        "dental_spend": decimal_0,
+                        "office_budget": decimal_0,
+                        "office_spend": decimal_0,
+                    }
+                )
+        serializer = s.OfficeBudgetChartSerializer(ret, many=True)
+        return Response(serializer.data)
 
     def update(self, request, *args, **kwargs):
         kwargs.setdefault("partial", True)

@@ -77,9 +77,10 @@ class OfficeBudgetInline(NestedTabularInline):
         return super().get_queryset(request).filter(month__gte=month).order_by("-month")
 
 
-class SubscriptionInline(ReadOnlyAdminMixin, NestedTabularInline):
+class SubscriptionInline(NestedTabularInline):
     model = m.Subscription
-    readonly_fields = ("subscription_id",)
+    # readonly_fields = ("subscription_id",)
+    extra = 0
 
 
 class OfficeInline(NestedTabularInline):
