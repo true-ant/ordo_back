@@ -412,8 +412,66 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="suggestion")
     def product_suggestion(self, request, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())[:5]
-        serializer = s.ProductSuggestionSerializer(queryset, many=True)
+        # get suggestions from inventory list first
+        office_id = request.query_params.get("office")
+        q = request.query_params.get("q", "")
+        office_products = (
+            m.OfficeProduct.objects.select_related("product__images")
+            .filter(
+                Q(office_id=office_id)
+                & Q(is_inventory=True)
+                & Q(product__parent__isnull=True)
+                & (
+                    Q(product__product_id=q)
+                    | Q(product__name__icontains=q)
+                    | Q(product__tags__keyword=q)
+                    | Q(product__child__product_id=q)
+                    | Q(product__child__name__icontains=q)
+                    | Q(product__child__tags__keyword=q)
+                )
+            )
+            .distinct()
+            .values("product__product_id", "product__name", "product__images__image")[:5]
+        )
+        suggestion_products = [
+            {
+                "product_id": product["product__product_id"],
+                "name": product["product__name"],
+                "image": product["product__images__image"],
+            }
+            for product in office_products
+        ]
+        product_ids = [product["product_id"] for product in suggestion_products]
+        if len(office_products) < 5:
+            # get suggestions from from product list
+            products = (
+                m.Product.objects.select_related("images")
+                .filter(
+                    Q(parent__isnull=True)
+                    & (
+                        Q(product_id=q)
+                        | Q(name__icontains=q)
+                        | Q(tags__keyword=q)
+                        | Q(child__product_id=q)
+                        | Q(child__name__icontains=q)
+                        | Q(child__tags__keyword=q)
+                    )
+                )
+                .exclude(product_id__in=product_ids)
+                .distinct()
+                .values("product_id", "name", "images__image")[: 5 - len(office_products)]
+            )
+            suggestion_products.extend(
+                [
+                    {
+                        "product_id": product["product_id"],
+                        "name": product["name"],
+                        "image": product["images__image"],
+                    }
+                    for product in products
+                ]
+            )
+        serializer = s.ProductSuggestionSerializer(suggestion_products, many=True)
         return Response(serializer.data)
 
 

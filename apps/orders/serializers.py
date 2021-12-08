@@ -308,13 +308,7 @@ class ClearCartSerializer(serializers.Serializer):
     remove = serializers.ChoiceField(choices=["save_for_later", "cart"])
 
 
-class ProductSuggestionSerializer(serializers.ModelSerializer):
-    image = serializers.SerializerMethodField()
-
-    class Meta:
-        model = m.Product
-        fields = ("id", "product_id", "name", "image")
-
-    def get_image(self, instance):
-        image = instance.images.first()
-        return image.image if image else ""
+class ProductSuggestionSerializer(serializers.Serializer):
+    product_id = serializers.CharField()
+    name = serializers.CharField()
+    image = serializers.CharField()
