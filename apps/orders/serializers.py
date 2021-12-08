@@ -312,3 +312,4 @@ class ProductSuggestionSerializer(serializers.Serializer):
     product_id = serializers.CharField()
     name = serializers.CharField()
     image = serializers.CharField()
+    is_inventory = serializers.BooleanField()

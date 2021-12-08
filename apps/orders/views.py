@@ -438,6 +438,7 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
                 "product_id": product["product__product_id"],
                 "name": product["product__name"],
                 "image": product["product__images__image"],
+                "is_inventory": True,
             }
             for product in office_products
         ]
@@ -467,6 +468,7 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
                         "product_id": product["product_id"],
                         "name": product["name"],
                         "image": product["images__image"],
+                        "is_inventory": False,
                     }
                     for product in products
                 ]
