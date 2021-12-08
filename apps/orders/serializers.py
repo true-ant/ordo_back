@@ -288,6 +288,19 @@ class OfficeProductSerializer(serializers.ModelSerializer):
                 if child_product["id"] in office_products
             ]
 
+        if ret["is_inventory"]:
+            last_order = (
+                m.VendorOrderProduct.objects.select_related("vendor_order")
+                .filter(product__product_id=ret["product"]["product_id"])
+                .order_by("-vendor_order__order_date")
+                .first()
+            )
+            if last_order:
+                ret["last_order_date"] = last_order.vendor_order.order_date.isoformat()
+                ret["last_order_price"] = last_order.unit_price
+            else:
+                ret["last_order_date"] = None
+                ret["last_order_price"] = None
         return ret
 
 
