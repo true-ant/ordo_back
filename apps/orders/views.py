@@ -767,7 +767,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                         for cart_product in cart_products
                         if cart_product.product.vendor.id == office_vendor.vendor.id
                     ],
-                    fake=False,
+                    fake=True,
                 )
             )
 
