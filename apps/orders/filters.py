@@ -31,7 +31,7 @@ class ProductFilter(filters.FilterSet):
         fields = ["q"]
 
     def filter_product(self, queryset, name, value):
-        q = Q(product_id=value) | Q(name__icontains=value) | Q(tags__keyword=value)
+        q = Q(product_id=value) | Q(name__icontains=value) | Q(tags__keyword__iexact=value)
         return queryset.filter(q).distinct()
 
 
@@ -48,9 +48,9 @@ class OfficeProductFilter(filters.FilterSet):
         q = (
             Q(product__product_id=value)
             | Q(product__name__icontains=value)
-            | Q(product__tags__keyword=value)
+            | Q(product__tags__keyword__iexact=value)
             | Q(product__child__product_id=value)
             | Q(product__child__name__icontains=value)
-            | Q(product__child__tags__keyword=value)
+            | Q(product__child__tags__keyword__iexact=value)
         )
         return queryset.filter(q).distinct()
