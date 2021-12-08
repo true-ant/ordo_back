@@ -210,7 +210,9 @@ def get_task(scraper, scraper_name, test="login", **kwargs):
     elif test == "confirm_order":
         return scraper.confirm_order(get_test_products(scraper_name), fake=True)
     elif test == "search_product":
-        return scraper.search_products(query="bite registration", page=1)
+        return scraper.search_products(
+            query="Palodent Plus Sectional Matrix System Refill - 5.5 mm Matrices 50/Bx. Accurate", page=1
+        )
     elif test == "search_products_v2":
         office = kwargs.get("office")
         keyword = kwargs.get("keyword")
@@ -245,7 +247,7 @@ def get_task(scraper, scraper_name, test="login", **kwargs):
 
 
 async def main(vendors, **kwargs):
-    scraper_names = ["patterson"]
+    scraper_names = ["net_32"]
     base_data = get_scraper_data()
     tasks = []
     async with ClientSession() as session:
@@ -258,7 +260,7 @@ async def main(vendors, **kwargs):
                 username=scraper_data["username"],
                 password=scraper_data["password"],
             )
-            tasks.append(get_task(scraper, scraper_name, "download_invoice", **kwargs))
+            tasks.append(get_task(scraper, scraper_name, "search_product", **kwargs))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
     # products = [

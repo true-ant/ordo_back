@@ -267,7 +267,43 @@ class Net32Scraper(Scraper):
         await asyncio.gather(*tasks, return_exceptions=True)
         return product_data_dict
 
-    @catch_network
+    def get_products_from_search_page(self, dom) -> List[Product]:
+        products = []
+        products_dom = dom.xpath(
+            "//div[@class='localsearch-results-container']//div[contains(@class, 'localsearch-result-wrapper')]"
+        )
+
+        for product_dom in products_dom:
+            products.append(
+                Product.from_dict(
+                    {
+                        "product_id": product_dom.attrib["data-mpid"],
+                        "name": self.extract_first(
+                            product_dom, ".//a[@class='localsearch-result-product-name']//text()"
+                        ),
+                        "description": self.extract_first(
+                            product_dom, ".//div[@class='localsearch-result-product-packaging-container']//text()"
+                        ),
+                        "url": self.BASE_URL
+                        + self.extract_first(product_dom, ".//a[@class='localsearch-result-product-name']/@href"),
+                        "images": [
+                            {
+                                "image": self.BASE_URL
+                                + self.extract_first(
+                                    product_dom, ".//img[@class='localsearch-result-product-thumbnail']/@src"
+                                )
+                            }
+                        ],
+                        "price": self.extract_first(
+                            product_dom, ".//ins[@class='localsearch-result-best-price']//text()"
+                        ),
+                        "vendor": self.vendor.to_dict(),
+                    }
+                )
+            )
+
+        return products
+
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
     ) -> ProductSearch:
@@ -283,8 +319,11 @@ class Net32Scraper(Scraper):
             params["filter.price.high"] = max_price
 
         async with self.session.get(url, headers=SEARCH_HEADERS, params=params) as resp:
+            response_url = str(resp.url)
+            search_result_page = "search" in response_url
             response_dom = Selector(text=await resp.text())
 
+        if search_result_page:
             try:
                 total_size_str = response_dom.xpath(
                     "//p[@class='localsearch-result-summary-paragraph']/strong/text()"
@@ -293,48 +332,21 @@ class Net32Scraper(Scraper):
             except (AttributeError, ValueError, TypeError):
                 total_size = 0
 
-            products = []
-            products_dom = response_dom.xpath(
-                "//div[@class='localsearch-results-container']//div[contains(@class, 'localsearch-result-wrapper')]"
-            )
+            products = self.get_products_from_search_page(response_dom)
+        else:
+            product_id = response_url.split("-")[-1]
+            product = await self.get_product_as_dict(product_id, response_url)
+            products = [Product.from_dict(product)]
+            total_size = 1
 
-            for product_dom in products_dom:
-                products.append(
-                    Product.from_dict(
-                        {
-                            "product_id": product_dom.attrib["data-mpid"],
-                            "name": self.extract_first(
-                                product_dom, ".//a[@class='localsearch-result-product-name']//text()"
-                            ),
-                            "description": self.extract_first(
-                                product_dom, ".//div[@class='localsearch-result-product-packaging-container']//text()"
-                            ),
-                            "url": self.BASE_URL
-                            + self.extract_first(product_dom, ".//a[@class='localsearch-result-product-name']/@href"),
-                            "images": [
-                                {
-                                    "image": self.BASE_URL
-                                    + self.extract_first(
-                                        product_dom, ".//img[@class='localsearch-result-product-thumbnail']/@src"
-                                    )
-                                }
-                            ],
-                            "price": self.extract_first(
-                                product_dom, ".//ins[@class='localsearch-result-best-price']//text()"
-                            ),
-                            "vendor": self.vendor.to_dict(),
-                        }
-                    )
-                )
-
-            return {
-                "vendor_slug": self.vendor.slug,
-                "total_size": total_size,
-                "page": page,
-                "page_size": page_size,
-                "products": products,
-                "last_page": page_size * page >= total_size,
-            }
+        return {
+            "vendor_slug": self.vendor.slug,
+            "total_size": total_size,
+            "page": page,
+            "page_size": page_size,
+            "products": products,
+            "last_page": page_size * page >= total_size,
+        }
 
     async def add_product_to_cart(self, product: CartProduct, perform_login=False) -> dict:
         if perform_login:
