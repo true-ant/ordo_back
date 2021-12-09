@@ -201,6 +201,9 @@ class CompanyMember(TimeStampedModel):
     class Meta:
         unique_together = ["company", "email"]
 
+    def __str__(self):
+        return f"{self.company} - {self.email}"
+
 
 class Subscription(TimeStampedModel):
     office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name="subscriptions")
