@@ -198,6 +198,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
     queryset = m.VendorOrder.objects.all()
     permission_classes = [p.OfficeSubscriptionPermission]
     serializer_class = s.VendorOrderSerializer
+    filterset_class = f.VendorOrderFilter
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
