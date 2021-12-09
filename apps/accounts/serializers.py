@@ -73,7 +73,7 @@ class OfficeSerializer(serializers.ModelSerializer):
     logo = Base64ImageField(required=False)
     vendors = VendorSerializer(many=True, required=False)
     phone_number = PhoneNumberField()
-    website = serializers.CharField(validators=[OptionalSchemeURLValidator()])
+    website = serializers.CharField(validators=[OptionalSchemeURLValidator()], allow_null=True)
     cc_number = serializers.CharField(validators=[CCNumberValidator()], write_only=True)
     cc_expiry = serializers.DateField(
         validators=[ExpiryDateValidator()], input_formats=["%m/%y"], format="%m/%y", write_only=True
