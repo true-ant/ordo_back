@@ -18,7 +18,6 @@ from apps.orders.models import Keyword as KeyModel
 from apps.orders.models import OfficeCheckoutStatus
 from apps.orders.models import OfficeKeyword as OfficeKeyModel
 from apps.orders.models import OfficeProduct as OfficeProductModel
-from apps.orders.models import Order as OrderModel
 from apps.orders.models import OrderStatus
 from apps.orders.models import Product as ProductModel
 from apps.orders.models import ProductCategory
@@ -185,19 +184,20 @@ def search_and_group_products(keyword, office_id, vendor_ids):
 
 
 @shared_task
-def notify_order_creation(order_id, approval_needed, product_ids=()):
-    try:
-        order = OrderModel.objects.get(id=order_id)
-    except OrderModel.DoesNotExist:
-        return
+def notify_order_creation(vendor_order_ids, approval_needed):
+    vendor_orders = VendorOrderModel.objects.filter(id__in=vendor_order_ids)
+    total_items = 0
+    total_amount = 0
+    order_date = vendor_orders[0].order_date
+    for vendor_order in vendor_orders:
+        total_amount += vendor_order.total_amount
+        total_items += vendor_order.total_items
 
-    office = order.office
+    office = vendor_orders[0].order.office
 
-    # add products to inventory lists
-    office_products = OfficeProductModel.objects.filter(office=office, product__product_id__in=product_ids)
-    for office_product in office_products:
-        office_product.is_inventory = True
-    OfficeProductModel.objects.bulk_update(office_products, ["is_inventory"])
+    products = VendorOrderProductModel.objects.filter(vendor_order_id__in=vendor_order_ids).annotate(
+        total_price=F("unit_price") * F("quantity")
+    )
 
     # send notification
     if approval_needed:
@@ -212,6 +212,13 @@ def notify_order_creation(order_id, approval_needed, product_ids=()):
             .values_list("user__email", flat=True)
         )
     else:
+        # add products to inventory lists
+        product_ids = [product.product.id for product in products]
+        office_products = OfficeProductModel.objects.filter(office=office, product__product_id__in=product_ids)
+        for office_product in office_products:
+            office_product.is_inventory = True
+        OfficeProductModel.objects.bulk_update(office_products, ["is_inventory"])
+
         emails = (
             CompanyMember.objects.select_related("user")
             .filter(
@@ -222,9 +229,6 @@ def notify_order_creation(order_id, approval_needed, product_ids=()):
             .values_list("user__email", flat=True)
         )
 
-    products = VendorOrderProductModel.objects.filter(vendor_order__order_id=order_id).annotate(
-        total_price=F("unit_price") * F("quantity")
-    )
     # TODO: Compare performance above vs below, I guess below is more faster than above
     #  because additional query won't happen in django templates
 
@@ -247,9 +251,12 @@ def notify_order_creation(order_id, approval_needed, product_ids=()):
     else:
         email_template = "order_creation.html"
     htm_content = render_to_string(
-        f"emails/{email_template}.html",
+        f"emails/{email_template}",
         {
-            "order": order,
+            "order_date": order_date,
+            "total_items": total_items,
+            "total_amount": total_amount,
+            "office": office,
             "products": products,
             "SITE_URL": settings.SITE_URL,
         },

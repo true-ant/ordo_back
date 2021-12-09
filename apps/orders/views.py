@@ -31,6 +31,7 @@ from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
 from apps.common.pagination import SearchProductPagination, StandardResultsSetPagination
 from apps.common.utils import group_products_from_search_result
+from apps.orders.services.order import OrderService
 from apps.scrapers.errors import VendorNotConnected, VendorNotSupported, VendorSiteError
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import CartProduct
@@ -217,12 +218,14 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
             "password": office_vendor.password,
         }
 
-    #
-    # @action(detail=True, methods=["get"], url_path="approve")
-    # def approve_order(self):
-    #     vendor_order = self.get_object()
-    #     if vendor_order:
-    #
+    @action(detail=True, methods=["get"], url_path="approve")
+    async def approve_order(self, request, *args, **kwargs):
+        vendor_order = await sync_to_async(self.get_object)()
+        if vendor_order.status != m.OrderStatus.WAITING_APPROVAL:
+            return Response({"message": "this order status is not waiting approval"})
+
+        await OrderService.approve_vendor_order(vendor_order=vendor_order)
+        return Response({"message": "okay"})
 
     @action(detail=True, methods=["get"], url_path="invoice-download")
     async def download_invoice(self, request, *args, **kwargs):
@@ -690,8 +693,8 @@ class CartViewSet(AsyncMixin, ModelViewSet):
     @sync_to_async
     def _create_order(self, office_vendors, vendor_order_results, cart_products, approval_needed, data):
         order_date = timezone.now().date()
-        inventory_products_ids = []
         office = office_vendors[0].office
+        vendor_order_ids = []
         with transaction.atomic():
             order = m.Order.objects.create(
                 office_id=self.kwargs["office_pk"],
@@ -722,9 +725,9 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                     order_date=order_date,
                     status=m.OrderStatus.WAITING_APPROVAL if approval_needed else m.OrderStatus.PROCESSING,
                 )
+                vendor_order_ids.append(vendor_order.id)
                 objs = []
                 for vendor_order_product in vendor_order_products:
-                    inventory_products_ids.append(vendor_order_product.product.id)
                     objs.append(
                         m.VendorOrderProduct(
                             vendor_order=vendor_order,
@@ -754,7 +757,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
         cart_products.delete()
 
-        notify_order_creation.delay(order.id, approval_needed, inventory_products_ids)
+        notify_order_creation.delay(vendor_order_ids, approval_needed)
         return s.OrderSerializer(order).data
 
     @action(detail=False, url_path="checkout", methods=["get"], permission_classes=[p.OrderCheckoutPermission])
@@ -818,8 +821,10 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         session = apps.get_app_config("accounts").session
         tasks = []
 
-        debug = True
-        total_amount = sum([Decimal(vendor_data["total_amount"]) for vendor_data in data])
+        debug = OrderService.is_debug_mode()
+        total_amount = sum(
+            [Decimal(str(vendor_data["total_amount"])) for vendor, vendor_data in data.items() if vendor != "amazon"]
+        )
         remaining_budget = await sync_to_async(OfficeService.get_office_remaining_budget)(
             office_pk=self.kwargs["office_pk"]
         )

@@ -92,6 +92,7 @@ class VendorOrderProductSerializer(serializers.ModelSerializer):
 class VendorOrderSerializer(serializers.ModelSerializer):
     products = VendorOrderProductSerializer(many=True, source="vendororderproduct_set")
     vendor = VendorSerializer()
+    status_display_text = serializers.CharField(source="get_status_display")
 
     class Meta:
         model = m.VendorOrder

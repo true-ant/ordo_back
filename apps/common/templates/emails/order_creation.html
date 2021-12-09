@@ -20,7 +20,7 @@
                     <img src="https://cdn.joinordo.com/emails/images/logo.png" alt="" style="width: 100px; height: 28px;">
                   </td>
                   <td width="50%">
-                    <p style="font-family:GILROY-BOLD; font-size: 16px; font-weight: bold; font-stretch: normal; font-style: normal; line-height: 1.2; letter-spacing: normal; text-align: right; color: #1c455a;">{{order.office.name}}</p>
+                    <p style="font-family:GILROY-BOLD; font-size: 16px; font-weight: bold; font-stretch: normal; font-style: normal; line-height: 1.2; letter-spacing: normal; text-align: right; color: #1c455a;">{{office.name}}</p>
                   </td>
                 </tr>
               </table>
@@ -39,19 +39,19 @@
                   <td style="width: 23%;">
                     <p style="font-family: GILROY; font-size: 12px; font-weight: 500; font-stretch: normal; font-style: normal; line-height: 1.2; letter-spacing: normal; text-align: right;">
                       <span style="color: #2c2c2c;">Order Date : </span>
-                      <span style="color: #29bf12; font-family: GILROY-BOLD">{{ order.order_date }}</span>
+                      <span style="color: #29bf12; font-family: GILROY-BOLD">{{ order_date }}</span>
                     </p>
                   </td>
                   <td style="width: 23%;">
                     <p style="font-family: GILROY; font-size: 12px; font-weight: 500; font-stretch: normal; font-style: normal; line-height: 1.2; letter-spacing: normal; text-align: right;">
                       <span style="color: #2c2c2c;">Number of Items : </span>
-                      <span style="color: #29bf12; font-family: GILROY-BOLD">{{ order.total_items }}</span>
+                      <span style="color: #29bf12; font-family: GILROY-BOLD">{{ total_items }}</span>
                     </p>
                   </td>
                   <td style="width: 23%;">
                     <p style="font-family: GILROY; font-size: 12px; font-weight: 500; font-stretch: normal; font-style: normal; line-height: 1.2; letter-spacing: normal; text-align: right;">
                       <span style="color: #2c2c2c;">Order Total : </span>
-                      <span style="color: #29bf12; font-family: GILROY-BOLD">${{ order.total_amount }}</span>
+                      <span style="color: #29bf12; font-family: GILROY-BOLD">${{ total_amount }}</span>
                     </p>
                   </td>
                 </tr>
@@ -140,10 +140,10 @@
                       <tr>
                         <td style="width: 55%;">
                           <p style="font-family: GILROY; font-size: 14px; font-weight: bold; font-stretch: normal; font-style: normal; line-height: 1.2; letter-spacing: normal; text-align: left; color: #70706f; padding-bottom: 7px;">Shipping Address</p>
-                          <p style="font-family: GILROY; font-size: 12px; font-weight: 500; font-stretch: normal; font-style: normal; line-height: 0.6; letter-spacing: normal; text-align: left; color: #70706f; padding-bottom: 7px;">{{ order.office.name }}</p>
-                          <p style="font-family: GILROY; font-size: 12px; font-weight: 500; font-stretch: normal; font-style: normal; line-height: 0.6; letter-spacing: normal; text-align: left; color: #70706f; padding-bottom: 7px;">{{ order.office.addresses.first.address}}</p>
-                          <p style="font-family: GILROY; font-size: 12px; font-weight: 500; font-stretch: normal; font-style: normal; line-height: 0.6; letter-spacing: normal; text-align: left; color: #70706f; padding-bottom: 7px;">{{ order.office.addresses.first.city }}, {{ order.office.addresses.first.state }}</p>
-                          <p style="font-family: GILROY; font-size: 12px; font-weight: 500; font-stretch: normal; font-style: normal; line-height: 0.6; letter-spacing: normal; text-align: left; color: #70706f; padding-bottom: 7px;">{{ order.office.addresses.first.zip_code }}, United States</p>
+                          <p style="font-family: GILROY; font-size: 12px; font-weight: 500; font-stretch: normal; font-style: normal; line-height: 0.6; letter-spacing: normal; text-align: left; color: #70706f; padding-bottom: 7px;">{{ office.name }}</p>
+                          <p style="font-family: GILROY; font-size: 12px; font-weight: 500; font-stretch: normal; font-style: normal; line-height: 0.6; letter-spacing: normal; text-align: left; color: #70706f; padding-bottom: 7px;">{{ office.addresses.first.address}}</p>
+                          <p style="font-family: GILROY; font-size: 12px; font-weight: 500; font-stretch: normal; font-style: normal; line-height: 0.6; letter-spacing: normal; text-align: left; color: #70706f; padding-bottom: 7px;">{{ office.addresses.first.city }}, {{ office.addresses.first.state }}</p>
+                          <p style="font-family: GILROY; font-size: 12px; font-weight: 500; font-stretch: normal; font-style: normal; line-height: 0.6; letter-spacing: normal; text-align: left; color: #70706f; padding-bottom: 7px;">{{ office.addresses.first.zip_code }}, United States</p>
                         </td>
                         <td style="vertical-align: top; width: 45%;">
                           <p>
