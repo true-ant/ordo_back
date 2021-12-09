@@ -780,19 +780,18 @@ class BencoScraper(Scraper):
                 **vendor_order_detail.to_dict(),
                 "order_id": f"{uuid.uuid4()}",
             }
-        else:
-            data = {"__RequestVerificationToken": request_verification_token}
-            headers = CONFIRM_ORDER_HEADERS.copy()
-            headers["Referer"] = f"https://shop.benco.com/Checkout/BeginCheckout?cartId={cart_id}"
-            async with self.session.post(
-                "https://shop.benco.com/Checkout/Confirm", headers=headers, data=data, ssl=self._ssl_context
-            ) as resp:
-                response_dom = Selector(text=await resp.text())
-                order_id = response_dom.xpath("//h4//span[@class='alt-dark-text']//text()").get()
-                return {
-                    **vendor_order_detail.to_dict(),
-                    "order_id": order_id,
-                }
+        data = {"__RequestVerificationToken": request_verification_token}
+        headers = CONFIRM_ORDER_HEADERS.copy()
+        headers["Referer"] = f"https://shop.benco.com/Checkout/BeginCheckout?cartId={cart_id}"
+        async with self.session.post(
+            "https://shop.benco.com/Checkout/Confirm", headers=headers, data=data, ssl=self._ssl_context
+        ) as resp:
+            response_dom = Selector(text=await resp.text())
+            order_id = response_dom.xpath("//h4//span[@class='alt-dark-text']//text()").get()
+            return {
+                **vendor_order_detail.to_dict(),
+                "order_id": order_id,
+            }
 
     async def download_invoice(self, invoice_link, order_id) -> InvoiceFile:
         await self.login()
