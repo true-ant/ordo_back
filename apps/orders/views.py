@@ -217,6 +217,13 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
             "password": office_vendor.password,
         }
 
+    #
+    # @action(detail=True, methods=["get"], url_path="approve")
+    # def approve_order(self):
+    #     vendor_order = self.get_object()
+    #     if vendor_order:
+    #
+
     @action(detail=True, methods=["get"], url_path="invoice-download")
     async def download_invoice(self, request, *args, **kwargs):
         vendor_order = await self.get_office_vendor()
@@ -681,7 +688,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         return Response({"message": msgs.SUCCESS})
 
     @sync_to_async
-    def _create_order(self, office_vendors, vendor_order_results, cart_products, data):
+    def _create_order(self, office_vendors, vendor_order_results, cart_products, approval_needed, data):
         order_date = timezone.now().date()
         inventory_products_ids = []
         office = office_vendors[0].office
@@ -690,7 +697,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                 office_id=self.kwargs["office_pk"],
                 created_by=self.request.user,
                 order_date=order_date,
-                status="PENDING",
+                status=m.OrderStatus.WAITING_APPROVAL if approval_needed else m.OrderStatus.PROCESSING,
             )
             total_amount = 0
             total_items = 0
@@ -713,7 +720,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                     total_items=vendor_total_items,
                     currency="USD",
                     order_date=order_date,
-                    status="PENDING",
+                    status=m.OrderStatus.WAITING_APPROVAL if approval_needed else m.OrderStatus.PROCESSING,
                 )
                 objs = []
                 for vendor_order_product in vendor_order_products:
@@ -746,7 +753,8 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             office_budget.save()
 
         cart_products.delete()
-        notify_order_creation.delay(order.id, inventory_products_ids)
+
+        notify_order_creation.delay(order.id, approval_needed, inventory_products_ids)
         return s.OrderSerializer(order).data
 
     @action(detail=False, url_path="checkout", methods=["get"], permission_classes=[p.OrderCheckoutPermission])
@@ -816,7 +824,8 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             office_pk=self.kwargs["office_pk"]
         )
 
-        fake_order = debug or (request.user.role == m.User.Role.USER and remaining_budget[0] < total_amount)
+        order_approval_needed = request.user.role == m.User.Role.USER and remaining_budget[0] < total_amount
+        fake_order = debug or order_approval_needed
 
         for office_vendor in office_vendors:
             # vendor_slug = vendor_data["slug"]
@@ -843,7 +852,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             )
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        order_data = await self._create_order(office_vendors, results, cart_products, data)
+        order_data = await self._create_order(office_vendors, results, cart_products, order_approval_needed, data)
         return Response(order_data)
 
     @action(detail=False, url_path="add-multiple-products", methods=["post"])

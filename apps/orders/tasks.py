@@ -12,7 +12,7 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from slugify import slugify
 
-from apps.accounts.models import CompanyMember, OfficeVendor
+from apps.accounts.models import CompanyMember, OfficeVendor, User
 from apps.common.utils import group_products
 from apps.orders.models import Keyword as KeyModel
 from apps.orders.models import OfficeCheckoutStatus
@@ -185,7 +185,7 @@ def search_and_group_products(keyword, office_id, vendor_ids):
 
 
 @shared_task
-def notify_order_creation(order_id, product_ids=()):
+def notify_order_creation(order_id, approval_needed, product_ids=()):
     try:
         order = OrderModel.objects.get(id=order_id)
     except OrderModel.DoesNotExist:
@@ -200,15 +200,27 @@ def notify_order_creation(order_id, product_ids=()):
     OfficeProductModel.objects.bulk_update(office_products, ["is_inventory"])
 
     # send notification
-    emails = (
-        CompanyMember.objects.select_related("user")
-        .filter(
-            Q(invite_status=CompanyMember.InviteStatus.INVITE_APPROVED),
-            Q(company=office.company),
-            (Q(office=office) | Q(office__isnull=True)),
+    if approval_needed:
+        emails = (
+            CompanyMember.objects.select_related("user")
+            .filter(
+                Q(invite_status=CompanyMember.InviteStatus.INVITE_APPROVED),
+                Q(company=office.company),
+                Q(role=User.Role.ADMIN),
+                (Q(office=office) | Q(office__isnull=True)),
+            )
+            .values_list("user__email", flat=True)
         )
-        .values_list("user__email", flat=True)
-    )
+    else:
+        emails = (
+            CompanyMember.objects.select_related("user")
+            .filter(
+                Q(invite_status=CompanyMember.InviteStatus.INVITE_APPROVED),
+                Q(company=office.company),
+                (Q(office=office) | Q(office__isnull=True)),
+            )
+            .values_list("user__email", flat=True)
+        )
 
     products = VendorOrderProductModel.objects.filter(vendor_order__order_id=order_id).annotate(
         total_price=F("unit_price") * F("quantity")
@@ -230,8 +242,12 @@ def notify_order_creation(order_id, product_ids=()):
     #     )
     # )
 
+    if approval_needed:
+        email_template = "order_approval_needed.html"
+    else:
+        email_template = "order_creation.html"
     htm_content = render_to_string(
-        "emails/order_creation.html",
+        f"emails/{email_template}.html",
         {
             "order": order,
             "products": products,
@@ -240,7 +256,7 @@ def notify_order_creation(order_id, product_ids=()):
     )
 
     send_mail(
-        subject="Created Order!",
+        subject="Order Approval Needed!" if approval_needed else "Created Order!",
         message="message",
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=emails,
