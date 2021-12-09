@@ -7,14 +7,14 @@ from django.utils import timezone
 from phonenumber_field.serializerfields import PhoneNumberField
 from rest_framework import serializers
 
-from apps.common.serializers import Base64ImageField, OptionalSchemeURLValidator
-
-from . import models as m
-from .stripe import (
+from apps.accounts.services.stripe import (
     add_customer_to_stripe,
     create_subscription,
     get_payment_method_token,
 )
+from apps.common.serializers import Base64ImageField, OptionalSchemeURLValidator
+
+from . import models as m
 
 # from .tasks import fetch_orders_from_vendor
 

@@ -26,6 +26,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from apps.accounts.models import Company, Office, OfficeVendor
+from apps.accounts.services.offices import OfficeService
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
 from apps.common.pagination import SearchProductPagination, StandardResultsSetPagination
@@ -808,6 +809,15 @@ class CartViewSet(AsyncMixin, ModelViewSet):
 
         session = apps.get_app_config("accounts").session
         tasks = []
+
+        debug = True
+        total_amount = sum([Decimal(vendor_data["total_amount"]) for vendor_data in data])
+        remaining_budget = await sync_to_async(OfficeService.get_office_remaining_budget)(
+            office_pk=self.kwargs["office_pk"]
+        )
+
+        fake_order = debug or (request.user.role == m.User.Role.USER and remaining_budget[0] < total_amount)
+
         for office_vendor in office_vendors:
             # vendor_slug = vendor_data["slug"]
             scraper = ScraperFactory.create_scraper(
@@ -828,7 +838,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                         for cart_product in cart_products
                         if cart_product.product.vendor.id == office_vendor.vendor.id
                     ],
-                    fake=True,
+                    fake=fake_order,
                 )
             )
 

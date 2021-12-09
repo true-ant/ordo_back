@@ -247,7 +247,7 @@ def get_task(scraper, scraper_name, test="login", **kwargs):
 
 
 async def main(vendors, **kwargs):
-    scraper_names = ["net_32"]
+    scraper_names = ["henry_schein"]
     base_data = get_scraper_data()
     tasks = []
     async with ClientSession() as session:
@@ -260,7 +260,7 @@ async def main(vendors, **kwargs):
                 username=scraper_data["username"],
                 password=scraper_data["password"],
             )
-            tasks.append(get_task(scraper, scraper_name, "search_product", **kwargs))
+            tasks.append(get_task(scraper, scraper_name, "confirm_order", **kwargs))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
     # products = [
