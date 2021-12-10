@@ -5,6 +5,7 @@ import re
 import uuid
 from decimal import Decimal
 from typing import Dict, List, Optional
+from urllib.parse import urlparse
 
 from aiohttp import ClientResponse
 from scrapy import Selector
@@ -112,6 +113,7 @@ CART_HEADERS = {
 class HenryScheinScraper(Scraper):
     BASE_URL = "https://www.henryschein.com"
     CATEGORY_URL = "https://www.henryschein.com/us-en/dental/c/browsesupplies"
+    TRACKING_BASE_URL = "https://narvar.com/tracking/itemvisibility/v1/henryschein-dental/orders"
 
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         res = await response.json()
@@ -149,7 +151,7 @@ class HenryScheinScraper(Scraper):
         async with self.session.get(link) as resp:
             order_detail_response = Selector(text=await resp.text())
             order["order_id"] = (
-                order_detail_response.xpath("//span[@id='ctl00_cphMainContent_referenceNbLbl']//text()").get().strip()
+                order_detail_response.xpath("//span[@id='ctl00_cphMainContent_orderNbLbl']//text()").get().strip()
             )
             addresses = order_detail_response.xpath(
                 "//span[@id='ctl00_cphMainContent_ucShippingAddr_lblAddress']//text()"
@@ -204,10 +206,6 @@ class HenryScheinScraper(Scraper):
                 tracking_link = self.extract_first(
                     order_product_dom, "./td[@colspan='4' or @colspan='5']//table//tr[1]//td[4]/a/@href"
                 )
-
-                # henryschein can get all product tracking status using one link
-                if "tracking_link" not in order:
-                    order["tracking_link"] = tracking_link
 
                 status = self.merge_strip_values(
                     dom=order_product_dom, xpath=".//span[contains(@id, 'itemStatusLbl')]//text()"
@@ -308,7 +306,7 @@ class HenryScheinScraper(Scraper):
             orders_dom = response_dom.xpath(
                 "//table[@class='SimpleList']//tr[@class='ItemRow' or @class='AlternateItemRow']"
             )
-            tasks = (self.get_order(sem, order_dom, office) for order_dom in orders_dom)
+            tasks = (self.get_order(sem, order_dom, office) for order_dom in orders_dom[:1])
             orders = await asyncio.gather(*tasks, return_exceptions=True)
 
         return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
@@ -800,3 +798,21 @@ class HenryScheinScraper(Scraper):
                 **vendor_order_detail.to_dict(),
                 "order_id": res_data["ecommerce"]["purchase"]["actionField"]["id"],
             }
+
+    async def track_product(self, order_id, product_id, tracking_link, perform_login=False):
+        if perform_login:
+            await self.login()
+
+        async with self.session.post(tracking_link) as resp:
+            tracking_link = str(resp.url)
+            parsed_url = urlparse(tracking_link)
+
+        tracking_link = f"{self.TRACKING_BASE_URL}/{order_id}?{parsed_url.query}&tracking_url={tracking_link}"
+
+        async with self.session.get(tracking_link) as resp:
+            res = await resp.json()
+
+        for shipment in res["order_info"]["shipments"]:
+            for item in shipment["items_info"]:
+                if item["sku"] == product_id:
+                    return self.normalize_product_status(shipment["status"])

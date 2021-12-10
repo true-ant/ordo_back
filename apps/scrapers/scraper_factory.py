@@ -16,6 +16,7 @@ from apps.scrapers.patterson import PattersonScraper
 from apps.scrapers.schema import Product
 from apps.scrapers.ultradent import UltraDentScraper
 
+SCRAPER_SLUG = "henry_schein"
 SCRAPERS = {
     "henry_schein": HenryScheinScraper,
     "net_32": Net32Scraper,
@@ -209,6 +210,16 @@ def get_task(scraper, scraper_name, test="login", **kwargs):
         return scraper.create_order(get_test_products(scraper_name))
     elif test == "confirm_order":
         return scraper.confirm_order(get_test_products(scraper_name), fake=True)
+    elif test == "track_product":
+        vendor_order_product = kwargs.get("vendor_order_product")
+        order_id = vendor_order_product.vendor_order.vendor_order_id
+        tracking_link = vendor_order_product.tracking_link
+        return scraper.track_product(
+            order_id=order_id,
+            product_id=vendor_order_product.product.product_id,
+            tracking_link=tracking_link,
+            perform_login=True,
+        )
     elif test == "search_product":
         return scraper.search_products(
             query="Palodent Plus Sectional Matrix System Refill - 5.5 mm Matrices 50/Bx. Accurate", page=1
@@ -247,7 +258,7 @@ def get_task(scraper, scraper_name, test="login", **kwargs):
 
 
 async def main(vendors, **kwargs):
-    scraper_names = ["henry_schein"]
+    scraper_names = [SCRAPER_SLUG]
     base_data = get_scraper_data()
     tasks = []
     async with ClientSession() as session:
@@ -260,7 +271,7 @@ async def main(vendors, **kwargs):
                 username=scraper_data["username"],
                 password=scraper_data["password"],
             )
-            tasks.append(get_task(scraper, scraper_name, "confirm_order", **kwargs))
+            tasks.append(get_task(scraper, scraper_name, "track_product", **kwargs))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
     # products = [
@@ -382,16 +393,22 @@ if __name__ == "__main__":
     load_dotenv()
 
     from apps.accounts.models import Vendor
-    from apps.orders.models import Keyword, Office
+    from apps.orders.models import Keyword, Office, VendorOrderProduct
 
     vendors = Vendor.objects.all()
     office = Office.objects.first()
     keyword = Keyword.objects.first()
+    vendor_order_product = (
+        VendorOrderProduct.objects.select_related("vendor_order", "product")
+        .filter(vendor_order__vendor__slug=SCRAPER_SLUG, tracking_link__isnull=False)
+        .first()
+    )
 
     start_time = time.perf_counter()
     kwargs = {
         "office": office,
         "keyword": keyword,
+        "vendor_order_product": vendor_order_product,
     }
     asyncio.run(main(vendors, **kwargs))
     # asyncio.run(search_products())
