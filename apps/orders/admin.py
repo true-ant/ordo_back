@@ -18,22 +18,28 @@ class VendorOrderProductInline(ReadOnlyAdminMixin, NestedTabularInline):
         "total_price",
         "status",
         "vendor_status",
-        "tracking_link",
+        "track",
     )
 
     def total_price(self, obj):
         return obj.quantity * obj.unit_price
 
+    def track(self, obj):
+        return mark_safe(f"<a href='{obj.tracking_link}'> Track </a>")
+
 
 class VendorOrderInline(ReadOnlyAdminMixin, NestedTabularInline):
     model = m.VendorOrder
     fk_name = "order"
-    fields = ("vendor", "invoice", "order_date", "total_amount", "total_items", "currency", "status")
+    fields = ("vendor", "invoice", "track", "order_date", "total_amount", "total_items", "currency", "status")
     readonly_fields = fields
     inlines = (VendorOrderProductInline,)
 
     def invoice(self, obj):
-        return mark_safe("<a href='{}'> {} </a>".format(obj.invoice_link, obj.vendor_order_id))
+        return mark_safe(f"<a href='{obj.invoice_link}'> {obj.vendor_order_id} </a>")
+
+    def track(self, obj):
+        return mark_safe(f"<a href='{obj.tracking_link}'> Track </a>")
 
 
 class OrderVendorFilter(SimpleListFilter):
