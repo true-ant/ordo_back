@@ -185,7 +185,7 @@ class OfficeProductAdmin(admin.ModelAdmin):
         "is_inventory",
         "is_favorite",
         "product__vendor",
-        "product__category",
+        "office_category",
     )
 
     @admin.display(description="Product ID")
