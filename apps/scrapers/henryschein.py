@@ -200,6 +200,15 @@ class HenryScheinScraper(Scraper):
                         invoice_link = ""
                     order["invoice_link"] = invoice_link
 
+                # get product tracking link
+                tracking_link = self.extract_first(
+                    order_product_dom, "./td[@colspan='4' or @colspan='5']//table//tr[1]//td[4]/a/@href"
+                )
+
+                # henryschein can get all product tracking status using one link
+                if "tracking_link" not in order:
+                    order["tracking_link"] = tracking_link
+
                 status = self.merge_strip_values(
                     dom=order_product_dom, xpath=".//span[contains(@id, 'itemStatusLbl')]//text()"
                 )
@@ -218,6 +227,7 @@ class HenryScheinScraper(Scraper):
                         "quantity": quantity,
                         "unit_price": product_price,
                         "status": status,
+                        "tracking_link": tracking_link,
                     }
                 )
 
