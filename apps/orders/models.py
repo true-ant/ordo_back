@@ -167,6 +167,7 @@ class VendorOrder(TimeStampedModel):
     vendor_status = models.CharField(max_length=100, null=True, blank=True)
     products = models.ManyToManyField(Product, through="VendorOrderProduct")
     invoice_link = models.URLField(null=True, blank=True)
+    tracking_link = models.URLField(max_length=512, null=True, blank=True)
 
     objects = models.Manager()
     current_months = OrderMonthManager()
