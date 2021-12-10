@@ -100,6 +100,7 @@ class OrderProduct(BaseDataClass):
     quantity: int
     unit_price: Decimal
     status: str
+    tracking_link: str
 
 
 @dataclass(frozen=True)
@@ -119,6 +120,7 @@ class Order(BaseDataClass):
     shipping_address: Address
     products: List[OrderProduct]
     invoice_link: str
+    tracking_link: str
     total_items: int = 0
 
     def to_dict(self) -> dict:

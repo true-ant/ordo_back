@@ -276,16 +276,13 @@ class Scraper:
                 vendor_order = VendorOrderModel.from_dataclass(vendor=self.vendor, order=order, dict_data=order_data)
 
             for order_product_data in order_products_data:
-                product, _ = self.save_single_product_to_db(order_product_data["product"], office, is_inventory=True)
+                product_data = order_product_data.pop("product")
+                product, _ = self.save_single_product_to_db(product_data, office, is_inventory=True)
 
-                VendorOrderProductModel.objects.get_or_create(
+                VendorOrderProductModel.objects.update_or_create(
                     vendor_order=vendor_order,
                     product=product,
-                    defaults={
-                        "quantity": order_product_data["quantity"],
-                        "unit_price": order_product_data["unit_price"],
-                        "status": order_product_data["status"],
-                    },
+                    defaults=order_product_data,
                 )
 
     async def get_missing_products_fields(self, order_products, fields=("description",)):
