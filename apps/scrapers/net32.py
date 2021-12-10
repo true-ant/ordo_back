@@ -174,25 +174,26 @@ class Net32Scraper(Scraper):
 
         try:
             orders = []
+            shipping_base_tracking_urls = {
+                shipping_method["name"]: shipping_method.get("smTrackingUrl", "")
+                for shipping_method in res["Payload"]["shippingMethods"]
+            }
             for order in res["Payload"]["orders"]:
                 order_date = parse_datetime(order["coTime"]).date()
                 if from_date and to_date and (order_date < from_date or order_date > to_date):
                     continue
 
-                orders.append(
-                    {
-                        "order_id": order["id"],
-                        "total_amount": order["orderTotal"],
-                        "currency": "USD",
-                        "order_date": parse_datetime(order["coTime"]).date(),
-                        "status": order["status"],
-                        "shipping_address": {
-                            "address": "".join([i for i in order["shippingAdress"]["Streets"] if i]),
-                            "region_code": order["shippingAdress"]["RegionCD"],
-                            "postal_code": order["shippingAdress"]["PostalCD"],
-                        },
-                        "invoice_link": f"https://www.net32.com/account/orders/invoice/{order['id']}",
-                        "products": [
+                order_products = []
+                for vendor_order in order["vendorOrders"]:
+                    for line_item in vendor_order["lineItems"]:
+                        tracking_link = None
+                        manifest = line_item["manifests"][0]
+                        if "shippingMethod" in manifest:
+                            shipping_method = manifest["shippingMethod"]
+                            tracking_number = manifest["trackingNumber"]
+                            tracking_link = f"{shipping_base_tracking_urls[shipping_method]}{tracking_number}"
+
+                        order_products.append(
                             {
                                 "product": {
                                     "product_id": line_item["mpId"],
@@ -207,10 +208,24 @@ class Net32Scraper(Scraper):
                                 "quantity": line_item["quantity"],
                                 "unit_price": line_item["oliProdPrice"],
                                 "status": line_item["status"],
+                                "tracking_link": tracking_link,
                             }
-                            for vendor_order in order["vendorOrders"]
-                            for line_item in vendor_order["lineItems"]
-                        ],
+                        )
+
+                orders.append(
+                    {
+                        "order_id": order["id"],
+                        "total_amount": order["orderTotal"],
+                        "currency": "USD",
+                        "order_date": parse_datetime(order["coTime"]).date(),
+                        "status": order["status"],
+                        "shipping_address": {
+                            "address": "".join([i for i in order["shippingAdress"]["Streets"] if i]),
+                            "region_code": order["shippingAdress"]["RegionCD"],
+                            "postal_code": order["shippingAdress"]["PostalCD"],
+                        },
+                        "invoice_link": f"https://www.net32.com/account/orders/invoice/{order['id']}",
+                        "products": order_products,
                     }
                 )
 
