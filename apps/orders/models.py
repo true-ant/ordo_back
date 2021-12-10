@@ -167,7 +167,6 @@ class VendorOrder(TimeStampedModel):
     vendor_status = models.CharField(max_length=100, null=True, blank=True)
     products = models.ManyToManyField(Product, through="VendorOrderProduct")
     invoice_link = models.URLField(null=True, blank=True)
-    tracking_link = models.URLField(max_length=512, null=True, blank=True)
 
     objects = models.Manager()
     current_months = OrderMonthManager()
@@ -197,6 +196,7 @@ class VendorOrderProduct(TimeStampedModel):
     quantity = models.IntegerField(default=0)
     unit_price = models.DecimalField(decimal_places=2, max_digits=10)
     tracking_link = models.URLField(max_length=512, null=True, blank=True)
+    tracking_number = models.URLField(max_length=512, null=True, blank=True)
     status = models.CharField(max_length=100, choices=Status.choices, default=Status.OPEN)
     vendor_status = models.CharField(max_length=100, null=True, blank=True)
     # status = models.IntegerField(choices=Status.choices, default=Status.OPEN)

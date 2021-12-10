@@ -79,6 +79,11 @@ class Scraper:
         else:
             return order_status
 
+    @staticmethod
+    def normalize_product_status(product_status):
+        product_status = product_status.lower()
+        return product_status
+
     async def _get_check_login_state(self) -> Tuple[bool, dict]:
         return False, {}
 
@@ -388,6 +393,9 @@ class Scraper:
             page += 1
 
         return products_objs
+
+    async def track_product(self, order_id, product_id, tracking_link, tracking_number, perform_login=False):
+        raise NotImplementedError("Vendor scraper must implement `track_product`")
 
     async def add_product_to_cart(self, product: CartProduct, perform_login=False) -> VendorCartProduct:
         raise NotImplementedError("Vendor scraper must implement `add_product_to_cart`")
