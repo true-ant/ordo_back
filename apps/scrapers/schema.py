@@ -101,6 +101,7 @@ class OrderProduct(BaseDataClass):
     unit_price: Decimal
     status: str
     tracking_link: str
+    tracking_number: str
 
 
 @dataclass(frozen=True)
