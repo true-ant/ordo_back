@@ -36,11 +36,16 @@ class UPSProductTrack(BaseTrack):
         if sem:
             sem.release()
 
-        return {
-            tracking_number: package["packageStatus"]
-            for package in res["trackDetails"]
-            if package["trackingNumber"] == tracking_number
-        }
+        if "trackDetails" in res and res["trackDetails"]:
+            package_status = [
+                package["packageStatus"]
+                for package in res["trackDetails"]
+                if package["trackingNumber"] == tracking_number
+            ][0]
+        else:
+            package_status = ""
+
+        return {tracking_number: package_status}
 
 
 async def track_products():

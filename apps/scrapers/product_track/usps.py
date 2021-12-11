@@ -16,7 +16,10 @@ class USPSProductTrack(BaseTrack):
             response_text = await resp.text()
             # TODO: error handling
             data = json.loads(response_text.split("dataLayer.push(", 1)[1].split(")\n</script>")[0])
-            return {package["id"]: package["category"] for package in data["ecommerce"]["impressions"]}
+            if data:
+                return {package["id"]: package["category"] for package in data["ecommerce"]["impressions"]}
+            else:
+                return {tracking_number: "" for tracking_number in tracking_numbers}
 
     async def track_product(self, tracking_number, *args, **kwargs) -> Dict[str, str]:
         return await self.track_shipping_products([tracking_number])
@@ -31,8 +34,8 @@ async def track_products():
     ]
     async with ClientSession() as session:
         tracker = USPSProductTrack(session)
-        print(await tracker.track_product(tracking_numbers[0]))
-        # print(await tracker.track_products(tracking_numbers))
+        # print(await tracker.track_product(tracking_numbers[0]))
+        print(await tracker.track_products(tracking_numbers))
 
 
 if __name__ == "__main__":
