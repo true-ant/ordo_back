@@ -1,6 +1,5 @@
 import asyncio
 import datetime
-import json
 import logging
 import re
 from http.cookies import SimpleCookie
@@ -22,18 +21,10 @@ from apps.types.scraper import (
     SmartProductID,
 )
 
-from . import scraper_headers
-
 logger = logging.getLogger(__name__)
 
 
 class Scraper:
-    UPS_TRACKING_BASE_URL = "http://wwwapps.ups.com/WebTracking/track?track=yes&trackNums"
-    FEDEX_TRACKING_BASE_URL = (
-        "https://www.fedex.com/apps/fedextrack?action=track&cntry_code=us&language=english&tracknumber_list="
-    )
-    USPS_TRACKING_BASE_URL = "https://tools.usps.com/go/TrackConfirmAction_input?qtc_tLabels1="
-
     def __init__(
         self,
         session: ClientSession,
@@ -405,67 +396,6 @@ class Scraper:
 
     async def track_product(self, order_id, product_id, tracking_link, tracking_number, perform_login=False):
         raise NotImplementedError("Vendor scraper must implement `track_product`")
-
-    async def track_product_from_usps(self, tracking_number):
-        url = f"{self.USPS_TRACKING_BASE_URL}{tracking_number}"
-        async with self.session.get(url, headers=scraper_headers.USPS_TRACKING_HEADERS) as resp:
-            dom = Selector(text=await resp.text())
-            product_status = self.merge_strip_values(dom, "//div[@class='delivery_status']/h2/strong/text()")
-            return self.normalize_product_status(product_status)
-
-    async def track_product_from_ups(self, tracking_number):
-        url = f"{self.UPS_TRACKING_BASE_URL}{tracking_number}"
-        async with self.session.get(url, headers=scraper_headers.UPS_HEADERS) as resp:
-            headers = scraper_headers.UPS_TRACKING_HEADERS.copy()
-            headers["x-xsrf-token"] = resp.cookies["X-XSRF-TOKEN-ST"].value
-            headers["referer"] = f"{resp.url}"
-
-        data = {"Locale": "en_US", "TrackingNumber": [tracking_number], "Requester": "WT", "returnToValue": ""}
-
-        url = "https://www.ups.com/track/api/Track/GetStatus?loc=en_US"
-        async with self.session.post(url, headers=headers, json=data) as resp:
-            res = json.loads(await resp.text())
-        packages = [package for package in res["trackDetails"] if package["trackingNumber"] == tracking_number]
-        return self.normalize_product_status(packages[0]["progressBarType"])
-
-    async def track_product_from_fedex(self, tracking_number):
-        headers = scraper_headers.FEDEX_TRACKING_HEADERS.copy()
-        headers["Referer"] = f"{self.FEDEX_TRACKING_BASE_URL}{tracking_number}"
-        payload = {
-            "TrackPackagesRequest": {
-                "appDeviceType": "DESKTOP",
-                "appType": "WTRK",
-                "processingParameters": {},
-                "uniqueKey": "",
-                "supportCurrentLocation": True,
-                "supportHTML": True,
-                "trackingInfoList": [
-                    {
-                        "trackNumberInfo": {
-                            "trackingNumber": tracking_number,
-                            "trackingQualifier": None,
-                            "trackingCarrier": None,
-                        }
-                    }
-                ],
-            }
-        }
-        data = {
-            "action": "trackpackages",
-            "data": json.dumps(payload),
-            "format": "json",
-            "locale": "en_US",
-            "version": 1,
-        }
-        async with self.session.post("https://www.fedex.com/trackingCal/track", headers=headers, data=data) as resp:
-            res = json.loads(await resp.text())
-
-        packages = [
-            package
-            for package in res["TrackPackagesResponse"]["packageList"]
-            if package["trackingNbr"] == tracking_number
-        ]
-        return self.normalize_product_status(packages[0]["keyStatus"])
 
     async def add_product_to_cart(self, product: CartProduct, perform_login=False) -> VendorCartProduct:
         raise NotImplementedError("Vendor scraper must implement `add_product_to_cart`")
