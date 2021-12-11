@@ -205,6 +205,10 @@ class VendorOrderProduct(TimeStampedModel):
     def from_dataclass(cls, order, dict_data):
         return cls.objects.create(order=order, **dict_data)
 
+    @property
+    def is_trackable(self):
+        return self.status == self.Status.SHIPPED and (self.tracking_number or self.tracking_link)
+
 
 class YearMonth(models.Func):
     function = "TO_CHAR"
