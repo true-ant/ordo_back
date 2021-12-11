@@ -32,6 +32,7 @@ class Scraper:
     FEDEX_TRACKING_BASE_URL = (
         "https://www.fedex.com/apps/fedextrack?action=track&cntry_code=us&language=english&tracknumber_list="
     )
+    USPS_TRACKING_BASE_URL = "https://tools.usps.com/go/TrackConfirmAction_input?qtc_tLabels1="
 
     def __init__(
         self,
@@ -404,6 +405,13 @@ class Scraper:
 
     async def track_product(self, order_id, product_id, tracking_link, tracking_number, perform_login=False):
         raise NotImplementedError("Vendor scraper must implement `track_product`")
+
+    async def track_product_from_usps(self, tracking_number):
+        url = f"{self.USPS_TRACKING_BASE_URL}{tracking_number}"
+        async with self.session.get(url, headers=scraper_headers.USPS_TRACKING_HEADERS) as resp:
+            dom = Selector(text=await resp.text())
+            product_status = self.merge_strip_values(dom, "//div[@class='delivery_status']/h2/strong/text()")
+            return self.normalize_product_status(product_status)
 
     async def track_product_from_ups(self, tracking_number):
         url = f"{self.UPS_TRACKING_BASE_URL}{tracking_number}"
