@@ -813,6 +813,8 @@ class CartViewSet(AsyncMixin, ModelViewSet):
     @action(detail=False, url_path="confirm-order", methods=["post"], permission_classes=[p.OrderCheckoutPermission])
     async def confirm_order(self, request, *args, **kwargs):
         data = request.data["data"]
+        shipping_options = request.data["shipping_options"]
+
         cart_products, office_vendors = await sync_to_async(get_cart)(office_pk=self.kwargs["office_pk"])
 
         if not cart_products:
@@ -852,6 +854,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                         for cart_product in cart_products
                         if cart_product.product.vendor.id == office_vendor.vendor.id
                     ],
+                    shipping_method=shipping_options.get(office_vendor.vendor.slug),
                     fake=fake_order,
                 )
             )
