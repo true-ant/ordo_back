@@ -187,6 +187,7 @@ class Net32Scraper(Scraper):
                 for vendor_order in order["vendorOrders"]:
                     for line_item in vendor_order["lineItems"]:
                         tracking_link = None
+                        tracking_number = None
                         manifest = line_item["manifests"][0]
                         if "shippingMethod" in manifest:
                             shipping_method = manifest["shippingMethod"]
@@ -209,6 +210,7 @@ class Net32Scraper(Scraper):
                                 "unit_price": line_item["oliProdPrice"],
                                 "status": line_item["status"],
                                 "tracking_link": tracking_link,
+                                "tracking_number": tracking_number,
                             }
                         )
 
@@ -479,7 +481,7 @@ class Net32Scraper(Scraper):
                 }
             )
 
-    async def create_order(self, products: List[CartProduct]) -> Dict[str, VendorOrderDetail]:
+    async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         await self.login()
         await self.clear_cart()
         await self.add_products_to_cart(products)
@@ -492,7 +494,7 @@ class Net32Scraper(Scraper):
             }
         }
 
-    async def confirm_order(self, products: List[CartProduct], fake=False):
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
         result = await self.create_order(products)
         if fake:
             return {**result[self.vendor.slug], "order_id": f"{uuid.uuid4()}"}

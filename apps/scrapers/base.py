@@ -485,8 +485,8 @@ class Scraper:
     async def clear_cart(self):
         raise NotImplementedError("Vendor scraper must implement `clear_cart`")
 
-    async def create_order(self, products: List[CartProduct]) -> Dict[str, VendorOrderDetail]:
+    async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         raise NotImplementedError("Vendor scraper must implement `create_order`")
 
-    async def confirm_order(self, products: List[CartProduct], fake=False):
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
         raise NotImplementedError("Vendor scraper must implement `confirm_order`")

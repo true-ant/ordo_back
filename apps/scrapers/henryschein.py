@@ -632,7 +632,20 @@ class HenryScheinScraper(Scraper):
             else:
                 return response_dom
 
-    async def review_checkout(self, checkout_dom):
+    async def review_checkout(self, checkout_dom, shipping_method=None):
+
+        for shipping_method_option in checkout_dom.xpath(
+            "//select[@name='ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ddlShippingMethod']/option"
+        ):
+            if shipping_method_option.xpath("./text()").get() == shipping_method:
+                shipping_method_value = shipping_method_option.attrib["value"]
+                break
+        else:
+            shipping_method_value = checkout_dom.xpath(
+                "//select[@name='ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ddlShippingMethod']"
+                "/option[@selected]/@value"
+            ).get()
+
         data = {
             "ctl00_ScriptManager_TSM": ";;System.Web.Extensions, Version=4.0.0.0, Culture=neutral, "
             "PublicKeyToken=31bf3856ad364e35:en-US:f319b152-218f-4c14-829d-050a68bb1a61:ea597d4b:b25378d2",
@@ -648,10 +661,7 @@ class HenryScheinScraper(Scraper):
             "ctl00_cpAsideMenu_AsideMenu_SideMenuControl1000txtItemCodeId": "",
             "ctl00_cpAsideMenu_AsideMenu_SideMenuControl1000txtItemQtyId": "",
             "layout": "on",
-            "ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ddlShippingMethod": checkout_dom.xpath(
-                "//select[@name='ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ddlShippingMethod']"
-                "/option[@selected]/@value"
-            ).get(),
+            "ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ddlShippingMethod": shipping_method_value,
             "ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ddlPaymentMethod": checkout_dom.xpath(
                 "//select[@name='ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ddlPaymentMethod']"
                 "/option[@selected]/@value"
@@ -743,12 +753,12 @@ class HenryScheinScraper(Scraper):
             }
         )
 
-    async def create_order(self, products: List[CartProduct]) -> Dict[str, VendorOrderDetail]:
+    async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         await self.login()
         await self.clear_cart()
         await self.add_products_to_cart(products)
         checkout_dom = await self.checkout(products)
-        review_checkout_dom = await self.review_checkout(checkout_dom)
+        review_checkout_dom = await self.review_checkout(checkout_dom, shipping_method)
         vendor_order_detail = await self.review_order(review_checkout_dom)
         vendor_slug: str = self.vendor.slug
         return {
@@ -758,12 +768,12 @@ class HenryScheinScraper(Scraper):
             },
         }
 
-    async def confirm_order(self, products: List[CartProduct], fake=False):
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
         await self.login()
         await self.clear_cart()
         await self.add_products_to_cart(products)
         checkout_dom = await self.checkout(products)
-        review_checkout_dom = await self.review_checkout(checkout_dom)
+        review_checkout_dom = await self.review_checkout(checkout_dom, shipping_method)
         vendor_order_detail = await self.review_order(review_checkout_dom)
 
         if fake:

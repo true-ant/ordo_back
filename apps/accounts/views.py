@@ -302,6 +302,22 @@ class VendorViewSet(ModelViewSet):
         kwargs.setdefault("partial", True)
         return super().update(request, *args, **kwargs)
 
+    @action(detail=False, methods=["post"], url_path="shipping_methods")
+    def shipping_methods(self, request, *args, **kwargs):
+        # TODO: currently hard code because not sure about shipping method across all vendors
+        vendors = request.data.get("vendors")
+        ret = {
+            "henry": [
+                "UPS Standard Delivery",
+                "Next Day Delivery (extra charge)",
+                "Saturday Delivery (extra charge)",
+                "Next Day 10:30 (extra charge)",
+                "2nd Day Air (extra charge)",
+            ]
+        }
+        ret = {k: v for k, v in ret.items() if k in vendors}
+        return Response(ret)
+
 
 class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
     serializer_class = s.OfficeVendorListSerializer

@@ -757,7 +757,7 @@ class BencoScraper(Scraper):
                 ),
             )
 
-    async def create_order(self, products: List[CartProduct]) -> Dict[str, VendorOrderDetail]:
+    async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         await self.login()
         await self.clear_cart()
         await self.add_products_to_cart(products)
@@ -770,7 +770,7 @@ class BencoScraper(Scraper):
             },
         }
 
-    async def confirm_order(self, products: List[CartProduct], fake=False):
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
         await self.login()
         await self.clear_cart()
         await self.add_products_to_cart(products)
