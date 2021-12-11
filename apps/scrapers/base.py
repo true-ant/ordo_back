@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import json
 import logging
 import re
 from http.cookies import SimpleCookie
@@ -20,6 +21,8 @@ from apps.types.scraper import (
     ProductSearch,
     SmartProductID,
 )
+
+from . import scraper_headers
 
 logger = logging.getLogger(__name__)
 
@@ -396,6 +399,48 @@ class Scraper:
 
     async def track_product(self, order_id, product_id, tracking_link, tracking_number, perform_login=False):
         raise NotImplementedError("Vendor scraper must implement `track_product`")
+
+    async def track_product_from_fedex(self, tracking_number):
+        headers = scraper_headers.FEDEX_HEADERS.copy()
+        headers["Referer"] = (
+            "https://www.fedex.com/apps/fedextrack?action=track&cn"
+            f"try_code=us&language=english&tracknumber_list={tracking_number}"
+        )
+        payload = {
+            "TrackPackagesRequest": {
+                "appDeviceType": "DESKTOP",
+                "appType": "WTRK",
+                "processingParameters": {},
+                "uniqueKey": "",
+                "supportCurrentLocation": True,
+                "supportHTML": True,
+                "trackingInfoList": [
+                    {
+                        "trackNumberInfo": {
+                            "trackingNumber": tracking_number,
+                            "trackingQualifier": None,
+                            "trackingCarrier": None,
+                        }
+                    }
+                ],
+            }
+        }
+        data = {
+            "action": "trackpackages",
+            "data": json.dumps(payload),
+            "format": "json",
+            "locale": "en_US",
+            "version": 1,
+        }
+        async with self.session.post("https://www.fedex.com/trackingCal/track", headers=headers, data=data) as resp:
+            res = json.loads(await resp.text())
+
+        packages = [
+            package
+            for package in res["TrackPackagesResponse"]["packageList"]
+            if package["trackingNbr"] == tracking_number
+        ]
+        return self.normalize_product_status(packages[0]["keyStatus"])
 
     async def add_product_to_cart(self, product: CartProduct, perform_login=False) -> VendorCartProduct:
         raise NotImplementedError("Vendor scraper must implement `add_product_to_cart`")
