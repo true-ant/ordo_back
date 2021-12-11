@@ -633,7 +633,6 @@ class HenryScheinScraper(Scraper):
                 return response_dom
 
     async def review_checkout(self, checkout_dom, shipping_method=None):
-
         for shipping_method_option in checkout_dom.xpath(
             "//select[@name='ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ddlShippingMethod']/option"
         ):
@@ -811,14 +810,16 @@ class HenryScheinScraper(Scraper):
             }
 
     async def track_product(self, order_id, product_id, tracking_link, tracking_number, perform_login=False):
-        if perform_login:
-            await self.login()
+        parsed_url = urlparse(tracking_link)
+        if parsed_url.netloc == "www.henryschein.com":
+            if perform_login:
+                await self.login()
 
-        async with self.session.post(tracking_link) as resp:
-            tracking_link = str(resp.url)
-            parsed_url = urlparse(tracking_link)
+            async with self.session.post(tracking_link) as resp:
+                tracking_link = str(resp.url)
+                parsed_url = urlparse(tracking_link)
 
-        tracking_link = f"{self.TRACKING_BASE_URL}/{order_id}?{parsed_url.query}&tracking_url={tracking_link}"
+            tracking_link = f"{self.TRACKING_BASE_URL}/{order_id}?{parsed_url.query}&tracking_url={tracking_link}"
 
         async with self.session.get(tracking_link) as resp:
             res = await resp.json()

@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import uuid
 from typing import Dict, List, Optional
+from urllib.parse import urlparse
 
 from aiohttp import ClientResponse
 from django.utils.dateparse import parse_datetime
@@ -519,3 +520,13 @@ class Net32Scraper(Scraper):
         async with self.session.get(invoice_link) as resp:
             content = await resp.content.read()
             return await self.html2pdf(content)
+
+    async def track_product(self, order_id, product_id, tracking_link, tracking_number, perform_login=False):
+        parsed_url = urlparse(tracking_link)
+        netloc = parsed_url.netloc
+        if netloc == "www.fedex.com":
+            return await self.track_product_from_fedex(tracking_number)
+        elif netloc == "wwwapps.ups.com":
+            return await self.track_product_from_ups(tracking_number)
+        elif netloc == "tools.usps.com":
+            return await self.track_product_from_usps(tracking_number)
