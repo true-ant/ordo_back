@@ -307,7 +307,7 @@ class VendorViewSet(ModelViewSet):
         # TODO: currently hard code because not sure about shipping method across all vendors
         vendors = request.data.get("vendors")
         ret = {
-            "henry": [
+            "henry_schein": [
                 "UPS Standard Delivery",
                 "Next Day Delivery (extra charge)",
                 "Saturday Delivery (extra charge)",
