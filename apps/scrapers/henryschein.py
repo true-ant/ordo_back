@@ -319,7 +319,7 @@ class HenryScheinScraper(Scraper):
             )
             tasks = (
                 self.get_order(sem, order_dom, office)
-                for order_dom in orders_dom[:1]
+                for order_dom in orders_dom
                 if completed_order_ids is None
                 or self.extract_first(order_dom, "./td[1]/text()") not in completed_order_ids
             )
