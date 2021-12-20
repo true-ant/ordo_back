@@ -327,6 +327,7 @@ class UltraDentScraper(Scraper):
         perform_login=False,
         from_date: Optional[datetime.date] = None,
         to_date: Optional[datetime.date] = None,
+        completed_order_ids: Optional[List[str]] = None,
     ) -> List[Order]:
         sem = asyncio.Semaphore(value=2)
         url = "https://www.ultradent.com/api/ecommerce"
@@ -345,6 +346,10 @@ class UltraDentScraper(Scraper):
                 order_date = datetime.date.fromisoformat(order_data["orderDate"])
                 if from_date and to_date and (order_date < from_date or order_date > to_date):
                     continue
+
+                if completed_order_ids and str(order_data["orderNumber"]) in completed_order_ids:
+                    continue
+
                 tasks.append(self.get_order(sem, order_data, office))
 
             if tasks:

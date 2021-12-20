@@ -181,7 +181,8 @@ class DarbyScraper(Scraper):
         perform_login=False,
         from_date: Optional[datetime.date] = None,
         to_date: Optional[datetime.date] = None,
-    ):
+        completed_order_ids: Optional[List[str]] = None,
+    ) -> List[Order]:
         sem = asyncio.Semaphore(value=2)
         url = f"{self.BASE_URL}/Scripts/InvoiceHistory.aspx"
 
@@ -202,6 +203,11 @@ class DarbyScraper(Scraper):
                 ).date()
                 if from_date and to_date and (order_date < from_date or order_date > to_date):
                     continue
+
+                order_id = self.merge_strip_values(order_dom, "./td[1]//text()")
+                if completed_order_ids and order_id in completed_order_ids:
+                    continue
+
                 tasks.append(self.get_order(sem, order_dom, order_date, office))
 
             if tasks:

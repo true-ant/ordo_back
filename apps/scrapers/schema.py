@@ -114,6 +114,7 @@ class Address(BaseDataClass):
 @dataclass(frozen=True)
 class Order(BaseDataClass):
     order_id: str
+    vendor_order_reference: str
     total_amount: Decimal
     currency: str
     order_date: date

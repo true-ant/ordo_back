@@ -44,6 +44,10 @@ class Scraper:
         return x.strip() if (x := dom.xpath(xpath).extract_first()) else x
 
     @staticmethod
+    def extract_string_only(s):
+        return re.sub(r"\s+", " ", s).strip()
+
+    @staticmethod
     def merge_strip_values(dom, xpath, delimeter=""):
         return delimeter.join(filter(None, map(str.strip, dom.xpath(xpath).extract())))
 
@@ -129,6 +133,7 @@ class Scraper:
         perform_login=False,
         from_date: Optional[datetime.date] = None,
         to_date: Optional[datetime.date] = None,
+        completed_order_ids: Optional[List[str]] = None,
     ) -> List[Order]:
         raise NotImplementedError()
 

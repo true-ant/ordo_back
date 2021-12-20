@@ -274,6 +274,7 @@ class PattersonScraper(Scraper):
         perform_login=False,
         from_date: Optional[datetime.date] = None,
         to_date: Optional[datetime.date] = None,
+        completed_order_ids: Optional[List[str]] = None,
     ) -> List[Order]:
         sem = asyncio.Semaphore(value=2)
         if perform_login:

@@ -411,6 +411,7 @@ class BencoScraper(Scraper):
         perform_login=False,
         from_date: Optional[datetime.date] = None,
         to_date: Optional[datetime.date] = None,
+        completed_order_ids: Optional[List[str]] = None,
     ) -> List[Order]:
         sem = asyncio.Semaphore(value=2)
         url = f"{self.BASE_URL}/PurchaseHistory/NewIndex"
@@ -433,13 +434,19 @@ class BencoScraper(Scraper):
         async with self.session.get(url, headers=ORDER_HISTORY_HEADERS, params=params, ssl=self._ssl_context) as resp:
             url = str(resp.url)
             response_dom = Selector(text=await resp.text())
-            orders_links = []
+            tasks = []
             for order_preview_dom in response_dom.xpath(
                 "//div[@class='order-history']"
                 "//div[contains(@class, 'order-container')]/div[@class='panel-heading']"
             ):
-                orders_links.append(order_preview_dom.xpath(".//a/@href").extract()[-1])
-            tasks = (self.get_order(sem, order_link, url, office) for order_link in orders_links)
+                order_link = order_preview_dom.xpath(".//a/@href").extract()[-1]
+                order_id = self.extract_string_only(order_preview_dom.xpath("//h3/span[3]/text()").get())
+                order_id = order_id.split("#", 1)[1].split("-")[0].strip()
+
+                if completed_order_ids and order_id in completed_order_ids:
+                    continue
+
+                tasks.append(self.get_order(sem, order_link, url, office))
             orders = await asyncio.gather(*tasks, return_exceptions=True)
             return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
 

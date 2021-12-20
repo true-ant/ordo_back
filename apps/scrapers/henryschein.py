@@ -289,7 +289,8 @@ class HenryScheinScraper(Scraper):
         perform_login=False,
         from_date: Optional[datetime.date] = None,
         to_date: Optional[datetime.date] = None,
-    ):
+        completed_order_ids: Optional[List[str]] = None,
+    ) -> List[Order]:
         params = {}
         if from_date and to_date:
             params["Search"] = f"dateRangeSF|{from_date.strftime('%m/%d/%Y')}|{to_date.strftime('%m/%d/%Y')}"
@@ -306,7 +307,12 @@ class HenryScheinScraper(Scraper):
             orders_dom = response_dom.xpath(
                 "//table[@class='SimpleList']//tr[@class='ItemRow' or @class='AlternateItemRow']"
             )
-            tasks = (self.get_order(sem, order_dom, office) for order_dom in orders_dom[:1])
+            tasks = (
+                self.get_order(sem, order_dom, office)
+                for order_dom in orders_dom
+                if completed_order_ids is None
+                or self.extract_first(order_dom, "./td[1]/text()") not in completed_order_ids
+            )
             orders = await asyncio.gather(*tasks, return_exceptions=True)
 
         return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
