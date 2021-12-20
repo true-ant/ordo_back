@@ -10,6 +10,11 @@ from scrapy import Selector
 
 from apps.scrapers.base import Scraper
 from apps.scrapers.errors import OrderFetchException
+from apps.scrapers.product_track import (
+    FedexProductTrack,
+    UPSProductTrack,
+    USPSProductTrack,
+)
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct
@@ -155,6 +160,7 @@ class Net32Scraper(Scraper):
         perform_login=False,
         from_date: Optional[datetime.date] = None,
         to_date: Optional[datetime.date] = None,
+        completed_order_ids: Optional[List[str]] = None,
     ) -> List[Order]:
         url = f"{self.BASE_URL}/rest/order/orderHistory"
         headers = HEADERS.copy()
@@ -182,6 +188,10 @@ class Net32Scraper(Scraper):
             for order in res["Payload"]["orders"]:
                 order_date = parse_datetime(order["coTime"]).date()
                 if from_date and to_date and (order_date < from_date or order_date > to_date):
+                    continue
+
+                order_id = order["id"]
+                if completed_order_ids and order_id in completed_order_ids:
                     continue
 
                 order_products = []
@@ -217,7 +227,7 @@ class Net32Scraper(Scraper):
 
                 orders.append(
                     {
-                        "order_id": order["id"],
+                        "order_id": order_id,
                         "total_amount": order["orderTotal"],
                         "currency": "USD",
                         "order_date": parse_datetime(order["coTime"]).date(),
@@ -525,8 +535,32 @@ class Net32Scraper(Scraper):
         parsed_url = urlparse(tracking_link)
         netloc = parsed_url.netloc
         if netloc == "www.fedex.com":
-            return await self.track_product_from_fedex(tracking_number)
+            product_track = FedexProductTrack(session=self.session)
+            return await product_track.track_product(tracking_number)
         elif netloc == "wwwapps.ups.com":
-            return await self.track_product_from_ups(tracking_number)
+            product_track = UPSProductTrack(session=self.session)
+            return await product_track.track_product(tracking_number)
         elif netloc == "tools.usps.com":
-            return await self.track_product_from_usps(tracking_number)
+            product_track = USPSProductTrack(session=self.session)
+            return await product_track.track_product(tracking_number)
+
+    #
+    # async def track_products(self, products_track: List[ProductTrack]):
+    #     # group by shipping
+    #     fedex_tracking_numbers = []
+    #     ups_tracking_numbers = []
+    #     usps_tracking_numbers = []
+    #
+    #     for product_track in products_track:
+    #         tracking_link = product_track["tracking_link"]
+    #         parsed_url = urlparse(tracking_link)
+    #         parsed_url_netloc = parsed_url.netloc
+    #         if parsed_url_netloc == "www.fedex.com":
+    #             fedex_tracking_numbers.append(tracking_link)
+    #         elif parsed_url_netloc == "wwwapps.ups.com":
+    #             ups_tracking_numbers.append(tracking_link)
+    #         elif parsed_url_netloc == "tools.usps.com":
+    #             usps_tracking_numbers.append(tracking_link)
+    #
+    #     if fedex_tracking_numbers:
+    #         return await self.track_product_from_fedex(tracking_number)

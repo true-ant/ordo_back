@@ -19,3 +19,9 @@ class CartProduct(TypedDict):
 class VendorCartProduct(TypedDict):
     product_id: Union[str, int]
     unit_price: PriceType
+
+
+class ProductTrack(TypedDict):
+    product_id: str
+    tracking_link: str
+    tracking_number: str
