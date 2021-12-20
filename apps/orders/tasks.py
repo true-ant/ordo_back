@@ -1,9 +1,11 @@
 import asyncio
 import datetime
 import logging
-from collections import defaultdict
+from asyncio import Semaphore
+from typing import List, Optional
 
 from aiohttp import ClientSession
+from asgiref.sync import sync_to_async
 from celery import shared_task
 from django.conf import settings
 from django.core.mail import send_mail
@@ -12,7 +14,7 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from slugify import slugify
 
-from apps.accounts.models import CompanyMember, OfficeVendor, User
+from apps.accounts.models import CompanyMember, OfficeVendor, Subscription, User
 from apps.common.utils import group_products
 from apps.orders.models import Keyword as KeyModel
 from apps.orders.models import OfficeCheckoutStatus
@@ -24,6 +26,7 @@ from apps.orders.models import ProductCategory
 from apps.orders.models import ProductImage as ProductImageModel
 from apps.orders.models import VendorOrder as VendorOrderModel
 from apps.orders.models import VendorOrderProduct as VendorOrderProductModel
+from apps.scrapers.errors import VendorAuthenticationFailed
 from apps.scrapers.schema import Product as ProductDataClass
 from apps.scrapers.scraper_factory import ScraperFactory
 
@@ -271,38 +274,88 @@ def notify_order_creation(vendor_order_ids, approval_needed):
     )
 
 
-async def _sync_with_vendor_for_orders(orders_by_office_vendors, office_vendors):
-    sem = asyncio.Semaphore(value=50)
+async def _sync_with_vendor(
+    sem: Semaphore,
+    session: ClientSession,
+    office_vendor: OfficeVendor,
+    completed_vendor_order_ids: List[str],
+    from_date: Optional[datetime.date],
+    to_date: Optional[datetime.date],
+):
+    if sem:
+        await sem.acquire()
+
+    scraper = ScraperFactory.create_scraper(
+        vendor=office_vendor.vendor,
+        session=session,
+        username=office_vendor.username,
+        password=office_vendor.password,
+    )
+    results = await scraper.get_orders(
+        office=office_vendor.office, perform_login=True, from_date=from_date, to_date=to_date
+    )
+
+    if sem:
+        sem.release()
+
+    return results
+
+
+@sync_to_async
+def get_vendor_orders_id_and_last_processing_order_date(office_vendor):
+    vendor_orders = VendorOrderModel.objects.select_related("vendor", "order__office").filter(
+        order__office=office_vendor.office,
+        vendor=office_vendor.vendor,
+    )
+
+    order_id_field = "vendor_order_reference" if office_vendor.vendor.slug == "henry_schein" else "vendor_order_id"
+    completed_vendor_order_ids = vendor_orders.filter(status=OrderStatus.COMPLETE).values_list(
+        order_id_field, flat=True
+    )
+    return (
+        completed_vendor_order_ids,
+        vendor_orders.filter(status=OrderStatus.PROCESSING).order_by("order_date").first(),
+    )
+
+
+async def _sync_with_vendors(office_vendors):
+    sem = Semaphore(value=2)
+    today = datetime.date.today()
+    tasks = []
     async with ClientSession() as session:
-        tasks = []
-        for orders_by_office_vendor, office_vendor in zip(orders_by_office_vendors, office_vendors):
-            scraper = ScraperFactory.create_scraper(
-                vendor=office_vendor.vendor,
-                session=session,
-                username=office_vendor.username,
-                password=office_vendor.password,
+        for office_vendor in office_vendors:
+            (
+                completed_vendor_order_ids,
+                last_processing_vendor_order,
+            ) = await get_vendor_orders_id_and_last_processing_order_date(office_vendor)
+            tasks.append(
+                _sync_with_vendor(
+                    sem=sem,
+                    session=session,
+                    office_vendor=office_vendor,
+                    completed_vendor_order_ids=completed_vendor_order_ids,
+                    from_date=last_processing_vendor_order.order_date if last_processing_vendor_order else None,
+                    to_date=today,
+                )
             )
-            tasks.extend([scraper.get_order(order.order_id, sem) for order in orders_by_office_vendor])
-        await asyncio.gather(*tasks)
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        invalid_credentials_office_vendors = [
+            result for result in results if type(result) == VendorAuthenticationFailed
+        ]
+
+    if invalid_credentials_office_vendors:
+        # send email notification
+        pass
 
 
 @shared_task
-def sync_with_vendor_for_orders():
-    """Sync order status with vendor for pending orders"""
-    # get pending orders
-    processing_vendor_orders = VendorOrderModel.objects.select_related("vendor", "order", "order__office").filter(
-        status=OrderStatus.PROCESSING
-    )
-
-    orders_by_office_vendors = defaultdict(list)
-    office_vendors = []
-    for processing_vendor_order in processing_vendor_orders:
-        office_id = processing_vendor_order.order.office_id
-        vendor_id = processing_vendor_order.vendor_id
-        office_vendor_id = f"{office_id}-{vendor_id}"
-        if office_vendor_id not in orders_by_office_vendors:
-            office_vendors.append(OfficeVendor.objects.get(office_id=office_id, vendor_id=vendor_id))
-
-        orders_by_office_vendors[office_vendor_id].append(processing_vendor_order)
-
-    asyncio.run(_sync_with_vendor_for_orders(orders_by_office_vendors, office_vendors))
+def sync_with_vendors():
+    """
+    This task is running every day, checking following items
+    - check if orders are created on vendor side directly
+    - update order status for those created on Ordo
+    """
+    office_ids = Subscription.actives.select_related("office").values_list("office", flat=True)
+    office_vendors = list(OfficeVendor.objects.select_related("office", "vendor").filter(office_id__in=office_ids))
+    asyncio.run(_sync_with_vendors(office_vendors))

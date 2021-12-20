@@ -24,7 +24,8 @@ def semaphore_coroutine(func):
     @wraps(func)
     async def wrapper(*args, **kwargs):
         await args[1].acquire()
-        await func(*args, **kwargs)
+        ret = await func(*args, **kwargs)
         args[1].release()
+        return ret
 
     return wrapper

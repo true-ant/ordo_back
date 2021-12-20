@@ -103,10 +103,7 @@ async def get_orders(office_vendor, login_cookies, perform_login):
             password=office_vendor.password,
         )
 
-        orders = await scraper.get_orders(
-            office=office_vendor.office,
-            perform_login=perform_login,
-        )
+        orders = await scraper.get_orders(office=office_vendor.office, perform_login=perform_login)
         orders = sorted(orders, key=lambda x: x.order_date)
         if len(orders):
             first_order_date = orders[0].order_date

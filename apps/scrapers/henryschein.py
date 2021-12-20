@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import json
+import logging
 import re
 import uuid
 from decimal import Decimal
@@ -16,6 +17,8 @@ from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct, VendorCartProduct
 from apps.types.scraper import LoginInformation, ProductSearch, SmartProductID
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 HEADERS = {
     "authority": "www.henryschein.com",
     "sec-ch-ua": '"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"',
@@ -139,6 +142,7 @@ class HenryScheinScraper(Scraper):
     @semaphore_coroutine
     async def get_order(self, sem, order_dom, office=None):
         link = order_dom.xpath("./td[8]/a/@href").extract_first().strip()
+        logger.debug(f"Getting order from {link}")
         order = {
             "total_amount": order_dom.xpath("./td[6]//text()").extract_first()[1:],
             "currency": "USD",
@@ -153,6 +157,10 @@ class HenryScheinScraper(Scraper):
             order["order_id"] = (
                 order_detail_response.xpath("//span[@id='ctl00_cphMainContent_orderNbLbl']//text()").get().strip()
             )
+            order["vendor_order_reference"] = (
+                order_detail_response.xpath("//span[@id='ctl00_cphMainContent_referenceNbLbl']//text()").get().strip()
+            )
+            logger.debug(f"Got order which id is {order['order_id']}")
             addresses = order_detail_response.xpath(
                 "//span[@id='ctl00_cphMainContent_ucShippingAddr_lblAddress']//text()"
             ).extract()
@@ -239,7 +247,9 @@ class HenryScheinScraper(Scraper):
             ),
         )
         if office:
+            logger.debug(f"storing order {order['order_id']} to db")
             await self.save_order_to_db(office, order=Order.from_dict(order))
+            logger.debug(f"stored order {order['order_id']} to db")
         return order
 
     async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
@@ -309,7 +319,7 @@ class HenryScheinScraper(Scraper):
             )
             tasks = (
                 self.get_order(sem, order_dom, office)
-                for order_dom in orders_dom
+                for order_dom in orders_dom[:1]
                 if completed_order_ids is None
                 or self.extract_first(order_dom, "./td[1]/text()") not in completed_order_ids
             )

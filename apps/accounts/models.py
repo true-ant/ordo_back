@@ -4,6 +4,7 @@ from datetime import timedelta
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models import Manager
 from django.utils import timezone
 from django_extensions.db.fields import AutoSlugField
 from month import Month
@@ -210,6 +211,9 @@ class Subscription(TimeStampedModel):
     subscription_id = models.CharField(max_length=128)
     start_on = models.DateField()
     cancelled_on = models.DateField(null=True, blank=True)
+
+    objects = Manager()
+    actives = managers.ActiveSubscriptionManager()
 
     def __str__(self):
         return f"{self.office.name}' Subscription"

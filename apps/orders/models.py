@@ -159,6 +159,7 @@ class VendorOrder(TimeStampedModel):
     order = FlexibleForeignKey(Order, related_name="vendor_orders")
     vendor = FlexibleForeignKey(Vendor)
     vendor_order_id = models.CharField(max_length=100)
+    vendor_order_reference = models.CharField(max_length=128, null=True, blank=True)
     total_amount = models.DecimalField(decimal_places=2, max_digits=10)
     total_items = models.IntegerField(default=1)
     currency = models.CharField(max_length=100, default="USD")
