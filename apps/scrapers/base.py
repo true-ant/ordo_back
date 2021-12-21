@@ -48,6 +48,10 @@ class Scraper:
         return re.sub(r"\s+", " ", s).strip()
 
     @staticmethod
+    def extract_amount(s):
+        return re.search(r"[,\d]+.?\d*", s).group(0)
+
+    @staticmethod
     def merge_strip_values(dom, xpath, delimeter=""):
         return delimeter.join(filter(None, map(str.strip, dom.xpath(xpath).extract())))
 

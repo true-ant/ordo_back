@@ -141,15 +141,25 @@ class HenryScheinScraper(Scraper):
 
     @semaphore_coroutine
     async def get_order(self, sem, order_dom, office=None):
-        link = order_dom.xpath("./td[8]/a/@href").extract_first().strip()
+        if len(order_dom.xpath("./td")) == 8:
+            total_amount_table_index = 6
+            order_date_table_index = 4
+            status_table_index = 7
+        else:
+            total_amount_table_index = 4
+            order_date_table_index = 2
+            status_table_index = 5
+        link = order_dom.xpath("./td[last()]/a/@href").extract_first().strip()
         logger.debug(f"Getting order from {link}")
         order = {
-            "total_amount": order_dom.xpath("./td[6]//text()").extract_first()[1:],
+            "total_amount": self.extract_amount(
+                order_dom.xpath(f"./td[{total_amount_table_index}]//text()").extract_first()
+            ),
             "currency": "USD",
             "order_date": datetime.datetime.strptime(
-                order_dom.xpath("./td[4]//text()").extract_first(), "%m/%d/%Y"
+                order_dom.xpath(f"./td[{order_date_table_index}]//text()").extract_first(), "%m/%d/%Y"
             ).date(),
-            "status": order_dom.xpath("./td[7]//text()").extract_first(),
+            "status": order_dom.xpath(f"./td[{status_table_index}]//text()").extract_first(),
             "products": [],
         }
         async with self.session.get(link) as resp:
@@ -185,8 +195,8 @@ class HenryScheinScraper(Scraper):
                 quantity_price = self.merge_strip_values(
                     dom=order_product_dom, xpath=".//td[@id='QtyRow']//text()", delimeter=";"
                 )
-                quantity, _, product_price = quantity_price.split(";")
-                product_price = re.search(r"\$(.*)/", product_price)
+                quantity = quantity_price.split(";")[0].strip("-")
+                product_price = re.search(r"\$(.*)/", quantity_price)
                 product_price = product_price.group(1)
 
                 if "invoice_link" not in order:
@@ -269,8 +279,7 @@ class HenryScheinScraper(Scraper):
                 ".//li[@id='ctl00_cphMainContentHarmony_ucProductSummary_ucPackagingOptions"
                 "_rptProductList_ctl00_liProductAction']//span[contains(@class, 'amount')]/text()",
             )
-            product_price = re.findall("\\d+\\.\\d+", product_price)
-            product_price = product_price[0] if isinstance(product_price, list) else None
+            product_price = self.extract_amount(product_price) if product_price else None
             product_category = res.xpath(
                 ".//div[contains(@class, 'product-image')]/ul/li/div[@class='value']/span/text()"
             ).extract()

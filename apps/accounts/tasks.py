@@ -20,7 +20,7 @@ from month import Month
 
 from apps.accounts.models import CompanyMember, Office, OfficeVendor, User
 from apps.common.utils import group_products
-from apps.orders.models import OfficeProduct, Product
+from apps.orders.models import OfficeProduct, OrderStatus, Product, VendorOrder
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import CompanyInvite
 
@@ -93,7 +93,7 @@ def send_company_invite_email(company_email_invites: List[CompanyInvite]):
         )
 
 
-async def get_orders(office_vendor, login_cookies, perform_login):
+async def get_orders(office_vendor, login_cookies, perform_login, completed_order_ids):
     async with ClientSession(cookies=login_cookies) as session:
         vendor = office_vendor.vendor
         scraper = ScraperFactory.create_scraper(
@@ -103,7 +103,9 @@ async def get_orders(office_vendor, login_cookies, perform_login):
             password=office_vendor.password,
         )
 
-        orders = await scraper.get_orders(office=office_vendor.office, perform_login=perform_login)
+        orders = await scraper.get_orders(
+            office=office_vendor.office, perform_login=perform_login, completed_order_ids=completed_order_ids
+        )
         orders = sorted(orders, key=lambda x: x.order_date)
         if len(orders):
             first_order_date = orders[0].order_date
@@ -139,7 +141,12 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
             cookie.load(login_cookie)
     else:
         cookie = None
-    asyncio.run(get_orders(office_vendor, cookie, perform_login))
+
+    order_id_field = "vendor_order_reference" if office_vendor.vendor.slug == "henry_schein" else "vendor_order_id"
+    completed_order_ids = VendorOrder.objects.filter(
+        vendor=office_vendor.vendor, order__office=office_vendor.office, status=OrderStatus.COMPLETE
+    ).values_list(order_id_field, flat=True)
+    asyncio.run(get_orders(office_vendor, cookie, perform_login, completed_order_ids))
 
     # inventory group products
     office_vendors = OfficeVendor.objects.select_related("office", "vendor").filter(office=office_vendor.office)
