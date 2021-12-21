@@ -31,7 +31,16 @@ class VendorOrderProductInline(ReadOnlyAdminMixin, NestedTabularInline):
 class VendorOrderInline(ReadOnlyAdminMixin, NestedTabularInline):
     model = m.VendorOrder
     fk_name = "order"
-    fields = ("vendor", "invoice", "order_date", "total_amount", "total_items", "currency", "status")
+    fields = (
+        "vendor",
+        "invoice",
+        "vendor_order_reference",
+        "order_date",
+        "total_amount",
+        "total_items",
+        "currency",
+        "status",
+    )
     readonly_fields = fields
     inlines = (VendorOrderProductInline,)
 
