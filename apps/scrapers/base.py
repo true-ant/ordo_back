@@ -7,6 +7,8 @@ from typing import Dict, List, Optional, Tuple
 
 from aiohttp import ClientResponse, ClientSession
 from asgiref.sync import sync_to_async
+from django.db.models import F
+from month import Month
 from scrapy import Selector
 from slugify import slugify
 
@@ -280,14 +282,21 @@ class Scraper:
             try:
                 vendor_order = VendorOrderModel.objects.get(vendor=self.vendor, vendor_order_id=order_id)
             except VendorOrderModel.DoesNotExist:
+                order_date = order_data["order_date"]
                 order = OrderModel.objects.create(
                     office=office,
                     status=order_data["status"],
-                    order_date=order_data["order_date"],
+                    order_date=order_date,
                     total_items=order_data["total_items"],
                     total_amount=order_data["total_amount"],
                 )
                 vendor_order = VendorOrderModel.from_dataclass(vendor=self.vendor, order=order, dict_data=order_data)
+
+                month = Month(year=order_date.year, month=order_date.month)
+                office_budget = office.budgets.filter(month=month).first()
+                if office_budget:
+                    office_budget.dental_spend = F("dental_spend") + order_data["total_amount"]
+                    office_budget.save()
 
             for order_product_data in order_products_data:
                 product_data = order_product_data.pop("product")

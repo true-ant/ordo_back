@@ -117,6 +117,7 @@ async def get_orders(office_vendor, login_cookies, perform_login, completed_orde
             office=office_vendor.office,
             from_date=first_order_date - relativedelta(months=12),
             to_date=first_order_date,
+            completed_order_ids=completed_order_ids,
         )
 
         if vendor.slug == "ultradent":
