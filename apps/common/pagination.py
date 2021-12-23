@@ -59,7 +59,7 @@ class SearchProductPagination(PageNumberPagination):
             "last_page": last_page,
             "vendors": [],
         }
-        if vendors_meta := self.request.data.get("meta", {}).get("vendors"):
+        if vendors_meta := self.request.data.get("meta", {}).get("vendors", []):
             pagination_meta["vendors"] = vendors_meta
 
         if amazon_search:
