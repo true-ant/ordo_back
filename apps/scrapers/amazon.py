@@ -49,7 +49,7 @@ class AmazonScraper(Scraper):
             total_size_str = total_size_str.split("of", 1)[1]
             total_size_str = self.remove_thousands_separator(self.extract_amount(total_size_str))
             total_size = int(total_size_str)
-        except ValueError:
+        except (ValueError, AttributeError):
             total_size = 0
         products = []
         for product_dom in response_dom.xpath(
