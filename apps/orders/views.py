@@ -1168,16 +1168,19 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
 
         search_results = await self.fetch_products(keyword, min_price, max_price)
         updated_vendor_meta, products = group_products_from_search_result(search_results)
-        for updated_vendor_meta in updated_vendor_meta["vendors"]:
-            vendor_meta = [
-                vendor_meta
-                for vendor_meta in pagination_meta["vendors"]
-                if vendor_meta["vendor"] == updated_vendor_meta["vendor"]
-            ][0]
-            vendor_meta["page"] = updated_vendor_meta["page"]
-            vendor_meta["last_page"] = updated_vendor_meta["last_page"]
+        if "vendors" in pagination_meta:
+            for updated_vendor_meta in updated_vendor_meta["vendors"]:
+                vendor_meta = [
+                    vendor_meta
+                    for vendor_meta in pagination_meta["vendors"]
+                    if vendor_meta["vendor"] == updated_vendor_meta["vendor"]
+                ][0]
+                vendor_meta["page"] = updated_vendor_meta["page"]
+                vendor_meta["last_page"] = updated_vendor_meta["last_page"]
 
-        pagination_meta["last_page"] = all(vendor_meta["last_page"] for vendor_meta in pagination_meta["vendors"])
+            pagination_meta["last_page"] = all(vendor_meta["last_page"] for vendor_meta in pagination_meta["vendors"])
+        else:
+            pagination_meta = updated_vendor_meta
 
         # exclude inventory products
         inventory_products = await sync_to_async(get_inventory_products)(self.kwargs["office_pk"])
