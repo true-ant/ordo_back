@@ -39,13 +39,42 @@ class SearchProductPagination(PageNumberPagination):
     def get_page_number(self, request, paginator):
         return request.data.get("page", 1)
 
-    def get_paginated_response(self, data):
+    def get_paginated_response(self, data, *args, **kwargs):
+
+        try:
+            total_size = self.page.paginator.count
+            last_page = not self.page.has_next()
+        except AttributeError:
+            # TODO: total size might be wrong when there is no result from table, but there are results from amazon
+            total_size = 0
+            last_page = True
+
+        amazon_search = kwargs.get("amazon_search")
+        if amazon_search:
+            total_size += kwargs.get("amazon_total_size", 0)
+            last_page &= kwargs.get("amazon_last_page", True)
+
         pagination_meta = {
-            "total_size": self.page.paginator.count,
-            "last_page": not self.page.has_next(),
+            "total_size": total_size,
+            "last_page": last_page,
+            "vendors": [],
         }
         if vendors_meta := self.request.data.get("meta", {}).get("vendors"):
             pagination_meta["vendors"] = vendors_meta
+
+        if amazon_search:
+            amazon_pagination_meta = [vendor_meta for vendor_meta in vendors_meta if vendor_meta["vendor"] == "amazon"]
+            if amazon_pagination_meta:
+                amazon_pagination_meta[0]["page"] = kwargs.get("amazon_page")
+                amazon_pagination_meta[0]["last_page"] = kwargs.get("amazon_last_page")
+            else:
+                pagination_meta["vendors"].append(
+                    {
+                        "vendor": "amazon",
+                        "page": kwargs.get("amazon_page"),
+                        "last_page": kwargs.get("amazon_last_page"),
+                    }
+                )
 
         return Response(
             {

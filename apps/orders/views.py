@@ -19,6 +19,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from month import Month
 from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST
@@ -1023,13 +1024,19 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         vendors_to_be_scraped = []
         vendors_to_be_waited = []
         pagination_meta = self.request.data.get("meta", {})
-        vendors_slugs = [vendor_meta["vendor"] for vendor_meta in pagination_meta.get("vendors", [])]
+        vendors_slugs = [
+            vendor_meta["vendor"]
+            for vendor_meta in pagination_meta.get("vendors", [])
+            if vendor_meta["vendor"] != "amazon"
+        ]
+        amazon_linked = False
         for office_vendor in office_vendors:
             if (
-                office_vendor.vendor.slug == "ultradent"
+                office_vendor.vendor.slug in ["ultradent", "amazon"]
                 or vendors_slugs
                 and office_vendor.vendor.slug not in vendors_slugs
             ):
+                amazon_linked = True
                 continue
 
             keyword_obj, _ = m.Keyword.objects.get_or_create(keyword=keyword)
@@ -1049,19 +1056,56 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
 
         if vendors_to_be_scraped:
             search_and_group_products.delay(keyword, self.kwargs["office_pk"], vendors_to_be_scraped)
-            return False
+            return False, amazon_linked
         if vendors_to_be_waited:
-            return True
-        return True
+            return True, amazon_linked
+        return True, amazon_linked
 
     @sync_to_async
-    def get_products_from_db(self):
+    def get_products_from_db(self, *args, **kwargs):
         queryset = self.get_queryset()
-        page = self.paginate_queryset(queryset, self.request, view=self)
+        try:
+            page = self.paginate_queryset(queryset, self.request, view=self)
+        except NotFound:
+            page = []
         serializer = s.OfficeProductSerializer(page, many=True, context={"include_children": True})
-        return self.get_paginated_response(serializer.data)
+        data = serializer.data
+        # amazon search
+        amazon_search_result = kwargs.get("amazon")
+        if amazon_search_result:
+            amazon_search = True
+            amazon_total_size = amazon_search_result["total_size"]
+            amazon_last_page = amazon_search_result["last_page"]
+            amazon_page = amazon_search_result["page"]
+            for amazon_product in amazon_search_result["products"]:
+                product_data = amazon_product.to_dict()
+                price = product_data.pop("price")
+                data.append(
+                    {
+                        "id": None,
+                        "product": product_data,
+                        "price": price,
+                        "office_category": None,
+                        "is_favorite": False,
+                        "is_inventory": False,
+                    }
+                )
 
-    async def fetch_products(self, keyword, min_price, max_price):
+        else:
+            amazon_search = False
+            amazon_total_size = 0
+            amazon_last_page = True
+            amazon_page = 0
+
+        return self.get_paginated_response(
+            data,
+            amazon_search=amazon_search,
+            amazon_total_size=amazon_total_size,
+            amazon_page=amazon_page,
+            amazon_last_page=amazon_last_page,
+        )
+
+    async def fetch_products(self, keyword, min_price, max_price, vendors=None):
         pagination_meta = self.request.data.get("meta", {})
         vendors_meta = {vendor_meta["vendor"]: vendor_meta for vendor_meta in pagination_meta.get("vendors", [])}
         session = apps.get_app_config("accounts").session
@@ -1069,6 +1113,9 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         tasks = []
         for office_vendor in office_vendors:
             vendor_slug = office_vendor.vendor.slug
+            if vendors and vendor_slug not in vendors:
+                continue
+
             if vendors_meta.keys() and vendor_slug not in vendors_meta.keys():
                 continue
 
@@ -1087,8 +1134,8 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
             tasks.append(
                 scraper.search_products(query=keyword, page=current_page + 1, min_price=min_price, max_price=max_price)
             )
-
-        return await asyncio.gather(*tasks, return_exceptions=True)
+        search_results = await asyncio.gather(*tasks, return_exceptions=True)
+        return search_results
 
     async def post(self, request, *args, **kwargs):
         data = request.data
@@ -1102,10 +1149,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         if len(keyword) <= 3:
             return Response({"message": msgs.SEARCH_QUERY_LIMIT}, status=HTTP_400_BAD_REQUEST)
 
-        has_history = await sync_to_async(self.has_keyword_history)(keyword)
-        if has_history:
-            return await self.get_products_from_db()
-
+        has_history, amazon_linked = await sync_to_async(self.has_keyword_history)(keyword)
         try:
             min_price = data.get("min_price", 0)
             max_price = data.get("max_price", 0)
@@ -1114,8 +1158,26 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         except ValueError:
             return Response({"message": msgs.SEARCH_PRODUCT_WRONG_PARAMETER}, status=HTTP_400_BAD_REQUEST)
 
+        if has_history:
+            amazon_result = None
+            if amazon_linked:
+                search_results = await self.fetch_products(keyword, min_price, max_price, vendors=["amazon"])
+                amazon_result = search_results[0]
+
+            return await self.get_products_from_db(amazon=amazon_result)
+
         search_results = await self.fetch_products(keyword, min_price, max_price)
-        meta, products = group_products_from_search_result(search_results)
+        updated_vendor_meta, products = group_products_from_search_result(search_results)
+        for updated_vendor_meta in updated_vendor_meta["vendors"]:
+            vendor_meta = [
+                vendor_meta
+                for vendor_meta in pagination_meta["vendors"]
+                if vendor_meta["vendor"] == updated_vendor_meta["vendor"]
+            ][0]
+            vendor_meta["page"] = updated_vendor_meta["page"]
+            vendor_meta["last_page"] = updated_vendor_meta["last_page"]
+
+        pagination_meta["last_page"] = all(vendor_meta["last_page"] for vendor_meta in pagination_meta["vendors"])
 
         # exclude inventory products
         inventory_products = await sync_to_async(get_inventory_products)(self.kwargs["office_pk"])
@@ -1138,4 +1200,4 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
             if ret:
                 results.append(ret)
 
-        return Response({"meta": meta, "products": results})
+        return Response({"meta": pagination_meta, "products": results})

@@ -354,7 +354,7 @@ class Scraper:
         res_products = []
         page_size = 0
 
-        if self.vendor.slug != "ultradent":
+        if self.vendor.slug not in ["ultradent", "amazon"]:
             await self.login()
 
         while True:

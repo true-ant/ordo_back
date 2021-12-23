@@ -7,6 +7,7 @@ from aiohttp import ClientSession
 from dotenv import load_dotenv
 
 from apps.common.utils import group_products, group_products_from_search_result
+from apps.scrapers.amazon import AmazonScraper
 from apps.scrapers.benco import BencoScraper
 from apps.scrapers.darby import DarbyScraper
 from apps.scrapers.errors import VendorNotSupported
@@ -16,7 +17,7 @@ from apps.scrapers.patterson import PattersonScraper
 from apps.scrapers.schema import Product
 from apps.scrapers.ultradent import UltraDentScraper
 
-SCRAPER_SLUG = "ultradent"
+SCRAPER_SLUG = "amazon"
 SCRAPERS = {
     "henry_schein": HenryScheinScraper,
     "net_32": Net32Scraper,
@@ -24,6 +25,7 @@ SCRAPERS = {
     "darby": DarbyScraper,
     "patterson": PattersonScraper,
     "benco": BencoScraper,
+    "amazon": AmazonScraper,
 }
 
 
@@ -179,6 +181,17 @@ def get_scraper_data():
                 },
             ],
         },
+        "amazon": {
+            "username": os.getenv("AMAZON_USERNAME"),
+            "password": os.getenv("AMAZON_PASSWORD"),
+            "products": [
+                {
+                    "product_id": "",
+                    "product_url": "",
+                    "quantity": 1,
+                },
+            ],
+        },
     }
 
 
@@ -203,8 +216,8 @@ def get_task(scraper, scraper_name, test="login", **kwargs):
         return scraper.get_orders(office, perform_login=True, completed_order_ids=["11147077"])
     elif test == "order_history_date_range":
         office = kwargs.get("office")
-        orders_from_date = datetime.date(year=2021, month=11, day=9)
-        orders_to_date = datetime.date(year=2021, month=11, day=9)
+        orders_from_date = datetime.date(year=2021, month=3, day=16)
+        orders_to_date = datetime.date(year=2021, month=3, day=16)
         return scraper.get_orders(office, perform_login=True, from_date=orders_from_date, to_date=orders_to_date)
     elif test == "create_order":
         return scraper.create_order(
@@ -288,7 +301,7 @@ async def main(vendors, **kwargs):
                 username=scraper_data["username"],
                 password=scraper_data["password"],
             )
-            tasks.append(get_task(scraper, scraper_name, "order_history", **kwargs))
+            tasks.append(get_task(scraper, scraper_name, "search_product", **kwargs))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
     # products = [
@@ -383,7 +396,7 @@ async def search_products(mock=True):
                     username=scraper_data["username"],
                     password=scraper_data["password"],
                 )
-                tasks.append(scraper.search_products(query="Septocaine", page=1))
+                tasks.append(scraper.search_products(query="Septocaine", page=5))
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
         meta, products = group_products_from_search_result(results)
