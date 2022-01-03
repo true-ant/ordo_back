@@ -1105,7 +1105,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
             amazon_last_page=amazon_last_page,
         )
 
-    async def fetch_products(self, keyword, min_price, max_price, vendors=None):
+    async def fetch_products(self, keyword, min_price, max_price, vendors=None, include_amazon=False):
         pagination_meta = self.request.data.get("meta", {})
         vendors_meta = {vendor_meta["vendor"]: vendor_meta for vendor_meta in pagination_meta.get("vendors", [])}
         session = apps.get_app_config("accounts").session
@@ -1113,6 +1113,9 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         tasks = []
         for office_vendor in office_vendors:
             vendor_slug = office_vendor.vendor.slug
+            if vendor_slug == "amazon" and include_amazon is False:
+                continue
+
             if vendors and vendor_slug not in vendors:
                 continue
 
@@ -1142,6 +1145,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         keyword = data.get("q")
         keyword = keyword.strip()
         pagination_meta = data.get("meta", {})
+        include_amazon = data.get("include_amazon", False)
 
         if pagination_meta.get("last_page", False):
             return Response({"message": msgs.NO_SEARCH_PRODUCT_RESULT}, status=HTTP_400_BAD_REQUEST)
@@ -1160,13 +1164,15 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
 
         if has_history:
             amazon_result = None
-            if amazon_linked:
-                search_results = await self.fetch_products(keyword, min_price, max_price, vendors=["amazon"])
+            if amazon_linked and include_amazon:
+                search_results = await self.fetch_products(
+                    keyword, min_price, max_price, vendors=["amazon"], include_amazon=True
+                )
                 amazon_result = search_results[0]
 
             return await self.get_products_from_db(amazon=amazon_result)
 
-        search_results = await self.fetch_products(keyword, min_price, max_price)
+        search_results = await self.fetch_products(keyword, min_price, max_price, include_amazon=False)
         updated_vendor_meta, products = group_products_from_search_result(search_results)
         if "vendors" in pagination_meta:
             for updated_vendor_meta in updated_vendor_meta["vendors"]:
