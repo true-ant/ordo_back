@@ -88,6 +88,13 @@ class Office(TimeStampedModel):
         return address.zip_code if address else None
 
     @property
+    def shipping_address(self):
+        address = self.addresses.filter(address_type="billing").first()
+        if address:
+            return f"{address.address} {address.city}, {address.zip_code}"
+        return ""
+
+    @property
     def budget(self):
         current_date = timezone.now().date()
         month = Month(year=current_date.year, month=current_date.month)

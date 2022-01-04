@@ -192,6 +192,7 @@ def notify_order_creation(vendor_order_ids, approval_needed):
     total_items = 0
     total_amount = 0
     order_date = vendor_orders[0].order_date
+    order_created_by = vendor_orders[0].order.created_by
     for vendor_order in vendor_orders:
         total_amount += vendor_order.total_amount
         total_items += vendor_order.total_items
@@ -256,9 +257,12 @@ def notify_order_creation(vendor_order_ids, approval_needed):
     htm_content = render_to_string(
         f"emails/{email_template}",
         {
+            "order_created_by": order_created_by,
+            "vendors": [vendor_order.vendor.name for vendor_order in vendor_orders],
             "order_date": order_date,
             "total_items": total_items,
             "total_amount": total_amount,
+            "remaining_budget": office.budget.budget - office.budget.spend,
             "office": office,
             "products": products,
             "SITE_URL": settings.SITE_URL,
