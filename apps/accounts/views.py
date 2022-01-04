@@ -180,6 +180,8 @@ class CompanyMemberViewSet(ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         request.data.setdefault("company", self.kwargs["company_pk"])
+        data = request.data
+        data["invited_by"] = request.user.id
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
@@ -197,6 +199,8 @@ class CompanyMemberViewSet(ModelViewSet):
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer_class = self.get_serializer_class()
+        data = request.data
+        data["invited_by"] = request.user.id
         serializer = serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         instance.role = serializer.validated_data["role"]
@@ -239,6 +243,7 @@ class CompanyMemberViewSet(ModelViewSet):
                             email=member["email"],
                             role=member["role"],
                             user=users.get(member["email"], None),
+                            invited_by=request.user,
                             token_expires_at=timezone.now() + timedelta(m.INVITE_EXPIRES_DAYS),
                         )
                     )

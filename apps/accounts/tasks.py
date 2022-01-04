@@ -79,7 +79,8 @@ def send_company_invite_email(company_email_invites: List[CompanyInvite]):
         htm_content = render_to_string(
             "emails/invite.html",
             {
-                "COMPANY_NAME": company_member.company.name,
+                "inviter": company_member.invited_by,
+                "company": company_member.company,
                 "TOKEN": company_member.token,
                 "SITE_URL": settings.SITE_URL,
             },

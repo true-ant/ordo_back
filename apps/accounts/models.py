@@ -27,6 +27,10 @@ class User(AbstractUser):
     role = models.IntegerField(choices=Role.choices, default=Role.ADMIN)
     avatar = models.ImageField(null=True, blank=True, upload_to="users")
 
+    @property
+    def full_name(self):
+        return self.get_full_name()
+
 
 class Vendor(models.Model):
     name = models.CharField(max_length=100)
@@ -183,6 +187,7 @@ class CompanyMember(TimeStampedModel):
     role = models.IntegerField(choices=User.Role.choices, default=User.Role.ADMIN)
     office = FlexibleForeignKey(Office, null=True)
     email = models.EmailField(null=False, blank=False)
+    invited_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="invites")
     invite_status = models.IntegerField(choices=InviteStatus.choices, default=InviteStatus.INVITE_SENT)
     date_joined = models.DateTimeField(null=True, blank=True)
     token = models.CharField(max_length=64, default=generate_token, unique=True)
