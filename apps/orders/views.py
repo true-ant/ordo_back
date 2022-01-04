@@ -1153,8 +1153,8 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         if pagination_meta.get("last_page", False):
             return Response({"message": msgs.NO_SEARCH_PRODUCT_RESULT}, status=HTTP_400_BAD_REQUEST)
 
-        if len(keyword) <= 3:
-            return Response({"message": msgs.SEARCH_QUERY_LIMIT}, status=HTTP_400_BAD_REQUEST)
+        # if len(keyword) <= 3:
+        #     return Response({"message": msgs.SEARCH_QUERY_LIMIT}, status=HTTP_400_BAD_REQUEST)
 
         has_history, amazon_linked = await sync_to_async(self.has_keyword_history)(keyword)
         try:
