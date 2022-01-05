@@ -248,17 +248,16 @@ class Scraper:
                 ProductImageModel.objects.bulk_create(product_images)
 
             if office:
-                office_product, _ = OfficeProductModel.objects.get_or_create(
+                office_product, _ = OfficeProductModel.objects.update_or_create(
                     office=office,
                     product=product,
                     defaults={
                         "is_inventory": is_inventory,
                         "price": product_price,
+                        "office_category": product_data["category"],
                     },
                 )
-                if office_product.office_category is None:
-                    office_product.office_category = product_data["category"]
-                    office_product.save()
+
             else:
                 office_product = None
 

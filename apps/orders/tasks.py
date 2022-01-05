@@ -302,7 +302,11 @@ async def _sync_with_vendor(
         password=office_vendor.password,
     )
     results = await scraper.get_orders(
-        office=office_vendor.office, perform_login=True, from_date=from_date, to_date=to_date
+        office=office_vendor.office,
+        perform_login=True,
+        from_date=from_date,
+        to_date=to_date,
+        completed_order_ids=completed_vendor_order_ids,
     )
 
     if sem:
