@@ -263,9 +263,9 @@ class DarbyScraper(Scraper):
             # "ctl00$MainContent$pageCount": clean_text(
             #     response, "//input[@name='ctl00$MainContent$pageCount']/@value"
             # ),
-            "ctl00$MainContent$currentSort": "score",
+            "ctl00$MainContent$currentSort": "priceLowToHigh",
             "ctl00$MainContent$selPerPage": f"{page_size}",
-            "ctl00$MainContent$sorter": "score",
+            "ctl00$MainContent$sorter": "priceLowToHigh",
             # "ctl00$serverTime": clean_text(response, "//input[@name='ctl00$serverTime']/@value"),
             "__EVENTTARGET": f"ctl00$MainContent$ppager$ctl{page - 1:02}$pagelink",
             "__EVENTARGUMENT": "",
