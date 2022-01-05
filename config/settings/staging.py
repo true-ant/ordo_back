@@ -11,6 +11,7 @@ EMAIL_USE_TLS = True
 ALLOWED_HOSTS = [
     "ordo-backend-dev.us-east-1.elasticbeanstalk.com",
     "api.staging.joinordo.com",
+    "172.31.29.138",
 ]
 # CORS_ALLOWED_ORIGINS = [
 #     "https://staging.joinordo.com",
