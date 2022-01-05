@@ -192,6 +192,9 @@ def notify_order_creation(vendor_order_ids, approval_needed):
     vendor_orders = VendorOrderModel.objects.filter(id__in=vendor_order_ids)
     total_items = 0
     total_amount = 0
+    if not vendor_orders.exists():
+        raise Exception("order failed")
+
     order_date = vendor_orders[0].order_date
     order_created_by = vendor_orders[0].order.created_by
     for vendor_order in vendor_orders:
