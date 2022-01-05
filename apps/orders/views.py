@@ -957,7 +957,7 @@ class OfficeProductViewSet(ModelViewSet):
 
     def get_queryset(self):
         category_ordering = self.request.query_params.get("category_ordering")
-        return (
+        queryset = (
             super()
             .get_queryset()
             .filter(Q(office__id=self.kwargs["office_pk"]), Q(product__parent__isnull=True))
@@ -968,8 +968,9 @@ class OfficeProductViewSet(ModelViewSet):
                     default=Value(1),
                 )
             )
-            .order_by("category_order", "office_category__slug", "-updated_at")
         ).distinct()
+        # return queryset.order_by("category_order", "office_category__slug", "-updated_at")
+        return queryset.order_by("price", "category_order", "office_category__slug", "-updated_at")
 
     def update(self, request, *args, **kwargs):
         kwargs["partial"] = True
