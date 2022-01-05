@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import logging
 from asyncio import Semaphore
+from decimal import Decimal
 from typing import List, Optional
 
 from aiohttp import ClientSession
@@ -262,7 +263,9 @@ def notify_order_creation(vendor_order_ids, approval_needed):
             "order_date": order_date,
             "total_items": total_items,
             "total_amount": total_amount,
-            "remaining_budget": office.budget.budget - office.budget.spend,
+            "remaining_budget": Decimal(
+                office.budget.dental_budget - office.budget.dental_spend - total_amount
+            ).quantize(Decimal(10) ** -2),
             "office": office,
             "products": products,
             "SITE_URL": settings.SITE_URL,

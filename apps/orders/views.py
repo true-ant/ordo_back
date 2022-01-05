@@ -705,6 +705,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                 created_by=self.request.user,
                 order_date=order_date,
                 status=m.OrderStatus.WAITING_APPROVAL if approval_needed else m.OrderStatus.PROCESSING,
+                is_approved=not approval_needed,
             )
             total_amount = 0
             total_items = 0
