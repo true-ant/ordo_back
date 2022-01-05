@@ -416,7 +416,7 @@ class UltraDentScraper(Scraper):
         return res
 
     async def _search_products(
-        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
+        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price"
     ) -> ProductSearch:
         page_size = 30
         total_size, page_products = await self.get_page_queryset(page, page_size)

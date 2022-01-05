@@ -342,13 +342,13 @@ class Scraper:
             return self._get_vendor_categories(response)
 
     async def _search_products(
-        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
+        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price"
     ) -> ProductSearch:
         pass
 
     @catch_network
     async def search_products(
-        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
+        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price"
     ) -> ProductSearch:
         res_products = []
         page_size = 0
@@ -357,7 +357,9 @@ class Scraper:
             await self.login()
 
         while True:
-            product_search = await self._search_products(query, page, min_price=min_price, max_price=max_price)
+            product_search = await self._search_products(
+                query, page, min_price=min_price, max_price=max_price, sort_by=sort_by
+            )
             if not page_size:
                 page_size = product_search["page_size"]
 

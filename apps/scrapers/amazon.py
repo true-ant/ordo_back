@@ -34,11 +34,11 @@ class AmazonScraper(Scraper):
     BASE_URL = "https://www.amazon.com"
 
     async def _search_products(
-        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
+        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price"
     ) -> ProductSearch:
         url = f"{self.BASE_URL}/s"
         page_size = 16
-        params = {"k": query, "page": page, "ref": "nb_sb_noss"}
+        params = {"k": query, "page": page, "ref": "nb_sb_noss", "s": "price-asc-rank"}
 
         async with self.session.get(url, headers=SEARCH_HEADERS, params=params) as resp:
             text = await resp.text()

@@ -333,13 +333,14 @@ class Net32Scraper(Scraper):
         return products
 
     async def _search_products(
-        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
+        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price"
     ) -> ProductSearch:
         url = f"{self.BASE_URL}/search"
         page_size = 60
         params = {
             "q": query,
             "page": page,
+            "sortby": "price",
         }
         if min_price:
             params["filter.price.low"] = min_price

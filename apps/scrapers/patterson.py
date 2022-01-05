@@ -377,7 +377,7 @@ class PattersonScraper(Scraper):
             return Decimal(str(res["PriceHigh"]))
 
     async def _search_products(
-        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0
+        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price"
     ) -> ProductSearch:
         page_size = 24
         url = f"{self.BASE_URL}/Search/SearchResults"

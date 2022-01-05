@@ -251,9 +251,7 @@ def get_task(scraper, scraper_name, test="login", **kwargs):
         tracking_number = "1ZY06E520399984881"
         return scraper.track_product_from_ups(tracking_number=tracking_number)
     elif test == "search_product":
-        return scraper.search_products(
-            query="Palodent Plus Sectional Matrix System Refill - 5.5 mm Matrices 50/Bx. Accurate", page=1
-        )
+        return scraper.search_products(query="Septocaine", page=1)
     elif test == "search_products_v2":
         office = kwargs.get("office")
         keyword = kwargs.get("keyword")
