@@ -444,10 +444,11 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
                 )
             )
             .distinct()
-            .values("product__product_id", "product__name", "product__images__image")[:5]
+            .values("id", "product__product_id", "product__name", "product__images__image")[:5]
         )
         suggestion_products = [
             {
+                "id": product["id"],
                 "product_id": product["product__product_id"],
                 "name": product["product__name"],
                 "image": product["product__images__image"],
@@ -478,6 +479,7 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
             suggestion_products.extend(
                 [
                     {
+                        "id": "",
                         "product_id": product["product_id"],
                         "name": product["name"],
                         "image": product["images__image"],

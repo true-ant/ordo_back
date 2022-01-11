@@ -310,6 +310,7 @@ class ClearCartSerializer(serializers.Serializer):
 
 
 class ProductSuggestionSerializer(serializers.Serializer):
+    id = serializers.CharField()
     product_id = serializers.CharField()
     name = serializers.CharField()
     image = serializers.CharField()
