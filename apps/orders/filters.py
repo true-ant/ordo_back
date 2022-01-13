@@ -97,6 +97,7 @@ class OfficeProductFilter(filters.FilterSet):
     inventory = filters.BooleanFilter(field_name="is_inventory")
     favorite = filters.BooleanFilter(field_name="is_favorite")
     category = filters.CharFilter(field_name="office_category__slug")
+    vendors = filters.CharFilter(method="filter_by_vendors")
 
     class Meta:
         model = OfficeProduct
@@ -112,3 +113,9 @@ class OfficeProductFilter(filters.FilterSet):
             | Q(product__child__tags__keyword__iexact=value)
         )
         return queryset.filter(q).distinct()
+
+    def filter_by_vendors(self, queryset, name, value):
+        vendors = value.split(",")
+        if vendors:
+            return queryset.filter(product__vendor__slug__in=vendors)
+        return queryset

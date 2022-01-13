@@ -1074,6 +1074,10 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
     @sync_to_async
     def get_products_from_db(self, *args, **kwargs):
         queryset = self.get_queryset()
+        requested_vendors = kwargs.get("requested_vendors", None)
+        if requested_vendors:
+            queryset = queryset.filter(product__vendor__slug__in=requested_vendors)
+
         try:
             page = self.paginate_queryset(queryset, self.request, view=self)
         except NotFound:
@@ -1156,6 +1160,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         keyword = keyword.strip()
         pagination_meta = data.get("meta", {})
         include_amazon = data.get("include_amazon", False)
+        requested_vendors = data.get("vendors", [])
 
         if pagination_meta.get("last_page", False):
             return Response({"message": msgs.NO_SEARCH_PRODUCT_RESULT}, status=HTTP_400_BAD_REQUEST)
@@ -1180,9 +1185,11 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
                 )
                 amazon_result = search_results[0]
 
-            return await self.get_products_from_db(amazon=amazon_result)
+            return await self.get_products_from_db(requested_vendors=requested_vendors, amazon=amazon_result)
 
-        search_results = await self.fetch_products(keyword, min_price, max_price, include_amazon=False)
+        search_results = await self.fetch_products(
+            keyword, min_price, max_price, vendors=requested_vendors, include_amazon=False
+        )
         updated_vendor_meta, products = group_products_from_search_result(search_results)
         if "vendors" in pagination_meta:
             for updated_vendor_meta in updated_vendor_meta["vendors"]:
