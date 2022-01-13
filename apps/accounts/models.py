@@ -211,8 +211,8 @@ class CompanyMember(TimeStampedModel):
     def refresh_expires_at(self):
         self.token_expires_at = timezone.now() + timedelta(days=INVITE_EXPIRES_DAYS)
 
-    class Meta:
-        unique_together = ["company", "email"]
+    # class Meta:
+    #     unique_together = ["company", "email"]
 
     def __str__(self):
         return f"{self.company} - {self.email}"

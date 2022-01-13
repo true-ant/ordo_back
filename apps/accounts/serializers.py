@@ -227,7 +227,7 @@ class CompanyMemberInviteSerializer(serializers.Serializer):
 
 
 class CompanyMemberBulkInviteSerializer(serializers.Serializer):
-    on_boarding_step = serializers.IntegerField()
+    on_boarding_step = serializers.IntegerField(required=False)
     members = serializers.ListField(child=CompanyMemberInviteSerializer(), allow_empty=False)
 
 
