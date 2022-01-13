@@ -148,7 +148,7 @@ class ProductDataSerializer(serializers.Serializer):
     )
     name = serializers.CharField()
     product_unit = serializers.CharField(allow_null=True, allow_blank=True)
-    description = serializers.CharField()
+    description = serializers.CharField(allow_null=True, allow_blank=True)
     url = serializers.CharField()
 
 
