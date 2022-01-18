@@ -432,7 +432,6 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
             m.OfficeProduct.objects.select_related("product__images")
             .filter(
                 Q(office_id=office_id)
-                & Q(is_inventory=True)
                 & Q(product__parent__isnull=True)
                 & (
                     Q(product__product_id=q)
@@ -444,7 +443,8 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
                 )
             )
             .distinct()
-            .values("id", "product__product_id", "product__name", "product__images__image")[:5]
+            .order_by("-is_inventory")
+            .values("id", "is_inventory", "product__product_id", "product__name", "product__images__image")[:5]
         )
         suggestion_products = [
             {
@@ -452,42 +452,43 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
                 "product_id": product["product__product_id"],
                 "name": product["product__name"],
                 "image": product["product__images__image"],
-                "is_inventory": True,
+                "is_inventory": product["is_inventory"],
             }
             for product in office_products
         ]
-        product_ids = [product["product_id"] for product in suggestion_products]
-        if len(office_products) < 5:
-            # get suggestions from from product list
-            products = (
-                m.Product.objects.select_related("images")
-                .filter(
-                    Q(parent__isnull=True)
-                    & (
-                        Q(product_id=q)
-                        | Q(name__icontains=q)
-                        | Q(tags__keyword__iexact=q)
-                        | Q(child__product_id=q)
-                        | Q(child__name__icontains=q)
-                        | Q(child__tags__keyword__iexact=q)
-                    )
-                )
-                .exclude(product_id__in=product_ids)
-                .distinct()
-                .values("product_id", "name", "images__image")[: 5 - len(office_products)]
-            )
-            suggestion_products.extend(
-                [
-                    {
-                        "id": "",
-                        "product_id": product["product_id"],
-                        "name": product["name"],
-                        "image": product["images__image"],
-                        "is_inventory": False,
-                    }
-                    for product in products
-                ]
-            )
+        # product_ids = [product["product_id"] for product in suggestion_products]
+        # if len(office_products) < 5:
+        #     # get suggestions from from product list
+        #     products = (
+        #         m.Product.objects.select_related("images")
+        #         .filter(
+        #             Q(parent__isnull=True)
+        #             & (
+        #                 Q(product_id=q)
+        #                 | Q(name__icontains=q)
+        #                 | Q(tags__keyword__iexact=q)
+        #                 | Q(child__product_id=q)
+        #                 | Q(child__name__icontains=q)
+        #                 | Q(child__tags__keyword__iexact=q)
+        #             )
+        #         )
+        #         .exclude(product_id__in=product_ids)
+        #         .distinct()
+        #         .values("product_id", "name", "images__image")[: 5 - len(office_products)]
+        #     )
+        #     suggestion_products.extend(
+        #         [
+        #             {
+        #                 "id": "",
+        #                 "product_id": product["product_id"],
+        #                 "name": product["name"],
+        #                 "image": product["images__image"],
+        #                 "is_inventory": False,
+        #             }
+        #             for product in products
+        #         ]
+        #     )
+
         serializer = s.ProductSuggestionSerializer(suggestion_products, many=True)
         return Response(serializer.data)
 
