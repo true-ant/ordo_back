@@ -23,7 +23,7 @@ class ProductCategory(models.Model):
         verbose_name_plural = "Product categories"
 
 
-class Keyword(models.Model):
+class Keyword(TimeStampedModel):
     keyword = models.CharField(max_length=128, unique=True)
 
     def __str__(self):
@@ -255,7 +255,7 @@ class OfficeCheckoutStatus(TimeStampedModel):
     order_status = models.CharField(choices=ORDER_STATUS.choices, default=ORDER_STATUS.COMPLETE, max_length=16)
 
 
-class OfficeKeyword(models.Model):
+class OfficeKeyword(TimeStampedModel):
     class TaskStatus(models.TextChoices):
         NOT_STARTED = "NOT_STARTED", "Not Started"
         IN_PROGRESS = "IN_PROGRESS", "In Progress"
