@@ -23,10 +23,11 @@ class VendorOrderFilter(filters.FilterSet):
     end_date = filters.DateFilter(field_name="order_date", lookup_expr="lte")
     budget_type = filters.CharFilter(method="filter_by_budget_type")
     date_range = filters.CharFilter(method="filter_by_range")
+    status = filters.CharFilter()
 
     class Meta:
         model = VendorOrder
-        fields = ["start_date", "end_date"]
+        fields = ["status", "start_date", "end_date"]
 
     def filter_by_budget_type(self, queryset, name, value):
         q = Q()

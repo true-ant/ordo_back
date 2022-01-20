@@ -121,6 +121,10 @@ class OrderStatus(models.TextChoices):
     COMPLETE = "complete", "Complete"
     PROCESSING = "processing", "Processing"
     WAITING_APPROVAL = "waitingapproval", "Waiting Approval"
+    SHIPPED = "shipped", "Shipped"
+    DELIVERED = "delivered", "Delivered"
+    BACK_ORDERED = "backordered", "Back Ordered"
+    RETURNED = "returned", "Returned"
 
 
 class Order(TimeStampedModel):

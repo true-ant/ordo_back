@@ -20,6 +20,7 @@ from django.utils import timezone
 from month import Month
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
+from rest_framework.filters import OrderingFilter
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST
@@ -202,6 +203,8 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
     permission_classes = [p.OfficeSubscriptionPermission]
     serializer_class = s.VendorOrderSerializer
     filterset_class = f.VendorOrderFilter
+    filter_backends = [OrderingFilter]
+    ordering_fields = ["order_date", "vendor__name", "total_items", "total_amount", "status"]
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
