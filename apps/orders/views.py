@@ -17,6 +17,7 @@ from django.db.models import Case, Count, F, Q, Sum, Value, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
 from month import Month
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
@@ -203,7 +204,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
     permission_classes = [p.OfficeSubscriptionPermission]
     serializer_class = s.VendorOrderSerializer
     filterset_class = f.VendorOrderFilter
-    filter_backends = [OrderingFilter]
+    filter_backends = [OrderingFilter, DjangoFilterBackend]
     ordering_fields = ["order_date", "vendor__name", "total_items", "total_amount", "status"]
     pagination_class = StandardResultsSetPagination
 

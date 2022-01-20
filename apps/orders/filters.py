@@ -23,7 +23,7 @@ class VendorOrderFilter(filters.FilterSet):
     end_date = filters.DateFilter(field_name="order_date", lookup_expr="lte")
     budget_type = filters.CharFilter(method="filter_by_budget_type")
     date_range = filters.CharFilter(method="filter_by_range")
-    status = filters.CharFilter()
+    status = filters.CharFilter(field_name="status")
 
     class Meta:
         model = VendorOrder
