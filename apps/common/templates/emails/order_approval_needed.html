@@ -24,16 +24,16 @@
                 <tr>
                   <td style="text-align: center;">
                     <p style="margin: 0 auto; max-width: 403px; font-family: Gilroy; font-size: 18px; font-weight: bold; font-stretch: normal; font-style: normal; line-height: 1.4; letter-spacing: normal; text-align: center; color: #284458;">
-                        {{ order_created_by.full_name }} submitted an order on {{ order_date }} for {{ office.name }} that requires your approval before it can be processed. Please review the order details below.
+                        {{ order_created_by.full_name }} submitted an order on {{ order_date }} for {{ office.name }}, Order details are below.
                     </p>
-                    <a href="#" style="display: flex; align-items: center; justify-content: center; width: auto; max-width: 262px; height: 30px; margin: 20px auto 0px auto; padding: 2px 15px 2px 16px; border-radius: 4px; background-color: #49a2cb; font-family: Gilroy; font-size: 14px; font-weight: 600; font-stretch: normal; font-style: normal; line-height: 2.4; letter-spacing: 0.4px; text-align: left; color: #fff; text-decoration: none;">Approve or Reject Order</a>
+                    <a href="#" style="display: flex; align-items: center; justify-content: center; width: auto; max-width: 262px; height: 30px; margin: 20px auto 0px auto; padding: 2px 15px 2px 16px; border-radius: 4px; background-color: #49a2cb; font-family: Gilroy; font-size: 14px; font-weight: 600; font-stretch: normal; font-style: normal; line-height: 2.4; letter-spacing: 0.4px; text-align: left; color: #fff; text-decoration: none;">Approve or Reject this order</a>
                   </td>
                 </tr>
               </table>
               <p style="width: 100%; height: 0; margin: 40px 0 0; border: solid 1px #ebeaeb;"></p>
 
               <p style="font-family: Gilroy; font-size: 16px; font-weight: 500; font-stretch: normal; font-style: normal; line-height: 1.6; letter-spacing: normal; text-align: center; color: rgba(44, 44, 44, 0.5);">
-                  Please select the "Continue to Order" button above to take you to Ordo where you can approve, edit, or even cancel this order.
+                  Please select the "Approve or Reject" button above to take you to Ordo where you can approve, edit, or even cancel this order.
                   As of right now, you are {{ remaining_budget }} budget after placing this order. You can also reassign an item within the order to a different budget category if appropriate.</p>
 
               <p style="width: 100%; height: 0; margin: 40px 0 0; border: solid 1px #ebeaeb;"></p>
@@ -67,7 +67,7 @@
                     <p style="width: max-content; margin: 0; font-family: Gilroy; font-size: 14px; font-weight: bold; font-stretch: normal; font-style: normal; line-height: 1.4; letter-spacing: normal; text-align: left; color: #284458;">Placed by : </p>
                   </td>
                   <td style="padding: 15px 0;">
-                    <p style="margin: 0; font-family: Gilroy; font-size: 14px; font-weight: 500; font-stretch: normal; font-style: normal; line-height: 1.4; letter-spacing: normal; text-align: left; color: #969696;">{{ inviter.user.full_name }}
+                    <p style="margin: 0; font-family: Gilroy; font-size: 14px; font-weight: 500; font-stretch: normal; font-style: normal; line-height: 1.4; letter-spacing: normal; text-align: left; color: #969696;">{{ inviter.user.full_name }} (User)
                         {{ office.name }} on {{ order_date| date:"F d, Y" }}</p>
                   </td>
                 </tr>
