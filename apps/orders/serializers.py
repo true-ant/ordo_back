@@ -210,7 +210,7 @@ class CartSerializer(serializers.ModelSerializer):
                 list(product.parent.children.exclude(id=product.id).values_list("product_id", flat=True))
             )
 
-        return OfficeProductReadSerializer(
+        return OfficeProductSerializer(
             m.OfficeProduct.objects.filter(product__product_id__in=product_ids), many=True
         ).data
 
