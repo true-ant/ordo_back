@@ -650,6 +650,19 @@ class CartViewSet(AsyncMixin, ModelViewSet):
     #     return instance, instance.product.product_id, instance.product.vendor
     #
 
+    @action(detail=True, url_path="change-product", methods=["post"])
+    def change_product(self, request, *args, **kwargs):
+        instance = self.get_object()
+        product_id = request.data.get("product_id")
+        unit_price = request.data.get("unit_price")
+        product = get_object_or_404(m.Product, product_id=product_id)
+        if m.Cart.objects.filter(office_id=self.kwargs["office_pk"], product=product).exists():
+            return Response({"message": "This product is already in your cart"}, status=HTTP_400_BAD_REQUEST)
+        instance.unit_price = unit_price
+        instance.product = product
+        instance.save()
+        return Response(self.serializer_class(instance).data)
+
     def update(self, request, *args, **kwargs):
         kwargs["partial"] = True
         return super().update(request, *args, **kwargs)
