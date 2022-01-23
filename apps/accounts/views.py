@@ -214,38 +214,47 @@ class CompanyMemberViewSet(ModelViewSet):
         emails = [member["email"] for member in serializer.validated_data["members"]]
         with transaction.atomic():
             company = m.Company.objects.get(id=self.kwargs["company_pk"])
-            company.on_boarding_step = serializer.validated_data["on_boarding_step"]
-            company.save()
+            on_boarding_step = serializer.validated_data.get("on_boarding_step")
+            if on_boarding_step:
+                company.on_boarding_step = serializer.validated_data.get("on_boarding_step")
+                company.save()
+
             users = m.User.objects.in_bulk(emails, field_name="username")
-            m.CompanyMember.alls.filter(is_active=False, email__in=emails).delete()
 
             members = []
             for member in serializer.validated_data["members"]:
-                offices = member.get("offices", [])
+                pre_associated_offices = set(
+                    m.CompanyMember.objects.filter(company_id=kwargs["company_pk"], email=member["email"]).values_list(
+                        "office", flat=True
+                    )
+                )
+                offices = set(member.get("offices", []))
+                to_be_removed_offices = pre_associated_offices - offices
+
+                if to_be_removed_offices:
+                    m.CompanyMember.objects.filter(email=member["email"], office_id__in=to_be_removed_offices).delete()
+
                 for i, office in enumerate(offices):
-                    members.append(
-                        m.CompanyMember(
-                            company_id=kwargs["company_pk"],
-                            office=office,
-                            email=member["email"],
-                            role=member["role"],
-                            user=users.get(member["email"], None),
-                            token_expires_at=timezone.now() + timedelta(m.INVITE_EXPIRES_DAYS),
-                        )
+                    m.CompanyMember.objects.create(
+                        company_id=kwargs["company_pk"],
+                        office=office,
+                        email=member["email"],
+                        role=member["role"],
+                        user=users.get(member["email"], None),
+                        invited_by=request.user,
+                        token_expires_at=timezone.now() + timedelta(m.INVITE_EXPIRES_DAYS),
                     )
                     if i == len(offices) - 1:
                         break
                 else:
-                    members.append(
-                        m.CompanyMember(
-                            company_id=kwargs["company_pk"],
-                            office=None,
-                            email=member["email"],
-                            role=member["role"],
-                            user=users.get(member["email"], None),
-                            invited_by=request.user,
-                            token_expires_at=timezone.now() + timedelta(m.INVITE_EXPIRES_DAYS),
-                        )
+                    m.CompanyMember.objects.create(
+                        company_id=kwargs["company_pk"],
+                        office=None,
+                        email=member["email"],
+                        role=member["role"],
+                        user=users.get(member["email"], None),
+                        invited_by=request.user,
+                        token_expires_at=timezone.now() + timedelta(m.INVITE_EXPIRES_DAYS),
                     )
 
             try:

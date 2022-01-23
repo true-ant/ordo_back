@@ -17,9 +17,11 @@ from django.db.models import Case, Count, F, Q, Sum, Value, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
 from month import Month
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
+from rest_framework.filters import OrderingFilter
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST
@@ -202,6 +204,8 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
     permission_classes = [p.OfficeSubscriptionPermission]
     serializer_class = s.VendorOrderSerializer
     filterset_class = f.VendorOrderFilter
+    filter_backends = [OrderingFilter, DjangoFilterBackend]
+    ordering_fields = ["order_date", "vendor__name", "total_items", "total_amount", "status"]
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
@@ -432,7 +436,6 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
             m.OfficeProduct.objects.select_related("product__images")
             .filter(
                 Q(office_id=office_id)
-                & Q(is_inventory=True)
                 & Q(product__parent__isnull=True)
                 & (
                     Q(product__product_id=q)
@@ -444,7 +447,8 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
                 )
             )
             .distinct()
-            .values("id", "product__product_id", "product__name", "product__images__image")[:5]
+            .order_by("-is_inventory")
+            .values("id", "is_inventory", "product__product_id", "product__name", "product__images__image")[:5]
         )
         suggestion_products = [
             {
@@ -452,42 +456,43 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
                 "product_id": product["product__product_id"],
                 "name": product["product__name"],
                 "image": product["product__images__image"],
-                "is_inventory": True,
+                "is_inventory": product["is_inventory"],
             }
             for product in office_products
         ]
-        product_ids = [product["product_id"] for product in suggestion_products]
-        if len(office_products) < 5:
-            # get suggestions from from product list
-            products = (
-                m.Product.objects.select_related("images")
-                .filter(
-                    Q(parent__isnull=True)
-                    & (
-                        Q(product_id=q)
-                        | Q(name__icontains=q)
-                        | Q(tags__keyword__iexact=q)
-                        | Q(child__product_id=q)
-                        | Q(child__name__icontains=q)
-                        | Q(child__tags__keyword__iexact=q)
-                    )
-                )
-                .exclude(product_id__in=product_ids)
-                .distinct()
-                .values("product_id", "name", "images__image")[: 5 - len(office_products)]
-            )
-            suggestion_products.extend(
-                [
-                    {
-                        "id": "",
-                        "product_id": product["product_id"],
-                        "name": product["name"],
-                        "image": product["images__image"],
-                        "is_inventory": False,
-                    }
-                    for product in products
-                ]
-            )
+        # product_ids = [product["product_id"] for product in suggestion_products]
+        # if len(office_products) < 5:
+        #     # get suggestions from from product list
+        #     products = (
+        #         m.Product.objects.select_related("images")
+        #         .filter(
+        #             Q(parent__isnull=True)
+        #             & (
+        #                 Q(product_id=q)
+        #                 | Q(name__icontains=q)
+        #                 | Q(tags__keyword__iexact=q)
+        #                 | Q(child__product_id=q)
+        #                 | Q(child__name__icontains=q)
+        #                 | Q(child__tags__keyword__iexact=q)
+        #             )
+        #         )
+        #         .exclude(product_id__in=product_ids)
+        #         .distinct()
+        #         .values("product_id", "name", "images__image")[: 5 - len(office_products)]
+        #     )
+        #     suggestion_products.extend(
+        #         [
+        #             {
+        #                 "id": "",
+        #                 "product_id": product["product_id"],
+        #                 "name": product["name"],
+        #                 "image": product["images__image"],
+        #                 "is_inventory": False,
+        #             }
+        #             for product in products
+        #         ]
+        #     )
+
         serializer = s.ProductSuggestionSerializer(suggestion_products, many=True)
         return Response(serializer.data)
 
@@ -644,6 +649,19 @@ class CartViewSet(AsyncMixin, ModelViewSet):
     #     instance = self.get_object()
     #     return instance, instance.product.product_id, instance.product.vendor
     #
+
+    @action(detail=True, url_path="change-product", methods=["post"])
+    def change_product(self, request, *args, **kwargs):
+        instance = self.get_object()
+        product_id = request.data.get("product_id")
+        unit_price = request.data.get("unit_price")
+        product = get_object_or_404(m.Product, product_id=product_id)
+        if m.Cart.objects.filter(office_id=self.kwargs["office_pk"], product=product).exists():
+            return Response({"message": "This product is already in your cart"}, status=HTTP_400_BAD_REQUEST)
+        instance.unit_price = unit_price
+        instance.product = product
+        instance.save()
+        return Response(self.serializer_class(instance).data)
 
     def update(self, request, *args, **kwargs):
         kwargs["partial"] = True
@@ -1074,6 +1092,10 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
     @sync_to_async
     def get_products_from_db(self, *args, **kwargs):
         queryset = self.get_queryset()
+        requested_vendors = kwargs.get("requested_vendors", None)
+        if requested_vendors:
+            queryset = queryset.filter(product__vendor__slug__in=requested_vendors)
+
         try:
             page = self.paginate_queryset(queryset, self.request, view=self)
         except NotFound:
@@ -1156,6 +1178,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         keyword = keyword.strip()
         pagination_meta = data.get("meta", {})
         include_amazon = data.get("include_amazon", False)
+        requested_vendors = data.get("vendors", [])
 
         if pagination_meta.get("last_page", False):
             return Response({"message": msgs.NO_SEARCH_PRODUCT_RESULT}, status=HTTP_400_BAD_REQUEST)
@@ -1180,9 +1203,11 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
                 )
                 amazon_result = search_results[0]
 
-            return await self.get_products_from_db(amazon=amazon_result)
+            return await self.get_products_from_db(requested_vendors=requested_vendors, amazon=amazon_result)
 
-        search_results = await self.fetch_products(keyword, min_price, max_price, include_amazon=False)
+        search_results = await self.fetch_products(
+            keyword, min_price, max_price, vendors=requested_vendors, include_amazon=False
+        )
         updated_vendor_meta, products = group_products_from_search_result(search_results)
         if "vendors" in pagination_meta:
             for updated_vendor_meta in updated_vendor_meta["vendors"]:

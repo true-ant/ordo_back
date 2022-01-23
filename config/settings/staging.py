@@ -22,7 +22,7 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 CELERY_RESULT_BACKEND = None
 BROKER_TRANSPORT_OPTIONS = {
-    "polling_interval": 20,
+    "polling_interval": 5,
     "region": "us-east-1",
 }
 BROKER_URL = f"sqs://{AWS_ACCESS_KEY_ID}:{AWS_SECRET_ACCESS_KEY}@"  # noqa

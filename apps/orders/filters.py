@@ -23,10 +23,11 @@ class VendorOrderFilter(filters.FilterSet):
     end_date = filters.DateFilter(field_name="order_date", lookup_expr="lte")
     budget_type = filters.CharFilter(method="filter_by_budget_type")
     date_range = filters.CharFilter(method="filter_by_range")
+    status = filters.CharFilter(field_name="status")
 
     class Meta:
         model = VendorOrder
-        fields = ["start_date", "end_date"]
+        fields = ["status", "start_date", "end_date"]
 
     def filter_by_budget_type(self, queryset, name, value):
         q = Q()
@@ -97,6 +98,7 @@ class OfficeProductFilter(filters.FilterSet):
     inventory = filters.BooleanFilter(field_name="is_inventory")
     favorite = filters.BooleanFilter(field_name="is_favorite")
     category = filters.CharFilter(field_name="office_category__slug")
+    vendors = filters.CharFilter(method="filter_by_vendors")
 
     class Meta:
         model = OfficeProduct
@@ -112,3 +114,9 @@ class OfficeProductFilter(filters.FilterSet):
             | Q(product__child__tags__keyword__iexact=value)
         )
         return queryset.filter(q).distinct()
+
+    def filter_by_vendors(self, queryset, name, value):
+        vendors = value.split(",")
+        if vendors:
+            return queryset.filter(product__vendor__slug__in=vendors)
+        return queryset

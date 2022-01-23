@@ -148,7 +148,7 @@ class ProductDataSerializer(serializers.Serializer):
     )
     name = serializers.CharField()
     product_unit = serializers.CharField(allow_null=True, allow_blank=True)
-    description = serializers.CharField()
+    description = serializers.CharField(allow_null=True, allow_blank=True)
     url = serializers.CharField()
 
 
@@ -160,6 +160,7 @@ class OfficeProductReadSerializer(serializers.Serializer):
 class CartSerializer(serializers.ModelSerializer):
     office_product = OfficeProductReadSerializer(write_only=True)
     product = ProductSerializer(read_only=True, required=False)
+    same_products = serializers.SerializerMethodField()
     office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
 
     class Meta:
@@ -198,6 +199,20 @@ class CartSerializer(serializers.ModelSerializer):
                 return m.Cart.objects.create(product=product, **validated_data)
             except IntegrityError:
                 raise serializers.ValidationError({"message": "This product is already in your cart"})
+
+    def get_same_products(self, instance):
+        product = instance.product
+        if product.parent is None:
+            product_ids = product.children.values_list("product_id", flat=True)
+        else:
+            product_ids = [product.parent.product_id]
+            product_ids.extend(
+                list(product.parent.children.exclude(id=product.id).values_list("product_id", flat=True))
+            )
+
+        return OfficeProductSerializer(
+            m.OfficeProduct.objects.filter(product__product_id__in=product_ids), many=True
+        ).data
 
     def to_representation(self, instance):
         ret = super(CartSerializer, self).to_representation(instance)
