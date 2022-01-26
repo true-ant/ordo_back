@@ -395,6 +395,7 @@ class Scraper:
 
         page = 1
         products_objs = []
+        fetch_all = False
         while True:
             product_search = await self._search_products(keyword.keyword, page)
             last_page = product_search["last_page"]
@@ -406,7 +407,7 @@ class Scraper:
                 )
                 products_objs.append(product_obj)
 
-            if last_page:
+            if not fetch_all or (fetch_all and last_page):
                 break
 
             page += 1
