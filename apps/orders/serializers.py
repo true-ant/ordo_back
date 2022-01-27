@@ -90,7 +90,7 @@ class VendorOrderProductSerializer(serializers.ModelSerializer):
 
 
 class VendorOrderSerializer(serializers.ModelSerializer):
-    products = VendorOrderProductSerializer(many=True, source="vendororderproduct_set")
+    products = VendorOrderProductSerializer(many=True, source="order_products")
     vendor = VendorSerializer()
     status_display_text = serializers.CharField(source="get_status_display")
 
@@ -330,3 +330,14 @@ class ProductSuggestionSerializer(serializers.Serializer):
     name = serializers.CharField()
     image = serializers.CharField()
     is_inventory = serializers.BooleanField()
+
+
+class RejectProductSerializer(serializers.Serializer):
+    order_product_id = serializers.CharField()
+    rejected_reason = serializers.ChoiceField(choices=m.VendorOrderProduct.RejectReason.choices)
+
+
+class ApproveRejectSerializer(serializers.Serializer):
+    is_approved = serializers.BooleanField()
+    rejected_items = serializers.ListSerializer(child=RejectProductSerializer(), required=False)
+    rejected_reason = serializers.CharField(required=False)

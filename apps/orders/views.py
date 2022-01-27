@@ -223,13 +223,24 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
             "password": office_vendor.password,
         }
 
-    @action(detail=True, methods=["get"], url_path="approve")
+    @action(detail=True, methods=["post"], url_path="approve", permission_classes=[p.OrderApprovalPermission])
     async def approve_order(self, request, *args, **kwargs):
+        serializer = s.ApproveRejectSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         vendor_order = await sync_to_async(self.get_object)()
+
         if vendor_order.status != m.OrderStatus.WAITING_APPROVAL:
             return Response({"message": "this order status is not waiting approval"})
 
-        await OrderService.approve_vendor_order(vendor_order=vendor_order)
+        if serializer.validated_data["is_approved"]:
+            await OrderService.approve_vendor_order(
+                approved_by=request.user, vendor_order=vendor_order, validated_data=serializer.validated_data
+            )
+        else:
+            await sync_to_async(OrderService.reject_vendor_order)(
+                approved_by=request.user, vendor_order=vendor_order, validated_data=serializer.validated_data
+            )
+
         return Response({"message": "okay"})
 
     @action(detail=True, methods=["get"], url_path="invoice-download")
@@ -725,7 +736,6 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                 created_by=self.request.user,
                 order_date=order_date,
                 status=m.OrderStatus.WAITING_APPROVAL if approval_needed else m.OrderStatus.PROCESSING,
-                is_approved=not approval_needed,
             )
             total_amount = 0
             total_items = 0

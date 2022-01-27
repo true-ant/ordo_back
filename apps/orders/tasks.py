@@ -203,9 +203,9 @@ def notify_order_creation(vendor_order_ids, approval_needed):
 
     office = vendor_orders[0].order.office
 
-    products = VendorOrderProductModel.objects.filter(vendor_order_id__in=vendor_order_ids).annotate(
-        total_price=F("unit_price") * F("quantity")
-    )
+    products = VendorOrderProductModel.objects.filter(
+        vendor_order_id__in=vendor_order_ids, rejected_reason__isnull=True
+    ).annotate(total_price=F("unit_price") * F("quantity"))
 
     # send notification
     if approval_needed:
@@ -263,6 +263,7 @@ def notify_order_creation(vendor_order_ids, approval_needed):
         {
             "order_created_by": order_created_by,
             "vendors": [vendor_order.vendor.name for vendor_order in vendor_orders],
+            "vendor_order_ids": ",".join([str(vendor_order.id) for vendor_order in vendor_orders]),
             "order_date": order_date,
             "total_items": total_items,
             "total_amount": total_amount,
