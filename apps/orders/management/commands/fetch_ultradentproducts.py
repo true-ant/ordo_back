@@ -3,7 +3,7 @@ import json
 import os
 from collections import defaultdict
 
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientTimeout
 from asgiref.sync import sync_to_async
 from django.core.management import BaseCommand
 
@@ -68,7 +68,7 @@ class Command(BaseCommand):
     async def fetch_products(self):
         username = os.getenv("ULTRADENT_SCHEIN_USERNAME")
         password = os.getenv("ULTRADENT_SCHEIN_PASSWORD")
-        async with ClientSession() as session:
+        async with ClientSession(timeout=ClientTimeout(30)) as session:
             scraper = UltraDentScraper(
                 session=session,
                 vendor_slug="",

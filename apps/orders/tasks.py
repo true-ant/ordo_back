@@ -5,7 +5,7 @@ from asyncio import Semaphore
 from decimal import Decimal
 from typing import List, Optional
 
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientTimeout
 from asgiref.sync import sync_to_async
 from celery import shared_task
 from django.conf import settings
@@ -52,7 +52,7 @@ def update_office_cart_status():
 
 
 async def get_product_detail(product_id, product_url, office_vendor, vendor) -> ProductDataClass:
-    async with ClientSession() as session:
+    async with ClientSession(timeout=ClientTimeout(30)) as session:
         scraper = ScraperFactory.create_scraper(
             vendor=vendor,
             session=session,
@@ -125,7 +125,7 @@ def update_product_detail(product_id, product_url, office_id, vendor_id):
 
 
 async def _search_products(keyword, office_vendors):
-    async with ClientSession() as session:
+    async with ClientSession(timeout=ClientTimeout(30)) as session:
         tasks = []
         for office_vendor in office_vendors:
             scraper = ScraperFactory.create_scraper(
@@ -337,7 +337,7 @@ async def _sync_with_vendors(office_vendors):
     sem = Semaphore(value=2)
     today = datetime.date.today()
     tasks = []
-    async with ClientSession() as session:
+    async with ClientSession(timeout=ClientTimeout(30)) as session:
         for office_vendor in office_vendors:
             (
                 completed_vendor_order_ids,

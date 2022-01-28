@@ -7,7 +7,7 @@ from functools import reduce
 from http.cookies import SimpleCookie
 from typing import List
 
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientTimeout
 from celery import shared_task
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
@@ -95,7 +95,7 @@ def send_company_invite_email(company_email_invites: List[CompanyInvite]):
 
 
 async def get_orders(office_vendor, login_cookies, perform_login, completed_order_ids):
-    async with ClientSession(cookies=login_cookies) as session:
+    async with ClientSession(cookies=login_cookies, timeout=ClientTimeout(30)) as session:
         vendor = office_vendor.vendor
         scraper = ScraperFactory.create_scraper(
             vendor=vendor,

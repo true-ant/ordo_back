@@ -49,14 +49,14 @@ class UPSProductTrack(BaseTrack):
 
 
 async def track_products():
-    from aiohttp import ClientSession
+    from aiohttp import ClientSession, ClientTimeout
 
     tracking_numbers = [
         "1Z460RY40333874958",
         "92748999985220513006581088",
         "1ZY06E520399984881",
     ]
-    async with ClientSession() as session:
+    async with ClientSession(timeout=ClientTimeout(30)) as session:
         tracker = UPSProductTrack(session)
         # print(await tracker.track_product(tracking_numbers[0]))
         print(await tracker.track_products(tracking_numbers))

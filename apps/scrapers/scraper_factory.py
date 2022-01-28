@@ -3,7 +3,7 @@ import datetime
 import os
 from typing import Optional
 
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientTimeout
 from dotenv import load_dotenv
 
 from apps.common.utils import group_products, group_products_from_search_result
@@ -289,7 +289,7 @@ async def main(vendors, **kwargs):
     scraper_names = [SCRAPER_SLUG]
     base_data = get_scraper_data()
     tasks = []
-    async with ClientSession() as session:
+    async with ClientSession(timeout=ClientTimeout(30)) as session:
         for scraper_name in scraper_names:
             scraper_data = base_data[scraper_name]
             vendor = [vendor for vendor in vendors if vendor.slug == scraper_name][0]
@@ -384,7 +384,7 @@ async def search_products(mock=True):
         print(products)
     else:
         base_data = get_scraper_data()
-        async with ClientSession() as session:
+        async with ClientSession(timeout=ClientTimeout(30)) as session:
             for scraper_name, scraper_data in base_data.items():
                 if scraper_name not in ["henry_schein", "net_32"]:
                     continue

@@ -26,13 +26,13 @@ class USPSProductTrack(BaseTrack):
 
 
 async def track_products():
-    from aiohttp import ClientSession
+    from aiohttp import ClientSession, ClientTimeout
 
     tracking_numbers = [
         "9400111899220505042529",
         "9400111108250803232044",
     ]
-    async with ClientSession() as session:
+    async with ClientSession(timeout=ClientTimeout(30)) as session:
         tracker = USPSProductTrack(session)
         # print(await tracker.track_product(tracking_numbers[0]))
         print(await tracker.track_products(tracking_numbers))
