@@ -324,8 +324,8 @@ def get_vendor_orders_id_and_last_processing_order_date(office_vendor):
     )
 
     order_id_field = "vendor_order_reference" if office_vendor.vendor.slug == "henry_schein" else "vendor_order_id"
-    completed_vendor_order_ids = vendor_orders.filter(status=OrderStatus.COMPLETE).values_list(
-        order_id_field, flat=True
+    completed_vendor_order_ids = list(
+        vendor_orders.filter(status=OrderStatus.COMPLETE).values_list(order_id_field, flat=True)
     )
     return (
         completed_vendor_order_ids,
