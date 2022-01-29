@@ -88,5 +88,15 @@
             "name": "Edge Endo",
             "url": "https://www.edgeendo.com/"
         }
+    },
+    {
+        "model": "accounts.vendor",
+        "pk": 9,
+        "fields": {
+            "slug": "dental_city",
+            "logo": "https://cdn.joinordo.com/vendors/dental_city.png",
+            "name": "Dental City",
+            "url": "https://dentalcity.com/"
+        }
     }
 ]

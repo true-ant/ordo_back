@@ -10,6 +10,7 @@ from apps.common.utils import group_products, group_products_from_search_result
 from apps.scrapers.amazon import AmazonScraper
 from apps.scrapers.benco import BencoScraper
 from apps.scrapers.darby import DarbyScraper
+from apps.scrapers.dental_city import DentalCityScraper
 from apps.scrapers.edge_endo import EdgeEndoScraper
 from apps.scrapers.errors import VendorNotSupported
 from apps.scrapers.henryschein import HenryScheinScraper
@@ -19,7 +20,7 @@ from apps.scrapers.patterson import PattersonScraper
 from apps.scrapers.schema import Product
 from apps.scrapers.ultradent import UltraDentScraper
 
-SCRAPER_SLUG = "edge_endo"
+SCRAPER_SLUG = "dental_city"
 SCRAPERS = {
     "henry_schein": HenryScheinScraper,
     "net_32": Net32Scraper,
@@ -30,6 +31,7 @@ SCRAPERS = {
     "amazon": AmazonScraper,
     "implant_direct": ImplantDirectScraper,
     "edge_endo": EdgeEndoScraper,
+    "dental_city": DentalCityScraper,
 }
 
 
@@ -203,6 +205,10 @@ def get_scraper_data():
         "edge_endo": {
             "username": os.getenv("EDGE_ENDO_USERNAME"),
             "password": os.getenv("EDGE_ENDO_PASSWORD"),
+        },
+        "dental_city": {
+            "username": os.getenv("DENTAL_CITY_USERNAME"),
+            "password": os.getenv("DENTAL_CITY_PASSWORD"),
         },
     }
 
