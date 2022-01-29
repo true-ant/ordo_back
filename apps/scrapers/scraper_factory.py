@@ -12,12 +12,13 @@ from apps.scrapers.benco import BencoScraper
 from apps.scrapers.darby import DarbyScraper
 from apps.scrapers.errors import VendorNotSupported
 from apps.scrapers.henryschein import HenryScheinScraper
+from apps.scrapers.implant_direct import ImplantDirectScraper
 from apps.scrapers.net32 import Net32Scraper
 from apps.scrapers.patterson import PattersonScraper
 from apps.scrapers.schema import Product
 from apps.scrapers.ultradent import UltraDentScraper
 
-SCRAPER_SLUG = "amazon"
+SCRAPER_SLUG = "implant_direct"
 SCRAPERS = {
     "henry_schein": HenryScheinScraper,
     "net_32": Net32Scraper,
@@ -26,6 +27,7 @@ SCRAPERS = {
     "patterson": PattersonScraper,
     "benco": BencoScraper,
     "amazon": AmazonScraper,
+    "implant_direct": ImplantDirectScraper,
 }
 
 
@@ -192,6 +194,10 @@ def get_scraper_data():
                 },
             ],
         },
+        "implant_direct": {
+            "username": os.getenv("IMPLANT_DIRECT_USERNAME"),
+            "password": os.getenv("IMPLANT_DIRECT_PASSWORD"),
+        },
     }
 
 
@@ -299,7 +305,7 @@ async def main(vendors, **kwargs):
                 username=scraper_data["username"],
                 password=scraper_data["password"],
             )
-            tasks.append(get_task(scraper, scraper_name, "search_product", **kwargs))
+            tasks.append(get_task(scraper, scraper_name, "login", **kwargs))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
     # products = [
