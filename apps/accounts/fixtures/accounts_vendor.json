@@ -91,7 +91,7 @@
     },
     {
         "model": "accounts.vendor",
-        "pk": 9,
+        "pk": 10,
         "fields": {
             "slug": "dental_city",
             "logo": "https://cdn.joinordo.com/vendors/dental_city.png",
