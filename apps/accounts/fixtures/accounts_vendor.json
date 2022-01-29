@@ -78,5 +78,15 @@
             "name": "Implant Direct",
             "url": "https://www.implantdirect.com/"
         }
+    },
+    {
+        "model": "accounts.vendor",
+        "pk": 9,
+        "fields": {
+            "slug": "edge_endo",
+            "logo": "https://cdn.joinordo.com/vendors/edge_endo.png",
+            "name": "Edge Endo",
+            "url": "https://www.edgeendo.com/"
+        }
     }
 ]
