@@ -196,6 +196,7 @@ class VendorOrderProduct(TimeStampedModel):
         SHIPPED = "shipped", "Shipped"
         ARRIVED = "arrived", "Arrived"
         RECEIVED = "received", "Received"
+        REJECTED = "rejected", "Rejected"
 
     class RejectReason(models.TextChoices):
         NOT_NEEDED = "noneed", "Not Needed"

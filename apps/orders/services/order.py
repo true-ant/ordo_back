@@ -37,12 +37,15 @@ class OrderService:
         for vendor_order_product in vendor_order_products:
             if str(vendor_order_product.id) in rejected_items:
                 vendor_order_product.rejected_reason = rejected_items[str(vendor_order_product.id)]
+                vendor_order_product.status = VendorOrderProduct.Status.REJECTED
                 rejected_vendor_order_products.append(vendor_order_product)
             else:
                 approved_vendor_order_products.append(vendor_order_product)
 
         if rejected_vendor_order_products:
-            VendorOrderProduct.objects.bulk_update(rejected_vendor_order_products, fields=["rejected_reason"])
+            VendorOrderProduct.objects.bulk_update(
+                rejected_vendor_order_products, fields=["rejected_reason", "status"]
+            )
 
         return approved_vendor_order_products
 
@@ -88,8 +91,9 @@ class OrderService:
             vendor_order.rejected_reason = validated_data["rejected_reason"]
             vendor_order.save()
 
-            vendor_order_products = vendor_order.products.all()
+            vendor_order_products = vendor_order.order_products.all()
             for vendor_order_product in vendor_order_products:
+                vendor_order_product.status = VendorOrderProduct.Status.REJECTED
                 vendor_order_product.rejected_reason = VendorOrderProduct.RejectReason.NOT_NEEDED
 
-            VendorOrderProduct.objects.bulk_update(vendor_order_products, ["rejected_reason"])
+            VendorOrderProduct.objects.bulk_update(vendor_order_products, ["rejected_reason", "status"])
