@@ -125,6 +125,7 @@ class OrderStatus(models.TextChoices):
     DELIVERED = "delivered", "Delivered"
     BACK_ORDERED = "backordered", "Back Ordered"
     RETURNED = "returned", "Returned"
+    REJECTED = "rejected", "Rejected"
 
 
 class Order(TimeStampedModel):
@@ -140,14 +141,6 @@ class Order(TimeStampedModel):
     total_items = models.IntegerField(default=1)
     total_amount = models.DecimalField(decimal_places=2, max_digits=10, default=0)
     status = models.CharField(max_length=100, choices=OrderStatus.choices, default=OrderStatus.PROCESSING)
-    is_approved = models.BooleanField(default=True)
-    approved_by = models.ForeignKey(
-        User,
-        related_name="orders_approved_me",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-    )
 
     objects = models.Manager()
     current_months = OrderMonthManager()
@@ -172,6 +165,15 @@ class VendorOrder(TimeStampedModel):
     vendor_status = models.CharField(max_length=100, null=True, blank=True)
     products = models.ManyToManyField(Product, through="VendorOrderProduct")
     invoice_link = models.URLField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approved_by = models.ForeignKey(
+        User,
+        related_name="approved_orders",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    rejected_reason = models.TextField(null=True, blank=True)
 
     objects = models.Manager()
     current_months = OrderMonthManager()
@@ -190,13 +192,19 @@ class VendorOrder(TimeStampedModel):
 
 class VendorOrderProduct(TimeStampedModel):
     class Status(models.TextChoices):
-
         OPEN = "open", "Open"
         SHIPPED = "shipped", "Shipped"
         ARRIVED = "arrived", "Arrived"
         RECEIVED = "received", "Received"
+        REJECTED = "rejected", "Rejected"
 
-    vendor_order = FlexibleForeignKey(VendorOrder)
+    class RejectReason(models.TextChoices):
+        NOT_NEEDED = "noneed", "Not Needed"
+        WRONG_ITEM = "wrong", "Wrong Item"
+        EXPENSIVE = "expensive", "Expensive"
+        OTHER = "other", "Other"
+
+    vendor_order = FlexibleForeignKey(VendorOrder, related_name="order_products")
     product = FlexibleForeignKey(Product)
     quantity = models.IntegerField(default=0)
     unit_price = models.DecimalField(decimal_places=2, max_digits=10)
@@ -204,6 +212,7 @@ class VendorOrderProduct(TimeStampedModel):
     tracking_number = models.URLField(max_length=512, null=True, blank=True)
     status = models.CharField(max_length=100, choices=Status.choices, default=Status.OPEN)
     vendor_status = models.CharField(max_length=100, null=True, blank=True)
+    rejected_reason = models.CharField(max_length=128, choices=RejectReason.choices, null=True, blank=True)
     # status = models.IntegerField(choices=Status.choices, default=Status.OPEN)
 
     @classmethod

@@ -68,5 +68,35 @@
             "name": "Benco",
             "url": "https://www.benco.com/"
         }
+    },
+    {
+        "model": "accounts.vendor",
+        "pk": 8,
+        "fields": {
+            "slug": "implant_direct",
+            "logo": "https://cdn.joinordo.com/vendors/implant_direct.svg",
+            "name": "Implant Direct",
+            "url": "https://www.implantdirect.com/"
+        }
+    },
+    {
+        "model": "accounts.vendor",
+        "pk": 9,
+        "fields": {
+            "slug": "edge_endo",
+            "logo": "https://cdn.joinordo.com/vendors/edge_endo.png",
+            "name": "Edge Endo",
+            "url": "https://www.edgeendo.com/"
+        }
+    },
+    {
+        "model": "accounts.vendor",
+        "pk": 10,
+        "fields": {
+            "slug": "dental_city",
+            "logo": "https://cdn.joinordo.com/vendors/dental_city.png",
+            "name": "Dental City",
+            "url": "https://dentalcity.com/"
+        }
     }
 ]

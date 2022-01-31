@@ -248,16 +248,25 @@ class Scraper:
                 ProductImageModel.objects.bulk_create(product_images)
 
             if office:
-                office_product, _ = OfficeProductModel.objects.update_or_create(
-                    office=office,
-                    product=product,
-                    defaults={
-                        "is_inventory": is_inventory,
-                        "price": product_price,
-                        "office_category": product_data["category"],
-                    },
-                )
+                try:
+                    office_product = OfficeProductModel.objects.get(
+                        office=office,
+                        product=product,
+                    )
+                    office_product.price = product_price
+                    office_product.office_category = product_data["category"]
+                    if is_inventory:
+                        office_product.is_inventory = is_inventory
 
+                    office_product.save()
+                except OfficeProductModel.DoesNotExist:
+                    OfficeProductModel.objects.create(
+                        office=office,
+                        product=product,
+                        is_inventory=is_inventory,
+                        price=product_price,
+                        office_category=product_data["category"],
+                    )
             else:
                 office_product = None
 
@@ -395,6 +404,7 @@ class Scraper:
 
         page = 1
         products_objs = []
+        fetch_all = False
         while True:
             product_search = await self._search_products(keyword.keyword, page)
             last_page = product_search["last_page"]
@@ -406,7 +416,7 @@ class Scraper:
                 )
                 products_objs.append(product_obj)
 
-            if last_page:
+            if not fetch_all or (fetch_all and last_page):
                 break
 
             page += 1

@@ -5,7 +5,7 @@ from asyncio import Semaphore
 from decimal import Decimal
 from typing import List, Optional
 
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientTimeout
 from asgiref.sync import sync_to_async
 from celery import shared_task
 from django.conf import settings
@@ -52,7 +52,7 @@ def update_office_cart_status():
 
 
 async def get_product_detail(product_id, product_url, office_vendor, vendor) -> ProductDataClass:
-    async with ClientSession() as session:
+    async with ClientSession(timeout=ClientTimeout(30)) as session:
         scraper = ScraperFactory.create_scraper(
             vendor=vendor,
             session=session,
@@ -125,7 +125,7 @@ def update_product_detail(product_id, product_url, office_id, vendor_id):
 
 
 async def _search_products(keyword, office_vendors):
-    async with ClientSession() as session:
+    async with ClientSession(timeout=ClientTimeout(30)) as session:
         tasks = []
         for office_vendor in office_vendors:
             scraper = ScraperFactory.create_scraper(
@@ -203,9 +203,9 @@ def notify_order_creation(vendor_order_ids, approval_needed):
 
     office = vendor_orders[0].order.office
 
-    products = VendorOrderProductModel.objects.filter(vendor_order_id__in=vendor_order_ids).annotate(
-        total_price=F("unit_price") * F("quantity")
-    )
+    products = VendorOrderProductModel.objects.filter(
+        vendor_order_id__in=vendor_order_ids, rejected_reason__isnull=True
+    ).annotate(total_price=F("unit_price") * F("quantity"))
 
     # send notification
     if approval_needed:
@@ -263,6 +263,7 @@ def notify_order_creation(vendor_order_ids, approval_needed):
         {
             "order_created_by": order_created_by,
             "vendors": [vendor_order.vendor.name for vendor_order in vendor_orders],
+            "vendor_order_ids": ",".join([str(vendor_order.id) for vendor_order in vendor_orders]),
             "order_date": order_date,
             "total_items": total_items,
             "total_amount": total_amount,
@@ -323,8 +324,8 @@ def get_vendor_orders_id_and_last_processing_order_date(office_vendor):
     )
 
     order_id_field = "vendor_order_reference" if office_vendor.vendor.slug == "henry_schein" else "vendor_order_id"
-    completed_vendor_order_ids = vendor_orders.filter(status=OrderStatus.COMPLETE).values_list(
-        order_id_field, flat=True
+    completed_vendor_order_ids = list(
+        vendor_orders.filter(status=OrderStatus.COMPLETE).values_list(order_id_field, flat=True)
     )
     return (
         completed_vendor_order_ids,
@@ -336,7 +337,7 @@ async def _sync_with_vendors(office_vendors):
     sem = Semaphore(value=2)
     today = datetime.date.today()
     tasks = []
-    async with ClientSession() as session:
+    async with ClientSession(timeout=ClientTimeout(30)) as session:
         for office_vendor in office_vendors:
             (
                 completed_vendor_order_ids,

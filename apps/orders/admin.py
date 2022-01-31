@@ -170,7 +170,7 @@ class OfficeKeywordAdmin(admin.ModelAdmin):
         "vendor",
         "task_status",
     )
-    list_filter = ("task_status",)
+    list_filter = ("task_status", "vendor")
     search_fields = ("keyword__keyword",)
 
 

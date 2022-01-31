@@ -53,7 +53,7 @@ class FedexProductTrack(BaseTrack):
 
 
 async def track_products():
-    from aiohttp import ClientSession
+    from aiohttp import ClientSession, ClientTimeout
 
     tracking_numbers = [
         "280191637997",
@@ -62,7 +62,7 @@ async def track_products():
         "783510021590",
         "783357601120",
     ]
-    async with ClientSession() as session:
+    async with ClientSession(timeout=ClientTimeout(30)) as session:
         tracker = FedexProductTrack(session)
         print(await tracker.track_product(tracking_numbers[0]))
         # print(await tracker.track_products(tracking_numbers))

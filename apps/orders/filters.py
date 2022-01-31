@@ -19,6 +19,7 @@ class OrderFilter(filters.FilterSet):
 
 
 class VendorOrderFilter(filters.FilterSet):
+    ids = filters.CharFilter(method="filter_by_ids")
     start_date = filters.DateFilter(field_name="order_date", lookup_expr="gte")
     end_date = filters.DateFilter(field_name="order_date", lookup_expr="lte")
     budget_type = filters.CharFilter(method="filter_by_budget_type")
@@ -28,6 +29,12 @@ class VendorOrderFilter(filters.FilterSet):
     class Meta:
         model = VendorOrder
         fields = ["status", "start_date", "end_date"]
+
+    def filter_by_ids(self, queryset, name, value):
+        ids = value.split(",")
+        q = Q(id__in=ids)
+
+        return queryset.filter(q)
 
     def filter_by_budget_type(self, queryset, name, value):
         q = Q()
