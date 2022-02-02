@@ -1,5 +1,6 @@
 from asgiref.sync import sync_to_async
 from django.apps import apps
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
@@ -13,7 +14,7 @@ from apps.types.orders import CartProduct
 class OrderService:
     @staticmethod
     def is_debug_mode():
-        return True
+        return settings.MAKE_FAKE_ORDER
 
     @sync_to_async
     def get_office_vendor(self, vendor_order) -> OfficeVendor:
