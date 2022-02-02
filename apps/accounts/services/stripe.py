@@ -63,7 +63,7 @@ def create_subscription(customer_id, promocode: Optional[str] = None):
     """
     params = {
         "customer": customer_id,
-        # "trial_period_days": 14,
+        "trial_period_days": 14,
         "items": [{"price": settings.STRIPE_SUBSCRIPTION_PRICE_ID}],
     }
     if promocode:
