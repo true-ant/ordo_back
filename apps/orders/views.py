@@ -119,6 +119,7 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
             m.Order.objects.filter(
                 Q(order_date__gte=month_first_day) & Q(order_date__lt=next_month_first_day) & Q(office_id=office_id)
             )
+            .exclude(status__in=[m.OrderStatus.REJECTED, m.OrderStatus.WAITING_APPROVAL])
             .annotate(month_total_items=Sum("total_items", distinct=True))
             .annotate(month_total_amount=Sum("total_amount", distinct=True))
         )
@@ -128,6 +129,7 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
             total_amount = queryset[0].month_total_amount
             average_amount = (total_amount / orders_count).quantize(Decimal(".01"), rounding=decimal.ROUND_UP)
 
+        pending_orders_count = m.Order.objects.filter(status=m.OrderStatus.WAITING_APPROVAL).count()
         vendors = (
             m.VendorOrder.objects.filter(
                 Q(order_date__gte=month_first_day)
@@ -145,6 +147,7 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
         ret = {
             "order": {
                 "order_counts": orders_count,
+                "pending_order_counts": pending_orders_count,
                 "total_items": total_items,
                 "total_amount": total_amount,
                 "average_amount": average_amount,

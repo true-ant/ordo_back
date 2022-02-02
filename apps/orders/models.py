@@ -120,7 +120,7 @@ class OrderMonthManager(models.Manager):
 class OrderStatus(models.TextChoices):
     COMPLETE = "complete", "Complete"
     PROCESSING = "processing", "Processing"
-    WAITING_APPROVAL = "waitingapproval", "Waiting Approval"
+    WAITING_APPROVAL = "waitingapproval", "Pending Approval"
     SHIPPED = "shipped", "Shipped"
     DELIVERED = "delivered", "Delivered"
     BACK_ORDERED = "backordered", "Back Ordered"
