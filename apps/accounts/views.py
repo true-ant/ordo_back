@@ -7,7 +7,6 @@ from dateutil.relativedelta import relativedelta
 # from celery.result import AsyncResult
 from django.apps import apps
 from django.db import transaction
-from django.db.utils import IntegrityError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from month import Month
@@ -221,31 +220,32 @@ class CompanyMemberViewSet(ModelViewSet):
 
             users = m.User.objects.in_bulk(emails, field_name="username")
 
-            members = []
             for member in serializer.validated_data["members"]:
                 pre_associated_offices = set(
                     m.CompanyMember.objects.filter(company_id=kwargs["company_pk"], email=member["email"]).values_list(
                         "office", flat=True
                     )
                 )
-                offices = set(member.get("offices", []))
-                to_be_removed_offices = pre_associated_offices - offices
 
-                if to_be_removed_offices:
-                    m.CompanyMember.objects.filter(email=member["email"], office_id__in=to_be_removed_offices).delete()
+                offices = member.get("offices")
+                if offices:
+                    to_be_removed_offices = pre_associated_offices - offices
 
-                for i, office in enumerate(offices):
-                    m.CompanyMember.objects.create(
-                        company_id=kwargs["company_pk"],
-                        office=office,
-                        email=member["email"],
-                        role=member["role"],
-                        user=users.get(member["email"], None),
-                        invited_by=request.user,
-                        token_expires_at=timezone.now() + timedelta(m.INVITE_EXPIRES_DAYS),
-                    )
-                    if i == len(offices) - 1:
-                        break
+                    if to_be_removed_offices:
+                        m.CompanyMember.objects.filter(
+                            email=member["email"], office_id__in=to_be_removed_offices
+                        ).delete()
+
+                    for i, office in enumerate(offices):
+                        m.CompanyMember.objects.create(
+                            company_id=kwargs["company_pk"],
+                            office=office,
+                            email=member["email"],
+                            role=member["role"],
+                            user=users.get(member["email"], None),
+                            invited_by=request.user,
+                            token_expires_at=timezone.now() + timedelta(m.INVITE_EXPIRES_DAYS),
+                        )
                 else:
                     m.CompanyMember.objects.create(
                         company_id=kwargs["company_pk"],
@@ -257,10 +257,6 @@ class CompanyMemberViewSet(ModelViewSet):
                         token_expires_at=timezone.now() + timedelta(m.INVITE_EXPIRES_DAYS),
                     )
 
-            try:
-                m.CompanyMember.objects.bulk_create(members)
-            except IntegrityError:
-                return Response({"message": msgs.INVITE_EMAIL_EXIST}, status=HTTP_400_BAD_REQUEST)
         send_company_invite_email.delay(
             [
                 {
