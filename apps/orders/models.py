@@ -211,7 +211,7 @@ class VendorOrderProduct(TimeStampedModel):
     unit_price = models.DecimalField(decimal_places=2, max_digits=10)
     tracking_link = models.URLField(max_length=512, null=True, blank=True)
     tracking_number = models.URLField(max_length=512, null=True, blank=True)
-    status = models.CharField(max_length=100, choices=Status.choices, default=Status.OPEN)
+    status = models.CharField(max_length=100, choices=Status.choices, null=True, blank=True)
     vendor_status = models.CharField(max_length=100, null=True, blank=True)
     rejected_reason = models.CharField(max_length=128, choices=RejectReason.choices, null=True, blank=True)
     # status = models.IntegerField(choices=Status.choices, default=Status.OPEN)

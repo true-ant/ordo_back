@@ -260,7 +260,7 @@ class Scraper:
 
                     office_product.save()
                 except OfficeProductModel.DoesNotExist:
-                    OfficeProductModel.objects.create(
+                    office_product = OfficeProductModel.objects.create(
                         office=office,
                         product=product,
                         is_inventory=is_inventory,
