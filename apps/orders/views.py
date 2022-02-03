@@ -129,7 +129,10 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
             total_amount = queryset[0].month_total_amount
             average_amount = (total_amount / orders_count).quantize(Decimal(".01"), rounding=decimal.ROUND_UP)
 
-        pending_orders_count = m.Order.objects.filter(status=m.OrderStatus.WAITING_APPROVAL).count()
+        pending_orders_count = m.VendorOrder.objects.filter(
+            order__office_id=office_id,
+            status=m.OrderStatus.WAITING_APPROVAL,
+        ).count()
         vendors = (
             m.VendorOrder.objects.filter(
                 Q(order_date__gte=month_first_day)
