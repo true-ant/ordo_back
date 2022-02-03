@@ -229,7 +229,8 @@ class CompanyMemberViewSet(ModelViewSet):
 
                 offices = member.get("offices")
                 if offices:
-                    to_be_removed_offices = pre_associated_offices - offices
+                    offices = set(offices)
+                    to_be_removed_offices = pre_associated_offices
 
                     if to_be_removed_offices:
                         m.CompanyMember.objects.filter(
