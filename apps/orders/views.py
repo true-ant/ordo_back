@@ -237,7 +237,10 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
 
         if serializer.validated_data["is_approved"]:
             await OrderService.approve_vendor_order(
-                approved_by=request.user, vendor_order=vendor_order, validated_data=serializer.validated_data
+                approved_by=request.user,
+                vendor_order=vendor_order,
+                validated_data=serializer.validated_data,
+                stage=request.META["HTTP_HOST"],
             )
         else:
             await sync_to_async(OrderService.reject_vendor_order)(
@@ -861,7 +864,7 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         session = apps.get_app_config("accounts").session
         tasks = []
 
-        debug = OrderService.is_debug_mode()
+        debug = OrderService.is_debug_mode(request.META["HTTP_HOST"])
         total_amount = sum(
             [Decimal(str(vendor_data["total_amount"])) for vendor, vendor_data in data.items() if vendor != "amazon"]
         )

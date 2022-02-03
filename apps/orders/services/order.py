@@ -1,6 +1,5 @@
 from asgiref.sync import sync_to_async
 from django.apps import apps
-from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
@@ -13,8 +12,9 @@ from apps.types.orders import CartProduct
 
 class OrderService:
     @staticmethod
-    def is_debug_mode():
-        return settings.MAKE_FAKE_ORDER
+    def is_debug_mode(stage):
+        return "staging" in stage or "localhost" in stage
+        # return settings.MAKE_FAKE_ORDER
 
     @sync_to_async
     def get_office_vendor(self, vendor_order) -> OfficeVendor:
@@ -51,7 +51,7 @@ class OrderService:
         return approved_vendor_order_products
 
     @staticmethod
-    async def approve_vendor_order(approved_by, vendor_order: VendorOrder, validated_data):
+    async def approve_vendor_order(approved_by, vendor_order: VendorOrder, validated_data, stage: str):
         session = apps.get_app_config("accounts").session
 
         office_vendor = await OrderService.get_office_vendor(vendor_order=vendor_order)
@@ -73,7 +73,7 @@ class OrderService:
                 )
                 for product in products
             ],
-            fake=OrderService.is_debug_mode(),
+            fake=OrderService.is_debug_mode(stage=stage),
         )
 
         vendor_order.vendor_order_id = vendor_order_result["order_id"]
