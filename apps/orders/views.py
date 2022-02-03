@@ -782,6 +782,9 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                             product=vendor_order_product.product,
                             quantity=vendor_order_product.quantity,
                             unit_price=vendor_order_product.unit_price,
+                            status=m.VendorOrderProduct.Status.WAITING_APPROVAL
+                            if approval_needed
+                            else m.VendorOrderProduct.Status.OPEN,
                         )
                     )
                 m.VendorOrderProduct.objects.bulk_create(objs)
