@@ -192,7 +192,7 @@ class VendorOrder(TimeStampedModel):
 
 class VendorOrderProduct(TimeStampedModel):
     class Status(models.TextChoices):
-        OPEN = "open", "Open"
+        OPEN = "open", "Processing"
         SHIPPED = "shipped", "Shipped"
         ARRIVED = "arrived", "Arrived"
         RECEIVED = "received", "Received"

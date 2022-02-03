@@ -83,6 +83,7 @@ class ProductReadDetailSerializer(serializers.Serializer):
 
 class VendorOrderProductSerializer(serializers.ModelSerializer):
     product = ProductSerializer()
+    status_display_text = serializers.CharField(source="get_status_display")
 
     class Meta:
         model = m.VendorOrderProduct
