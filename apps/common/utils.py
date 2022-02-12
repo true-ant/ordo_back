@@ -1,6 +1,10 @@
+import datetime
 import itertools
 import re
 import uuid
+
+from dateutil.relativedelta import relativedelta
+from django.utils import timezone
 
 
 def generate_token():
@@ -183,6 +187,33 @@ def group_products_by_str():
 
     for i in sorted(similarities, key=lambda x: x[0], reverse=True)[:10]:
         print(i)
+
+
+def get_date_range(date_range: str):
+    today = timezone.now().date()
+    first_day_of_this_week = today - relativedelta(days=today.weekday())
+    first_day_of_this_month = today.replace(day=1)
+    first_day_of_this_year = datetime.date(year=today.year, month=1, day=1)
+    first_day_of_last_year = datetime.date(year=today.year - 1, month=1, day=1)
+    first_day_of_last_month = first_day_of_this_month - relativedelta(months=1)
+    last_day_of_last_month = first_day_of_this_month - relativedelta(days=1)
+    last_day_of_last_year = datetime.date(year=today.year - 1, month=12, day=31)
+    days_30_ago = today - relativedelta(days=30)
+    days_90_ago = today - relativedelta(days=90)
+    months_12_ago = today - relativedelta(months=12)
+
+    ret = {
+        "thisWeek": (first_day_of_this_week, today),
+        "thisMonth": (first_day_of_this_month, today),
+        "lastMonth": (first_day_of_last_month, last_day_of_last_month),
+        "last30Days": (days_30_ago, today),
+        "last90Days": (days_90_ago, today),
+        "last12Months": (months_12_ago, today),
+        "thisYear": (first_day_of_this_year, today),
+        "lastYear": (first_day_of_last_year, last_day_of_last_year),
+    }
+
+    return ret.get(date_range)
 
 
 if __name__ == "__main__":

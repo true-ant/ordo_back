@@ -1,9 +1,7 @@
-import datetime
-
-from dateutil.relativedelta import relativedelta
 from django.db.models import Q
-from django.utils import timezone
 from django_filters import rest_framework as filters
+
+from apps.common.utils import get_date_range
 
 from .models import OfficeProduct, Order, Product, VendorOrder, VendorOrderProduct
 
@@ -46,37 +44,12 @@ class VendorOrderFilter(filters.FilterSet):
         return queryset.filter(q)
 
     def filter_by_range(self, queryset, name, value):
-        today = timezone.now().date()
-        first_day_of_this_week = today - relativedelta(days=today.weekday())
-        first_day_of_this_month = today.replace(day=1)
-        first_day_of_this_year = datetime.date(year=today.year, month=1, day=1)
-        first_day_of_last_year = datetime.date(year=today.year - 1, month=1, day=1)
-        first_day_of_last_month = first_day_of_this_month - relativedelta(months=1)
-        last_day_of_last_month = first_day_of_this_month - relativedelta(days=1)
-        last_day_of_last_year = datetime.date(year=today.year - 1, month=12, day=31)
-        days_30_ago = today - relativedelta(days=30)
-        days_90_ago = today - relativedelta(days=90)
-        months_12_ago = today - relativedelta(months=12)
-
-        q = Q()
-        if value == "thisWeek":
-            q = Q(order_date__gte=first_day_of_this_week) & Q(order_date__lte=today)
-        elif value == "thisMonth":
-            q = Q(order_date__gte=first_day_of_this_month) & Q(order_date__lte=today)
-        elif value == "lastMonth":
-            q = Q(order_date__gte=first_day_of_last_month) & Q(order_date__lte=last_day_of_last_month)
-        elif value == "last30Days":
-            q = Q(order_date__gte=days_30_ago) & Q(order_date__lte=today)
-        elif value == "last90Days":
-            q = Q(order_date__gte=days_90_ago) & Q(order_date__lte=today)
-        elif value == "last12Months":
-            q = Q(order_date__gte=months_12_ago) & Q(order_date__lte=today)
-        elif value == "thisYear":
-            q = Q(order_date__gte=first_day_of_this_year) & Q(order_date__lte=today)
-        elif value == "lastYear":
-            q = Q(order_date__gte=first_day_of_last_year) & Q(order_date__lte=last_day_of_last_year)
-
-        return queryset.filter(q)
+        start_end_date = get_date_range(value)
+        if start_end_date:
+            q = Q(order_date__gte=start_end_date[0]) & Q(order_date__lte=start_end_date[1])
+            return queryset.filter(q)
+        else:
+            return queryset
 
 
 class VendorOrderProductFilter(filters.FilterSet):

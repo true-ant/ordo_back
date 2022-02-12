@@ -100,6 +100,7 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="stats")
     def get_orders_stats(self, request, *args, **kwargs):
+        # TODO: this should be removed
         office_id = self.kwargs["office_pk"]
 
         total_items = 0
@@ -282,6 +283,64 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
         response["Content-Length"] = filesize
         temp.seek(0)
         return response
+
+    @action(detail=False, methods=["get"], url_path="stats")
+    def get_orders_stats(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        total_items = 0
+        total_amount = 0
+        average_amount = 0
+
+        if not self.request.query_params:
+            requested_date = timezone.now().date()
+            month_first_day = requested_date.replace(day=1)
+            next_month_first_day = (requested_date + timedelta(days=32)).replace(day=1)
+            queryset = queryset.filter(Q(order_date__gte=month_first_day) & Q(order_date__lt=next_month_first_day))
+
+        approved_orders_queryset = queryset.exclude(
+            status__in=[m.OrderStatus.REJECTED, m.OrderStatus.WAITING_APPROVAL]
+        )
+        aggregation = approved_orders_queryset.aggregate(
+            total_items=Sum("total_items"), total_amount=Sum("total_amount")
+        )
+        approved_orders_count = approved_orders_queryset.count()
+        if approved_orders_count:
+            total_items = aggregation["total_items"]
+            total_amount = aggregation["total_amount"]
+            average_amount = (total_amount / approved_orders_count).quantize(Decimal(".01"), rounding=decimal.ROUND_UP)
+
+        pending_orders_count = queryset.filter(status=m.OrderStatus.WAITING_APPROVAL).count()
+
+        vendors = (
+            queryset.order_by("vendor_id")
+            .values("vendor_id")
+            .annotate(order_counts=Count("vendor_id"))
+            .annotate(order_total_amount=Sum("total_amount"))
+            .annotate(vendor_name=F("vendor__name"))
+            .annotate(vendor_logo=F("vendor__logo"))
+        )
+
+        ret = {
+            "order": {
+                "order_counts": approved_orders_count,
+                "pending_order_counts": pending_orders_count,
+                "total_items": total_items,
+                "total_amount": total_amount,
+                "average_amount": average_amount,
+            },
+            "vendors": [
+                {
+                    "id": vendor["vendor_id"],
+                    "name": vendor["vendor_name"],
+                    "logo": f"{vendor['vendor_logo']}",
+                    "order_counts": vendor["order_counts"],
+                    "total_amount": vendor["order_total_amount"],
+                }
+                for vendor in vendors
+            ],
+        }
+        return Response(ret)
 
 
 class VendorOrderProductViewSet(ModelViewSet):
