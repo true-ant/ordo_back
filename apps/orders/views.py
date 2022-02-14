@@ -28,7 +28,8 @@ from rest_framework.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from apps.accounts.models import Company, Office, OfficeVendor
+from apps.accounts.models import Company, Office, OfficeBudget, OfficeVendor
+from apps.accounts.serializers import OfficeBudgetSerializer
 from apps.accounts.services.offices import OfficeService
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
@@ -292,11 +293,16 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
         total_amount = 0
         average_amount = 0
 
+        requested_date = timezone.now().date()
+
         if not self.request.query_params:
-            requested_date = timezone.now().date()
             month_first_day = requested_date.replace(day=1)
             next_month_first_day = (requested_date + timedelta(days=32)).replace(day=1)
             queryset = queryset.filter(Q(order_date__gte=month_first_day) & Q(order_date__lt=next_month_first_day))
+
+        current_month_budget = OfficeBudget.objects.filter(
+            office_id=self.kwargs["office_pk"], month=Month(requested_date.year, requested_date.month)
+        ).first()
 
         approved_orders_queryset = queryset.exclude(
             status__in=[m.OrderStatus.REJECTED, m.OrderStatus.WAITING_APPROVAL]
@@ -329,6 +335,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
                 "total_amount": total_amount,
                 "average_amount": average_amount,
             },
+            "budget": OfficeBudgetSerializer(current_month_budget).data,
             "vendors": [
                 {
                     "id": vendor["vendor_id"],
