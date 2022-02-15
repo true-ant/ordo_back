@@ -12,6 +12,9 @@
                 "darby": [
                     "anesthetics"
                 ],
+                "dental_city": [
+                    "anesthetics"
+                ],
                 "henry_schein": [
                     "anesthetics"
                 ],
@@ -33,6 +36,9 @@
                     "burs-diamonds"
                 ],
                 "darby": [
+                    "burs"
+                ],
+                "dental_city": [
                     "burs"
                 ],
                 "henry_schein": [
@@ -101,10 +107,24 @@
                     "retraction-materials",
                     "rubber-dam"
                 ],
+                "dental_city": [
+                    "cements",
+                    "cosmetic-dentistry",
+                    "pins-and-posts",
+                    "matrix-materials",
+                    "finishing-and-polishing",
+                    "hemostatics-and-retraction",
+                    "rubber-dam-materials",
+                    "alloy",
+                    "crown-and-bridge"
+                ],
                 "henry_schein": [
                     "crown-bridge",
                     "finishing-polishing",
                     "restorative-cosmetic"
+                ],
+                "implant_direct": [
+                    "prosthetics"
                 ],
                 "net_32": [
                     "alloys-accessories",
@@ -175,6 +195,10 @@
                 "darby": [
                     "disposable-products"
                 ],
+                "dental_city": [
+                    "dental-disposables",
+                    "mixing-tips"
+                ],
                 "henry_schein": [
                     "disposables"
                 ],
@@ -208,6 +232,13 @@
                     "refining",
                     "uncategorized"
                 ],
+                "dental_city": [
+                    "uniforms",
+                    "miscellaneous"
+                ],
+                "edge_endo": [
+                    "root-canal-rockstar-apparel"
+                ],
                 "henry_schein": [
                     "education-patient-staff",
                     "health-beauty-otc",
@@ -240,6 +271,21 @@
                 "darby": [
                     "endodontics"
                 ],
+                "dental_city": [
+                    "endodontics"
+                ],
+                "edge_endo": [
+                    "supplies",
+                    "handfiles",
+                    "starter-bundle",
+                    "irrigation",
+                    "points",
+                    "files",
+                    "edgeburs-r",
+                    "edgepro",
+                    "obturators",
+                    "bioceramics"
+                ],
                 "henry_schein": [
                     "endodontics"
                 ],
@@ -261,6 +307,12 @@
             "slug": "equipment-technology",
             "vendor_categories": {
                 "darby": [
+                    "equipment"
+                ],
+                "dental_city": [
+                    "small-equipment"
+                ],
+                "edge_endo": [
                     "equipment"
                 ],
                 "henry_schein": [
@@ -285,6 +337,9 @@
                 ],
                 "darby": [
                     "evacuation"
+                ],
+                "dental_city": [
+                    "evacuation-products"
                 ],
                 "henry_schein": [
                     "evacuation-products"
@@ -339,6 +394,9 @@
                     "impression-material",
                     "impression-trays"
                 ],
+                "dental_city": [
+                    "impression-materials"
+                ],
                 "henry_schein": [
                     "impression-materials-accessories"
                 ],
@@ -365,7 +423,13 @@
                 "darby": [
                     "instruments"
                 ],
+                "dental_city": [
+                    "instruments"
+                ],
                 "henry_schein": [
+                    "instruments"
+                ],
+                "implant_direct": [
                     "instruments"
                 ],
                 "net_32": [
@@ -391,6 +455,10 @@
                     "acrylics",
                     "laboratory",
                     "waxes"
+                ],
+                "dental_city": [
+                    "waxes",
+                    "laboratory-products"
                 ],
                 "henry_schein": [
                     "laboratory"
@@ -437,6 +505,9 @@
                 "darby": [
                     "orthodontics"
                 ],
+                "dental_city": [
+                    "orthodontics"
+                ],
                 "henry_schein": [
                     "orthodontic"
                 ],
@@ -464,6 +535,9 @@
                 "darby": [
                     "pharmaceuticals-and-otc"
                 ],
+                "dental_city": [
+                    "first-aid"
+                ],
                 "henry_schein": [
                     "pharmaceuticals"
                 ],
@@ -486,6 +560,9 @@
                 ],
                 "darby": [
                     "preventive-products"
+                ],
+                "dental_city": [
+                    "preventives"
                 ],
                 "henry_schein": [
                     "preventive"
@@ -510,6 +587,12 @@
                 "benco": [
                     "small-equipment"
                 ],
+                "dental_city": [
+                    "handpieces"
+                ],
+                "edge_endo": [
+                    "ultrasonics"
+                ],
                 "henry_schein": [
                     "small-equipment"
                 ]
@@ -530,8 +613,14 @@
                 "darby": [
                     "surgical"
                 ],
+                "dental_city": [
+                    "sutures-and-surgical-products"
+                ],
                 "henry_schein": [
                     "surgical-implant-products"
+                ],
+                "implant_direct": [
+                    "biomaterials"
                 ],
                 "net_32": [
                     "surgical-supplies"
@@ -553,6 +642,9 @@
                 "darby": [
                     "x-ray"
                 ],
+                "dental_city": [
+                    "x-ray"
+                ],
                 "henry_schein": [
                     "x-ray-and-digital-imaging"
                 ],
@@ -572,6 +664,12 @@
             "vendor_categories": {
                 "darby": [
                     "implant-products"
+                ],
+                "dental_city": [
+                    "surgical-and-implants"
+                ],
+                "implant_direct": [
+                    "implants"
                 ],
                 "net_32": [
                     "implant-related-products"
@@ -597,6 +695,41 @@
     {
         "model": "orders.productcategory",
         "pk": 24,
+        "fields": {
+            "name": "INFECTION CONTROL",
+            "slug": "infection-control",
+            "vendor_categories": {
+                "dental_city": [
+                    "infection-control",
+                    "gloves"
+                ],
+                "edge_endo": [
+                    "ppe"
+                ],
+                "implant_direct": [
+                    "infection-prevention"
+                ]
+            },
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 25,
+        "fields": {
+            "name": "Other",
+            "slug": "other",
+            "vendor_categories": {
+                "dental_city": [
+                    "articulating"
+                ]
+            },
+            "description": ""
+        }
+    },
+    {
+        "model": "orders.productcategory",
+        "pk": 26,
         "fields": {
             "name": "other",
             "slug": "other",
