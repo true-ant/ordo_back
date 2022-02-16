@@ -2,7 +2,7 @@ from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
-from apps.types.scraper import LoginInformation
+from apps.types.scraper import LoginInformation, ProductSearch
 
 LOGIN_PAGE_HEADERS = {
     "Connection": "keep-alive",
@@ -117,3 +117,8 @@ class EdgeEndoScraper(Scraper):
                 "ctl00$ctl00$cphMain$cphMain$lfBtoC$btnCustomerLogin": "Log In Securely",
             },
         }
+
+    async def _search_products(
+        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price"
+    ) -> ProductSearch:
+        return await self._search_products_from_table(query, page, min_price, max_price, sort_by)

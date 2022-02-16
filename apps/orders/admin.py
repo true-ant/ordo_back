@@ -107,6 +107,16 @@ class ProductCategoryAdmin(admin.ModelAdmin):
     list_display = ("__str__", "name", "parent")
 
 
+@admin.register(m.OfficeProductCategory)
+class OfficeProductCategoryAdmin(admin.ModelAdmin):
+    list_display = ("id", "office", "name", "slug")
+    search_fields = (
+        "office__name",
+        "name",
+        "slug",
+    )
+
+
 class ProductImageInline(ReadOnlyAdminMixin, admin.TabularInline):
     model = m.ProductImage
     readonly_fields = (
@@ -182,7 +192,7 @@ class OfficeProductAdmin(admin.ModelAdmin):
         "product_id",
         "product_name",
         "product_vendor",
-        "office_category",
+        "office_product_category",
         "product_category",
         "price",
         "is_favorite",
@@ -198,7 +208,6 @@ class OfficeProductAdmin(admin.ModelAdmin):
         "is_inventory",
         "is_favorite",
         "product__vendor",
-        "office_category",
     )
 
     @admin.display(description="Product ID")

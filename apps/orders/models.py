@@ -66,6 +66,15 @@ class ProductImage(TimeStampedModel):
         return f"{self.product}'s Image"
 
 
+class OfficeProductCategory(TimeStampedModel):
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name="categories")
+    name = models.CharField(max_length=128)
+    slug = AutoSlugField(populate_from=["name"])
+
+    def __str__(self):
+        return f"{self.slug}"
+
+
 class OfficeProduct(TimeStampedModel):
     """
     This model is actually used for storing products fetched from search result.
@@ -76,6 +85,9 @@ class OfficeProduct(TimeStampedModel):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True, blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     office_category = models.ForeignKey(ProductCategory, null=True, blank=True, on_delete=models.SET_NULL)
+    office_product_category = models.ForeignKey(
+        OfficeProductCategory, null=True, blank=True, on_delete=models.SET_NULL
+    )
     is_favorite = models.BooleanField(default=False)
     is_inventory = models.BooleanField(default=False)
 

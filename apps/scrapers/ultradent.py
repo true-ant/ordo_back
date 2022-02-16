@@ -356,19 +356,6 @@ class UltraDentScraper(Scraper):
                 orders = await asyncio.gather(*tasks, return_exceptions=True)
             return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
 
-    @sync_to_async
-    def get_page_queryset(self, page, page_size):
-        from apps.orders.models import Product
-
-        products = Product.objects.filter(vendor_id=self.vendor.id)
-        total_size = products.count()
-        if (page - 1) * page_size < total_size:
-            page_products = products[(page - 1) * page_size : page * page_size]
-            page_products = [product.to_dataclass() for product in page_products]
-        else:
-            page_products = []
-        return total_size, page_products
-
     async def get_product_detail_as_dict(self, product_id, product_url) -> dict:
         json_data = {
             "variables": {
@@ -418,17 +405,7 @@ class UltraDentScraper(Scraper):
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price"
     ) -> ProductSearch:
-        page_size = 30
-        total_size, page_products = await self.get_page_queryset(page, page_size)
-        last_page = page_size * page >= total_size
-        return {
-            "vendor_slug": self.vendor.slug,
-            "total_size": total_size,
-            "page": page,
-            "page_size": page_size,
-            "products": page_products,
-            "last_page": last_page,
-        }
+        return await self._search_products_from_table(query, page, min_price, max_price, sort_by)
 
     def _get_vendor_categories(self, response) -> List[ProductCategory]:
         return [

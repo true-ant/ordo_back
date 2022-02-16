@@ -293,15 +293,19 @@ async def _sync_with_vendor(
     from_date: Optional[datetime.date],
     to_date: Optional[datetime.date],
 ):
-    if sem:
-        await sem.acquire()
-
     scraper = ScraperFactory.create_scraper(
         vendor=office_vendor.vendor,
         session=session,
         username=office_vendor.username,
         password=office_vendor.password,
     )
+
+    if not hasattr(scraper, "get_orders"):
+        return
+
+    if sem:
+        await sem.acquire()
+
     results = await scraper.get_orders(
         office=office_vendor.office,
         perform_login=True,
