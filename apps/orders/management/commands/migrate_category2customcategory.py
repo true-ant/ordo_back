@@ -8,7 +8,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         # TODO: this could be optimized using group_by and bulk_update
-        office_products = OfficeProduct.objects.all()
+        office_products = OfficeProduct.objects.filter(office_product_category__isnull=True)
         for office_product in office_products:
             print(f"handling {office_product}")
             office_product_category = OfficeProductCategory.objects.filter(
