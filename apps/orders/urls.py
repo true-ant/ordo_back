@@ -7,7 +7,6 @@ from . import views as v
 
 router = SimpleRouter(trailing_slash=False)
 # router.register(r"products", v.ProductViewSet, basename="products")
-router.register(r"product-categories", v.ProductCategoryViewSet, basename="product-categories")
 router.register(r"products", v.ProductViewSet)
 
 offices_router = NestedSimpleRouter(company_router, r"offices", lookup="office")
@@ -18,6 +17,7 @@ offices_router.register(r"order-products", v.VendorOrderProductViewSet, basename
 # offices_router.register(r"inventory-products", v.InventoryProductViewSet, basename="inventory-products")
 offices_router.register(r"carts", v.CartViewSet, basename="carts")
 offices_router.register(r"products", v.OfficeProductViewSet, basename="products")
+offices_router.register(r"product-categories", v.OfficeProductCategoryViewSet, basename="product-categories")
 
 urlpatterns = [
     path("", include(router.urls)),

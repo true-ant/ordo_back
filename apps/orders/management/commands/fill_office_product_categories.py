@@ -52,7 +52,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         if options["office_ids"]:
-            offices = Office.objects.filter(id__in=options["office_id"])
+            offices = Office.objects.filter(id__in=options["office_ids"])
         else:
             offices = Office.objects.all()
         self.load_product_categories()

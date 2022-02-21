@@ -130,7 +130,8 @@ class CompanySerializer(serializers.ModelSerializer):
                             subscription_id=subscription.id, office=office, start_on=timezone.now().date()
                         )
 
-        except Exception:
+        except Exception as e:
+            print(e)
             raise serializers.ValidationError({"message": "Invalid Card Information"})
 
     def _create_or_update_office(self, company, **kwargs):

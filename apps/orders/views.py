@@ -361,42 +361,6 @@ class VendorOrderProductViewSet(ModelViewSet):
         kwargs.setdefault("partial", True)
         return super().update(request, *args, **kwargs)
 
-    @action(detail=True, methods=["get"], url_path="update-status")
-    def update_status(self, request, *args, **kwargs):
-        instance = self.get_object()
-        if instance.status not in [m.VendorOrderProduct.Status.ARRIVED, m.VendorOrderProduct.Status.RECEIVED]:
-            return Response({"message": msgs.UPDATE_ORDER_PRODUCT_STATUS_ERROR}, status=HTTP_400_BAD_REQUEST)
-
-        vendor_order = instance.vendor_order
-        order = vendor_order.order
-
-        with transaction.atomic():
-            if instance.status == m.VendorOrderProduct.Status.ARRIVED:
-                instance.status = m.VendorOrderProduct.Status.RECEIVED
-                instance.save()
-
-                if not m.VendorOrderProduct.objects.filter(
-                    Q(vendor_order=instance.vendor_order), ~Q(status=m.VendorOrderProduct.Status.RECEIVED)
-                ).exists():
-                    vendor_order.status = m.OrderStatus.COMPLETE
-                    vendor_order.save()
-
-                if not m.VendorOrderProduct.objects.filter(
-                    Q(vendor_order__order=order), ~Q(status=m.VendorOrderProduct.Status.RECEIVED)
-                ).exists():
-                    order.status = m.OrderStatus.COMPLETE
-                    order.save()
-
-            else:
-                instance.status = m.VendorOrderProduct.Status.ARRIVED
-                vendor_order.status = m.OrderStatus.PROCESSING
-                order.status = m.OrderStatus.PROCESSING
-                instance.save()
-                vendor_order.save()
-                order.save()
-
-        return Response(self.get_serializer(instance).data)
-
     # def get_queryset(self):
     #     category_ordering = self.request.query_params.get("category_ordering")
     #     return (
@@ -490,24 +454,26 @@ class OfficeSpendAPIView(APIView):
         return Response(serializer.data)
 
 
-class ProductCategoryViewSet(ModelViewSet):
-    queryset = m.ProductCategory.objects.all()
-    serializer_class = s.ProductCategorySerializer
-    permission_classes = [p.CompanyOfficeReadPermission]
+class OfficeProductCategoryViewSet(ModelViewSet):
+    queryset = m.OfficeProductCategory.objects.all()
+    serializer_class = s.OfficeProductCategorySerializer
 
-    @action(detail=False, url_path="inventory", methods=["post"])
-    def get_inventory(self, request):
-        serializer = s.OfficeReadSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        vendors = m.Vendor.objects.all()
-        serializer = self.serializer_class(
-            self.queryset,
-            context={
-                "office": serializer.validated_data["office_id"],
-                "vendors": vendors,
-            },
-            many=True,
-        )
+    def get_queryset(self):
+        return super().get_queryset().filter(office__id=self.kwargs["office_pk"])
+
+    def create(self, request, *args, **kwargs):
+        request.data.setdefault("office", self.kwargs["office_pk"])
+        return super().create(request, *args, **kwargs)
+
+    @action(detail=False, methods=["get"], url_path="inventory")
+    def get_inventory_view(self, request, *args, **kwargs):
+        vendors = {vendor.id: vendor.to_dict() for vendor in m.Vendor.objects.all()}
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True, context={"with_inventory_count": True})
+        ret = serializer.data
+        for office_product_category in ret:
+            vendor_ids = office_product_category.pop("vendor_ids")
+            office_product_category["vendors"] = [vendors[vendor_id] for vendor_id in vendor_ids]
         return Response(serializer.data)
 
 
@@ -1076,16 +1042,16 @@ class OfficeProductViewSet(ModelViewSet):
             .filter(Q(office__id=self.kwargs["office_pk"]), Q(product__parent__isnull=True))
             .annotate(
                 category_order=Case(
-                    When(office_category__slug=category_ordering, then=Value(0)),
-                    When(office_category__slug="other", then=Value(2)),
+                    When(office_product_category__slug=category_ordering, then=Value(0)),
+                    When(office_product_category__slug="other", then=Value(2)),
                     default=Value(1),
                 )
             )
         ).distinct()
         if category_or_price == "category":
-            return queryset.order_by("category_order", "office_category__slug", "price", "-updated_at")
+            return queryset.order_by("category_order", "office_product_category__slug", "price", "-updated_at")
         else:
-            return queryset.order_by("price", "category_order", "office_category__slug", "-updated_at")
+            return queryset.order_by("price", "category_order", "office_product_category__slug", "-updated_at")
 
     def update(self, request, *args, **kwargs):
         kwargs["partial"] = True
@@ -1209,7 +1175,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
                         "id": None,
                         "product": product_data,
                         "price": price,
-                        "office_category": None,
+                        "office_product_category": None,
                         "is_favorite": False,
                         "is_inventory": False,
                     }

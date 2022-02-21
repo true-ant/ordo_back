@@ -13,6 +13,7 @@ from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
+from django.core.management import call_command
 from django.db.models import Q
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -20,7 +21,13 @@ from month import Month
 
 from apps.accounts.models import CompanyMember, Office, OfficeVendor, User
 from apps.common.utils import group_products
-from apps.orders.models import OfficeProduct, OrderStatus, Product, VendorOrder
+from apps.orders.models import (
+    OfficeProduct,
+    OfficeProductCategory,
+    OrderStatus,
+    Product,
+    VendorOrder,
+)
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import CompanyInvite
 
@@ -130,11 +137,13 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
     if login_cookies is None and perform_login is False:
         return
 
-    # TODO: we don't have to fetch orders that already in our db
     office_vendor = OfficeVendor.objects.select_related("office", "vendor").get(id=office_vendor_id)
     # offices_vendors = OfficeVendor.objects.filter(
     #     office__company=office_vendor.office.company, vendor=office_vendor.vendor
     # )
+
+    if not OfficeProductCategory.objects.filter(office=office_vendor.office).exists():
+        call_command("fill_office_product_categories", office_ids=[office_vendor.office.id])
 
     if login_cookies:
         cookie = SimpleCookie()

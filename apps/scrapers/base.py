@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import logging
 import re
+from collections import defaultdict
 from http.cookies import SimpleCookie
 from typing import Dict, List, Optional, Tuple
 
@@ -39,7 +40,7 @@ class Scraper:
         self.username = username
         self.password = password
         self.orders = {}
-        self.objs = {"product_categories": {}}
+        self.objs = {"product_categories": defaultdict(dict)}
 
     @staticmethod
     def extract_first(dom, xpath):
@@ -201,6 +202,9 @@ class Scraper:
         from django.db.models import Q
 
         from apps.orders.models import OfficeProduct as OfficeProductModel
+        from apps.orders.models import (
+            OfficeProductCategory as OfficeProductCategoryModel,
+        )
         from apps.orders.models import Product as ProductModel
         from apps.orders.models import ProductCategory as ProductCategoryModel
         from apps.orders.models import ProductImage as ProductImageModel
@@ -222,7 +226,7 @@ class Scraper:
                 q = {f"vendor_categories__{vendor_data['slug']}__contains": product_root_category}
                 q = Q(**q)
                 product_category = ProductCategoryModel.objects.filter(q).first()
-                self.objs["product_categories"]["product_root_category"] = product_category
+                self.objs["product_categories"][product_root_category] = product_category
         else:
             product_category = None
 
@@ -248,13 +252,23 @@ class Scraper:
                 ProductImageModel.objects.bulk_create(product_images)
 
             if office:
+                office_product_category_slug = product_data["category"].slug
+                office_product_category = (
+                    self.objs["product_categories"].get(office, {}).get(office_product_category_slug)
+                )
+                if office_product_category is None:
+                    office_product_category = OfficeProductCategoryModel.objects.filter(
+                        office=office, slug=office_product_category_slug
+                    ).first()
+                    self.objs["product_categories"][office][office_product_category_slug] = office_product_category
+
                 try:
                     office_product = OfficeProductModel.objects.get(
                         office=office,
                         product=product,
                     )
                     office_product.price = product_price
-                    office_product.office_category = product_data["category"]
+                    office_product.office_product_category = office_product_category
                     if is_inventory:
                         office_product.is_inventory = is_inventory
 
@@ -265,7 +279,7 @@ class Scraper:
                         product=product,
                         is_inventory=is_inventory,
                         price=product_price,
-                        office_category=product_data["category"],
+                        office_product_category=office_product_category,
                     )
             else:
                 office_product = None

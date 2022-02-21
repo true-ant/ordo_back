@@ -9,6 +9,21 @@ from apps.accounts.serializers import VendorSerializer
 from . import models as m
 
 
+class OfficeProductCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.OfficeProductCategory
+        exclude = ("created_at", "updated_at")
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        if self.context.get("with_inventory_count"):
+            office_inventory_products = instance.products.filter(is_inventory=True)
+            ret["vendor_ids"] = set(office_inventory_products.values_list("product__vendor__id", flat=True))
+            ret["count"] = office_inventory_products.count()
+
+        return ret
+
+
 class ProductCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = m.ProductCategory
@@ -17,21 +32,6 @@ class ProductCategorySerializer(serializers.ModelSerializer):
             "name",
             "slug",
         )
-
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        office = self.context.get("office")
-        vendors = self.context.get("vendors")
-        if office:
-            office_inventory_products_queryset = m.OfficeProduct.objects.filter(
-                is_inventory=True,
-                office=office,
-                office_category=instance,
-            )
-            vendor_ids = set(office_inventory_products_queryset.values_list("product__vendor__id", flat=True))
-            ret["vendors"] = [vendor.to_dict() for vendor in vendors if vendor.id in vendor_ids]
-            ret["count"] = office_inventory_products_queryset.count()
-        return ret
 
 
 class OfficeReadSerializer(serializers.Serializer):
@@ -88,6 +88,27 @@ class VendorOrderProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.VendorOrderProduct
         fields = "__all__"
+
+    def update(self, instance, validated_data):
+        instance = super().update(instance, validated_data)
+
+        if instance.status == m.VendorOrderProduct.Status.RECEIVED:
+            vendor_order = instance.vendor_order
+            order = vendor_order.order
+
+            if not m.VendorOrderProduct.objects.filter(
+                Q(vendor_order=vendor_order), ~Q(status=m.VendorOrderProduct.Status.RECEIVED)
+            ).exists():
+                instance.vendor_order.status = m.OrderStatus.COMPLETE
+                instance.vendor_order.save()
+
+            if not m.VendorOrderProduct.objects.filter(
+                Q(vendor_order__order=order), ~Q(status=m.VendorOrderProduct.Status.RECEIVED)
+            ).exists():
+                order.status = m.OrderStatus.COMPLETE
+                order.save()
+
+        return instance
 
 
 class VendorOrderSerializer(serializers.ModelSerializer):
@@ -229,7 +250,7 @@ class OfficeProductSerializer(serializers.ModelSerializer):
     product_data = ProductSerializer(write_only=True)
     office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), write_only=True)
     product = ProductSerializer(read_only=True)
-    office_category = serializers.PrimaryKeyRelatedField(queryset=m.ProductCategory.objects.all())
+    office_product_category = serializers.PrimaryKeyRelatedField(queryset=m.OfficeProductCategory.objects.all())
 
     class Meta:
         model = m.OfficeProduct
@@ -239,7 +260,7 @@ class OfficeProductSerializer(serializers.ModelSerializer):
             "product",
             "product_data",
             "price",
-            "office_category",
+            "office_product_category",
             "is_favorite",
             "is_inventory",
         )
@@ -286,7 +307,7 @@ class OfficeProductSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        ret["office_category"] = ProductCategorySerializer(instance.office_category).data
+        ret["office_product_category"] = OfficeProductCategorySerializer(instance.office_product_category).data
         children_products = ret["product"].get("children", [])
         if children_products:
             children_product_ids = [child["id"] for child in children_products]

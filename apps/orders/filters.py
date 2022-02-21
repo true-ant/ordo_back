@@ -77,7 +77,7 @@ class OfficeProductFilter(filters.FilterSet):
     q = filters.CharFilter(method="filter_product")
     inventory = filters.BooleanFilter(field_name="is_inventory")
     favorite = filters.BooleanFilter(field_name="is_favorite")
-    category = filters.CharFilter(field_name="office_category__slug")
+    category = filters.CharFilter(field_name="office_product_category__slug")
     vendors = filters.CharFilter(method="filter_by_vendors")
 
     class Meta:
