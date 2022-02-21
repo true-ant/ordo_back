@@ -70,7 +70,7 @@ class ProductImage(TimeStampedModel):
 class OfficeProductCategory(TimeStampedModel):
     office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name="categories")
     name = models.CharField(max_length=128)
-    slug = AutoSlugField(populate_from=["name"])
+    slug = models.CharField(max_length=128)
 
     def __str__(self):
         return f"{self.slug}"
