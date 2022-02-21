@@ -197,6 +197,8 @@ class OfficeProductAdmin(admin.ModelAdmin):
         "price",
         "is_favorite",
         "is_inventory",
+        "created_at",
+        "updated_at",
     )
     search_fields = (
         "product__product_id",

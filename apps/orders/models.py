@@ -4,6 +4,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 from django_extensions.db.fields import AutoSlugField
+from slugify import slugify
 
 from apps.accounts.models import Office, User, Vendor
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
@@ -74,6 +75,13 @@ class OfficeProductCategory(TimeStampedModel):
     def __str__(self):
         return f"{self.slug}"
 
+    def save(self, *args, **kwargs):
+        self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+    class Meta:
+        unique_together = ["office", "name"]
+
 
 class OfficeProduct(TimeStampedModel):
     """
@@ -86,7 +94,7 @@ class OfficeProduct(TimeStampedModel):
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     office_category = models.ForeignKey(ProductCategory, null=True, blank=True, on_delete=models.SET_NULL)
     office_product_category = models.ForeignKey(
-        OfficeProductCategory, null=True, blank=True, on_delete=models.SET_NULL
+        OfficeProductCategory, null=True, blank=True, on_delete=models.SET_NULL, related_name="products"
     )
     is_favorite = models.BooleanField(default=False)
     is_inventory = models.BooleanField(default=False)
