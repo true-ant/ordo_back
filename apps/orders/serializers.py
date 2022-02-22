@@ -13,6 +13,7 @@ class OfficeProductCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = m.OfficeProductCategory
         exclude = ("created_at", "updated_at")
+        extra_kwargs = {"slug": {"read_only": True}}
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
