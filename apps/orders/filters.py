@@ -23,6 +23,7 @@ class VendorOrderFilter(filters.FilterSet):
     budget_type = filters.CharFilter(method="filter_by_budget_type")
     date_range = filters.CharFilter(method="filter_by_range")
     status = filters.CharFilter(field_name="status")
+    q = filters.CharFilter(method="filter_orders")
 
     class Meta:
         model = VendorOrder
@@ -50,6 +51,10 @@ class VendorOrderFilter(filters.FilterSet):
             return queryset.filter(q)
         else:
             return queryset
+
+    def filter_orders(self, queryset, name, value):
+        q = Q(products__name__icontains=value) | Q(products__category__name__icontains=value)
+        return queryset.filter(q).distinct()
 
 
 class VendorOrderProductFilter(filters.FilterSet):
