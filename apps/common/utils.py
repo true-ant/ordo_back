@@ -191,25 +191,30 @@ def group_products_by_str():
 
 def get_date_range(date_range: str):
     today = timezone.now().date()
-    first_day_of_this_week = today - relativedelta(days=today.weekday())
     first_day_of_this_month = today.replace(day=1)
     first_day_of_this_year = datetime.date(year=today.year, month=1, day=1)
+    first_day_of_this_quarter = datetime.date(
+        year=first_day_of_this_month.year, month=(first_day_of_this_month.month - 1) // 3 * 3 + 1, day=1
+    )
+    first_day_of_last_quarter = first_day_of_this_quarter - relativedelta(months=3)
     first_day_of_last_year = datetime.date(year=today.year - 1, month=1, day=1)
     first_day_of_last_month = first_day_of_this_month - relativedelta(months=1)
     last_day_of_last_month = first_day_of_this_month - relativedelta(days=1)
+    first_day_of_last_2_months = first_day_of_this_month - relativedelta(months=2)
+    first_day_of_last_3_months = first_day_of_this_month - relativedelta(months=3)
+    first_day_of_last_12_months = first_day_of_this_month - relativedelta(months=12)
+
     last_day_of_last_year = datetime.date(year=today.year - 1, month=12, day=31)
-    days_30_ago = today - relativedelta(days=30)
-    days_90_ago = today - relativedelta(days=90)
-    months_12_ago = today - relativedelta(months=12)
 
     ret = {
-        "thisWeek": (first_day_of_this_week, today),
         "thisMonth": (first_day_of_this_month, today),
+        "thisQuarter": (first_day_of_this_quarter, today),
+        "lastQuarter": (first_day_of_last_quarter, today),
         "lastMonth": (first_day_of_last_month, last_day_of_last_month),
-        "last30Days": (days_30_ago, today),
-        "last90Days": (days_90_ago, today),
-        "last12Months": (months_12_ago, today),
+        "last2Months": (first_day_of_last_2_months, last_day_of_last_month),
+        "last3Months": (first_day_of_last_3_months, last_day_of_last_month),
         "thisYear": (first_day_of_this_year, today),
+        "last12Months": (first_day_of_last_12_months, last_day_of_last_month),
         "lastYear": (first_day_of_last_year, last_day_of_last_year),
     }
 

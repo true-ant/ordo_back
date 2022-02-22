@@ -29,12 +29,11 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from apps.accounts.models import Company, Office, OfficeBudget, OfficeVendor
-from apps.accounts.serializers import OfficeBudgetSerializer
 from apps.accounts.services.offices import OfficeService
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
 from apps.common.pagination import SearchProductPagination, StandardResultsSetPagination
-from apps.common.utils import group_products_from_search_result
+from apps.common.utils import get_date_range, group_products_from_search_result
 from apps.orders.services.order import OrderService
 from apps.scrapers.errors import VendorNotConnected, VendorNotSupported, VendorSiteError
 from apps.scrapers.scraper_factory import ScraperFactory
@@ -294,15 +293,32 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
         average_amount = 0
 
         requested_date = timezone.now().date()
+        preset_date_range = self.request.query_params.get("date_range")
 
         if not self.request.query_params:
             month_first_day = requested_date.replace(day=1)
             next_month_first_day = (requested_date + timedelta(days=32)).replace(day=1)
             queryset = queryset.filter(Q(order_date__gte=month_first_day) & Q(order_date__lt=next_month_first_day))
 
-        current_month_budget = OfficeBudget.objects.filter(
-            office_id=self.kwargs["office_pk"], month=Month(requested_date.year, requested_date.month)
-        ).first()
+        if preset_date_range and (start_end_date := get_date_range(preset_date_range)):
+            start_month = Month(start_end_date[0].year, start_end_date[0].month)
+            end_month = Month(start_end_date[1].year, start_end_date[1].month)
+            budgets_queryset = OfficeBudget.objects.filter(
+                Q(office_id=self.kwargs["office_pk"]),
+                Q(month__gte=start_month),
+                Q(month__lte=end_month),
+            )
+        else:
+            budgets_queryset = OfficeBudget.objects.filter(
+                office_id=self.kwargs["office_pk"], month=Month(requested_date.year, requested_date.month)
+            )
+
+        budget_stats = budgets_queryset.aggregate(
+            total_dental_budget=Sum("dental_budget"),
+            total_dental_spend=Sum("dental_spend"),
+            total_office_budget=Sum("office_budget"),
+            total_office_spend=Sum("office_spend"),
+        )
 
         approved_orders_queryset = queryset.exclude(
             status__in=[m.OrderStatus.REJECTED, m.OrderStatus.WAITING_APPROVAL]
@@ -335,7 +351,12 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
                 "total_amount": total_amount,
                 "average_amount": average_amount,
             },
-            "budget": OfficeBudgetSerializer(current_month_budget).data,
+            "budget": {
+                "total_dental_budget": budget_stats["total_dental_budget"],
+                "total_dental_spend": budget_stats["total_dental_spend"],
+                "total_office_budget": budget_stats["total_office_budget"],
+                "total_office_spend": budget_stats["total_office_spend"],
+            },
             "vendors": [
                 {
                     "id": vendor["vendor_id"],
