@@ -232,6 +232,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
         office_vendor = OfficeVendor.objects.get(office_id=self.kwargs["office_pk"], vendor=vendor_order.vendor)
         return {
             "vendor_order_id": vendor_order.vendor_order_id,
+            "order_date": vendor_order.order_date,
             "invoice_link": vendor_order.invoice_link,
             "vendor": vendor_order.vendor,
             "username": office_vendor.username,
@@ -278,7 +279,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
         temp = tempfile.NamedTemporaryFile()
 
         with zipfile.ZipFile(temp, "w", zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr(f"{vendor_order['vendor'].name}.pdf", content)
+            zf.writestr(f"{vendor_order['vendor'].name}{vendor_order['order_date']}.pdf", content)
 
         filesize = os.path.getsize(temp.name)
         data = open(temp.name, "rb").read()
