@@ -265,6 +265,9 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
     @action(detail=True, methods=["get"], url_path="invoice-download")
     async def download_invoice(self, request, *args, **kwargs):
         vendor_order = await self.get_office_vendor()
+        if vendor_order["invoice_link"] is None:
+            return Response({"message": msgs.NO_INVOICE})
+
         session = apps.get_app_config("accounts").session
 
         scraper = ScraperFactory.create_scraper(
