@@ -302,7 +302,15 @@ class Scraper:
         order_data["status"] = self.normalize_order_status(order_data["status"])
         with transaction.atomic():
             try:
-                vendor_order = VendorOrderModel.objects.get(vendor=self.vendor, vendor_order_id=order_id)
+                if self.vendor.slug == "henry_schein":
+                    vendor_order = VendorOrderModel.objects.get(
+                        vendor=self.vendor, vendor_order_reference=order_data["vendor_order_reference"]
+                    )
+                    if order_data["vendor_order_reference"] != order_id:
+                        vendor_order.vendor_order_id = order_id
+                        vendor_order.save()
+                else:
+                    vendor_order = VendorOrderModel.objects.get(vendor=self.vendor, vendor_order_id=order_id)
             except VendorOrderModel.DoesNotExist:
                 order_date = order_data["order_date"]
                 order = OrderModel.objects.create(

@@ -164,12 +164,12 @@ class HenryScheinScraper(Scraper):
         }
         async with self.session.get(link) as resp:
             order_detail_response = Selector(text=await resp.text())
-            order["order_id"] = (
-                order_detail_response.xpath("//span[@id='ctl00_cphMainContent_orderNbLbl']//text()").get().strip()
-            )
             order["vendor_order_reference"] = (
                 order_detail_response.xpath("//span[@id='ctl00_cphMainContent_referenceNbLbl']//text()").get().strip()
             )
+            order_id = order_detail_response.xpath("//span[@id='ctl00_cphMainContent_orderNbLbl']//text()").get()
+            order["order_id"] = order_id if order_id else order["vendor_order_reference"]
+
             logger.debug(f"Got order which id is {order['order_id']}")
             addresses = order_detail_response.xpath(
                 "//span[@id='ctl00_cphMainContent_ucShippingAddr_lblAddress']//text()"
