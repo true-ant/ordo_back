@@ -24,7 +24,11 @@ from rest_framework.exceptions import NotFound
 from rest_framework.filters import OrderingFilter
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST
+from rest_framework.status import (
+    HTTP_201_CREATED,
+    HTTP_204_NO_CONTENT,
+    HTTP_400_BAD_REQUEST,
+)
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
@@ -480,11 +484,38 @@ class OfficeProductCategoryViewSet(ModelViewSet):
     serializer_class = s.OfficeProductCategorySerializer
 
     def get_queryset(self):
-        return super().get_queryset().filter(office__id=self.kwargs["office_pk"])
+        return super().get_queryset().filter(office__id=self.kwargs["office_pk"]).order_by("name")
 
     def create(self, request, *args, **kwargs):
         request.data.setdefault("office", self.kwargs["office_pk"])
         return super().create(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        preset_product_categories = m.ProductCategory.objects.values_list("slug", flat=True)
+        instance = self.get_object()
+        if instance.slug in preset_product_categories:
+            return Response({"message": msgs.PRODUCT_CATEGORY_NOT_PERMITTED}, status=HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            office_products = instance.products.all()
+            office_product_categories = {}
+            for office_product in office_products:
+                original_product_category_slug = office_product.product.category.slug
+                original_product_category = office_product_categories.get(original_product_category_slug)
+
+                if original_product_category is None:
+                    original_product_category = m.OfficeProductCategory.objects.filter(
+                        slug=original_product_category_slug, office=instance.office
+                    ).first()
+                    office_product_categories[original_product_category_slug] = original_product_category
+
+                office_product.office_product_category = original_product_category
+
+            if office_products:
+                m.OfficeProduct.objects.bulk_update(office_products, fields=["office_product_category"])
+            instance.delete()
+
+        return Response(status=HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=["get"], url_path="inventory")
     def get_inventory_view(self, request, *args, **kwargs):
