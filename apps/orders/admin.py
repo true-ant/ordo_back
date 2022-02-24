@@ -109,7 +109,7 @@ class ProductCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(m.OfficeProductCategory)
 class OfficeProductCategoryAdmin(admin.ModelAdmin):
-    list_display = ("id", "office", "name", "slug")
+    list_display = ("id", "office", "name", "slug", "predefined")
     search_fields = (
         "office__name",
         "name",

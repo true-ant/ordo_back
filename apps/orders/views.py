@@ -492,12 +492,12 @@ class OfficeProductCategoryViewSet(ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         request.data.setdefault("office", self.kwargs["office_pk"])
+        request.data.setdefault("predefined", False)
         return super().create(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
-        preset_product_categories = m.ProductCategory.objects.values_list("slug", flat=True)
         instance = self.get_object()
-        if instance.slug in preset_product_categories:
+        if instance.predefined:
             return Response({"message": msgs.PRODUCT_CATEGORY_NOT_PERMITTED}, status=HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
