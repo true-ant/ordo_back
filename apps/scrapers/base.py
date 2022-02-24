@@ -15,7 +15,7 @@ from slugify import slugify
 
 from apps.scrapers.errors import VendorAuthenticationFailed
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
-from apps.scrapers.utils import catch_network
+from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct, VendorCartProduct
 from apps.types.scraper import (
     InvoiceFile,
@@ -168,7 +168,8 @@ class Scraper:
 
         return product
 
-    async def get_missing_product_fields(self, product_id, product_url, perform_login=False, fields=None) -> dict:
+    @semaphore_coroutine
+    async def get_missing_product_fields(self, sem, product_id, product_url, perform_login=False, fields=None) -> dict:
         product = await self.get_product_as_dict(product_id, product_url, perform_login)
 
         if fields and isinstance(fields, tuple):
@@ -339,8 +340,10 @@ class Scraper:
                 )
 
     async def get_missing_products_fields(self, order_products, fields=("description",)):
+        sem = asyncio.Semaphore(value=2)
         tasks = (
             self.get_missing_product_fields(
+                sem,
                 product_id=order_product["product"]["product_id"],
                 product_url=order_product["product"]["url"],
                 perform_login=False,
@@ -351,6 +354,9 @@ class Scraper:
         )
         products_missing_data = await asyncio.gather(*tasks, return_exceptions=True)
         for order_product, product_missing_data in zip(order_products, products_missing_data):
+            if not isinstance(product_missing_data, dict):
+                continue
+
             for field in fields:
                 order_product["product"][field] = product_missing_data[field]
 
