@@ -53,7 +53,11 @@ class VendorOrderFilter(filters.FilterSet):
             return queryset
 
     def filter_orders(self, queryset, name, value):
-        q = Q(products__name__icontains=value) | Q(products__category__name__icontains=value)
+        q = (
+            Q(products__name__icontains=value)
+            | Q(products__category__name__icontains=value)
+            | Q(vendor__name__icontains=value)
+        )
         return queryset.filter(q).distinct()
 
 
