@@ -17,6 +17,7 @@ from slugify import slugify
 
 from apps.accounts.models import CompanyMember, OfficeVendor, Subscription, User
 from apps.common.utils import group_products
+from apps.notifications.models import Notification
 from apps.orders.models import Keyword as KeyModel
 from apps.orders.models import OfficeCheckoutStatus
 from apps.orders.models import OfficeKeyword as OfficeKeyModel
@@ -209,7 +210,7 @@ def notify_order_creation(vendor_order_ids, approval_needed):
 
     # send notification
     if approval_needed:
-        emails = (
+        user_ids = (
             CompanyMember.objects.select_related("user")
             .filter(
                 Q(invite_status=CompanyMember.InviteStatus.INVITE_APPROVED),
@@ -217,7 +218,7 @@ def notify_order_creation(vendor_order_ids, approval_needed):
                 Q(role=User.Role.ADMIN),
                 (Q(office=office) | Q(office__isnull=True)),
             )
-            .values_list("user__email", flat=True)
+            .values_list("user_id", flat=True)
         )
     else:
         # add products to inventory lists
@@ -227,14 +228,14 @@ def notify_order_creation(vendor_order_ids, approval_needed):
             office_product.is_inventory = True
         OfficeProductModel.objects.bulk_update(office_products, ["is_inventory"])
 
-        emails = (
+        user_ids = (
             CompanyMember.objects.select_related("user")
             .filter(
                 Q(invite_status=CompanyMember.InviteStatus.INVITE_APPROVED),
                 Q(company=office.company),
                 (Q(office=office) | Q(office__isnull=True)),
             )
-            .values_list("user__email", flat=True)
+            .values_list("user_id", flat=True)
         )
 
     # TODO: Compare performance above vs below, I guess below is more faster than above
@@ -258,12 +259,14 @@ def notify_order_creation(vendor_order_ids, approval_needed):
         email_template = "order_approval_needed.html"
     else:
         email_template = "order_creation.html"
+
+    vendor_order_ids = ",".join([str(vendor_order.id) for vendor_order in vendor_orders])
     htm_content = render_to_string(
         f"emails/{email_template}",
         {
             "order_created_by": order_created_by,
             "vendors": [vendor_order.vendor.name for vendor_order in vendor_orders],
-            "vendor_order_ids": ",".join([str(vendor_order.id) for vendor_order in vendor_orders]),
+            "vendor_order_ids": vendor_order_ids,
             "order_date": order_date,
             "total_items": total_items,
             "total_amount": total_amount,
@@ -275,6 +278,28 @@ def notify_order_creation(vendor_order_ids, approval_needed):
             "SITE_URL": settings.SITE_URL,
         },
     )
+
+    # create notification
+    metadata = {
+        "vendors": [vendor_order.vendor.name for vendor_order in vendor_orders],
+        "order_date": order_date.isoformat(),
+        "total_amount": str(total_amount),
+    }
+
+    if approval_needed:
+
+        metadata["link"] = f"{settings.SITE_URL}/orders?order_approval_reject={vendor_order_ids}"
+    else:
+        metadata["link"] = f"{settings.SITE_URL}/orders?view={vendor_order_ids}"
+    users = User.objects.filter(id__in=user_ids)
+
+    emails = list(users.values_list("email", flat=True))
+    notification = Notification.objects.create(
+        root_content_object=vendor_orders[0].order,
+        event="OrderApprovalNotification" if approval_needed else "NewOrderNotification",
+        metadata=metadata,
+    )
+    notification.recipients.add(*users)
 
     send_mail(
         subject="Order Approval Needed!" if approval_needed else "Created Order!",
