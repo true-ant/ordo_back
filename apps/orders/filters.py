@@ -57,6 +57,7 @@ class VendorOrderFilter(filters.FilterSet):
             Q(products__name__icontains=value)
             | Q(products__category__name__icontains=value)
             | Q(vendor__name__icontains=value)
+            | Q(nickname__icontains=value)
         )
         return queryset.filter(q).distinct()
 
