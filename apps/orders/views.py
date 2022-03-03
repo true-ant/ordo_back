@@ -678,9 +678,9 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         queryset = self.queryset.filter(office_id=self.kwargs["office_pk"])
         order_by = self.request.query_params.get("by", "vendor")
         if order_by == "time":
-            return queryset.order_by("created_at")
+            return queryset.order_by("-updated_at")
         else:
-            return queryset.order_by("product__vendor", "-updated_at", "-save_for_later")
+            return queryset.order_by("product__vendor", "created_at", "-save_for_later")
 
     async def update_vendor_cart(self, product_id, vendor, serializer=None):
         office_vendor = await sync_to_async(get_office_vendor)(office_pk=self.kwargs["office_pk"], vendor_pk=vendor.id)
