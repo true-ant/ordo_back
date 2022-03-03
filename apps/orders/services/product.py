@@ -30,34 +30,11 @@ class ProductService:
             # if the products are from one vendor, don't need to proceed further
             return None
 
-        similar_product_ids_list: List[ProductIDs] = []
-
         # get the list of similar product ids by product category
         product_categories = ProductCategory.objects.all()
         for product_category in product_categories:
-            similar_product_ids_list.extend(ProductService.group_products_by_category(products, product_category))
-
-        updated_products = []
-        for similar_product_ids in similar_product_ids_list:
-            similar_products = products.filter(id__in=similar_product_ids)
-            parent_products = similar_products.filter(child__isnull=False)
-
-            if parent_products:
-                parent_product = parent_products.first()
-                for similar_product in similar_products.exclude(id=parent_product.id):
-                    similar_product.parent = parent_product
-                for other_parent_product in parent_products[1:]:
-                    for child_product in other_parent_product.children.all():
-                        child_product.parent = parent_product
-
-                updated_products.extend(similar_products[1:])
-            else:
-                parent_product = similar_products[0]
-                for similar_product in similar_products[1:]:
-                    similar_product.parent = parent_product
-                updated_products.extend(similar_products[1:])
-
-        bulk_update(Product, updated_products, fields=["parent"])
+            print(f"Group {product_category} products")
+            ProductService.group_products_by_category(products, product_category)
 
     @staticmethod
     def group_products_by_category(products: QuerySet, product_category: ProductCategory) -> List[ProductIDs]:
@@ -83,7 +60,29 @@ class ProductService:
         if len(vendor_products) <= 1:
             return []
 
-        return ProductService.group_products_by_name(vendor_products)
+        similar_product_ids_list = ProductService.group_products_by_name(vendor_products)
+
+        updated_products = []
+        for similar_product_ids in similar_product_ids_list:
+            similar_products = products.filter(id__in=similar_product_ids)
+            parent_products = similar_products.filter(child__isnull=False)
+
+            if parent_products:
+                parent_product = parent_products.first()
+                for similar_product in similar_products.exclude(id=parent_product.id):
+                    similar_product.parent = parent_product
+                for other_parent_product in parent_products[1:]:
+                    for child_product in other_parent_product.children.all():
+                        child_product.parent = parent_product
+
+                updated_products.extend(similar_products[1:])
+            else:
+                parent_product = similar_products[0]
+                for similar_product in similar_products[1:]:
+                    similar_product.parent = parent_product
+                updated_products.extend(similar_products[1:])
+
+        bulk_update(Product, updated_products, fields=["parent"])
 
     @staticmethod
     def group_products_by_name(product_names_list) -> List[ProductIDs]:
@@ -98,7 +97,7 @@ class ProductService:
                 for vendor_products in itertools.product(*products_combination):
                     vendor_product_ids = [vendor_product["id"] for vendor_product in vendor_products]
                     vendor_product_names = [vendor_product["name"] for vendor_product in vendor_products]
-                    print(f"calculating {', '.join(vendor_product_names)}")
+                    # print(f"calculating {', '.join(vendor_product_names)}")
                     # when finding more than 3-length similar products we need to check that
                     # sub-set of products belongs to well-matched pairs.
                     # If well-matched set contains subset of products it is worth to check similarity
