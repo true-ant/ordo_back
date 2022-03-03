@@ -97,7 +97,7 @@ class ProductService:
                 for vendor_products in itertools.product(*products_combination):
                     vendor_product_ids = [vendor_product["id"] for vendor_product in vendor_products]
                     vendor_product_names = [vendor_product["name"] for vendor_product in vendor_products]
-                    # print(f"calculating {', '.join(vendor_product_names)}")
+                    print(f"calculating {', '.join(vendor_product_names)}")
                     # when finding more than 3-length similar products we need to check that
                     # sub-set of products belongs to well-matched pairs.
                     # If well-matched set contains subset of products it is worth to check similarity
