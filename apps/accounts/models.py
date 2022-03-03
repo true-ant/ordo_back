@@ -229,3 +229,11 @@ class Subscription(TimeStampedModel):
 
     def __str__(self):
         return f"{self.office.name}' Subscription"
+
+
+class VendorRequest(TimeStampedModel):
+    company = models.ForeignKey(
+        Company, blank=True, null=True, on_delete=models.SET_NULL, related_name="vendor_requests"
+    )
+    vendor_name = models.CharField(max_length=128)
+    description = models.TextField(null=True, blank=True)

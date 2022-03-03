@@ -11,6 +11,7 @@ router.register(r"users", v.UserViewSet, basename="users")
 company_router = NestedSimpleRouter(router, r"companies", lookup="company")
 company_router.register(r"members", v.CompanyMemberViewSet, basename="members")
 company_router.register(r"offices", v.OfficeViewSet, basename="offices")
+company_router.register(r"vendor-requests", v.VendorRequestViewSet, basename="vendor-requests")
 
 office_router = NestedSimpleRouter(company_router, r"offices", lookup="office")
 office_router.register(r"vendors", v.OfficeVendorViewSet, basename="vendors")

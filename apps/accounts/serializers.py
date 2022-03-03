@@ -287,3 +287,10 @@ class UserSerializer(serializers.ModelSerializer):
         company_member = m.CompanyMember.objects.select_related("company").filter(user=instance).first()
         if company_member:
             return CompanySerializer(company_member.company, context=self.context).data
+
+
+class VendorRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.VendorRequest
+        fields = ("id", "company", "vendor_name", "description")
+        extra_kwargs = {"company": {"write_only": True}}

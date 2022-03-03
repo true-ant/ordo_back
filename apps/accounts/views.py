@@ -524,3 +524,11 @@ class OfficeBudgetViewSet(ModelViewSet):
 class HealthCheck(APIView):
     def get(self, request):
         return Response(status=HTTP_200_OK)
+
+
+class VendorRequestViewSet(ModelViewSet):
+    queryset = m.VendorRequest.objects.all()
+    serializer_class = s.VendorRequestSerializer
+
+    def get_queryset(self):
+        return self.queryset.filter(company_id=self.kwargs["company_pk"])
