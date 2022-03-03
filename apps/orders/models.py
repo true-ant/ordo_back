@@ -269,6 +269,7 @@ class Cart(TimeStampedModel):
     instant_checkout = models.BooleanField(default=True)
 
     class Meta:
+        ordering = ("created_at",)
         unique_together = [
             "office",
             "product",
