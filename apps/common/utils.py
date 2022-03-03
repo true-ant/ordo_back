@@ -2,8 +2,10 @@ import datetime
 import itertools
 import re
 import uuid
+from typing import List
 
 from dateutil.relativedelta import relativedelta
+from django.db.models import Model
 from django.utils import timezone
 
 
@@ -219,6 +221,28 @@ def get_date_range(date_range: str):
     }
 
     return ret.get(date_range)
+
+
+def bulk_create(model_class: Model, objs: List[Model], batch_size=500) -> List[Model]:
+    instances = []
+    for i in range(0, len(objs), batch_size):
+        batch = objs[i : i + batch_size]
+        instances.extend(model_class.objects.bulk_create(batch, batch_size))
+    return instances
+
+
+def bulk_update(model_class: Model, objs: List[Model], fields: List[str], batch_size=500):
+    for i in range(0, len(objs), batch_size):
+        batch = objs[i : i + batch_size]
+        model_class.objects.bulk_update(batch, fields, batch_size)
+
+
+def find_numeric_values_from_string(s):
+    return re.findall(r"\w*[\d]+\w*", s)
+
+
+def find_words_from_string(s):
+    return re.findall(r"\w+", s)
 
 
 if __name__ == "__main__":
