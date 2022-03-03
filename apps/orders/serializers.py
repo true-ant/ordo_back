@@ -234,7 +234,7 @@ class CartSerializer(serializers.ModelSerializer):
             )
 
         return OfficeProductSerializer(
-            m.OfficeProduct.objects.filter(product__product_id__in=product_ids), many=True
+            m.OfficeProduct.objects.filter(office=instance.office, product__product_id__in=product_ids), many=True
         ).data
 
     def to_representation(self, instance):
