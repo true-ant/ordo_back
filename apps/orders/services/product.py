@@ -104,7 +104,13 @@ class ProductService:
                 vendor_product_names = [vendor_product["name"] for vendor_product in vendor_products]
                 similarity = ProductService.get_similarity(*vendor_product_names)
                 if similarity > threshold:
-                    print(f"calculating {'; '.join(vendor_product_names)}")
+                    display_text = "; ".join(
+                        [
+                            f'{vendor_product["name"]} from {vendor_product["vendor"]}'
+                            for vendor_product in vendor_products
+                        ]
+                    )
+                    print(f"calculating {display_text}")
                     similar_products_candidates[n_similarity].append([f"{similarity:.2f}", *vendor_products])
 
         # when finding more than 3-length similar products we need to check from candidates pairs
@@ -147,7 +153,13 @@ class ProductService:
                     )
 
                     vendor_product_names = [product["name"] for product in similar_products_pair]
-                    print(f"calculating {'; '.join(vendor_product_names)}")
+                    display_text = "; ".join(
+                        [
+                            f'{vendor_product["name"]} from {vendor_product["vendor"]}'
+                            for vendor_product in similar_products_pair
+                        ]
+                    )
+                    print(f"calculating {display_text}")
                     similarity = ProductService.get_similarity(*vendor_product_names)
 
                     if similarity > n_threshold:
