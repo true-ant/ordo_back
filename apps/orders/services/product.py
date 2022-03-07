@@ -40,7 +40,7 @@ class ProductService:
             return None
 
         # get the list of similar product ids by product category
-        product_categories = ProductCategory.objects.filter(slug="equipment-technology")
+        product_categories = ProductCategory.objects.all().order_by("name")
         for product_category in product_categories:
             print(f"Group {product_category} products")
             ProductService.group_products_by_category(products, product_category)
