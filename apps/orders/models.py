@@ -8,6 +8,9 @@ from slugify import slugify
 
 from apps.accounts.models import Office, User, Vendor
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
+from apps.scrapers.schema import Product as ProductDataClass
+from apps.scrapers.schema import ProductImage as ProductImageDataClass
+from apps.scrapers.schema import Vendor as VendorDataClass
 
 
 class ProductCategory(models.Model):
@@ -57,6 +60,23 @@ class Product(TimeStampedModel):
 
     def __str__(self):
         return f"{self.name} from {self.vendor}"
+
+    def to_dataclass(self):
+        return ProductDataClass(
+            product_id=self.product_id,
+            name=self.name,
+            description=self.description,
+            url=self.url,
+            images=[ProductImageDataClass(image=image.image) for image in self.images.all()],
+            price=self.price,
+            vendor=VendorDataClass(
+                id=self.vendor.id,
+                name=self.vendor.name,
+                slug=self.vendor.slug,
+                url=self.vendor.url,
+                logo=self.vendor.logo,
+            ),
+        )
 
 
 class ProductImage(TimeStampedModel):
@@ -110,23 +130,24 @@ class OfficeProduct(TimeStampedModel):
     class Meta:
         unique_together = ["office", "product"]
 
-    # def to_dataclass(self):
-    #     return ProductDataClass(
-    #         product_id=self.product_id,
-    #         name=self.name,
-    #         description=self.description,
-    #         url=self.url,
-    #         images=[ProductImageDataClass(image=image.image) for image in self.images.all()],
-    #         price=self.price,
-    #         vendor=VendorDataClass(
-    #             id=self.vendor.id,
-    #             name=self.vendor.name,
-    #             slug=self.vendor.slug,
-    #             url=self.vendor.url,
-    #             logo=self.vendor.logo,
-    #         ),
-    #     )
-    #
+    def to_dataclass(self):
+        return ProductDataClass.from_dict(
+            {
+                "product_id": self.product.product_id,
+                "name": self.product.name,
+                "description": self.product.description,
+                "url": self.product.url,
+                "images": [{"image": image.image} for image in self.product.images.all()],
+                "price": self.price,
+                "vendor": {
+                    "id": self.product.vendor.id,
+                    "name": self.product.vendor.name,
+                    "slug": self.product.vendor.slug,
+                    "url": self.product.vendor.url,
+                    "logo": self.product.vendor.logo,
+                },
+            }
+        )
 
 
 class OrderMonthManager(models.Manager):

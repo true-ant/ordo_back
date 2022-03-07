@@ -496,7 +496,7 @@ class BencoScraper(Scraper):
         return product_prices
 
     async def _search_products(
-        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price"
+        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price", office_id=None
     ) -> ProductSearch:
         page_size = 24
         data = {

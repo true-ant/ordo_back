@@ -379,7 +379,7 @@ class Scraper:
             return self._get_vendor_categories(response)
 
     async def _search_products(
-        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price"
+        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price", office_id=None
     ) -> ProductSearch:
         pass
 
@@ -424,23 +424,34 @@ class Scraper:
         }
 
     @sync_to_async
-    def get_page_queryset(self, page, page_size):
-        from apps.orders.models import Product
+    def get_page_queryset(self, query, page, page_size, office_id=None):
+        from apps.orders.models import OfficeProduct
 
-        products = Product.objects.filter(vendor_id=self.vendor.id)
+        products = OfficeProduct.objects.all()
+        if office_id:
+            products = products.filter(office_id=office_id)
+
+        products = products.filter(product__vendor_id=self.vendor.id, product__name__icontains=query)
         total_size = products.count()
         if (page - 1) * page_size < total_size:
             page_products = products[(page - 1) * page_size : page * page_size]
             page_products = [product.to_dataclass() for product in page_products]
         else:
             page_products = []
+
         return total_size, page_products
 
     async def _search_products_from_table(
-        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price"
+        self,
+        query: str,
+        page: int = 1,
+        min_price: int = 0,
+        max_price: int = 0,
+        sort_by="price",
+        office_id=None,
     ) -> ProductSearch:
-        page_size = 30
-        total_size, page_products = await self.get_page_queryset(page, page_size)
+        page_size = 15
+        total_size, page_products = await self.get_page_queryset(query, page, page_size, office_id)
         last_page = page_size * page >= total_size
         return {
             "vendor_slug": self.vendor.slug,
