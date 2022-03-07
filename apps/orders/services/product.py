@@ -25,7 +25,10 @@ class ProductService:
 
         # In the future, we shouldn't perform group again for already grouped products,
         # but for now, we can perform this operation for all products
-        Product.objects.filter(vendor__isnull=True).delete()
+        products = Product.objects.filter(parent__isnull=False)
+        for product in products:
+            product.parent = None
+        bulk_update(Product, products, fields=["parent"])
 
         products = Product.objects.all()
         if product_ids:
@@ -37,7 +40,7 @@ class ProductService:
             return None
 
         # get the list of similar product ids by product category
-        product_categories = ProductCategory.objects.all()
+        product_categories = ProductCategory.objects.filter(slug="equipment-technology")
         for product_category in product_categories:
             print(f"Group {product_category} products")
             ProductService.group_products_by_category(products, product_category)
@@ -74,20 +77,27 @@ class ProductService:
             parent_products = similar_products.filter(child__isnull=False)
 
             if parent_products:
-                parent_product = parent_products.first()
-                for similar_product in similar_products.exclude(id=parent_product.id):
+                parent_product = parent_products[0]
+                similar_products = [
+                    similar_product for similar_product in similar_products if similar_product.id != parent_product.id
+                ]
+                for similar_product in similar_products:
                     similar_product.parent = parent_product
                 for other_parent_product in parent_products[1:]:
                     for child_product in other_parent_product.children.all():
                         child_product.parent = parent_product
 
-                updated_products.extend(similar_products[1:])
+                updated_products.extend(similar_products)
             else:
                 parent_product = similar_products[0]
-                for similar_product in similar_products[1:]:
+                similar_products = [
+                    similar_product for similar_product in similar_products if similar_product.id != parent_product.id
+                ]
+                for similar_product in similar_products:
                     similar_product.parent = parent_product
-                updated_products.extend(similar_products[1:])
+                updated_products.extend(similar_products)
 
+        print(updated_products)
         bulk_update(Product, updated_products, fields=["parent"])
 
     @staticmethod
@@ -110,7 +120,7 @@ class ProductService:
                             for vendor_product in vendor_products
                         ]
                     )
-                    print(f"calculating {display_text}")
+                    print(f"{similarity:.2f}: {display_text}")
                     similar_products_candidates[n_similarity].append([f"{similarity:.2f}", *vendor_products])
 
         # when finding more than 3-length similar products we need to check from candidates pairs
@@ -159,10 +169,10 @@ class ProductService:
                             for vendor_product in similar_products_pair
                         ]
                     )
-                    print(f"calculating {display_text}")
                     similarity = ProductService.get_similarity(*vendor_product_names)
 
                     if similarity > n_threshold:
+                        print(f"{similarity:.2f}: {display_text}")
                         similar_products_candidates[n_similarity].append([f"{similarity:.2f}", *similar_products_pair])
 
             n_similarity += 1
