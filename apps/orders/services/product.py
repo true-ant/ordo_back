@@ -92,7 +92,7 @@ class ProductService:
 
     @staticmethod
     def group_products_by_name(product_names_list) -> List[ProductIDs]:
-        threshold = 0.7
+        threshold = 0.6
         n_similarity = 2
         vendors_count = len(product_names_list)
         similar_products_candidates = defaultdict(list)
