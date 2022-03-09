@@ -13,7 +13,8 @@ from apps.types.orders import CartProduct
 class OrderService:
     @staticmethod
     def is_debug_mode(stage):
-        return "staging" in stage or "localhost" in stage
+        return False
+        # return "staging" in stage or "localhost" in stage
         # return settings.MAKE_FAKE_ORDER
 
     @sync_to_async
