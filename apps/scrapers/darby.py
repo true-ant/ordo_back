@@ -1,14 +1,19 @@
 import asyncio
 import re
+import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
-from apps.scrapers.schema import Order, Product, ProductCategory
-from apps.scrapers.utils import catch_network, semaphore_coroutine
+from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
+from apps.scrapers.utils import (
+    catch_network,
+    convert_string_to_price,
+    semaphore_coroutine,
+)
 from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation, ProductSearch
 
@@ -45,8 +50,24 @@ SEARCH_HEADERS = {
     "Referer": "https://www.darbydental.com/",
     "Accept-Language": "en-US,en;q=0.9",
 }
-
-CART_HEADERS = {
+GET_CART_HEADERS = {
+    "Connection": "keep-alive",
+    "sec-ch-ua": '" Not;A Brand";v="99", "Google Chrome";v="97", "Chromium";v="97"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    "Upgrade-Insecure-Requests": "1",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
+    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-User": "?1",
+    "Sec-Fetch-Dest": "document",
+    "Referer": "https://www.darbydental.com/Home.aspx",
+    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
+}
+ADD_TO_CART_HEADERS = {
     "Connection": "keep-alive",
     "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
     "Accept": "application/json, text/javascript, */*; q=0.01",
@@ -63,8 +84,7 @@ CART_HEADERS = {
     "Referer": "https://www.darbydental.com",
     "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
 }
-
-REVIEW_CHECKOUT_HEADERS = {
+CHECKOUT_HEADERS = {
     "Connection": "keep-alive",
     "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
     "sec-ch-ua-mobile": "?0",
@@ -80,6 +100,26 @@ REVIEW_CHECKOUT_HEADERS = {
     "Sec-Fetch-Dest": "document",
     "Referer": "https://www.darbydental.com/scripts/cart.aspx",
     "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
+}
+ORDER_HEADERS = {
+    "Connection": "keep-alive",
+    "Pragma": "no-cache",
+    "Cache-Control": "no-cache",
+    "sec-ch-ua": '" Not A;Brand";v="99", "Chromium";v="98", "Google Chrome";v="98"',
+    "sec-ch-ua-mobile": "?0",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",
+    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+    "X-Requested-With": "XMLHttpRequest",
+    "X-MicrosoftAjax": "Delta=true",
+    "sec-ch-ua-platform": '"Windows"',
+    "Accept": "*/*",
+    "Origin": "https://www.darbydental.com",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "empty",
+    "Referer": "https://www.darbydental.com/scripts/checkout.aspx",
+    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
 }
 
 
@@ -317,18 +357,6 @@ class DarbyScraper(Scraper):
             "last_page": page_size * page >= total_size,
         }
 
-    @catch_network
-    async def checkout(self, products: List[CartProduct]):
-        await self.login()
-        data = {}
-        for i, product in enumerate(products):
-            data[f"items[{i}][Sku]"] = product["product_id"]
-            data[f"items[{i}][Quantity]"] = product["quantity"]
-        await self.session.post(
-            "https://www.darbydental.com/api/ShopCart/doAddToCart2", headers=CART_HEADERS, data=data
-        )
-        await self.session.get("https://www.darbydental.com/scripts/checkout.aspx", headers=REVIEW_CHECKOUT_HEADERS)
-
     def _get_vendor_categories(self, response) -> List[ProductCategory]:
         return [
             ProductCategory(
@@ -339,3 +367,102 @@ class DarbyScraper(Scraper):
                 "//ul[@id='catCage2']//div[contains(@class, 'card-footer')]/a[contains(@class, 'topic-link')]"
             )
         ]
+
+    async def get_cart_page(self):
+        async with self.session.get("https://www.darbydental.com/scripts/cart.aspx", headers=GET_CART_HEADERS) as resp:
+            dom = Selector(text=await resp.text())
+            return dom
+
+    async def add_products_to_cart(self, products: List[CartProduct]):
+        data = {}
+        for index, product in enumerate(products):
+            data[f"items[{index}][Sku]"] = (product["product_id"],)
+            data[f"items[{index}][Quantity]"] = product["quantity"]
+
+        await self.session.post(
+            "https://www.darbydental.com/api/ShopCart/doAddToCart2", headers=ADD_TO_CART_HEADERS, data=data
+        )
+
+    async def clear_cart(self):
+        cart_page_dom = await self.get_cart_page()
+
+        products: List[CartProduct] = []
+        for tr in cart_page_dom.xpath('//div[@id="MainContent_divGridScroll"]//table[@class="gridPDP"]//tr'):
+            sku = tr.xpath(
+                './/a[starts-with(@id, "MainContent_gvCart_lbRemoveFromCart_")][@data-prodno]/@data-prodno'
+            ).get()
+            if sku:
+                products.append(CartProduct(product_id=sku, quantity=0))
+
+        if products:
+            await self.add_products_to_cart(products)
+
+    async def review_order(self) -> VendorOrderDetail:
+        cart_page_dom = await self.get_cart_page()
+
+        shipping_address = cart_page_dom.xpath('//span[@id="MainContent_lblAddress"]//text()').extract()
+        subtotal_amount = convert_string_to_price(
+            cart_page_dom.xpath('//tbody[@id="orderTotals"]//td/span[@id="MainContent_lblSubTotal"]//text()').get()
+        )
+        shipping_amount = convert_string_to_price(
+            cart_page_dom.xpath(
+                '//tbody[@id="orderTotals"]//td/span[@id="MainContent_lblServiceCharge"]//text()'
+            ).get()
+        )
+        tax_amount = convert_string_to_price(
+            cart_page_dom.xpath('//tbody[@id="orderTotals"]//td/span[@id="MainContent_lblEstimatedTax"]//text()').get()
+        )
+        total_amount = convert_string_to_price(
+            cart_page_dom.xpath('//tbody[@id="orderTotals"]//td/span[@id="MainContent_lblTotal"]//text()').get()
+        )
+        return VendorOrderDetail(
+            subtotal_amount=subtotal_amount,
+            shipping_amount=shipping_amount,
+            tax_amount=tax_amount,
+            total_amount=total_amount,
+            shipping_address=shipping_address,
+        )
+
+    async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
+        await self.login()
+        await self.clear_cart()
+        await self.add_products_to_cart(products)
+        vendor_order_detail = await self.review_order()
+        vendor_slug: str = self.vendor.slug
+        return {
+            vendor_slug: {
+                **vendor_order_detail.to_dict(),
+                **self.vendor.to_dict(),
+            },
+        }
+
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+        vendor_order_detail = self.create_order(products)
+        if fake:
+            order_id = f"{uuid.uuid4()}"
+        else:
+            async with self.session.get(
+                "https://www.darbydental.com/scripts/checkout.aspx", headers=CHECKOUT_HEADERS
+            ) as resp:
+                checkout_dom = Selector(text=await resp.text())
+
+            data = {
+                "ctl00$MainContent$pono": f"Ordo Order ({datetime.date.today().isoformat()})",
+                "__ASYNCPOST": "true",
+                "ctl00$masterSM": "ctl00$MainContent$UpdatePanel1|ctl00$MainContent$completeOrder",
+                "ctl00$ddlPopular": "-1",
+            }
+            for _input in checkout_dom.xpath('//form[@id="form1"]//input[@name]'):
+                _key = _input.xpath("./@name").get()
+                _val = _input.xpath("./@value").get()
+                data[_key] = _val
+            async with self.session.post(
+                "https://www.darbydental.com/scripts/checkout.aspx", headers=ORDER_HEADERS, data=data
+            ) as resp:
+                dom = Selector(text=await resp.text())
+                order_id = dom.xpath('//span[@id="MainContent_lblInvoiceNo"]//text()').get()
+
+        return {
+            **vendor_order_detail,
+            "order_id": order_id,
+        }

@@ -1,4 +1,7 @@
+import re
+from decimal import Decimal
 from functools import wraps
+from typing import List
 
 from aiohttp.client_exceptions import ClientConnectorError
 
@@ -29,3 +32,16 @@ def semaphore_coroutine(func):
         return ret
 
     return wrapper
+
+
+def extract_numeric_values(text: str) -> List[str]:
+    return re.findall(r"(\d[\d.,]*)\b", text)
+
+
+def convert_string_to_price(text: str) -> Decimal:
+    try:
+        price = extract_numeric_values(text)[0]
+        price = price.replace(",", "")
+        return Decimal(price)
+    except (KeyError, ValueError, TypeError):
+        return Decimal("0")
