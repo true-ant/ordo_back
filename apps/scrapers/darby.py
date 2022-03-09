@@ -415,12 +415,14 @@ class DarbyScraper(Scraper):
         total_amount = convert_string_to_price(
             cart_page_dom.xpath('//tbody[@id="orderTotals"]//td/span[@id="MainContent_lblTotal"]//text()').get()
         )
-        return VendorOrderDetail(
-            subtotal_amount=subtotal_amount,
-            shipping_amount=shipping_amount,
-            tax_amount=tax_amount,
-            total_amount=total_amount,
-            shipping_address=shipping_address,
+        return VendorOrderDetail.from_dict(
+            {
+                "subtotal_amount": subtotal_amount,
+                "shipping_amount": shipping_amount,
+                "tax_amount": tax_amount,
+                "total_amount": total_amount,
+                "shipping_address": shipping_address,
+            }
         )
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
