@@ -439,7 +439,7 @@ class DarbyScraper(Scraper):
         }
 
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
-        vendor_order_detail = self.create_order(products)
+        vendor_order_detail = await self.create_order(products)
         if fake:
             order_id = f"{uuid.uuid4()}"
         else:
