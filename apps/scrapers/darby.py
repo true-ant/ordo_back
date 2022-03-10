@@ -1,7 +1,7 @@
 import asyncio
+import datetime
 import re
 import uuid
-from datetime import datetime
 from typing import Dict, List, Optional
 
 from aiohttp import ClientResponse
@@ -205,7 +205,7 @@ class DarbyScraper(Scraper):
             "currency": "USD",
             "order_date": order_date
             if order_date
-            else datetime.strptime(self.merge_strip_values(order_dom, ".//td[2]//text()"), "%m/%d/%Y").date(),
+            else datetime.datetime.strptime(self.merge_strip_values(order_dom, ".//td[2]//text()"), "%m/%d/%Y").date(),
             "invoice_link": f"{self.BASE_URL}{invoice_link}",
         }
         await asyncio.gather(self.get_order_products(order, link), self.get_shipping_track(order, order_id))
@@ -238,7 +238,7 @@ class DarbyScraper(Scraper):
             )
             tasks = []
             for order_dom in orders_dom:
-                order_date = datetime.strptime(
+                order_date = datetime.datetime.strptime(
                     self.merge_strip_values(order_dom, ".//td[2]//text()"), "%m/%d/%Y"
                 ).date()
                 if from_date and to_date and (order_date < from_date or order_date > to_date):
