@@ -1,3 +1,5 @@
+import datetime
+
 from django.db.models import Q
 from django_filters import rest_framework as filters
 
@@ -58,8 +60,12 @@ class VendorOrderFilter(filters.FilterSet):
             | Q(products__category__name__icontains=value)
             | Q(vendor__name__icontains=value)
             | Q(nickname__icontains=value)
-            | Q(order_date=value)
         )
+        try:
+            value = datetime.datetime.strptime(value, "%m/%d/%y").date()
+            q |= Q(order_date=value)
+        except (TypeError, ValueError):
+            pass
         return queryset.filter(q).distinct()
 
 
