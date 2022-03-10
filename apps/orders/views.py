@@ -1133,7 +1133,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
             & Q(is_inventory=False)
             & (
                 Q(product__product_id=keyword)
-                | Q(product__name__icontains=keyword)
+                | Q(product__name__search=keyword)
                 | Q(product__tags__keyword__iexact=keyword)
                 | Q(product__child__product_id=keyword)
                 | Q(product__child__name__icontains=keyword)
