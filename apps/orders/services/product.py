@@ -46,23 +46,26 @@ class ProductService:
             ProductService.group_products_by_category(products, product_category)
 
     @staticmethod
-    def group_products_by_category(products: QuerySet, product_category: ProductCategory) -> List[ProductIDs]:
+    def group_products_by_category(
+        products: QuerySet, product_category: Optional[ProductCategory] = None
+    ) -> List[ProductIDs]:
         """
         Return the list of a group of product ids.
         Each element from the list is a list of product id, those products are very similar
         """
-        if product_category.slug.lower() != "other":
+        if product_category is None or product_category.slug.lower() == "other":
+            vendor_slugs = products.order_by("vendor").values_list("vendor__slug", flat=True).distinct()
+        else:
             vendor_slugs = product_category.vendor_categories.keys()
             if len(vendor_slugs) <= 1:
                 return []
-        else:
-            vendor_slugs = products.order_by("vendor").values_list("vendor__slug", flat=True).distinct()
 
         vendor_products = []
         for vendor_slug in vendor_slugs:
-            vendor_products_names = products.filter(vendor__slug=vendor_slug, category=product_category).values(
-                "id", "vendor", "name"
-            )
+            vendor_products_names = products.filter(vendor__slug=vendor_slug).values("id", "vendor", "name")
+            if product_category:
+                vendor_products_names = products.filter(category=product_category)
+
             if vendor_products_names:
                 vendor_products.append(vendor_products_names)
 
@@ -102,7 +105,7 @@ class ProductService:
 
     @staticmethod
     def group_products_by_name(product_names_list) -> List[ProductIDs]:
-        threshold = 0.6
+        threshold = 0.65
         n_similarity = 2
         vendors_count = len(product_names_list)
         similar_products_candidates = defaultdict(list)
