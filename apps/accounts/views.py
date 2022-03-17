@@ -362,22 +362,25 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
         session = apps.get_app_config("accounts").session
         session._cookie_jar.clear()
         try:
-            scraper = ScraperFactory.create_scraper(
-                vendor=serializer.validated_data["vendor"],
-                username=serializer.validated_data["username"],
-                password=serializer.validated_data["password"],
-                session=session,
-            )
-            login_cookies = await scraper.login()
-            office_vendor = await sync_to_async(serializer.save)()
-            fetch_orders_from_vendor.delay(
-                office_vendor_id=office_vendor.id,
-                login_cookies=login_cookies.output(),
-                # all scrapers work with login_cookies, but henryschein not working with login_cookies
-                perform_login=serializer.validated_data["vendor"].slug == "henry_schein",
-            )
-            # office_vendor.task_id = ar.id
-            await sync_to_async(office_vendor.save)()
+            if serializer.validated_data["vendor"].slug != "amazon":
+                scraper = ScraperFactory.create_scraper(
+                    vendor=serializer.validated_data["vendor"],
+                    username=serializer.validated_data["username"],
+                    password=serializer.validated_data["password"],
+                    session=session,
+                )
+                login_cookies = await scraper.login()
+                office_vendor = await sync_to_async(serializer.save)()
+                fetch_orders_from_vendor.delay(
+                    office_vendor_id=office_vendor.id,
+                    login_cookies=login_cookies.output(),
+                    # all scrapers work with login_cookies, but henryschein not working with login_cookies
+                    perform_login=serializer.validated_data["vendor"].slug == "henry_schein",
+                )
+            else:
+                await sync_to_async(serializer.save)()
+                # office_vendor.task_id = ar.id
+                # await sync_to_async(office_vendor.save)()
 
         except VendorNotSupported:
             return Response(
