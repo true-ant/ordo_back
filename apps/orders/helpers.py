@@ -658,3 +658,12 @@ class ProductHelper:
                 for children_product in children_products:
                     children_product.parent = parent_product_instance
                 bulk_update(ProductModel, children_products, fields=["parent"])
+
+
+class OfficeVendorHelper:
+    @staticmethod
+    def get_connected_vendor_ids(office: Union[str, OfficeModel]) -> List[str]:
+        if isinstance(office, str):
+            office = OfficeModel.objects.get(id=office)
+
+        return office.connected_vendors.values_list("id", flat=True)

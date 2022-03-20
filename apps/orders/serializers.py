@@ -380,7 +380,9 @@ class VendorProductSearchSerializer(serializers.Serializer):
 
 class ProductV2Serializer(serializers.ModelSerializer):
     vendor = VendorSerializer()
+    category = ProductCategorySerializer()
     images = ProductImageSerializer(many=True, required=False)
+    children = serializers.ListSerializer(child=RecursiveField(), required=False, read_only=True)
 
     class Meta:
         model = m.Product
@@ -392,6 +394,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
             "children",
             "product_id",
             "name",
+            "price",
             "product_unit",
             "description",
             "url",
@@ -400,6 +403,11 @@ class ProductV2Serializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         office_pk = self.context.get("office_pk")
+        connected_vendor_ids = self.context.get("connected_vendor_ids")
+        children_products = ret.pop("children")
+        if children_products and connected_vendor_ids:
+            ret["children"] = [child for child in children_products if child["vendor"]["id"] in connected_vendor_ids]
+
         if not ret["price"]:
             office_product = instance.office_products.filter(office_id=office_pk).first()
             ret["price"] = office_product.price if office_product else None

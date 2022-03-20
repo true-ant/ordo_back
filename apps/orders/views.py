@@ -38,7 +38,7 @@ from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
 from apps.common.pagination import SearchProductPagination, StandardResultsSetPagination
 from apps.common.utils import get_date_range, group_products_from_search_result
-from apps.orders.helpers import OfficeProductHelper
+from apps.orders.helpers import OfficeProductHelper, OfficeVendorHelper
 from apps.orders.services.order import OrderService
 from apps.scrapers.errors import VendorNotConnected, VendorNotSupported, VendorSiteError
 from apps.scrapers.scraper_factory import ScraperFactory
@@ -1373,13 +1373,22 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
 class ProductV2ViewSet(ModelViewSet):
     queryset = m.Product.objects.all()
     serializer_class = s.ProductV2Serializer
+    pagination_class = StandardResultsSetPagination
     filter_backends = [SearchFilter]
     http_method_names = ["get"]
     search_fields = ["name"]
 
+    def get_queryset(self):
+        return self.queryset.filter(parent__isnull=True)
+
     def get_serializer_context(self):
         serializer_context = super().get_serializer_context()
-        return {**serializer_context, "office_pk": self.request.query_params.get("office_pk")}
+        office_pk = self.request.query_params.get("office_pk")
+        serializer_context = {**serializer_context, "office_pk": office_pk}
+        if office_pk:
+            connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office=office_pk)
+            serializer_context["connected_vendor_ids"] = connected_vendor_ids
+        return serializer_context
 
     @action(detail=False, url_path="search/vendors")
     async def search_from_vendors(self, request, *args, **kwargs):

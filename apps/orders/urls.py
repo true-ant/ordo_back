@@ -8,6 +8,7 @@ from . import views as v
 router = SimpleRouter(trailing_slash=False)
 # router.register(r"products", v.ProductViewSet, basename="products")
 router.register(r"products", v.ProductViewSet)
+router.register(r"v2/products", v.ProductV2ViewSet)
 
 offices_router = NestedSimpleRouter(company_router, r"offices", lookup="office")
 offices_router.register(r"orders", v.OrderViewSet, basename="orders")
