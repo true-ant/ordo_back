@@ -625,6 +625,7 @@ class ProductHelper:
 
     @staticmethod
     def import_products_similarity(file_name: str):
+        print(f"reading {file_name}..")
         df = pd.read_csv(file_name)
 
         parent_product_objs: List[ParentProduct] = []
@@ -643,7 +644,7 @@ class ProductHelper:
                     children_ids=product_ids,
                 )
             )
-
+        print("updating databases..")
         ProductHelper.create_parent_products(parent_product_objs)
 
     @staticmethod

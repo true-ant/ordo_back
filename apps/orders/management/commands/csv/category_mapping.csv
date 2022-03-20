@@ -77,17 +77,17 @@ darby,Articulating,Restorative
 darby,Burs,Burs & Diamonds
 darby,CAD|CAM,CAD/CAM
 darby,Cements,Restorative
-darby,Cleaning and Care,Infection Control
+darby,Cleaning & Care,Infection Control
 darby,Core,Restorative
 darby,Cosmetic Dentistry,Restorative
 darby,Crowns,Restorative
-darby,Diamonds,Restorative
+darby,Diamonds,Burs & Diamonds
 darby,Disposable Products,Disposables
 darby,Emergency Supplies,Miscellaneous
 darby,Endodontics,Endodontics
 darby,Equipment,Equipment & Technology
 darby,Evacuation,Evacuation Products
-darby,Finishing and Polishing,Restorative
+darby,Finishing & Polishing,Restorative
 darby,Gloves,Infection Control
 darby,Handpieces,Dental Equipment Parts and Accessories
 darby,Implant Products,Implant
@@ -95,37 +95,52 @@ darby,Impression Material,Impression Materials & Accessories
 darby,Impression Trays,Impression Materials & Accessories
 darby,Infection Control,Infection Control
 darby,Instruments,Instruments
-darby,IT Services,Miscellaneous
 darby,Laboratory,Laboratory
 darby,Matrix,Restorative
 darby,Office Supplies,Office Supplies
 darby,Orthodontics,Orthodontic
-darby,Pharmaceuticals and OTC,Pharmaceuticals
-darby,Pin and Post,Restorative
+darby,Pharmaceuticals & OTC,Pharmaceuticals
+darby,Pin & Post,Restorative
 darby,Practice Builders,Miscellaneous
 darby,Preventive Products,Preventive
 darby,Refining,Miscellaneous
-darby,Repair Services,Dental Equipment Parts and Accessories
 darby,Retraction Materials,Restorative
 darby,Rubber Dam,Restorative
 darby,Surgical,Surgical supplies
 darby,Uncategorized,Miscellaneous
 darby,Waxes,Laboratory
 darby,X-Ray,X-Ray And Digital Imaging
-ultradent,Whitening,Whitening
-ultradent,Prevent / Hygiene,Preventive
-ultradent,Prepare,Restorative
-ultradent,Triodent®,Restorative
-ultradent,Bond / Etch,Restorative
-ultradent,Tips / Syringes,Disposables
-ultradent,Endodontics,Endodontics
-ultradent,Equipment,Dental Equipment Parts and Accessories
-ultradent,Tissue Management,Restorative
-ultradent,Composites,Restorative
-ultradent,Impressions,Impression Materials & Accessories
-ultradent,Finish,Restorative
-ultradent,Orthodontics,Orthodontic
-ultradent,Crown and Bridge,Restorative
+patterson,"Adhesive Agents, Materials & Accessories",Restorative
+patterson,Crown & Bridge,Restorative
+patterson,Endodontics,Endodontics
+patterson,Finishing & Polishing,Restorative
+patterson,Front Office Products,Office Supplies
+patterson,Impression Material & Accessories,Impression Materials & Accessories
+patterson,Infection Control,Infection Control
+patterson,Lab Products,Laboratory
+patterson,Light Bulbs & Accessories,Office Supplies
+patterson,Orthodontic,Orthodontic
+patterson,Pharmaceuticals,Pharmaceuticals
+patterson,Preventive,Preventive
+patterson,Restoratives/Cosmetic,Restorative
+patterson,Small Equipment,Small Equipment
+patterson,Surgical,Surgical supplies
+patterson,Training & Informational Materials,Miscellaneous
+ultradent,bond-etch,Restorative
+ultradent,composites,Restorative
+ultradent,crown-bridge,Restorative
+ultradent,endodontics,Endodontics
+ultradent,equipment,Dental Equipment Parts and Accessories
+ultradent,finish,Restorative
+ultradent,impressions,Impression Materials & Accessories
+ultradent,orthodontics,Orthodontic
+ultradent,prepare,Restorative
+ultradent,prevent-hygiene,Preventive
+ultradent,retraction,Restorative
+ultradent,surgical,Surgical supplies
+ultradent,tips-syringes,Disposables
+ultradent,triodent,Restorative
+ultradent,whitening,Whitening
 benco,Acrylics & Relines,Laboratory
 benco,Alloy,Restorative
 benco,Anesthetic,Anesthetics
@@ -161,54 +176,54 @@ benco,Small Equipment,Small Equipment
 benco,Surgical,Surgical supplies
 benco,Waxes,Laboratory
 benco,X-Ray,X-Ray And Digital Imaging
-dental_city,Orthodontics,Orthodontic
-dental_city,Cements,Restorative
-dental_city,Instruments,Instruments
-dental_city,Handpieces,Small Equipment
-dental_city,Dental Disposables,Disposables
-dental_city,Small Equipment,Equipment & Technology
-dental_city,Infection Control,INFECTION CONTROL
-dental_city,Impression Materials,Impression Materials & Accessories
-dental_city,Burs,Burs & Diamonds
-dental_city,Cosmetic Dentistry,Restorative
-dental_city,X-Ray,X-Ray And Digital Imaging
-dental_city,Gloves,INFECTION CONTROL
-dental_city,Pins and Posts,Restorative
-dental_city,Mixing Tips,Disposables
-dental_city,Matrix Materials,Restorative
-dental_city,Waxes,Laboratory
-dental_city,Evacuation Products,Evacuation Products
-dental_city,Sutures and Surgical Products,Surgical supplies
-dental_city,Finishing and Polishing,Restorative
-dental_city,Laboratory Products,Laboratory
-dental_city,Hemostatics and Retraction,Restorative
-dental_city,Rubber Dam Materials,Restorative
-dental_city,Surgical and Implants,Implant
-dental_city,Uniforms,Miscellaneous
-dental_city,Miscellaneous,Miscellaneous
-dental_city,First Aid,Pharmaceuticals
-dental_city,Endodontics,Endodontics
-dental_city,Alloy,Restorative
-dental_city,Preventives,Preventive
-dental_city,Anesthetics,Anesthetics
-dental_city,Articulating,Other
-dental_city,Crown and Bridge,Restorative
-implant_direct,Infection Prevention,INFECTION CONTROL
 implant_direct,Biomaterials,Surgical supplies
-implant_direct,Instruments,Instruments
 implant_direct,Implants,Implant
+implant_direct,Infection Prevention,Infection Control
+implant_direct,Instruments,Instruments
 implant_direct,Prosthetics,Restorative
-edge_endo,Supplies,Endodontics
-edge_endo,HandFiles,Endodontics
-edge_endo,Starter Bundle,Endodontics
-edge_endo,Irrigation,Endodontics
-edge_endo,Ultrasonics,Small Equipment
-edge_endo,Root Canal Rockstar Apparel,Miscellaneous
-edge_endo,Points,Endodontics
-edge_endo,Files,Endodontics
+edge_endo,Bioceramics,Endodontics
 edge_endo,EdgeBurs®,Endodontics
 edge_endo,EdgePro,Endodontics
-edge_endo,Obturators,Endodontics
-edge_endo,Bioceramics,Endodontics
 edge_endo,Equipment,Equipment & Technology
-edge_endo,PPE,INFECTION CONTROL
+edge_endo,Files,Endodontics
+edge_endo,HandFiles,Endodontics
+edge_endo,Irrigation,Endodontics
+edge_endo,Obturators,Endodontics
+edge_endo,PPE,Infection Control
+edge_endo,Points,Endodontics
+edge_endo,Root Canal Rockstar Apparel,Miscellaneous
+edge_endo,Starter Bundle,Endodontics
+edge_endo,Supplies,Endodontics
+edge_endo,Ultrasonics,Small Equipment
+dental_city,Alloy,Restorative
+dental_city,Anesthetics,Anesthetics
+dental_city,Articulating,Restorative
+dental_city,Burs,Burs & Diamonds
+dental_city,Cements,Restorative
+dental_city,Cosmetic Dentistry,Restorative
+dental_city,Crown and Bridge,Restorative
+dental_city,Dental Disposables,Disposables
+dental_city,Endodontics,Endodontics
+dental_city,Evacuation Products,Evacuation Products
+dental_city,Finishing and Polishing,Restorative
+dental_city,First Aid,Pharmaceuticals
+dental_city,Gloves,Infection Control
+dental_city,Handpieces,Dental Equipment Parts and Accessories
+dental_city,Hemostatics and Retraction,Restorative
+dental_city,Impression Materials,Impression Materials & Accessories
+dental_city,Infection Control,Infection Control
+dental_city,Instruments,Instruments
+dental_city,Laboratory Products,Laboratory
+dental_city,Matrix Materials,Restorative
+dental_city,Miscellaneous,Miscellaneous
+dental_city,Mixing Tips,Disposables
+dental_city,Orthodontics,Orthodontic
+dental_city,Pins and Posts,Restorative
+dental_city,Preventives,Preventive
+dental_city,Rubber Dam Materials,Restorative
+dental_city,Small Equipment,Small Equipment
+dental_city,Surgical and Implants,Surgical supplies
+dental_city,Sutures and Surgical Products,Surgical supplies
+dental_city,Uniforms,Miscellaneous
+dental_city,Waxes,Laboratory
+dental_city,X,X-Ray And Digital Imaging
