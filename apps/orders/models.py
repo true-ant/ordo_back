@@ -39,10 +39,10 @@ class Product(TimeStampedModel):
     This model store basic product info from vendor store
     """
 
-    vendor = FlexibleForeignKey(Vendor, related_name="products", db_index=True)
-    product_id = models.CharField(max_length=100)
+    vendor = FlexibleForeignKey(Vendor, related_name="products", null=True, blank=True)
+    product_id = models.CharField(max_length=128, db_index=True, null=True)
     category = models.ForeignKey(ProductCategory, null=True, blank=True, on_delete=models.SET_NULL, db_index=True)
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=512)
     product_unit = models.CharField(max_length=16, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     url = models.URLField(null=True, blank=True, max_length=300)
