@@ -624,7 +624,7 @@ class ProductHelper:
                 )
 
     @staticmethod
-    def import_products_similarity(file_name: str):
+    def import_products_similarity(file_name: str, use_by: str = "id"):
         print(f"reading {file_name}..")
         df = pd.read_csv(file_name)
 
@@ -633,7 +633,17 @@ class ProductHelper:
         product_categories = {category.slug: category for category in product_categories}
         for _, row in df.iterrows():
             category = product_categories[row["category"]]
-            product_ids = row["product_ids"].split(";")
+            if use_by == "id":
+                product_ids = row["product_ids"].split(";")
+            else:
+                vendor_products = row["vendor_products"].split(";")
+                vendor_products = [
+                    Q(vendor__slug=vendor_product.split("-")[0]) & Q(product_id=vendor_product.split("-")[1])
+                    for vendor_product in vendor_products
+                ]
+                q = reduce(or_, vendor_products)
+                product_ids = list(ProductModel.objects.filter(q).values_list("id", flat=True))
+
             product_names = row["product_names"].split(";")
             parent_product_objs.append(
                 ParentProduct(

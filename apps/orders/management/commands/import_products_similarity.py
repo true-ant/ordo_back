@@ -16,6 +16,7 @@ class Command(BaseCommand):
             type=str,
             help="The path to csv file containing product similarity",
         )
+        parser.add_argument("--use_by", type=str, default="vendor_product_id")
 
     def handle(self, *args, **options):
-        ProductHelper.import_products_similarity(options["csv"])
+        ProductHelper.import_products_similarity(file_name=options["csv"], use_by=options["use_by"])
