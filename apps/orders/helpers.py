@@ -277,16 +277,17 @@ class ProductHelper:
         return ret
 
     @staticmethod
-    def read_products_from_csv(file_path) -> pd.DataFrame:
+    def read_products_from_csv(file_path, output_duplicates: bool = True) -> pd.DataFrame:
         df = pd.read_csv(file_path, na_filter=False, low_memory=False)
         duplicated_products = df[df["product_id"].duplicated()]
         file_name, ext = get_file_name_and_ext(file_path)
-        sort_and_write_to_csv(duplicated_products, columns=["category"], file_name=f"{file_name}_duplicated.csv")
+        if output_duplicates:
+            sort_and_write_to_csv(duplicated_products, columns=["category"], file_name=f"{file_name}_duplicated.csv")
         return df.drop_duplicates(subset=["product_id"], keep="first")
 
     @staticmethod
-    def import_products_from_csv(file_path, vendor_slug):
-        df = ProductHelper.read_products_from_csv(file_path)
+    def import_products_from_csv(file_path, vendor_slug, verbose: bool = True):
+        df = ProductHelper.read_products_from_csv(file_path, output_duplicates=verbose)
         df_index = 0
         batch_size = 500
         df_len = len(df)
