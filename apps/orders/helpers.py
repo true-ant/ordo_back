@@ -677,4 +677,4 @@ class OfficeVendorHelper:
         if not isinstance(office, OfficeModel):
             office = OfficeModel.objects.get(id=office)
 
-        return office.connected_vendors.values_list("id", flat=True)
+        return office.connected_vendors.values_list("vendor_id", flat=True)
