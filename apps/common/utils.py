@@ -1,9 +1,12 @@
 import datetime
 import itertools
+import os
 import re
 import uuid
-from typing import List
+from decimal import Decimal
+from typing import List, Optional, Tuple, Union
 
+import pandas as pd
 from dateutil.relativedelta import relativedelta
 from django.db.models import Model
 from django.utils import timezone
@@ -243,6 +246,47 @@ def find_numeric_values_from_string(s):
 
 def find_words_from_string(s):
     return re.findall(r"\w+", s)
+
+
+def extract_numeric_values(text: str) -> List[str]:
+    return re.findall(r"(\d[\d.,]*)\s*", text)
+
+
+def convert_string_to_price(text: str) -> Decimal:
+    try:
+        price = extract_numeric_values(text)[0]
+        price = price.replace(",", "")
+        return Decimal(price)
+    except (KeyError, ValueError, TypeError):
+        return Decimal("0")
+
+
+def get_file_name_and_ext(file_path: str) -> Tuple[str, str]:
+    file_name = file_path.split(os.path.sep)[-1]
+    file_name, ext = file_name.split(".")
+    return file_name, ext
+
+
+def sort_and_write_to_csv(
+    fie_path_or_data_frame: Union[pd.DataFrame, str], columns: List[str], file_name: Optional[str] = None
+):
+    if isinstance(fie_path_or_data_frame, str):
+        df = pd.read_csv(fie_path_or_data_frame)
+    else:
+        df = fie_path_or_data_frame
+
+    sorted_df = df.sort_values(by=columns)
+    sorted_df.to_csv(file_name or "sorted.csv", index=False)
+    return df
+
+
+def concatenate_strings(text: List[str], delimeter="") -> str:
+    return delimeter.join(map(str.strip, text))
+
+
+def strip_whitespaces(text: str) -> str:
+    """Remove spaces, tabs and new lines"""
+    return re.sub(r"\s+", "", text)
 
 
 if __name__ == "__main__":

@@ -364,3 +364,55 @@ class ApproveRejectSerializer(serializers.Serializer):
     is_approved = serializers.BooleanField()
     rejected_items = serializers.ListSerializer(child=RejectProductSerializer(), required=False)
     rejected_reason = serializers.CharField(required=False)
+
+
+class VendorProductSearchPagination(serializers.Serializer):
+    vendor = serializers.CharField()
+    page = serializers.IntegerField()
+
+
+class VendorProductSearchSerializer(serializers.Serializer):
+    q = serializers.CharField()
+    max_price = serializers.IntegerField(allow_null=True, min_value=0)
+    min_price = serializers.IntegerField(allow_null=True, min_value=0)
+    vendors = VendorProductSearchPagination(many=True)
+
+
+class ProductV2Serializer(serializers.ModelSerializer):
+    vendor = VendorSerializer()
+    category = ProductCategorySerializer()
+    images = ProductImageSerializer(many=True, required=False)
+    children = serializers.ListSerializer(child=RecursiveField(), required=False, read_only=True)
+
+    class Meta:
+        model = m.Product
+        fields = (
+            "id",
+            "vendor",
+            "images",
+            "category",
+            "children",
+            "product_id",
+            "name",
+            "price",
+            "product_unit",
+            "description",
+            "url",
+        )
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        office_pk = self.context.get("office_pk")
+        connected_vendor_ids = self.context.get("connected_vendor_ids")
+        children_products = ret.pop("children")
+        if children_products and connected_vendor_ids:
+            ret["children"] = [child for child in children_products if child["vendor"]["id"] in connected_vendor_ids]
+
+        if not ret["price"]:
+            office_product = instance.office_products.filter(office_id=office_pk).first()
+            ret["price"] = office_product.price if office_product else None
+        return ret
+
+
+class ProductPriceRequestSerializer(serializers.Serializer):
+    products = serializers.PrimaryKeyRelatedField(queryset=m.Product.objects.all(), many=True)

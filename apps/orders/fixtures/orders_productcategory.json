@@ -36,7 +36,8 @@
                     "burs-diamonds"
                 ],
                 "darby": [
-                    "burs"
+                    "burs",
+                    "diamonds"
                 ],
                 "dental_city": [
                     "burs"
@@ -100,23 +101,23 @@
                     "core",
                     "cosmetic-dentistry",
                     "crowns",
-                    "diamonds",
-                    "finishing-and-polishing",
+                    "finishing-polishing",
                     "matrix",
-                    "pin-and-post",
+                    "pin-post",
                     "retraction-materials",
                     "rubber-dam"
                 ],
                 "dental_city": [
+                    "alloy",
+                    "articulating",
                     "cements",
                     "cosmetic-dentistry",
-                    "pins-and-posts",
-                    "matrix-materials",
+                    "crown-and-bridge",
                     "finishing-and-polishing",
                     "hemostatics-and-retraction",
-                    "rubber-dam-materials",
-                    "alloy",
-                    "crown-and-bridge"
+                    "matrix-materials",
+                    "pins-and-posts",
+                    "rubber-dam-materials"
                 ],
                 "henry_schein": [
                     "crown-bridge",
@@ -140,14 +141,20 @@
                     "retraction-materials",
                     "rubber-dam-products"
                 ],
+                "patterson": [
+                    "adhesive-agents-materials-accessories",
+                    "crown-bridge",
+                    "finishing-polishing",
+                    "restoratives-cosmetic"
+                ],
                 "ultradent": [
-                    "prepare",
-                    "triodent-r",
                     "bond-etch",
-                    "tissue-management",
                     "composites",
+                    "crown-bridge",
                     "finish",
-                    "crown-and-bridge"
+                    "prepare",
+                    "retraction",
+                    "triodent"
                 ]
             },
             "description": ""
@@ -165,8 +172,10 @@
                     "parts"
                 ],
                 "darby": [
-                    "handpieces",
-                    "repair-services"
+                    "handpieces"
+                ],
+                "dental_city": [
+                    "handpieces"
                 ],
                 "henry_schein": [
                     "dental-equipment-parts-and-accessories",
@@ -227,14 +236,13 @@
                 ],
                 "darby": [
                     "emergency-supplies",
-                    "it-services",
                     "practice-builders",
                     "refining",
                     "uncategorized"
                 ],
                 "dental_city": [
-                    "uniforms",
-                    "miscellaneous"
+                    "miscellaneous",
+                    "uniforms"
                 ],
                 "edge_endo": [
                     "root-canal-rockstar-apparel"
@@ -253,6 +261,9 @@
                     "loupes-magnifiers-headlamps",
                     "miscellaneous-products",
                     "unique-gifts"
+                ],
+                "patterson": [
+                    "training-informational-materials"
                 ]
             },
             "description": ""
@@ -275,22 +286,25 @@
                     "endodontics"
                 ],
                 "edge_endo": [
-                    "supplies",
-                    "handfiles",
-                    "starter-bundle",
-                    "irrigation",
-                    "points",
-                    "files",
+                    "bioceramics",
                     "edgeburs-r",
                     "edgepro",
+                    "files",
+                    "handfiles",
+                    "irrigation",
                     "obturators",
-                    "bioceramics"
+                    "points",
+                    "starter-bundle",
+                    "supplies"
                 ],
                 "henry_schein": [
                     "endodontics"
                 ],
                 "net_32": [
                     "endodontic-products"
+                ],
+                "patterson": [
+                    "endodontics"
                 ],
                 "ultradent": [
                     "endodontics"
@@ -308,9 +322,6 @@
             "vendor_categories": {
                 "darby": [
                     "equipment"
-                ],
-                "dental_city": [
-                    "small-equipment"
                 ],
                 "edge_endo": [
                     "equipment"
@@ -363,18 +374,31 @@
                     "safety-osha"
                 ],
                 "darby": [
-                    "cleaning-and-care",
+                    "cleaning-care",
                     "gloves",
                     "infection-control"
+                ],
+                "dental_city": [
+                    "gloves",
+                    "infection-control"
+                ],
+                "edge_endo": [
+                    "ppe"
                 ],
                 "henry_schein": [
                     "gloves",
                     "infection-control-products"
                 ],
+                "implant_direct": [
+                    "infection-prevention"
+                ],
                 "net_32": [
                     "infection-control-clinical-products",
                     "infection-control-personal-products",
                     "patient-comfort-protection-products"
+                ],
+                "patterson": [
+                    "infection-control"
                 ]
             },
             "description": ""
@@ -402,6 +426,9 @@
                 ],
                 "net_32": [
                     "impression-materials"
+                ],
+                "patterson": [
+                    "impression-material-accessories"
                 ],
                 "ultradent": [
                     "impressions"
@@ -457,8 +484,8 @@
                     "waxes"
                 ],
                 "dental_city": [
-                    "waxes",
-                    "laboratory-products"
+                    "laboratory-products",
+                    "waxes"
                 ],
                 "henry_schein": [
                     "laboratory"
@@ -467,6 +494,9 @@
                     "acrylics-reline-tray-materials",
                     "laboratory-products",
                     "waxes"
+                ],
+                "patterson": [
+                    "lab-products"
                 ]
             },
             "description": ""
@@ -490,6 +520,10 @@
                 ],
                 "net_32": [
                     "office-supplies-accessories"
+                ],
+                "patterson": [
+                    "front-office-products",
+                    "light-bulbs-accessories"
                 ]
             },
             "description": ""
@@ -514,6 +548,9 @@
                 "net_32": [
                     "orthodontic-products"
                 ],
+                "patterson": [
+                    "orthodontic"
+                ],
                 "ultradent": [
                     "orthodontics"
                 ]
@@ -533,7 +570,7 @@
                     "pharmaceuticals"
                 ],
                 "darby": [
-                    "pharmaceuticals-and-otc"
+                    "pharmaceuticals-otc"
                 ],
                 "dental_city": [
                     "first-aid"
@@ -543,6 +580,9 @@
                 ],
                 "net_32": [
                     "pharmaceutical-products"
+                ],
+                "patterson": [
+                    "pharmaceuticals"
                 ]
             },
             "description": ""
@@ -570,6 +610,9 @@
                 "net_32": [
                     "preventives"
                 ],
+                "patterson": [
+                    "preventive"
+                ],
                 "ultradent": [
                     "prevent-hygiene"
                 ]
@@ -588,12 +631,15 @@
                     "small-equipment"
                 ],
                 "dental_city": [
-                    "handpieces"
+                    "small-equipment"
                 ],
                 "edge_endo": [
                     "ultrasonics"
                 ],
                 "henry_schein": [
+                    "small-equipment"
+                ],
+                "patterson": [
                     "small-equipment"
                 ]
             },
@@ -614,6 +660,7 @@
                     "surgical"
                 ],
                 "dental_city": [
+                    "surgical-and-implants",
                     "sutures-and-surgical-products"
                 ],
                 "henry_schein": [
@@ -624,6 +671,12 @@
                 ],
                 "net_32": [
                     "surgical-supplies"
+                ],
+                "patterson": [
+                    "surgical"
+                ],
+                "ultradent": [
+                    "surgical"
                 ]
             },
             "description": ""
@@ -643,7 +696,7 @@
                     "x-ray"
                 ],
                 "dental_city": [
-                    "x-ray"
+                    "x"
                 ],
                 "henry_schein": [
                     "x-ray-and-digital-imaging"
@@ -664,9 +717,6 @@
             "vendor_categories": {
                 "darby": [
                     "implant-products"
-                ],
-                "dental_city": [
-                    "surgical-and-implants"
                 ],
                 "implant_direct": [
                     "implants"
@@ -695,41 +745,6 @@
     {
         "model": "orders.productcategory",
         "pk": 24,
-        "fields": {
-            "name": "INFECTION CONTROL",
-            "slug": "infection-control",
-            "vendor_categories": {
-                "dental_city": [
-                    "infection-control",
-                    "gloves"
-                ],
-                "edge_endo": [
-                    "ppe"
-                ],
-                "implant_direct": [
-                    "infection-prevention"
-                ]
-            },
-            "description": ""
-        }
-    },
-    {
-        "model": "orders.productcategory",
-        "pk": 25,
-        "fields": {
-            "name": "Other",
-            "slug": "other",
-            "vendor_categories": {
-                "dental_city": [
-                    "articulating"
-                ]
-            },
-            "description": ""
-        }
-    },
-    {
-        "model": "orders.productcategory",
-        "pk": 26,
         "fields": {
             "name": "other",
             "slug": "other",
