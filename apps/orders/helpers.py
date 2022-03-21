@@ -639,7 +639,7 @@ class ProductHelper:
             else:
                 vendor_products = row["vendor_products"].split(";")
                 vendor_products = [
-                    Q(vendor__slug=vendor_product.split("-")[0]) & Q(product_id=vendor_product.split("-")[1])
+                    Q(vendor__slug=vendor_product.split("-")[0]) & Q(product_id=vendor_product.split("-", 1)[1])
                     for vendor_product in vendor_products
                 ]
                 q = reduce(or_, vendor_products)
@@ -673,8 +673,8 @@ class ProductHelper:
 
 class OfficeVendorHelper:
     @staticmethod
-    def get_connected_vendor_ids(office: Union[str, OfficeModel]) -> List[str]:
-        if isinstance(office, str):
+    def get_connected_vendor_ids(office: Union[int, str, OfficeModel]) -> List[str]:
+        if not isinstance(office, OfficeModel):
             office = OfficeModel.objects.get(id=office)
 
         return office.connected_vendors.values_list("id", flat=True)

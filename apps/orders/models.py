@@ -48,7 +48,12 @@ class Product(TimeStampedModel):
     url = models.URLField(null=True, blank=True, max_length=300)
     tags = models.ManyToManyField(Keyword)
     parent = models.ForeignKey(
-        "self", on_delete=models.CASCADE, null=True, blank=True, related_name="children", related_query_name="child"
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="children",
+        related_query_name="child",
     )
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
