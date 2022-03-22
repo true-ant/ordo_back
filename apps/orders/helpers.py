@@ -685,7 +685,11 @@ class ProductHelper:
                 bulk_update(ProductModel, children_products, fields=["parent"])
 
     @staticmethod
-    def get_products(office: Union[OfficeModel, SmartID], product_ids: Optional[List[SmartID]] = None):
+    def get_products(
+        office: Union[OfficeModel, SmartID],
+        product_ids: Optional[List[SmartID]] = None,
+        selected_products: Optional[List[SmartID]] = None,
+    ):
         if isinstance(office, OfficeModel):
             office_pk = office.id
         else:
@@ -695,7 +699,8 @@ class ProductHelper:
         products = ProductModel.objects.filter(parent__isnull=True)
         if product_ids is not None:
             products = products.filter(id__in=product_ids)
-
+        if selected_products is None:
+            selected_products = []
         return (
             products.annotate(office_product_price=Subquery(office_products.values("price")[:1]))
             .annotate(
@@ -705,7 +710,13 @@ class ProductHelper:
                     default=Value(None),
                 )
             )
-            .order_by("product_price")
+            .annotate(
+                selected_product=Case(
+                    When(id__in=selected_products, then=Value(0)),
+                    default=Value(1),
+                )
+            )
+            .order_by("selected_product", "product_price")
         )
 
 
