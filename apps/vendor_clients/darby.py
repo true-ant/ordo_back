@@ -79,7 +79,7 @@ class DarbyClient(BaseClient):
     VENDOR_SLUG = "darby"
     GET_PRODUCT_PAGE_HEADERS = BASE_HEADERS
 
-    async def get_login_data(self, *args, **kwargs) -> types.LoginInformation:
+    async def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
         return {
             "url": "https://www.darbydental.com/api/Login/Login",
             "headers": LOGIN_HEADERS,

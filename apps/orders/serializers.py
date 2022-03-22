@@ -4,7 +4,7 @@ from rest_framework import serializers
 from rest_framework_recursive.fields import RecursiveField
 
 from apps.accounts.serializers import VendorSerializer
-from apps.orders.helpers import OfficeVendorHelper
+from apps.orders.helpers import OfficeVendorHelper, ProductHelper
 
 from . import models as m
 
@@ -51,7 +51,6 @@ class ProductV2Serializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, required=False)
     product_price = serializers.DecimalField(decimal_places=2, max_digits=10, read_only=True)
     is_inventory = serializers.BooleanField(default=False, read_only=True)
-    children = serializers.ListSerializer(child=RecursiveField(), required=False, read_only=True)
 
     class Meta:
         model = m.Product
@@ -65,17 +64,21 @@ class ProductV2Serializer(serializers.ModelSerializer):
             "url",
             "product_price",
             "images",
-            "children",
             "is_inventory",
         )
         ordering = ("name",)
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        connected_vendor_ids = self.context.get("connected_vendor_ids")
-        children_products = ret.pop("children")
-        if children_products and connected_vendor_ids:
-            ret["children"] = [child for child in children_products if child["vendor"]["id"] in connected_vendor_ids]
+        office_pk = self.context.get("office_pk")
+        children_ids = instance.children.values_list("id", flat=True)
+        if children_ids:
+            children_products = ProductHelper.get_products(
+                office=office_pk, fetch_parents=False, product_ids=children_ids
+            )
+            ret["children"] = self.__class__(children_products, many=True).data
+        else:
+            ret["children"] = []
 
         return ret
 

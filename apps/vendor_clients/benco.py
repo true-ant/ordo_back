@@ -58,6 +58,7 @@ GET_PRODUCT_PRICES_HEADERS = {
     "Sec-Fetch-Site": "same-origin",
     "Sec-Fetch-Mode": "cors",
     "Sec-Fetch-Dest": "empty",
+    "Referer": "https://shop.benco.com/Search?q=H4sIAAAAAAAACkWPy67CMAxE%2F8Xrbth2V4pUdYcIPxCCKZbcpPLjoivEv5OK186aGfuM7xCK2PYfWjgg41%2FMCaGBfZwQ2k0DgxRfAs3EUUbDWaE1cWygYy63zq30RQSTBT%2BpkblRyZ9MuJbbAdXZtNNB6AztJbJWZ8yJ%2FYx7oUR5%2BspHlJUAJ3G91hqj9mVeGA37KPbb1gEzSuTg04QVuyLfXqhfpFXphQylDjvUJLS8Uu%2FTjyc6poA0%2BAAAAA%3D%3D"
 }
 
 CLEAR_CART_HEADERS = {
@@ -85,11 +86,23 @@ ADD_PRODUCT_TO_CART_HEADERS = {
     "Sec-Fetch-Dest": "empty",
     "Referer": "https://shop.benco.com/Cart",
 }
-
+GET_PRODUCT_PAGE_HEADERS = {
+    **BASE_HEADERS,
+    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+    "Accept": "*/*",
+    "X-Requested-With": "XMLHttpRequest",
+    "Request-Context": "appId=cid-v1:c74c9cb3-54a4-4cfa-b480-a6dc8f0d3cdc",
+    "Request-Id": "|fpNl1.MtH9L",
+    "Origin": "https://shop.benco.com",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "empty",
+    "Referer": "https://shop.benco.com/Cart",
+}
 
 class BencoClient(BaseClient):
     VENDOR_SLUG = "benco"
-    GET_PRODUCT_PAGE_HEADERS = BASE_HEADERS
+    GET_PRODUCT_PAGE_HEADERS = GET_PRODUCT_PAGE_HEADERS
 
     def __init__(self, *args, **kwargs):
         self._ssl_context = ssl.create_default_context(
@@ -97,32 +110,35 @@ class BencoClient(BaseClient):
         )
         super().__init__(*args, **kwargs)
 
-    async def get_login_data(self, *args, **kwargs) -> types.LoginInformation:
+    async def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
         async with self.session.get(
             "https://shop.benco.com/Login/Login", headers=PRE_LOGIN_HEADERS, ssl=self._ssl_context
         ) as resp:
             text = await resp.text()
             login_url = str(resp.url)
-            model_json = (
-                text.split("id='modelJson'")[1]
-                .split("</script>", 1)[0]
-                .split(">", 1)[1]
-                .replace("&quot;", '"')
-                .strip()
-            )
-            idsrv_xsrf = json.loads(model_json)["antiForgery"]["value"]
+            try:
+                model_json = (
+                    text.split("id='modelJson'")[1]
+                    .split("</script>", 1)[0]
+                    .split(">", 1)[1]
+                    .replace("&quot;", '"')
+                    .strip()
+                )
+                idsrv_xsrf = json.loads(model_json)["antiForgery"]["value"]
 
-            headers = LOGIN_HEADERS.copy()
-            headers["Referer"] = login_url
-            return {
-                "url": login_url,
-                "headers": headers,
-                "data": {
-                    "idsrv.xsrf": idsrv_xsrf,
-                    "username": self.username,
-                    "password": self.password,
-                },
-            }
+                headers = LOGIN_HEADERS.copy()
+                headers["Referer"] = login_url
+                return {
+                    "url": login_url,
+                    "headers": headers,
+                    "data": {
+                        "idsrv.xsrf": idsrv_xsrf,
+                        "username": self.username,
+                        "password": self.password,
+                    },
+                }
+            except (IndexError, KeyError):
+                pass
 
     async def check_authenticated(self, response: ClientResponse) -> bool:
         response_dom = Selector(text=await response.text())
@@ -189,10 +205,11 @@ class BencoClient(BaseClient):
         if not images:
             images = data.xpath(".//div[@id='activeImageArea']/img/@src").extract()
 
-        price = convert_string_to_price(data.xpath(".//div[@class='product-detail-actions-wrapper']/h3/text()").get())
+        price = convert_string_to_price(data.xpath(".//h3[@class='selling-price']/text()").get())
         category = data.xpath(".//div[@class='breadcrumb-bar']/ul/li/a/text()").extract()[1:]
 
         return {
+            "vendor": self.VENDOR_SLUG,
             "product_id": "",
             "sku": "",
             "name": product_name,
@@ -203,29 +220,29 @@ class BencoClient(BaseClient):
             "unit": "",
         }
 
-    async def _get_products_prices(self, products: List[types.Product]) -> Dict[str, Decimal]:
-        """get vendor specific products prices"""
-        product_prices = {}
-        product_ids = [product["product_id"] for product in products]
-        data = {"productNumbers": product_ids, "pricePartialType": "ProductPriceRow"}
-
-        async with self.session.post(
-            "https://shop.benco.com/Search/GetPricePartialsForProductNumbers",
-            headers=GET_PRODUCT_PRICES_HEADERS,
-            json=data,
-            ssl=self._ssl_context,
-        ) as resp:
-            res = await resp.json()
-            for product_id, row in res.items():
-                row_dom = Selector(text=row)
-                product_price = row_dom.xpath("//h4[@class='selling-price']").attrib["content"]
-                try:
-                    product_price = Decimal(product_price)
-                except (TypeError, decimal.ConversionSyntax):
-                    continue
-                else:
-                    product_prices[product_id] = product_price
-        return product_prices
+    # async def _get_products_prices(self, products: List[types.Product]) -> Dict[str, Decimal]:
+    #     """get vendor specific products prices"""
+    #     product_prices = {}
+    #     product_ids = [product["product_id"] for product in products]
+    #     data = {"productNumbers": product_ids, "pricePartialType": "ProductPriceRow"}
+    #
+    #     async with self.session.post(
+    #         "https://shop.benco.com/Search/GetPricePartialsForProductNumbers",
+    #         headers=GET_PRODUCT_PRICES_HEADERS,
+    #         json=data,
+    #         ssl=self._ssl_context,
+    #     ) as resp:
+    #         res = await resp.json()
+    #         for product_id, row in res.items():
+    #             row_dom = Selector(text=row)
+    #             product_price = row_dom.xpath("//h4[@class='selling-price']").attrib["content"]
+    #             try:
+    #                 product_price = Decimal(product_price)
+    #             except (TypeError, decimal.ConversionSyntax):
+    #                 continue
+    #             else:
+    #                 product_prices[product_id] = product_price
+    #     return product_prices
 
     async def checkout_and_review_order(self, shipping_method: Optional[str] = None) -> dict:
         pass

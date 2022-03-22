@@ -163,7 +163,7 @@ class ImplantDirectClient(BaseClient):
             "action": form_action,
         }
 
-    async def get_login_data(self, *args, **kwargs) -> types.LoginInformation:
+    async def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
         login_link = await self.get_login_link()
         form = await self.get_login_form(login_link)
         headers = LOGIN_HEADERS.copy()

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from aiohttp import ClientResponse
 
 from apps.common.utils import convert_string_to_price
@@ -23,7 +25,7 @@ SEARCH_HEADERS = {
 class AmazonClient(BaseClient):
     VENDOR_SLUG = "amazon"
 
-    async def get_login_data(self, *args, **kwargs) -> types.LoginInformation:
+    async def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
         pass
 
     async def check_authenticated(self, response: ClientResponse) -> bool:

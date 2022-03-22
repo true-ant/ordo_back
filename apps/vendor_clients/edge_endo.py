@@ -1,3 +1,5 @@
+from typing import Optional
+
 from aiohttp import ClientResponse
 
 from apps.vendor_clients import types
@@ -53,7 +55,7 @@ class EdgeEndoClient(BaseClient):
             "view_state_generator": view_state_generator,
         }
 
-    async def get_login_data(self, *args, **kwargs) -> types.LoginInformation:
+    async def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
         form = await self.get_login_form()
         return {
             "url": "https://store.edgeendo.com/login.aspx",

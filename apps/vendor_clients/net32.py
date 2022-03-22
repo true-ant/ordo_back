@@ -72,7 +72,7 @@ PLACE_ORDER_HEADERS = {
 class Net32Client(BaseClient):
     VENDOR_SLUG = "net_32"
 
-    async def get_login_data(self, *args, **kwargs) -> types.LoginInformation:
+    async def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
         """Provide login credentials and additional data along with headers"""
         return {
             "url": "https://www.net32.com/rest/user/login",

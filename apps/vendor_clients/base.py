@@ -51,7 +51,7 @@ class BaseClient:
         self.password = password
         self.orders = {}
 
-    async def get_login_data(self, *args, **kwargs) -> types.LoginInformation:
+    async def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
         """Provide login credentials and additional data along with headers"""
         raise NotImplementedError("`get_login_data` must be implemented")
 
@@ -93,7 +93,7 @@ class BaseClient:
         """Make the real order"""
         raise NotImplementedError("Vendor client must implement `place_order`")
 
-    async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> SimpleCookie:
+    async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> Optional[SimpleCookie]:
         """Login session"""
         if username:
             self.username = username
@@ -101,27 +101,29 @@ class BaseClient:
             self.password = password
 
         login_info = await self.get_login_data()
-        async with self.session.post(
-            login_info["url"], headers=login_info["headers"], data=login_info["data"]
-        ) as resp:
-            if resp.status != 200:
-                raise errors.VendorAuthenticationFailed()
+        if login_info:
+            async with self.session.post(
+                login_info["url"], headers=login_info["headers"], data=login_info["data"]
+            ) as resp:
+                if resp.status != 200:
+                    raise errors.VendorAuthenticationFailed()
 
-            is_authenticated = await self.check_authenticated(resp)
-            if not is_authenticated:
-                raise errors.VendorAuthenticationFailed()
+                is_authenticated = await self.check_authenticated(resp)
+                if not is_authenticated:
+                    raise errors.VendorAuthenticationFailed()
 
-            if hasattr(self, "after_login_hook"):
-                await self.after_login_hook(resp)
+                if hasattr(self, "after_login_hook"):
+                    await self.after_login_hook(resp)
 
-        return resp.cookies
+            return resp.cookies
 
     async def get_response_as_dom(
         self, url: str, headers: Optional[dict] = None, query_params: Optional[dict] = None, **kwargs
     ) -> Selector:
         """Return response as dom format"""
         async with self.session.get(url, headers=headers, params=query_params, **kwargs) as resp:
-            return Selector(text=await resp.text())
+            text = await resp.text()
+            return Selector(text=text)
 
     async def get_response_as_json(
         self, url: str, headers: Optional[dict] = None, query_params: Optional[dict] = None, **kwargs

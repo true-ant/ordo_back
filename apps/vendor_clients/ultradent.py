@@ -182,7 +182,7 @@ GET_ORDER_QUERY = textwrap.dedent(
 class UltradentClient(BaseClient):
     VENDOR_SLUG = "ultradent"
 
-    async def get_login_data(self, *args, **kwargs) -> types.LoginInformation:
+    async def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
         """Provide login credentials and additional data along with headers"""
         url = "https://www.ultradent.com/login"
         login_get_response_dom = await self.get_response_as_dom(url=url, headers=PRE_LOGIN_HEADERS)

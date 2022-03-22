@@ -103,7 +103,7 @@ class PattersonClient(BaseClient):
     VENDOR_SLUG = "patterson"
     GET_PRODUCT_PAGE_HEADERS = BASE_HEADERS
 
-    async def get_login_data(self, *args, **kwargs) -> types.LoginInformation:
+    async def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
         params = {
             "returnUrl": "/",
             "signIn": "userSignIn",

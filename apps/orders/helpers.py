@@ -688,21 +688,34 @@ class ProductHelper:
     @staticmethod
     def get_products(
         office: Union[OfficeModel, SmartID],
+        fetch_parents: bool = True,
         product_ids: Optional[List[SmartID]] = None,
         selected_products: Optional[List[SmartID]] = None,
     ):
+        """
+        fetch_parents:  True:   fetch parent products
+                        False:  fetch all products
+        selected_products: list of product id, product ids in this list will be ordered first
+        """
         if isinstance(office, OfficeModel):
             office_pk = office.id
         else:
             office_pk = office
 
-        office_products = OfficeProductModel.objects.filter(product=OuterRef("pk"), office_id=office_pk)
         connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_pk)
-        products = ProductModel.objects.filter(parent__isnull=True, vendor_id__in=connected_vendor_ids)
+
+        # get products from vendors that are linked to the office account
+        products = ProductModel.objects.filter(Q(vendor_id__in=connected_vendor_ids) | Q(vendor__isnull=True))
+        if fetch_parents:
+            products = products.filter(parent__isnull=True)
+
         if product_ids is not None:
             products = products.filter(id__in=product_ids)
+
         if selected_products is None:
             selected_products = []
+
+        office_products = OfficeProductModel.objects.filter(product=OuterRef("pk"), office_id=office_pk)
         return (
             products.annotate(office_product_price=Subquery(office_products.values("price")[:1]))
             .annotate(is_inventory=Exists(office_products.filter(is_inventory=True)))

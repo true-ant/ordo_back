@@ -1379,9 +1379,6 @@ class ProductV2ViewSet(ModelViewSet):
         serializer_context = super().get_serializer_context()
         office_pk = self.request.query_params.get("office_pk")
         serializer_context = {**serializer_context, "office_pk": office_pk}
-        if office_pk:
-            connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office=office_pk)
-            serializer_context["connected_vendor_ids"] = connected_vendor_ids
         return serializer_context
 
     @action(detail=False, url_path="search/vendors")

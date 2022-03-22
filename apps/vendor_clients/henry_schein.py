@@ -96,7 +96,7 @@ GET_PRODUCT_PRICES_HEADERS = {
 class HenryScheinClient(BaseClient):
     VENDOR_SLUG = "henry_schein"
 
-    async def get_login_data(self, *args, **kwargs) -> types.LoginInformation:
+    async def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
         """Provide login credentials and additional data along with headers"""
         async with self.session.get("https://www.henryschein.com/us-en/dental/Default.aspx") as resp:
             text = await resp.text()
