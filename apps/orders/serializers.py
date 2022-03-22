@@ -74,12 +74,9 @@ class ProductV2Serializer(serializers.ModelSerializer):
         ret = super().to_representation(instance)
         connected_vendor_ids = self.context.get("connected_vendor_ids")
         children_products = ret.pop("children")
-        office_product_price = ret.pop("office_product_price", None)
         if children_products and connected_vendor_ids:
             ret["children"] = [child for child in children_products if child["vendor"]["id"] in connected_vendor_ids]
 
-        if office_product_price:
-            ret["is_inventory"] = True
         return ret
 
 

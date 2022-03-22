@@ -14,6 +14,7 @@ from django.apps import apps
 from django.db import transaction
 from django.db.models import (
     Case,
+    Exists,
     F,
     Model,
     OuterRef,
@@ -703,6 +704,7 @@ class ProductHelper:
             selected_products = []
         return (
             products.annotate(office_product_price=Subquery(office_products.values("price")[:1]))
+            .annotate(is_inventory=Exists(office_products.filter(is_inventory=True)))
             .annotate(
                 product_price=Case(
                     When(office_product_price__isnull=False, then=F("office_product_price")),
