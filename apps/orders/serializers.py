@@ -1,11 +1,10 @@
 from django.db import transaction
 from django.db.models import Q
-from django.db.utils import IntegrityError
 from rest_framework import serializers
 from rest_framework_recursive.fields import RecursiveField
 
 from apps.accounts.serializers import VendorSerializer
-from apps.orders.helpers import OfficeProductHelper, OfficeVendorHelper, ProductHelper
+from apps.orders.helpers import OfficeVendorHelper
 
 from . import models as m
 
@@ -44,6 +43,44 @@ class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.ProductImage
         fields = ("image",)
+
+
+class ProductV2Serializer(serializers.ModelSerializer):
+    vendor = VendorSerializer()
+    category = ProductCategorySerializer()
+    images = ProductImageSerializer(many=True, required=False)
+    product_price = serializers.DecimalField(decimal_places=2, max_digits=10, read_only=True)
+    is_inventory = serializers.BooleanField(default=False, read_only=True)
+    children = serializers.ListSerializer(child=RecursiveField(), required=False, read_only=True)
+
+    class Meta:
+        model = m.Product
+        fields = (
+            "id",
+            "vendor",
+            "name",
+            "product_id",
+            "category",
+            "product_unit",
+            "url",
+            "product_price",
+            "images",
+            "children",
+            "is_inventory",
+        )
+        ordering = ("name",)
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        connected_vendor_ids = self.context.get("connected_vendor_ids")
+        children_products = ret.pop("children")
+        office_product_price = ret.pop("office_product_price", None)
+        if children_products and connected_vendor_ids:
+            ret["children"] = [child for child in children_products if child["vendor"]["id"] in connected_vendor_ids]
+
+        if office_product_price:
+            ret["is_inventory"] = True
+        return ret
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -248,7 +285,7 @@ class OfficeCheckoutStatusUpdateSerializer(serializers.Serializer):
 class OfficeProductSerializer(serializers.ModelSerializer):
     product_data = ProductSerializer(write_only=True)
     office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), write_only=True)
-    product = ProductSerializer(read_only=True)
+    product = ProductV2Serializer(read_only=True)
     office_product_category = serializers.PrimaryKeyRelatedField(queryset=m.OfficeProductCategory.objects.all())
 
     class Meta:
@@ -374,44 +411,6 @@ class VendorProductSearchSerializer(serializers.Serializer):
     max_price = serializers.IntegerField(allow_null=True, min_value=0)
     min_price = serializers.IntegerField(allow_null=True, min_value=0)
     vendors = VendorProductSearchPagination(many=True)
-
-
-class ProductV2Serializer(serializers.ModelSerializer):
-    vendor = VendorSerializer()
-    category = ProductCategorySerializer()
-    images = ProductImageSerializer(many=True, required=False)
-    product_price = serializers.DecimalField(decimal_places=2, max_digits=10, read_only=True)
-    is_inventory = serializers.BooleanField(default=False, read_only=True)
-    children = serializers.ListSerializer(child=RecursiveField(), required=False, read_only=True)
-
-    class Meta:
-        model = m.Product
-        fields = (
-            "id",
-            "vendor",
-            "name",
-            "product_id",
-            "category",
-            "product_unit",
-            "url",
-            "product_price",
-            "images",
-            "children",
-            "is_inventory",
-        )
-        ordering = ("name",)
-
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        connected_vendor_ids = self.context.get("connected_vendor_ids")
-        children_products = ret.pop("children")
-        office_product_price = ret.pop("office_product_price", None)
-        if children_products and connected_vendor_ids:
-            ret["children"] = [child for child in children_products if child["vendor"]["id"] in connected_vendor_ids]
-
-        if office_product_price:
-            ret["is_inventory"] = True
-        return ret
 
 
 class ProductPriceRequestSerializer(serializers.Serializer):
