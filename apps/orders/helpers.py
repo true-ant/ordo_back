@@ -292,7 +292,7 @@ class ProductHelper:
 
     @staticmethod
     def read_products_from_csv(file_path, output_duplicates: bool = True) -> pd.DataFrame:
-        df = pd.read_csv(file_path, na_filter=False, low_memory=False)
+        df = pd.read_csv(file_path, na_filter=False, low_memory=False, dtype=str)
         duplicated_products = df[df["product_id"].duplicated()]
         file_name, ext = get_file_name_and_ext(file_path)
         if output_duplicates:
