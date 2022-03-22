@@ -13,7 +13,7 @@ from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
 from django.apps import apps
 from django.db import transaction
-from django.db.models import Case, Count, F, OuterRef, Q, Subquery, Sum, Value, When
+from django.db.models import Case, Count, F, Q, Sum, Value, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -49,11 +49,7 @@ from . import filters as f
 from . import models as m
 from . import permissions as p
 from . import serializers as s
-from .tasks import (
-    notify_order_creation,
-    search_and_group_products,
-    update_product_detail,
-)
+from .tasks import notify_order_creation, search_and_group_products
 
 
 class OrderViewSet(AsyncMixin, ModelViewSet):
@@ -988,42 +984,53 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         return Response(order_data)
 
     @action(detail=False, url_path="add-multiple-products", methods=["post"])
-    async def add_multiple_products(self, request, *args, **kwargs):
-        products = request.data
+    def add_multiple_products(self, request, *args, **kwargs):
+        data = request.data
         office_pk = self.kwargs["office_pk"]
-        can_use_cart, _ = await sync_to_async(get_cart_status_and_order_status)(office=office_pk, user=request.user)
+        can_use_cart, _ = get_cart_status_and_order_status(office=office_pk, user=request.user)
         if not can_use_cart:
             return Response({"message": msgs.CHECKOUT_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
-        if not isinstance(products, list):
-            return Response({"message": msgs.PAYLOAD_ISSUE}, status=HTTP_400_BAD_REQUEST)
-        result = []
-        for product in products:
-            product["office"] = office_pk
-            serializer = self.get_serializer(data=product)
-            await sync_to_async(serializer.is_valid)(raise_exception=True)
-            product_id = serializer.validated_data["office_product"]["product"]["product_id"]
-            product_url = serializer.validated_data["office_product"]["product"]["url"]
-            vendor = serializer.validated_data["office_product"]["product"]["vendor"]
-            product_category = serializer.validated_data["office_product"]["product"]["category"]
-            serializer.validated_data["unit_price"] = serializer.validated_data["office_product"]["price"]
-            #     try:
-            #         await self.update_vendor_cart(
-            #             product_id,
-            #             vendor,
-            #             serializer,
-            #         )
-            if not product_category:
-                update_product_detail.delay(product_id, product_url, office_pk, vendor.id)
-                # except VendorSiteError as e:
-                #     return Response(
-                #         {"message": f"{msgs.VENDOR_SITE_ERROR} - {e}"},
-                #         status=HTTP_500_INTERNAL_SERVER_ERROR
-                #     )
-                # except VendorNotConnected:
-                #     return Response({"message": "Vendor not connected"}, status=HTTP_400_BAD_REQUEST)
-            serializer_data = await sync_to_async(save_serailizer)(serializer)
-            result.append(serializer_data)
-        return Response(result, status=HTTP_201_CREATED)
+
+        serializer = s.CartCreateSerializer(data=data, many=True)
+        serializer.is_valid(raise_exception=True)
+        serializer_data = save_serailizer(serializer)
+        return Response(serializer_data, status=HTTP_201_CREATED)
+
+        # products = request.data
+        # office_pk = self.kwargs["office_pk"]
+        # can_use_cart, _ = await sync_to_async(get_cart_status_and_order_status)(office=office_pk, user=request.user)
+        # if not can_use_cart:
+        #     return Response({"message": msgs.CHECKOUT_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
+        # if not isinstance(products, list):
+        #     return Response({"message": msgs.PAYLOAD_ISSUE}, status=HTTP_400_BAD_REQUEST)
+        # result = []
+        # for product in products:
+        #     product["office"] = office_pk
+        #     serializer = self.get_serializer(data=product)
+        #     await sync_to_async(serializer.is_valid)(raise_exception=True)
+        #     product_id = serializer.validated_data["office_product"]["product"]["product_id"]
+        #     product_url = serializer.validated_data["office_product"]["product"]["url"]
+        #     vendor = serializer.validated_data["office_product"]["product"]["vendor"]
+        #     product_category = serializer.validated_data["office_product"]["product"]["category"]
+        #     serializer.validated_data["unit_price"] = serializer.validated_data["office_product"]["price"]
+        #     #     try:
+        #     #         await self.update_vendor_cart(
+        #     #             product_id,
+        #     #             vendor,
+        #     #             serializer,
+        #     #         )
+        #     if not product_category:
+        #         update_product_detail.delay(product_id, product_url, office_pk, vendor.id)
+        #         # except VendorSiteError as e:
+        #         #     return Response(
+        #         #         {"message": f"{msgs.VENDOR_SITE_ERROR} - {e}"},
+        #         #         status=HTTP_500_INTERNAL_SERVER_ERROR
+        #         #     )
+        #         # except VendorNotConnected:
+        #         #     return Response({"message": "Vendor not connected"}, status=HTTP_400_BAD_REQUEST)
+        #     serializer_data = await sync_to_async(save_serailizer)(serializer)
+        #     result.append(serializer_data)
+        # return Response(result, status=HTTP_201_CREATED)
 
 
 class CheckoutAvailabilityAPIView(APIView):

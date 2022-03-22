@@ -20,7 +20,7 @@ from apps.scrapers.patterson import PattersonScraper
 from apps.scrapers.schema import Product
 from apps.scrapers.ultradent import UltraDentScraper
 
-SCRAPER_SLUG = "dental_city"
+SCRAPER_SLUG = "net_32"
 SCRAPERS = {
     "henry_schein": HenryScheinScraper,
     "net_32": Net32Scraper,
@@ -231,11 +231,11 @@ def get_task(scraper, scraper_name, test="login", **kwargs):
         return scraper.login()
     elif test == "order_history":
         office = kwargs.get("office")
-        return scraper.get_orders(office, perform_login=True, completed_order_ids=["11147077"])
+        return scraper.get_orders(office, perform_login=True)
     elif test == "order_history_date_range":
         office = kwargs.get("office")
-        orders_from_date = datetime.date(year=2021, month=3, day=16)
-        orders_to_date = datetime.date(year=2021, month=3, day=16)
+        orders_from_date = datetime.date(year=2021, month=10, day=16)
+        orders_to_date = datetime.date(year=2022, month=2, day=16)
         return scraper.get_orders(office, perform_login=True, from_date=orders_from_date, to_date=orders_to_date)
     elif test == "create_order":
         return scraper.create_order(
@@ -317,7 +317,7 @@ async def main(vendors, **kwargs):
                 username=scraper_data["username"],
                 password=scraper_data["password"],
             )
-            tasks.append(get_task(scraper, scraper_name, "login", **kwargs))
+            tasks.append(get_task(scraper, scraper_name, "order_history", **kwargs))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
     # products = [
