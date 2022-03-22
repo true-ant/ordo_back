@@ -382,6 +382,8 @@ class ProductV2Serializer(serializers.ModelSerializer):
     vendor = VendorSerializer()
     category = ProductCategorySerializer()
     images = ProductImageSerializer(many=True, required=False)
+    product_price = serializers.DecimalField(decimal_places=2, max_digits=10, read_only=True)
+    is_inventory = serializers.BooleanField(default=False, read_only=True)
     children = serializers.ListSerializer(child=RecursiveField(), required=False, read_only=True)
 
     class Meta:
@@ -389,29 +391,28 @@ class ProductV2Serializer(serializers.ModelSerializer):
         fields = (
             "id",
             "vendor",
-            "images",
-            "category",
-            "children",
-            "product_id",
             "name",
-            "price",
+            "product_id",
+            "category",
             "product_unit",
-            "description",
             "url",
+            "product_price",
+            "images",
+            "children",
+            "is_inventory",
         )
         ordering = ("name",)
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        office_pk = self.context.get("office_pk")
         connected_vendor_ids = self.context.get("connected_vendor_ids")
         children_products = ret.pop("children")
+        office_product_price = ret.pop("office_product_price", None)
         if children_products and connected_vendor_ids:
             ret["children"] = [child for child in children_products if child["vendor"]["id"] in connected_vendor_ids]
 
-        if not ret["price"]:
-            office_product = instance.office_products.filter(office_id=office_pk).first()
-            ret["price"] = office_product.price if office_product else None
+        if office_product_price:
+            ret["is_inventory"] = True
         return ret
 
 

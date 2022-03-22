@@ -13,7 +13,7 @@ from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
 from django.apps import apps
 from django.db import transaction
-from django.db.models import Case, Count, F, Q, Sum, Value, When
+from django.db.models import Case, Count, F, OuterRef, Q, Subquery, Sum, Value, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -1379,7 +1379,20 @@ class ProductV2ViewSet(ModelViewSet):
     search_fields = ["name"]
 
     def get_queryset(self):
-        return self.queryset.filter(parent__isnull=True).order_by("price")
+        office_pk = self.request.query_params.get("office_pk")
+        office_products = m.OfficeProduct.objects.filter(product=OuterRef("pk"), office_id=office_pk)
+        return (
+            self.queryset.filter(parent__isnull=True)
+            .annotate(office_product_price=Subquery(office_products.values("price")[:1]))
+            .annotate(
+                product_price=Case(
+                    When(office_product_price__isnull=False, then=F("office_product_price")),
+                    When(price__isnull=False, then=F("price")),
+                    default=Value(None),
+                )
+            )
+            .order_by("product_price")
+        )
 
     def get_serializer_context(self):
         serializer_context = super().get_serializer_context()
