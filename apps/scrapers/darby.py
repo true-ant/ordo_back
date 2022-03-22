@@ -158,9 +158,10 @@ class DarbyScraper(Scraper):
             for detail_row in order_detail_response.xpath(
                 "//table[@id='MainContent_gvInvoiceDetail']//tr[@class='pdpHelltPrimary']"  # noqa
             ):
-                product_id = self.merge_strip_values(detail_row, "./td[1]/a//text()")
+                # product_id = self.merge_strip_values(detail_row, "./td[1]/a//text()")
                 product_name = self.merge_strip_values(detail_row, "./td[2]//text()")
                 product_url = self.merge_strip_values(detail_row, "./td[1]/a//@href")
+                product_id = product_url.split("/")[-1]
                 if product_url:
                     product_url = f"{self.BASE_URL}{product_url}"
 

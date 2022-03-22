@@ -207,10 +207,12 @@ class PattersonScraper(Scraper):
             #     "postal_code": postal_code,
             # }
 
-            for order_product_dom in order_detail_response.xpath('//div[contains(@class, "itemRecord")]'):
-                product_id = self.merge_strip_values(
-                    order_product_dom, ".//div[contains(@class, 'orderHistoryOrderDetailItemText')]//text()"
-                )
+            for i, order_product_dom in enumerate(
+                order_detail_response.xpath('//div[contains(@class, "itemRecord")]')
+            ):
+                product_id = order_product_dom.xpath(
+                    f".//input[@name='itemSkuDetails[{i}].PublicItemNumber']/@value"
+                ).get()
                 # product_name = self.extract_first(product_name_url_dom, ".//a/text()")
                 product_url = self.extract_first(
                     order_product_dom, ".//div[contains(@class, 'orderHistoryOrderDetailItemText')]//@href"
