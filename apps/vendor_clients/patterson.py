@@ -224,6 +224,7 @@ class PattersonClient(BaseClient):
             product_detail = json.loads(product_detail)
             product_id = product_detail["PublicItemNumber"]
             return {
+                "vendor": self.VENDOR_SLUG,
                 "product_id": product_id,
                 "sku": product_id,
                 "name": product_detail["ItemDescription"],

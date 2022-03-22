@@ -235,7 +235,7 @@ class VendorHelper:
 
         ret: Dict[str, Decimal] = {}
         for vendor_slug, prices_result in zip(vendor_slugs, prices_results):
-            if not isinstance(prices_results, dict):
+            if not isinstance(prices_result, dict):
                 continue
             for vendor_product_id, price in prices_result.items():
                 ret[vendor_products_2_products_mapping[vendor_slug][vendor_product_id]] = price
@@ -697,7 +697,8 @@ class ProductHelper:
             office_pk = office
 
         office_products = OfficeProductModel.objects.filter(product=OuterRef("pk"), office_id=office_pk)
-        products = ProductModel.objects.filter(parent__isnull=True)
+        connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_pk)
+        products = ProductModel.objects.filter(parent__isnull=True, vendor_id__in=connected_vendor_ids)
         if product_ids is not None:
             products = products.filter(id__in=product_ids)
         if selected_products is None:
