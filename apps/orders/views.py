@@ -35,10 +35,10 @@ from rest_framework.viewsets import ModelViewSet
 from apps.accounts.models import Company, Office, OfficeBudget, OfficeVendor
 from apps.accounts.services.offices import OfficeService
 from apps.common import messages as msgs
-from apps.common.asyncdrf import AsyncMixin
+from apps.common.asyncdrf import AsyncCreateModelMixin, AsyncMixin
 from apps.common.pagination import SearchProductPagination, StandardResultsSetPagination
 from apps.common.utils import get_date_range, group_products_from_search_result
-from apps.orders.helpers import OfficeProductHelper, OfficeVendorHelper
+from apps.orders.helpers import OfficeProductHelper, OfficeVendorHelper, ProductHelper
 from apps.orders.services.order import OrderService
 from apps.scrapers.errors import VendorNotConnected, VendorNotSupported, VendorSiteError
 from apps.scrapers.scraper_factory import ScraperFactory
@@ -669,7 +669,7 @@ def get_serializer_data(serializer_class, data, many=True):
     return serializer.data
 
 
-class CartViewSet(AsyncMixin, ModelViewSet):
+class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
     permission_classes = [p.OfficeSubscriptionPermission]
     model = m.Cart
     serializer_class = s.CartSerializer
@@ -682,6 +682,11 @@ class CartViewSet(AsyncMixin, ModelViewSet):
             return queryset.order_by("-updated_at")
         else:
             return queryset.order_by("product__vendor", "created_at", "-save_for_later")
+
+    def get_serializer_class(self):
+        if self.request.method in ["POST"]:
+            return s.CartCreateSerializer
+        return s.CartSerializer
 
     async def update_vendor_cart(self, product_id, vendor, serializer=None):
         office_vendor = await sync_to_async(get_office_vendor)(office_pk=self.kwargs["office_pk"], vendor_pk=vendor.id)
@@ -729,30 +734,8 @@ class CartViewSet(AsyncMixin, ModelViewSet):
         if not can_use_cart:
             return Response({"message": msgs.CHECKOUT_IN_PROGRESS}, status=HTTP_400_BAD_REQUEST)
 
-        serializer = self.get_serializer(data=data)
+        serializer = await sync_to_async(self.get_serializer)(data=data)
         await sync_to_async(serializer.is_valid)(raise_exception=True)
-        product_id = serializer.validated_data["office_product"]["product"]["product_id"]
-        product_url = serializer.validated_data["office_product"]["product"]["url"]
-        vendor = serializer.validated_data["office_product"]["product"]["vendor"]
-        product_category = serializer.validated_data["office_product"]["product"]["category"]
-        serializer.validated_data["unit_price"] = serializer.validated_data["office_product"]["price"]
-        #     try:
-        #         await self.update_vendor_cart(
-        #             product_id,
-        #             vendor,
-        #             serializer,
-        #         )
-        if not product_category:
-            update_product_detail.delay(product_id, product_url, office_pk, vendor.id)
-            # except VendorSiteError as e:
-            #     return Response(
-            #         {
-            #             "message": f"{msgs.VENDOR_SITE_ERROR} - {e}"
-            #         },
-            #         status=HTTP_500_INTERNAL_SERVER_ERROR
-            #     )
-            # except VendorNotConnected:
-            #     return Response({"message": "Vendor not connected"}, status=HTTP_400_BAD_REQUEST)
         serializer_data = await sync_to_async(save_serailizer)(serializer)
         return Response(serializer_data, status=HTTP_201_CREATED)
 
@@ -983,21 +966,22 @@ class CartViewSet(AsyncMixin, ModelViewSet):
                 password=office_vendor.password,
             )
 
-            tasks.append(
-                scraper.confirm_order(
-                    [
-                        CartProduct(
-                            product_id=cart_product.product.product_id,
-                            product_unit=cart_product.product.product_unit,
-                            quantity=cart_product.quantity,
-                        )
-                        for cart_product in cart_products
-                        if cart_product.product.vendor.id == office_vendor.vendor.id
-                    ],
-                    shipping_method=shipping_options.get(office_vendor.vendor.slug),
-                    fake=fake_order,
+            if hasattr(scraper, "confirm_order"):
+                tasks.append(
+                    scraper.confirm_order(
+                        [
+                            CartProduct(
+                                product_id=cart_product.product.product_id,
+                                product_unit=cart_product.product.product_unit,
+                                quantity=cart_product.quantity,
+                            )
+                            for cart_product in cart_products
+                            if cart_product.product.vendor.id == office_vendor.vendor.id
+                        ],
+                        shipping_method=shipping_options.get(office_vendor.vendor.slug),
+                        fake=fake_order,
+                    )
                 )
-            )
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
         order_data = await self._create_order(office_vendors, results, cart_products, order_approval_needed, data)
@@ -1380,19 +1364,7 @@ class ProductV2ViewSet(ModelViewSet):
 
     def get_queryset(self):
         office_pk = self.request.query_params.get("office_pk")
-        office_products = m.OfficeProduct.objects.filter(product=OuterRef("pk"), office_id=office_pk)
-        return (
-            self.queryset.filter(parent__isnull=True)
-            .annotate(office_product_price=Subquery(office_products.values("price")[:1]))
-            .annotate(
-                product_price=Case(
-                    When(office_product_price__isnull=False, then=F("office_product_price")),
-                    When(price__isnull=False, then=F("price")),
-                    default=Value(None),
-                )
-            )
-            .order_by("product_price")
-        )
+        return ProductHelper.get_products(office=office_pk)
 
     def get_serializer_context(self):
         serializer_context = super().get_serializer_context()

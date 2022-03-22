@@ -438,33 +438,33 @@ class DarbyScraper(Scraper):
             },
         }
 
-    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
-        vendor_order_detail = await self.create_order(products)
-        if fake:
-            order_id = f"{uuid.uuid4()}"
-        else:
-            async with self.session.get(
-                "https://www.darbydental.com/scripts/checkout.aspx", headers=CHECKOUT_HEADERS
-            ) as resp:
-                checkout_dom = Selector(text=await resp.text())
-
-            data = {
-                "ctl00$MainContent$pono": f"Ordo Order ({datetime.date.today().isoformat()})",
-                "__ASYNCPOST": "true",
-                "ctl00$masterSM": "ctl00$MainContent$UpdatePanel1|ctl00$MainContent$completeOrder",
-                "ctl00$ddlPopular": "-1",
-            }
-            for _input in checkout_dom.xpath('//form[@id="form1"]//input[@name]'):
-                _key = _input.xpath("./@name").get()
-                _val = _input.xpath("./@value").get()
-                data[_key] = _val
-            async with self.session.post(
-                "https://www.darbydental.com/scripts/checkout.aspx", headers=ORDER_HEADERS, data=data
-            ) as resp:
-                dom = Selector(text=await resp.text())
-                order_id = dom.xpath('//span[@id="MainContent_lblInvoiceNo"]//text()').get()
-
-        return {
-            **vendor_order_detail,
-            "order_id": order_id,
-        }
+    # async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+    #     vendor_order_detail = await self.create_order(products)
+    #     if fake:
+    #         order_id = f"{uuid.uuid4()}"
+    #     else:
+    #         async with self.session.get(
+    #             "https://www.darbydental.com/scripts/checkout.aspx", headers=CHECKOUT_HEADERS
+    #         ) as resp:
+    #             checkout_dom = Selector(text=await resp.text())
+    #
+    #         data = {
+    #             "ctl00$MainContent$pono": f"Ordo Order ({datetime.date.today().isoformat()})",
+    #             "__ASYNCPOST": "true",
+    #             "ctl00$masterSM": "ctl00$MainContent$UpdatePanel1|ctl00$MainContent$completeOrder",
+    #             "ctl00$ddlPopular": "-1",
+    #         }
+    #         for _input in checkout_dom.xpath('//form[@id="form1"]//input[@name]'):
+    #             _key = _input.xpath("./@name").get()
+    #             _val = _input.xpath("./@value").get()
+    #             data[_key] = _val
+    #         async with self.session.post(
+    #             "https://www.darbydental.com/scripts/checkout.aspx", headers=ORDER_HEADERS, data=data
+    #         ) as resp:
+    #             dom = Selector(text=await resp.text())
+    #             order_id = dom.xpath('//span[@id="MainContent_lblInvoiceNo"]//text()').get()
+    #
+    #     return {
+    #         **vendor_order_detail,
+    #         "order_id": order_id,
+    #     }

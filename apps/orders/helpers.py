@@ -12,7 +12,17 @@ import pandas as pd
 from asgiref.sync import sync_to_async
 from django.apps import apps
 from django.db import transaction
-from django.db.models import Model, Q, QuerySet
+from django.db.models import (
+    Case,
+    F,
+    Model,
+    OuterRef,
+    Q,
+    QuerySet,
+    Subquery,
+    Value,
+    When,
+)
 from slugify import slugify
 
 from apps.accounts.models import Office as OfficeModel
@@ -36,7 +46,8 @@ from apps.vendor_clients import BaseClient
 from apps.vendor_clients.errors import VendorAuthenticationFailed
 from apps.vendor_clients.types import Product, VendorCredential
 
-ProductID = Union[int, str]
+SmartID = Union[int, str]
+ProductID = SmartID
 ProductIDs = List[ProductID]
 
 
@@ -672,6 +683,30 @@ class ProductHelper:
                 for children_product in children_products:
                     children_product.parent = parent_product_instance
                 bulk_update(ProductModel, children_products, fields=["parent"])
+
+    @staticmethod
+    def get_products(office: Union[OfficeModel, SmartID], product_ids: Optional[List[SmartID]] = None):
+        if isinstance(office, OfficeModel):
+            office_pk = office.id
+        else:
+            office_pk = office
+
+        office_products = OfficeProductModel.objects.filter(product=OuterRef("pk"), office_id=office_pk)
+        products = ProductModel.objects.filter(parent__isnull=True)
+        if product_ids is not None:
+            products = products.filter(id__in=product_ids)
+
+        return (
+            products.annotate(office_product_price=Subquery(office_products.values("price")[:1]))
+            .annotate(
+                product_price=Case(
+                    When(office_product_price__isnull=False, then=F("office_product_price")),
+                    When(price__isnull=False, then=F("price")),
+                    default=Value(None),
+                )
+            )
+            .order_by("product_price")
+        )
 
 
 class OfficeVendorHelper:

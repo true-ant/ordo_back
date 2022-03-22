@@ -67,6 +67,12 @@ class Product(TimeStampedModel):
     def __str__(self):
         return f"{self.name} from {self.vendor}"
 
+    @property
+    def sibling_products(self):
+        if self.parent:
+            return self.parent.children.exclude(id=self.id)
+        return self.__class__.objects.none()
+
     def to_dict(self) -> ProductDict:
         return {
             "vendor": self.vendor.slug,
