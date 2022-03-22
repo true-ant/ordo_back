@@ -117,6 +117,7 @@ class OfficeProductHelper:
         # fetch prices from vendors
         products_to_be_fetched = {}
         for product_id, product in products.items():
+            # TODO: should be exclude products that has no vendor
             if product_id not in product_prices_from_db.keys():
                 products_to_be_fetched[product_id] = await sync_to_async(product.to_dict)()
 
@@ -180,7 +181,7 @@ class VendorHelper:
         try:
             vendor_client = BaseClient.make_handler(
                 vendor_slug=vendor_slug,
-                session=apps.get_app_config("ordo_backend").session,
+                session=apps.get_app_config("accounts").session,
                 username=username,
                 password=password,
             )
@@ -196,7 +197,7 @@ class VendorHelper:
             clients.append(
                 BaseClient.make_handler(
                     vendor_slug=vendor_slug,
-                    session=apps.get_app_config("ordo_backend").session,
+                    session=apps.get_app_config("accounts").session,
                     username=vendors_credential["username"],
                     password=vendors_credential["password"],
                 )
@@ -221,8 +222,10 @@ class VendorHelper:
         prices_results = await aio.gather(*tasks, return_exceptions=True)
 
         ret: Dict[str, Decimal] = {}
-        for vendor_slug, prices_results in zip(vendor_slugs, prices_results):
-            for vendor_product_id, price in prices_results.items():
+        for vendor_slug, prices_result in zip(vendor_slugs, prices_results):
+            if not isinstance(prices_results, dict):
+                continue
+            for vendor_product_id, price in prices_result.items():
                 ret[vendor_products_2_products_mapping[vendor_slug][vendor_product_id]] = price
 
         return ret

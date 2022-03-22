@@ -1077,7 +1077,7 @@ class CheckoutUpdateStatusAPIView(APIView):
             return Response({"message": "Status updated successfully"})
 
 
-class OfficeProductViewSet(ModelViewSet):
+class OfficeProductViewSet(AsyncMixin, ModelViewSet):
     queryset = m.OfficeProduct.objects.all()
     serializer_class = s.OfficeProductSerializer
     pagination_class = StandardResultsSetPagination
@@ -1379,7 +1379,7 @@ class ProductV2ViewSet(ModelViewSet):
     search_fields = ["name"]
 
     def get_queryset(self):
-        return self.queryset.filter(parent__isnull=True)
+        return self.queryset.filter(parent__isnull=True).order_by("price")
 
     def get_serializer_context(self):
         serializer_context = super().get_serializer_context()

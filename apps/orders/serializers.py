@@ -399,6 +399,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
             "description",
             "url",
         )
+        ordering = ("name",)
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)

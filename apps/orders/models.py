@@ -11,6 +11,7 @@ from apps.common.models import FlexibleForeignKey, TimeStampedModel
 from apps.scrapers.schema import Product as ProductDataClass
 from apps.scrapers.schema import ProductImage as ProductImageDataClass
 from apps.scrapers.schema import Vendor as VendorDataClass
+from apps.vendor_clients.types import Product as ProductDict
 
 
 class ProductCategory(models.Model):
@@ -65,6 +66,19 @@ class Product(TimeStampedModel):
 
     def __str__(self):
         return f"{self.name} from {self.vendor}"
+
+    def to_dict(self) -> ProductDict:
+        return {
+            "vendor": self.vendor.slug,
+            "product_id": self.product_id if self.product_id else "",
+            "sku": "",
+            "name": self.name,
+            "url": self.url if self.url else "",
+            "images": [image.image for image in self.images.all()],
+            "price": self.price,
+            "category": self.category.slug,
+            "unit": self.product_unit,
+        }
 
     def to_dataclass(self):
         return ProductDataClass(
