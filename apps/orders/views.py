@@ -21,7 +21,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from month import Month
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
-from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.filters import OrderingFilter
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.status import (
@@ -38,7 +38,7 @@ from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncCreateModelMixin, AsyncMixin
 from apps.common.pagination import SearchProductPagination, StandardResultsSetPagination
 from apps.common.utils import get_date_range, group_products_from_search_result
-from apps.orders.helpers import OfficeProductHelper, OfficeVendorHelper, ProductHelper
+from apps.orders.helpers import OfficeProductHelper, ProductHelper
 from apps.orders.services.order import OrderService
 from apps.scrapers.errors import VendorNotConnected, VendorNotSupported, VendorSiteError
 from apps.scrapers.scraper_factory import ScraperFactory
@@ -1365,9 +1365,8 @@ class ProductV2ViewSet(ModelViewSet):
     queryset = m.Product.objects.all()
     serializer_class = s.ProductV2Serializer
     pagination_class = StandardResultsSetPagination
-    filter_backends = [SearchFilter]
+    filterset_class = f.ProductV2Filter
     http_method_names = ["get"]
-    search_fields = ["name"]
 
     def get_queryset(self):
         office_pk = self.request.query_params.get("office_pk")

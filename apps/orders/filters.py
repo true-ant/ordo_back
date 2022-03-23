@@ -90,6 +90,17 @@ class ProductFilter(filters.FilterSet):
         return queryset.filter(q).distinct()
 
 
+class ProductV2Filter(filters.FilterSet):
+    vendors = filters.CharFilter(method="filter_by_vendors")
+    search = filters.CharFilter(field_name="name", lookup_expr="search")
+
+    def filter_by_vendors(self, queryset, name, value):
+        vendor_slugs = value.split(",")
+        q = Q(vendor__slug__in=vendor_slugs)
+
+        return queryset.filter(q)
+
+
 class OfficeProductFilter(filters.FilterSet):
     q = filters.CharFilter(method="filter_product")
     inventory = filters.BooleanFilter(field_name="is_inventory")
