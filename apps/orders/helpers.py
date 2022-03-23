@@ -715,10 +715,18 @@ class ProductHelper:
         if selected_products is None:
             selected_products = []
 
-        office_products = OfficeProductModel.objects.filter(product=OuterRef("pk"), office_id=office_pk)
+        # TODO: this should be optimized
+        office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk) & Q(product_id=OuterRef("pk")))
+
+        # we treat parent product as inventory product if it has inventory children product
+        inventory_office_products = OfficeProductModel.objects.filter(
+            Q(office_id=office_pk) & Q(is_inventory=True) & Q(product_id=OuterRef("pk"))
+        )
+
         return (
             products.annotate(office_product_price=Subquery(office_products.values("price")[:1]))
-            .annotate(is_inventory=Exists(office_products.filter(is_inventory=True)))
+            .annotate(is_inventory=Exists(inventory_office_products))
+            .annotate(last_order_date=Subquery(inventory_office_products.values("last_order_date")[:1]))
             .annotate(
                 product_price=Case(
                     When(office_product_price__isnull=False, then=F("office_product_price")),
@@ -732,7 +740,7 @@ class ProductHelper:
                     default=Value(1),
                 )
             )
-            .order_by("selected_product", "product_price")
+            .order_by("selected_product", "-is_inventory", "product_price")
         )
 
 

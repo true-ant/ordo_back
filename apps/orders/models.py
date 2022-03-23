@@ -144,6 +144,8 @@ class OfficeProduct(TimeStampedModel):
     office_product_category = models.ForeignKey(
         OfficeProductCategory, null=True, blank=True, on_delete=models.SET_NULL, related_name="products"
     )
+    last_order_date = models.DateField(null=True, blank=True)
+    last_price_updated = models.DateTimeField(null=True, blank=True)
     is_favorite = models.BooleanField(default=False)
     is_inventory = models.BooleanField(default=False)
 
