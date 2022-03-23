@@ -59,6 +59,23 @@ class ParentProduct(TypedDict):
 
 class OfficeProductHelper:
     @staticmethod
+    def get_product_price(
+        office: Union[SmartID, OfficeModel], product: Union[SmartID, ProductModel]
+    ) -> Optional[Decimal]:
+        if isinstance(product, ProductModel):
+            if product.price:
+                return product.price
+
+            product = product.id
+
+        if isinstance(office, OfficeModel):
+            office = office.id
+
+        office_product = OfficeProductModel.objects.filter(product_id=product, office_id=office).first()
+        if office_product:
+            return office_product.price
+
+    @staticmethod
     def get_office_vendors(office_id: str, vendor_slugs: List[str]) -> Dict[str, VendorCredential]:
         q = [Q(office_id=office_id) & Q(vendor__slug=vendor_slug) for vendor_slug in vendor_slugs]
         office_vendors = OfficeVendorModel.objects.filter(reduce(or_, q)).values(

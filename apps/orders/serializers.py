@@ -4,7 +4,7 @@ from rest_framework import serializers
 from rest_framework_recursive.fields import RecursiveField
 
 from apps.accounts.serializers import VendorSerializer
-from apps.orders.helpers import OfficeVendorHelper, ProductHelper
+from apps.orders.helpers import OfficeProductHelper, OfficeVendorHelper, ProductHelper
 
 from . import models as m
 
@@ -225,10 +225,16 @@ class CartCreateSerializer(serializers.ModelSerializer):
         model = m.Cart
         fields = "__all__"
 
+    def create(self, validated_data):
+        validated_data["unit_price"] = OfficeProductHelper.get_product_price(
+            office=validated_data["office"], product=validated_data["product"]
+        )
+        return super().create(validated_data)
+
 
 class CartSerializer(serializers.ModelSerializer):
     # office_product = OfficeProductReadSerializer(write_only=True)
-    product = ProductSerializer(read_only=True, required=False)
+    product = ProductV2Serializer(read_only=True, required=False)
     # same_products = serializers.SerializerMethodField()
     # office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
 
