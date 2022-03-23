@@ -608,10 +608,10 @@ class ProductHelper:
         """export grouped products to csv format"""
         products = ProductModel.objects.filter(vendor__isnull=True).order_by("category__name")
         if include_category_slugs:
-            products = products.filter(category__in=include_category_slugs)
+            products = products.filter(category__slug__in=include_category_slugs)
 
         if exclude_category_slugs:
-            products = products.exclude(category__in=exclude_category_slugs)
+            products = products.exclude(category__slug__in=exclude_category_slugs)
 
         # TODO: this might be slower than using pandas
         with open(to, "w") as f:
