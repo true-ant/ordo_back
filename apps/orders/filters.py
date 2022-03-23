@@ -99,7 +99,7 @@ class ProductV2Filter(filters.FilterSet):
         vendor_slugs = value.split(",")
         q = Q(vendor__slug__in=vendor_slugs) | (Q(vendor__isnull=True) & (Q(child__vendor__slug__in=vendor_slugs)))
 
-        return queryset.filter(q)
+        return queryset.filter(q).distinct()
 
     def filter_by_name(self, queryset, name, value):
         return queryset.filter(name__search=value)

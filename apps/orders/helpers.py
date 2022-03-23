@@ -725,7 +725,7 @@ class ProductHelper:
         products = ProductModel.objects.filter(
             Q(vendor_id__in=connected_vendor_ids)
             | (Q(vendor__isnull=True) & Q(child__vendor_id__in=connected_vendor_ids))
-        )
+        ).distinct()
         if fetch_parents:
             products = products.filter(parent__isnull=True)
 
