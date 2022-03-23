@@ -65,7 +65,8 @@ class ProductV2Serializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, required=False)
     product_price = serializers.DecimalField(decimal_places=2, max_digits=10, read_only=True)
     is_inventory = serializers.BooleanField(default=False, read_only=True)
-    last_order_date = serializers.DateField(required=False)
+    last_order_date = serializers.DateField(read_only=True)
+    last_order_price = serializers.DecimalField(decimal_places=2, max_digits=10, read_only=True)
 
     class Meta:
         model = m.Product
@@ -81,6 +82,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
             "images",
             "is_inventory",
             "last_order_date",
+            "last_order_price",
         )
         ordering = ("name",)
 

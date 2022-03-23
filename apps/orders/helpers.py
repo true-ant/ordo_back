@@ -744,6 +744,7 @@ class ProductHelper:
             products.annotate(office_product_price=Subquery(office_products.values("price")[:1]))
             .annotate(is_inventory=Exists(inventory_office_products))
             .annotate(last_order_date=Subquery(inventory_office_products.values("last_order_date")[:1]))
+            .annotate(last_order_price=Subquery(inventory_office_products.values("price")[:1]))
             .annotate(
                 product_price=Case(
                     When(office_product_price__isnull=False, then=F("office_product_price")),
