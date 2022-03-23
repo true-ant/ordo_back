@@ -92,13 +92,17 @@ class ProductFilter(filters.FilterSet):
 
 class ProductV2Filter(filters.FilterSet):
     vendors = filters.CharFilter(method="filter_by_vendors")
-    search = filters.CharFilter(field_name="name", lookup_expr="search")
+    # search = filters.CharFilter(field_name="name", lookup_expr="search")
+    search = filters.CharFilter(method="filter_by_name")
 
     def filter_by_vendors(self, queryset, name, value):
         vendor_slugs = value.split(",")
         q = Q(vendor__slug__in=vendor_slugs) | (Q(vendor__isnull=True) & (Q(child__vendor__slug__in=vendor_slugs)))
 
         return queryset.filter(q)
+
+    def filter_by_name(self, queryset, name, value):
+        return queryset.filter(name__search=value)
 
 
 class OfficeProductFilter(filters.FilterSet):

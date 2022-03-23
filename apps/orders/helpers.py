@@ -722,7 +722,10 @@ class ProductHelper:
         connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_pk)
 
         # get products from vendors that are linked to the office account
-        products = ProductModel.objects.filter(Q(vendor_id__in=connected_vendor_ids) | Q(vendor__isnull=True))
+        products = ProductModel.objects.filter(
+            Q(vendor_id__in=connected_vendor_ids)
+            | (Q(vendor__isnull=True) & Q(child__vendor_id__in=connected_vendor_ids))
+        )
         if fetch_parents:
             products = products.filter(parent__isnull=True)
 
