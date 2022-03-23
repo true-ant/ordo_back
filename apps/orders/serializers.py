@@ -234,7 +234,7 @@ class CartCreateSerializer(serializers.ModelSerializer):
 
 class CartSerializer(serializers.ModelSerializer):
     # office_product = OfficeProductReadSerializer(write_only=True)
-    product = ProductV2Serializer(read_only=True, required=False)
+    product = ProductSerializer(read_only=True, required=False)
     # same_products = serializers.SerializerMethodField()
     # office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
 
