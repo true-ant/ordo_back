@@ -89,7 +89,11 @@ class ProductV2Serializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         office_pk = self.context.get("office_pk")
+        vendors = self.context.get("vendors")
         children_ids = instance.children.values_list("id", flat=True)
+        if vendors:
+            children_ids = children_ids.filter(vendor__slug__in=vendors)
+
         if children_ids:
             children_products = ProductHelper.get_products(
                 office=office_pk, fetch_parents=False, product_ids=children_ids

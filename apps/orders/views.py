@@ -1377,7 +1377,10 @@ class ProductV2ViewSet(ModelViewSet):
     def get_serializer_context(self):
         serializer_context = super().get_serializer_context()
         office_pk = self.request.query_params.get("office_pk")
-        serializer_context = {**serializer_context, "office_pk": office_pk}
+        vendors = self.request.query_params.get("vendors")
+        if vendors:
+            vendors = vendors.split(",")
+        serializer_context = {**serializer_context, "office_pk": office_pk, "vendors": vendors}
         return serializer_context
 
     @action(detail=False, url_path="search/vendors")
