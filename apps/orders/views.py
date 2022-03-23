@@ -1392,3 +1392,10 @@ class ProductV2ViewSet(ModelViewSet):
             min_price=serializer.validated_data["min_price"],
             max_price=serializer.validated_data["max_price"],
         )
+
+    @action(detail=False, url_path="suggest", methods=["get"])
+    def get_product_suggestion(self, request, *args, **kwargs):
+        suggested_products = ProductHelper.suggest_products(
+            search=request.query_params.get("search"), office=request.query_params.get("office_pk")
+        )[:5]
+        return Response(s.SimpleProductSerializer(suggested_products, many=True).data)

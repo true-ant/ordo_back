@@ -45,6 +45,20 @@ class ProductImageSerializer(serializers.ModelSerializer):
         fields = ("image",)
 
 
+class SimpleProductSerializer(serializers.ModelSerializer):
+    images = ProductImageSerializer(many=True, required=False)
+    is_inventory = serializers.BooleanField(default=False, read_only=True)
+
+    class Meta:
+        model = m.Product
+        fields = (
+            "id",
+            "name",
+            "images",
+            "is_inventory",
+        )
+
+
 class ProductV2Serializer(serializers.ModelSerializer):
     vendor = VendorSerializer()
     category = ProductCategorySerializer()

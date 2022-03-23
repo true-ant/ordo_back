@@ -760,6 +760,17 @@ class ProductHelper:
             .order_by("selected_product", "-is_inventory", "product_price")
         )
 
+    @staticmethod
+    def suggest_products(search: str, office: Union[OfficeModel, SmartID]):
+        if isinstance(office, OfficeModel):
+            office = office.id
+        # we treat parent product as inventory product if it has inventory children product
+        q = Q(is_inventory=True) & Q(product_id=OuterRef("pk"))
+        if office:
+            q &= Q(office_id=office)
+        inventory_products = OfficeProductModel.objects.filter(q)
+        return ProductModel.objects.filter(name__icontains=search).annotate(is_inventory=Exists(inventory_products))
+
 
 class OfficeVendorHelper:
     @staticmethod
