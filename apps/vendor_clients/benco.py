@@ -1,10 +1,8 @@
-import decimal
 import json
 import os
 import ssl
-from decimal import Decimal
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Optional, Union
 
 from aiohttp import ClientResponse
 from scrapy import Selector
@@ -58,7 +56,6 @@ GET_PRODUCT_PRICES_HEADERS = {
     "Sec-Fetch-Site": "same-origin",
     "Sec-Fetch-Mode": "cors",
     "Sec-Fetch-Dest": "empty",
-    "Referer": "https://shop.benco.com/Search?q=H4sIAAAAAAAACkWPy67CMAxE%2F8Xrbth2V4pUdYcIPxCCKZbcpPLjoivEv5OK186aGfuM7xCK2PYfWjgg41%2FMCaGBfZwQ2k0DgxRfAs3EUUbDWaE1cWygYy63zq30RQSTBT%2BpkblRyZ9MuJbbAdXZtNNB6AztJbJWZ8yJ%2FYx7oUR5%2BspHlJUAJ3G91hqj9mVeGA37KPbb1gEzSuTg04QVuyLfXqhfpFXphQylDjvUJLS8Uu%2FTjyc6poA0%2BAAAAA%3D%3D"
 }
 
 CLEAR_CART_HEADERS = {
@@ -97,8 +94,8 @@ GET_PRODUCT_PAGE_HEADERS = {
     "Sec-Fetch-Site": "same-origin",
     "Sec-Fetch-Mode": "cors",
     "Sec-Fetch-Dest": "empty",
-    "Referer": "https://shop.benco.com/Cart",
 }
+
 
 class BencoClient(BaseClient):
     VENDOR_SLUG = "benco"
@@ -150,7 +147,9 @@ class BencoClient(BaseClient):
             return False
 
         data = {"id_token": id_token, "scope": scope, "state": state, "session_state": session_state}
-        await self.session.post("https://shop.benco.com", headers=POST_LOGIN_HEADERS, data=data, ssl=self._ssl_context)
+        await self.session.post(
+            "https://shop.benco.com/signin-oidc", headers=POST_LOGIN_HEADERS, data=data, ssl=self._ssl_context
+        )
         return True
 
     async def get_cart_page(self) -> Union[Selector, dict]:

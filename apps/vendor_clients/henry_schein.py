@@ -404,7 +404,7 @@ class HenryScheinClient(BaseClient):
 
     async def _get_products_prices(self, products: List[types.Product], *args, **kwargs) -> Dict[str, Decimal]:
         """get vendor specific products prices"""
-        keyword = kwargs.get("keyword", "")
+        keyword = products[0]["name"]
         data = {
             "ItemArray": json.dumps(
                 {

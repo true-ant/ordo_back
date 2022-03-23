@@ -98,7 +98,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
             children_products = ProductHelper.get_products(
                 office=office_pk, fetch_parents=False, product_ids=children_ids
             )
-            ret["children"] = self.__class__(children_products, many=True).data
+            ret["children"] = self.__class__(children_products, many=True, context={"office_pk": office_pk}).data
         else:
             ret["children"] = []
 
