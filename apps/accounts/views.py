@@ -36,6 +36,7 @@ from . import serializers as s
 from .services.offices import OfficeService
 from .tasks import (
     fetch_orders_from_vendor,
+    fetch_vendor_products_prices,
     send_company_invite_email,
     send_welcome_email,
 )
@@ -395,6 +396,12 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
             return Response({"message": msgs.VENDOR_BAD_NETWORK_CONNECTION}, status=HTTP_400_BAD_REQUEST)
 
         return Response({"message": msgs.VENDOR_CONNECTED, **serializer.data})
+
+    @action(detail=True, methods=["get"], url_path="fetch-prices")
+    def fetch_product_prices(self, request, *args, **kwargs):
+        instance = self.get_object()
+        fetch_vendor_products_prices.delay(office_vendor_id=instance.id)
+        return Response(s.OfficeVendorSerializer(instance).data)
 
     @action(detail=True, methods=["post"], url_path="fetch")
     def fetch_orders(self, request, *args, **kwargs):

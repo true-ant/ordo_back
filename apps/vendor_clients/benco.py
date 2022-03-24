@@ -1,8 +1,11 @@
+import decimal
 import json
 import os
 import ssl
+from collections import defaultdict
+from decimal import Decimal
 from pathlib import Path
-from typing import Optional, Union
+from typing import Dict, List, Optional, Union
 
 from aiohttp import ClientResponse
 from scrapy import Selector
@@ -14,6 +17,8 @@ from apps.vendor_clients.base import BASE_HEADERS, BaseClient
 CERTIFICATE_BASE_PATH = Path(__file__).parent.resolve()
 PRE_LOGIN_HEADERS = {
     **BASE_HEADERS,
+    "Pragma": "no-cache",
+    "Cache-Control": "no-cache",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
     "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
     "Sec-Fetch-Site": "none",
@@ -49,6 +54,8 @@ POST_LOGIN_HEADERS = {
 
 GET_PRODUCT_PRICES_HEADERS = {
     **BASE_HEADERS,
+    "Pragma": "no-cache",
+    "Cache-Control": "no-cache",
     "Accept": "application/json, text/javascript, */*; q=0.01",
     "Content-Type": "application/json",
     "X-Requested-With": "XMLHttpRequest",
@@ -56,6 +63,7 @@ GET_PRODUCT_PRICES_HEADERS = {
     "Sec-Fetch-Site": "same-origin",
     "Sec-Fetch-Mode": "cors",
     "Sec-Fetch-Dest": "empty",
+    "Referer": "https://shop.benco.com/",
 }
 
 CLEAR_CART_HEADERS = {
@@ -228,29 +236,31 @@ class BencoClient(BaseClient):
             "unit": "",
         }
 
-    # async def _get_products_prices(self, products: List[types.Product]) -> Dict[str, Decimal]:
-    #     """get vendor specific products prices"""
-    #     product_prices = {}
-    #     product_ids = [product["product_id"] for product in products]
-    #     data = {"productNumbers": product_ids, "pricePartialType": "ProductPriceRow"}
-    #
-    #     async with self.session.post(
-    #         "https://shop.benco.com/Search/GetPricePartialsForProductNumbers",
-    #         headers=GET_PRODUCT_PRICES_HEADERS,
-    #         json=data,
-    #         ssl=self._ssl_context,
-    #     ) as resp:
-    #         res = await resp.json()
-    #         for product_id, row in res.items():
-    #             row_dom = Selector(text=row)
-    #             product_price = row_dom.xpath("//h4[@class='selling-price']").attrib["content"]
-    #             try:
-    #                 product_price = Decimal(product_price)
-    #             except (TypeError, decimal.ConversionSyntax):
-    #                 continue
-    #             else:
-    #                 product_prices[product_id] = product_price
-    #     return product_prices
+    async def _get_products_prices(self, products: List[types.Product]) -> Dict[str, types.Product]:
+        """get vendor specific products prices"""
+        product_prices = defaultdict(dict)
+        product_ids = [product["product_id"] for product in products]
+        data = {"productNumbers": product_ids, "pricePartialType": "ProductPriceRow"}
+
+        async with self.session.post(
+            "https://shop.benco.com/Search/GetPricePartialsForProductNumbers",
+            headers=GET_PRODUCT_PRICES_HEADERS,
+            json=data,
+            ssl=self._ssl_context,
+        ) as resp:
+            res = await resp.json()
+            for product_id, row in res.items():
+                row_dom = Selector(text=row)
+                product_price = row_dom.xpath("//h4[@class='selling-price']").attrib["content"]
+                try:
+                    product_price = Decimal(product_price)
+                except (TypeError, decimal.ConversionSyntax):
+                    product_prices[product_id]["price"] = Decimal("0")
+                    product_prices[product_id]["product_vendor_status"] = "Not Available"
+                else:
+                    product_prices[product_id]["price"] = product_price
+                    product_prices[product_id]["product_vendor_status"] = "Available"
+        return product_prices
 
     async def checkout_and_review_order(self, shipping_method: Optional[str] = None) -> dict:
         pass

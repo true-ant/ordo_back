@@ -20,14 +20,8 @@ from django.utils import timezone
 from month import Month
 
 from apps.accounts.models import CompanyMember, Office, OfficeVendor, User
-from apps.common.utils import group_products
-from apps.orders.models import (
-    OfficeProduct,
-    OfficeProductCategory,
-    OrderStatus,
-    Product,
-    VendorOrder,
-)
+from apps.orders.helpers import OfficeProductHelper
+from apps.orders.models import OfficeProductCategory, OrderStatus, VendorOrder
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import CompanyInvite
 
@@ -133,6 +127,16 @@ async def get_orders(office_vendor, login_cookies, perform_login, completed_orde
 
 
 @shared_task
+def fetch_vendor_products_prices(office_vendor_id):
+    office_vendor = OfficeVendor.objects.select_related("office", "vendor").get(id=office_vendor_id)
+    asyncio.run(
+        OfficeProductHelper.get_all_product_prices_from_vendors(
+            office_id=office_vendor.office.id, vendor_slugs=[office_vendor.vendor.slug]
+        )
+    )
+
+
+@shared_task
 def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login=False):
     if login_cookies is None and perform_login is False:
         return
@@ -161,23 +165,30 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
     )
     asyncio.run(get_orders(office_vendor, cookie, perform_login, completed_order_ids))
 
-    # inventory group products
-    office_vendors = OfficeVendor.objects.select_related("office", "vendor").filter(office=office_vendor.office)
-    if office_vendors.count() > 1:
-        vendors_products = []
-        for office_vendor in office_vendors:
-            product_ids = OfficeProduct.objects.filter(
-                is_inventory=True, product__vendor=office_vendor.vendor
-            ).values_list("product__product_id", flat=True)
-            if product_ids:
-                vendors_products.append(
-                    Product.objects.filter(
-                        vendor=office_vendor.vendor, parent__isnull=True, product_id__in=product_ids
-                    )
-                )
+    office_vendor = OfficeVendor.objects.select_related("office", "vendor").get(id=office_vendor_id)
+    asyncio.run(
+        OfficeProductHelper.get_all_product_prices_from_vendors(
+            office_id=office_vendor.office.id, vendor_slugs=[office_vendor.vendor.slug]
+        )
+    )
 
-        if len(vendors_products) > 1:
-            group_products(vendors_products, model=True)
+    # inventory group products
+    # office_vendors = OfficeVendor.objects.select_related("office", "vendor").filter(office=office_vendor.office)
+    # if office_vendors.count() > 1:
+    #     vendors_products = []
+    #     for office_vendor in office_vendors:
+    #         product_ids = OfficeProduct.objects.filter(
+    #             is_inventory=True, product__vendor=office_vendor.vendor
+    #         ).values_list("product__product_id", flat=True)
+    #         if product_ids:
+    #             vendors_products.append(
+    #                 Product.objects.filter(
+    #                     vendor=office_vendor.vendor, parent__isnull=True, product_id__in=product_ids
+    #                 )
+    #             )
+    #
+    #     if len(vendors_products) > 1:
+    #         group_products(vendors_products, model=True)
 
     # TODO: iterate keyword tables. fetch products for keyword and pricing comparison
 

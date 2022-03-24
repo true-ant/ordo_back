@@ -9,6 +9,7 @@ from operator import or_
 from typing import Dict, List, Optional, TypedDict, Union
 
 import pandas as pd
+from aiohttp import ClientSession
 from asgiref.sync import sync_to_async
 from django.apps import apps
 from django.db import transaction
@@ -91,6 +92,7 @@ class OfficeProductHelper:
 
     @staticmethod
     def update_products_prices(products_prices: Dict[str, ProductPrice], office_id: str):
+        """Store product prices to table"""
         product_ids = products_prices.keys()
         products = ProductModel.objects.in_bulk(product_ids)
         office_products = OfficeProductModel.objects.select_related("product").filter(
@@ -127,14 +129,14 @@ class OfficeProductHelper:
 
     @staticmethod
     async def get_product_prices_by_ids(
-        products: List[str], office: Union[str, OfficeModel]
+        products: List[str], office: Union[SmartID, OfficeModel]
     ) -> Dict[str, ProductPrice]:
         products = await sync_to_async(ProductModel.objects.in_bulk)(products)
         return await OfficeProductHelper.get_product_prices(products, office)
 
     @staticmethod
     async def get_product_prices(
-        products: Dict[str, ProductModel], office: Union[str, OfficeModel]
+        products: Dict[SmartID, ProductModel], office: Union[SmartID, OfficeModel]
     ) -> Dict[str, ProductPrice]:
         """
         This return prices for products
@@ -195,6 +197,28 @@ class OfficeProductHelper:
         return product_prices_from_vendors
 
     @staticmethod
+    def get_vendor_product_ids(office_id: str, vendor_slug: str):
+        office_products = OfficeProductModel.objects.filter(Q(office_id=office_id) & Q(product_id=OuterRef("pk")))
+        return list(
+            ProductModel.objects.annotate(product_price=Subquery(office_products.values("price")[:1]))
+            .filter(vendor__slug=vendor_slug, product_price__isnull=True)
+            .values_list("id", flat=True)
+        )
+
+    @staticmethod
+    async def get_all_product_prices_from_vendors(office_id: str, vendor_slugs: List[str]) -> Dict[str, ProductPrice]:
+        for vendor_slug in vendor_slugs:
+            vendor_product_ids = await sync_to_async(OfficeProductHelper.get_vendor_product_ids)(
+                office_id, vendor_slug
+            )
+            for i in range(0, len(vendor_product_ids), 100):
+                product_prices_from_vendors = await OfficeProductHelper.get_product_prices_by_ids(
+                    vendor_product_ids[i * 100 : (i + 1) * 100], office_id
+                )
+                await aio.sleep(5)
+                print(product_prices_from_vendors)
+
+    @staticmethod
     async def get_products_from_vendors(
         vendor_slugs: List[str], q: str, min_price: int = 0, max_price: int = 0, office_id: Optional[str] = None
     ):
@@ -230,13 +254,15 @@ class VendorHelper:
             return False
 
     @staticmethod
-    def get_vendor_clients(vendors_credentials: Dict[str, VendorCredential]) -> List[BaseClient]:
+    def get_vendor_clients(
+        vendors_credentials: Dict[str, VendorCredential], session: ClientSession
+    ) -> List[BaseClient]:
         clients = []
         for vendor_slug, vendors_credential in vendors_credentials.items():
             clients.append(
                 BaseClient.make_handler(
                     vendor_slug=vendor_slug,
-                    session=apps.get_app_config("accounts").session,
+                    session=session,
                     username=vendors_credential["username"],
                     password=vendors_credential["password"],
                 )
@@ -254,7 +280,12 @@ class VendorHelper:
             vendor_products_2_products_mapping[product["vendor"]][product["product_id"]] = product_id
 
         tasks = []
-        clients = VendorHelper.get_vendor_clients(vendors_credentials)
+        session = getattr(apps.get_app_config("accounts"), "session", None)
+        aio_session = None
+        if session is None:
+            aio_session = ClientSession()
+
+        clients = VendorHelper.get_vendor_clients(vendors_credentials, session or aio_session)
         for vendor_slug, client in zip(vendor_slugs, clients):
             vendor_products = list(filter(lambda x: x["vendor"] == vendor_slug, products.values()))
             tasks.append(client.get_products_prices(vendor_products))
@@ -267,6 +298,8 @@ class VendorHelper:
             for vendor_product_id, price in prices_result.items():
                 ret[vendor_products_2_products_mapping[vendor_slug][vendor_product_id]] = price
 
+        if aio_session is not None:
+            await aio_session.close()
         return ret
 
     @staticmethod
