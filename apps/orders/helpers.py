@@ -773,7 +773,9 @@ class ProductHelper:
         if office:
             q &= Q(office_id=office)
         inventory_products = OfficeProductModel.objects.filter(q)
-        return ProductModel.objects.filter(name__icontains=search).annotate(is_inventory=Exists(inventory_products))
+        return ProductModel.objects.filter(parent__isnull=True, name__icontains=search).annotate(
+            is_inventory=Exists(inventory_products)
+        )
 
 
 class OfficeVendorHelper:
