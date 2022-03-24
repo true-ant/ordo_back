@@ -7,7 +7,7 @@ from typing import Optional, Union
 from aiohttp import ClientResponse
 from scrapy import Selector
 
-from apps.common.utils import convert_string_to_price
+from apps.common.utils import convert_string_to_price, strip_whitespaces
 from apps.vendor_clients import types
 from apps.vendor_clients.base import BASE_HEADERS, BaseClient
 
@@ -204,7 +204,15 @@ class BencoClient(BaseClient):
         if not images:
             images = data.xpath(".//div[@id='activeImageArea']/img/@src").extract()
 
-        price = convert_string_to_price(data.xpath(".//h3[@class='selling-price']/text()").get())
+        price_str = data.xpath(".//h3[@class='selling-price']/text()").get()
+        price = convert_string_to_price(price_str)
+        if price:
+            product_vendor_status = "Available"
+        else:
+            product_vendor_status = strip_whitespaces(
+                data.xpath(".//div[contains(@class, 'not-available-online')]/text()").get()
+            )
+
         category = data.xpath(".//div[@class='breadcrumb-bar']/ul/li/a/text()").extract()[1:]
 
         return {
@@ -215,6 +223,7 @@ class BencoClient(BaseClient):
             "url": "",
             "images": images,
             "price": price,
+            "product_vendor_status": product_vendor_status,
             "category": category,
             "unit": "",
         }

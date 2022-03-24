@@ -286,7 +286,7 @@ def concatenate_strings(text: List[str], delimeter="") -> str:
 
 def strip_whitespaces(text: str) -> str:
     """Remove spaces, tabs and new lines"""
-    return re.sub(r"\s+", "", text)
+    return re.sub(r"\s+", " ", text)
 
 
 if __name__ == "__main__":

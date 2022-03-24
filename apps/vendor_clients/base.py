@@ -3,7 +3,6 @@ import datetime
 import uuid
 from asyncio import Semaphore
 from collections import ChainMap
-from decimal import Decimal
 from http.cookies import SimpleCookie
 from typing import Any, Dict, List, Optional, Union
 
@@ -25,7 +24,7 @@ BASE_HEADERS = {
 
 class BaseClient:
     VENDOR_SLUG = "base"
-    MULTI_CONNECTIONS = 1
+    MULTI_CONNECTIONS = 10
     subclasses = []
 
     def __init_subclass__(cls, **kwargs):
@@ -215,7 +214,7 @@ class BaseClient:
 
     async def get_products_prices(
         self, products: List[types.Product], login_required: bool = True, *args, **kwargs
-    ) -> Dict[str, Decimal]:
+    ) -> Dict[str, types.ProductPrice]:
         """Get the list of products prices"""
         if login_required:
             await self.login()
@@ -231,8 +230,10 @@ class BaseClient:
             results: Dict[str, Optional[types.Product]] = await self.get_products(
                 products=products, login_required=False
             )
-            ret: Dict[str, Decimal] = {
-                product_id: product["price"] for product_id, product in results.items() if product is not None
+            ret: Dict[str, types.ProductPrice] = {
+                product_id: {"price": product["price"], "product_vendor_status": product["product_vendor_status"]}
+                for product_id, product in results.items()
+                if product is not None
             }
             return ret
 

@@ -234,6 +234,7 @@ class PattersonClient(BaseClient):
                     for image in product_detail["Images"]
                 ],
                 "price": Decimal(str(product_detail["UnitPrice"])),
+                "product_vendor_status": "",
                 "category": "",
                 "unit": "",
             }

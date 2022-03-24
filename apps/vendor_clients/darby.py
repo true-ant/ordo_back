@@ -73,11 +73,24 @@ ORDER_HEADERS = {
     "Sec-Fetch-Dest": "empty",
     "Referer": "https://www.darbydental.com/scripts/checkout.aspx",
 }
+GET_PRODUCT_PAGE_HEADERS = {
+    **BASE_HEADERS,
+    "Host": "www.darbydental.com",
+    "Cache-Control": "max-age=0",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
+    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+}
 
 
 class DarbyClient(BaseClient):
     VENDOR_SLUG = "darby"
-    GET_PRODUCT_PAGE_HEADERS = BASE_HEADERS
+    GET_PRODUCT_PAGE_HEADERS = GET_PRODUCT_PAGE_HEADERS
 
     async def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
         return {
@@ -148,6 +161,7 @@ class DarbyClient(BaseClient):
                 f"/api/getImage?sku={product_id.replace('-', '')}&type=WebImages"
             ],
             "price": product_price,
+            "product_vendor_status": "",
             "category": product_category,
             "unit": "",
         }

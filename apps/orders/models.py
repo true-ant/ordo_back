@@ -140,6 +140,7 @@ class OfficeProduct(TimeStampedModel):
         Product, on_delete=models.CASCADE, null=True, blank=True, related_name="office_products"
     )
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    product_vendor_status = models.CharField(max_length=512, null=True, blank=True)
     office_category = models.ForeignKey(ProductCategory, null=True, blank=True, on_delete=models.SET_NULL)
     office_product_category = models.ForeignKey(
         OfficeProductCategory, null=True, blank=True, on_delete=models.SET_NULL, related_name="products"

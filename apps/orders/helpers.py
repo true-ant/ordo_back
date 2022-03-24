@@ -45,7 +45,7 @@ from apps.orders.models import ProductCategory as ProductCategoryModel
 from apps.orders.models import ProductImage as ProductImageModel
 from apps.vendor_clients import BaseClient
 from apps.vendor_clients.errors import VendorAuthenticationFailed
-from apps.vendor_clients.types import Product, VendorCredential
+from apps.vendor_clients.types import Product, ProductPrice, VendorCredential
 
 SmartID = Union[int, str]
 ProductID = SmartID
@@ -90,7 +90,7 @@ class OfficeProductHelper:
         }
 
     @staticmethod
-    def update_products_prices(products_prices: Dict[str, Decimal], office_id: str):
+    def update_products_prices(products_prices: Dict[str, ProductPrice], office_id: str):
         product_ids = products_prices.keys()
         products = ProductModel.objects.in_bulk(product_ids)
         office_products = OfficeProductModel.objects.select_related("product").filter(
@@ -100,10 +100,15 @@ class OfficeProductHelper:
         with transaction.atomic():
             updated_product_ids = []
             for office_product in office_products:
-                office_product.price = products_prices[office_product.product.id]
+                office_product.price = products_prices[office_product.product.id]["price"]
+                office_product.product_vendor_status = products_prices[office_product.product.id][
+                    "product_vendor_status"
+                ]
                 updated_product_ids.append(office_product.product.id)
 
-            bulk_update(model_class=OfficeProductModel, objs=office_products, fields=["price"])
+            bulk_update(
+                model_class=OfficeProductModel, objs=office_products, fields=["price", "product_vendor_status"]
+            )
 
             creating_products = []
             for product_id in product_ids:
@@ -113,21 +118,24 @@ class OfficeProductHelper:
                     OfficeProductModel(
                         office_id=office_id,
                         product=products[product_id],
-                        price=products_prices[product_id],
+                        price=products_prices[product_id]["price"],
+                        product_vendor_status=products_prices[product_id]["product_vendor_status"],
                     )
                 )
 
             bulk_create(OfficeProductModel, creating_products)
 
     @staticmethod
-    async def get_product_prices_by_ids(products: List[str], office: Union[str, OfficeModel]) -> Dict[str, Decimal]:
+    async def get_product_prices_by_ids(
+        products: List[str], office: Union[str, OfficeModel]
+    ) -> Dict[str, ProductPrice]:
         products = await sync_to_async(ProductModel.objects.in_bulk)(products)
         return await OfficeProductHelper.get_product_prices(products, office)
 
     @staticmethod
     async def get_product_prices(
         products: Dict[str, ProductModel], office: Union[str, OfficeModel]
-    ) -> Dict[str, Decimal]:
+    ) -> Dict[str, ProductPrice]:
         """
         This return prices for products
         1. fetch prices from database
@@ -159,20 +167,22 @@ class OfficeProductHelper:
         return product_prices_from_db
 
     @staticmethod
-    def get_products_prices_from_db(products: Dict[str, ProductModel], office_id: str) -> Dict[str, Decimal]:
+    def get_products_prices_from_db(products: Dict[str, ProductModel], office_id: str) -> Dict[str, ProductPrice]:
         # fetch prices from database
-        product_prices: Dict[str, Decimal] = {}
+        product_prices = defaultdict(dict)
         office_products = OfficeProductModel.objects.filter(
             product_id__in=products.keys(), office_id=office_id
         ).values("product_id", "price")
         for office_product in office_products:
-            if office_product["price"]:
-                product_prices[office_product["product_id"]] = office_product["price"]
+            product_prices[office_product["product_id"]]["price"] = office_product["price"]
+            product_prices[office_product["product_id"]]["product_vendor_status"] = office_product[
+                "product_vendor_status"
+            ]
 
         return product_prices
 
     @staticmethod
-    async def get_product_prices_from_vendors(products: Dict[str, Product], office_id: str) -> Dict[str, Decimal]:
+    async def get_product_prices_from_vendors(products: Dict[str, Product], office_id: str) -> Dict[str, ProductPrice]:
         product_prices_from_vendors = {}
         if products:
             vendor_slugs = set([product["vendor"] for product_id, product in products.items()])
@@ -236,7 +246,7 @@ class VendorHelper:
     @staticmethod
     async def get_products_prices(
         products: Dict[str, Product], vendors_credentials: Dict[str, VendorCredential]
-    ) -> Dict[str, Decimal]:
+    ) -> Dict[str, ProductPrice]:
         vendor_products_2_products_mapping = defaultdict(dict)
         vendor_slugs = set()
         for product_id, product in products.items():
@@ -250,7 +260,7 @@ class VendorHelper:
             tasks.append(client.get_products_prices(vendor_products))
         prices_results = await aio.gather(*tasks, return_exceptions=True)
 
-        ret: Dict[str, Decimal] = {}
+        ret: Dict[str, ProductPrice] = {}
         for vendor_slug, prices_result in zip(vendor_slugs, prices_results):
             if not isinstance(prices_result, dict):
                 continue
@@ -755,6 +765,7 @@ class ProductHelper:
                     default=Value(None),
                 )
             )
+            .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
             .annotate(
                 selected_product=Case(
                     When(id__in=selected_products, then=Value(0)),

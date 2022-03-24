@@ -64,6 +64,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
     category = ProductCategorySerializer()
     images = ProductImageSerializer(many=True, required=False)
     product_price = serializers.DecimalField(decimal_places=2, max_digits=10, read_only=True)
+    product_vendor_status = serializers.CharField()
     is_inventory = serializers.BooleanField(default=False, read_only=True)
     last_order_date = serializers.DateField(read_only=True)
     last_order_price = serializers.DecimalField(decimal_places=2, max_digits=10, read_only=True)
@@ -79,6 +80,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
             "product_unit",
             "url",
             "product_price",
+            "product_vendor_status",
             "images",
             "is_inventory",
             "last_order_date",

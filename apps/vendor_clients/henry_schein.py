@@ -1,6 +1,6 @@
 import datetime
 import json
-from decimal import Decimal
+from collections import defaultdict
 from typing import Dict, List, Optional, Union
 
 from aiohttp import ClientResponse
@@ -402,7 +402,9 @@ class HenryScheinClient(BaseClient):
             res_data = json.loads(res_data)
             return res_data["ecommerce"]["purchase"]["actionField"]["id"]
 
-    async def _get_products_prices(self, products: List[types.Product], *args, **kwargs) -> Dict[str, Decimal]:
+    async def _get_products_prices(
+        self, products: List[types.Product], *args, **kwargs
+    ) -> Dict[str, types.ProductPrice]:
         """get vendor specific products prices"""
         keyword = products[0]["name"][:3]
         data = {
@@ -433,7 +435,7 @@ class HenryScheinClient(BaseClient):
 
         headers = GET_PRODUCT_PRICES_HEADERS.copy()
         headers["referer"] = f"https://www.henryschein.com/us-en/Search.aspx?searchkeyWord={keyword}"
-        product_prices = {}
+        product_prices = defaultdict(dict)
         async with self.session.post(
             "https://www.henryschein.com/webservices/JSONRequestHandler.ashx",
             data=data,
@@ -441,7 +443,10 @@ class HenryScheinClient(BaseClient):
         ) as resp:
             res = await resp.json()
             for product_price in res["ItemDataToPrice"]:
-                if product_price["InventoryStatus"] in ["Unavailable", "Error", "Discontinued", "Unknown"]:
-                    continue
-                product_prices[product_price["ProductId"]] = Decimal(product_price["CustomerPrice"])
+                # if product_price["InventoryStatus"] in ["Unavailable", "Error", "Discontinued", "Unknown"]:
+                #     continue
+                product_prices[product_price["ProductId"]]["product_vendor_status"] = product_price["InventoryStatus"]
+                product_prices[product_price["ProductId"]]["price"] = convert_string_to_price(
+                    product_price["CustomerPrice"]
+                )
         return product_prices

@@ -26,6 +26,7 @@ class Product(TypedDict):
     url: str
     images: List[str]
     price: Decimal
+    product_vendor_status: str
     category: str
     unit: str
 
@@ -78,3 +79,8 @@ class SearchMeta(TypedDict):
 class ProductSearch(TypedDict):
     meta: SearchMeta
     products: List[Product]
+
+
+class ProductPrice:
+    price: Decimal
+    product_vendor_status: str
