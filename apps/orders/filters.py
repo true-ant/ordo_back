@@ -104,7 +104,11 @@ class ProductV2Filter(filters.FilterSet):
     def filter_by_name(self, queryset, name, value):
         product_id_value = value.replace("-", "")
         return queryset.filter(
-            Q(name__search=value) | Q(product_id__icontains=product_id_value) | Q(product_id__icontains=value)
+            Q(name__search=value)
+            | Q(product_id__icontains=product_id_value)
+            | Q(product_id__icontains=value)
+            | Q(child__product_id__icontains=value)
+            | Q(child__product_id__icontains=value)
         ).distinct()
 
 

@@ -787,7 +787,10 @@ class ProductHelper:
 
         product_id_search = search.replace("-", "")
         product_filter = Q(parent__isnull=True) & (
-            Q(name__icontains=search) | Q(product_id=search) | Q(product_id=product_id_search)
+            Q(name__icontains=search)
+            | Q(product_id__icontains=search)
+            | Q(product_id__icontains=product_id_search)
+            | Q(child__product_id=product_id_search)
         )
         return (
             ProductModel.objects.filter(product_filter)
