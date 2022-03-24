@@ -25,7 +25,7 @@ BASE_HEADERS = {
 
 class BaseClient:
     VENDOR_SLUG = "base"
-    MULTI_CONNECTIONS = 20
+    MULTI_CONNECTIONS = 1
     subclasses = []
 
     def __init_subclass__(cls, **kwargs):
@@ -183,16 +183,16 @@ class BaseClient:
             await self.login()
 
         if hasattr(self, "_get_product"):
-            product = await self._get_product(product)
+            product_detail = await self._get_product(product)
         else:
             headers = getattr(self, "GET_PRODUCT_PAGE_HEADERS")
             product_page_dom = await self.get_response_as_dom(url=product["url"], headers=headers)
-            product = self.serialize(product_page_dom)
+            product_detail = self.serialize(product_page_dom)
 
         if semaphore:
             semaphore.release()
 
-        return product
+        return product_detail
 
     async def get_products(
         self, products: List[types.Product], login_required: bool = True

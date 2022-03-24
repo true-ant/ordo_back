@@ -410,7 +410,7 @@ class HenryScheinClient(BaseClient):
                 {
                     "ItemDataToPrice": [
                         {
-                            "ProductId": int(product["product_id"]),
+                            "ProductId": product["product_id"],
                             "Qty": "1",
                             "Uom": product["unit"],
                             "PromoCode": "",
