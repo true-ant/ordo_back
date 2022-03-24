@@ -769,12 +769,20 @@ class ProductHelper:
         if isinstance(office, OfficeModel):
             office = office.id
         # we treat parent product as inventory product if it has inventory children product
-        q = Q(is_inventory=True) & Q(product_id=OuterRef("pk"))
+        sub_query_filter = Q(is_inventory=True) & Q(product_id=OuterRef("pk"))
         if office:
-            q &= Q(office_id=office)
-        inventory_products = OfficeProductModel.objects.filter(q)
-        return ProductModel.objects.filter(parent__isnull=True, name__icontains=search).annotate(
-            is_inventory=Exists(inventory_products)
+            sub_query_filter &= Q(office_id=office)
+        inventory_products = OfficeProductModel.objects.filter(sub_query_filter)
+
+        product_id_search = search.replace("-", "")
+        product_filter = Q(parent__isnull=True) & (
+            Q(name__icontains=search) | Q(product_id=search) | Q(product_id=product_id_search)
+        )
+        return (
+            ProductModel.objects.filter(product_filter)
+            .annotate(is_inventory=Exists(inventory_products))
+            .distinct()
+            .order_by("-is_inventory")
         )
 
 

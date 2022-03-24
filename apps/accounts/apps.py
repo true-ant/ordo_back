@@ -11,7 +11,7 @@ class AccountsConfig(AppConfig):
     async def initialize(self):
         from aiohttp import ClientSession, ClientTimeout
 
-        self.session = ClientSession(timeout=ClientTimeout(30))
+        self.session = ClientSession(timeout=ClientTimeout(120))
 
     async def finalize(self):
         await self.session.close()
