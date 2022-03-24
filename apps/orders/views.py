@@ -1077,6 +1077,7 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
 
     def get_serializer_context(self):
         ret = super().get_serializer_context()
+        ret["office_pk"] = self.kwargs["office_pk"]
         ret["include_children"] = True
         ret["filter_inventory"] = self.request.query_params.get("inventory", False)
         return ret

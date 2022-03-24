@@ -19,7 +19,7 @@ class OfficeProductCategorySerializer(serializers.ModelSerializer):
         ret = super().to_representation(instance)
         if self.context.get("with_inventory_count"):
             office_inventory_products = instance.products.filter(is_inventory=True)
-            ret["vendor_ids"] = set(office_inventory_products.values_list("product__vendor__id", flat=True))
+            ret["vendor_ids"] = set(office_inventory_products.exclude(product__vendor__isnull=True).values_list("product__vendor__id", flat=True))
             ret["count"] = office_inventory_products.count()
 
         return ret
@@ -315,7 +315,6 @@ class OfficeCheckoutStatusUpdateSerializer(serializers.Serializer):
 class OfficeProductSerializer(serializers.ModelSerializer):
     product_data = ProductSerializer(write_only=True)
     office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), write_only=True)
-    product = ProductV2Serializer(read_only=True)
     office_product_category = serializers.PrimaryKeyRelatedField(queryset=m.OfficeProductCategory.objects.all())
 
     class Meta:
@@ -323,7 +322,6 @@ class OfficeProductSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "office",
-            "product",
             "product_data",
             "price",
             "office_product_category",
@@ -374,37 +372,39 @@ class OfficeProductSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         ret["office_product_category"] = OfficeProductCategorySerializer(instance.office_product_category).data
-        children_products = ret["product"].get("children", [])
-        if children_products:
-            children_product_ids = [child["id"] for child in children_products]
-            q = Q(office=instance.office) & Q(product_id__in=children_product_ids)
-            if self.context.get("filter_inventory", False):
-                q &= Q(is_inventory=True)
+        ret["product"] = ProductV2Serializer(instance.product, context=self.context).data
 
-            office_products = m.OfficeProduct.objects.filter(q)
-            office_products = {office_product.product.id: office_product for office_product in office_products}
-            ret["product"]["children"] = [
-                {
-                    "product": child_product,
-                    "price": office_products[child_product["id"]].price,
-                }
-                for child_product in children_products
-                if child_product["id"] in office_products
-            ]
+        # children_products = ret["product"].get("children", [])
+        # if children_products:
+        #     children_product_ids = [child["id"] for child in children_products]
+        #     q = Q(office=instance.office) & Q(product_id__in=children_product_ids)
+        #     if self.context.get("filter_inventory", False):
+        #         q &= Q(is_inventory=True)
+        #
+        #     office_products = m.OfficeProduct.objects.filter(q)
+        #     office_products = {office_product.product.id: office_product for office_product in office_products}
+        #     ret["product"]["children"] = [
+        #         {
+        #             "product": child_product,
+        #             "price": office_products[child_product["id"]].price,
+        #         }
+        #         for child_product in children_products
+        #         if child_product["id"] in office_products
+        #     ]
 
-        if ret["is_inventory"]:
-            last_order = (
-                m.VendorOrderProduct.objects.select_related("vendor_order")
-                .filter(product__product_id=ret["product"]["product_id"])
-                .order_by("-vendor_order__order_date")
-                .first()
-            )
-            if last_order:
-                ret["last_order_date"] = last_order.vendor_order.order_date.isoformat()
-                ret["last_order_price"] = last_order.unit_price
-            else:
-                ret["last_order_date"] = None
-                ret["last_order_price"] = None
+        # if ret["is_inventory"]:
+        #     last_order = (
+        #         m.VendorOrderProduct.objects.select_related("vendor_order")
+        #         .filter(product__product_id=ret["product"]["product_id"])
+        #         .order_by("-vendor_order__order_date")
+        #         .first()
+        #     )
+        #     if last_order:
+        #         ret["last_order_date"] = last_order.vendor_order.order_date.isoformat()
+        #         ret["last_order_price"] = last_order.unit_price
+        #     else:
+        #         ret["last_order_date"] = None
+        #         ret["last_order_price"] = None
         return ret
 
 
