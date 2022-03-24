@@ -82,14 +82,16 @@ CHECKOUT_HEADER = {
 GET_PRODUCT_PRICES_HEADERS = {
     **BASE_HEADERS,
     "authority": "www.henryschein.com",
-    "cache-control": "max-age=0",
-    "upgrade-insecure-requests": "1",
-    "accept": "text/html,application/xhtml+xml, application/xml;q=0.9, "
-    "image/avif,image/webp,image/apng, */*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "sec-fetch-site": "none",
-    "sec-fetch-mode": "navigate",
-    "sec-fetch-user": "?1",
-    "sec-fetch-dest": "document",
+    "n": "pikP/UtnnyEIsCZl3cphEgyUhacC9CnLZqSaDcvfufM=",
+    "iscallingfromcms": "False",
+    "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+    "accept": "application/json, text/javascript, */*; q=0.01",
+    "x-requested-with": "XMLHttpRequest",
+    "origin": "https://www.henryschein.com",
+    "sec-fetch-site": "same-origin",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-dest": "empty",
+    "referer": "https://www.henryschein.com",
 }
 
 
@@ -406,7 +408,7 @@ class HenryScheinClient(BaseClient):
         self, products: List[types.Product], *args, **kwargs
     ) -> Dict[str, types.ProductPrice]:
         """get vendor specific products prices"""
-        keyword = products[0]["name"][:3]
+        # keyword = products[0]["name"][:3]
         data = {
             "ItemArray": json.dumps(
                 {
@@ -434,7 +436,7 @@ class HenryScheinClient(BaseClient):
         }
 
         headers = GET_PRODUCT_PRICES_HEADERS.copy()
-        headers["referer"] = f"https://www.henryschein.com/us-en/Search.aspx?searchkeyWord={keyword}"
+        # headers["referer"] = f"https://www.henryschein.com/us-en/Search.aspx?searchkeyWord={keyword}"
         product_prices = defaultdict(dict)
         async with self.session.post(
             "https://www.henryschein.com/webservices/JSONRequestHandler.ashx",

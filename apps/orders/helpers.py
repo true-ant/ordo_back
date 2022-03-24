@@ -200,13 +200,20 @@ class OfficeProductHelper:
     def get_vendor_product_ids(office_id: str, vendor_slug: str):
         office_products = OfficeProductModel.objects.filter(Q(office_id=office_id) & Q(product_id=OuterRef("pk")))
         return list(
-            ProductModel.objects.annotate(product_price=Subquery(office_products.values("price")[:1]))
+            ProductModel.objects.annotate(office_product_price=Subquery(office_products.values("price")[:1]))
+            .annotate(
+                product_price=Case(
+                    When(office_product_price__isnull=False, then=F("office_product_price")),
+                    When(price__isnull=False, then=F("price")),
+                    default=Value(None),
+                )
+            )
             .filter(vendor__slug=vendor_slug, product_price__isnull=True)
             .values_list("id", flat=True)
         )
 
     @staticmethod
-    async def get_all_product_prices_from_vendors(office_id: str, vendor_slugs: List[str]) -> Dict[str, ProductPrice]:
+    async def get_all_product_prices_from_vendors(office_id: str, vendor_slugs: List[str]):
         for vendor_slug in vendor_slugs:
             vendor_product_ids = await sync_to_async(OfficeProductHelper.get_vendor_product_ids)(
                 office_id, vendor_slug
@@ -215,7 +222,7 @@ class OfficeProductHelper:
                 product_prices_from_vendors = await OfficeProductHelper.get_product_prices_by_ids(
                     vendor_product_ids[i * 100 : (i + 1) * 100], office_id
                 )
-                await aio.sleep(5)
+                await aio.sleep(10)
                 print(product_prices_from_vendors)
 
     @staticmethod
