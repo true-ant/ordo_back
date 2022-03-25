@@ -4,40 +4,26 @@ from aiohttp import ClientResponse
 
 from apps.common.utils import convert_string_to_price
 from apps.vendor_clients import types
-from apps.vendor_clients.base import BASE_HEADERS, BaseClient
-
-SEARCH_HEADERS = {
-    **BASE_HEADERS,
-    "authority": "www.amazon.com",
-    "rtt": "250",
-    "downlink": "10",
-    "ect": "4g",
-    "upgrade-insecure-requests": "1",
-    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,"
-    "image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "sec-fetch-site": "none",
-    "sec-fetch-mode": "navigate",
-    "sec-fetch-user": "?1",
-    "sec-fetch-dest": "document",
-}
+from apps.vendor_clients.headers.amazon import SEARCH_HEADERS
+from apps.vendor_clients.sync_clients.base import BaseClient
 
 
 class AmazonClient(BaseClient):
     VENDOR_SLUG = "amazon"
 
-    async def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
+    def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
         pass
 
-    async def check_authenticated(self, response: ClientResponse) -> bool:
+    def check_authenticated(self, response: ClientResponse) -> bool:
         pass
 
-    async def search_products(
+    def search_products(
         self, q: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price"
     ) -> types.ProductSearch:
         page_size = 16
         params = {"k": q, "page": page, "ref": "nb_sb_noss", "s": "price-asc-rank"}
 
-        response_dom = await self.get_response_as_dom(
+        response_dom = self.get_response_as_dom(
             url="https://www.amazon.com/s",
             headers=SEARCH_HEADERS,
             query_params=params,

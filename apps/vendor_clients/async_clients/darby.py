@@ -1,93 +1,22 @@
 import datetime
 import re
 from decimal import Decimal
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.common.utils import concatenate_strings, convert_string_to_price
 from apps.vendor_clients import types
-from apps.vendor_clients.base import BASE_HEADERS, BaseClient
-
-LOGIN_HEADERS = {
-    **BASE_HEADERS,
-    "Accept": "application/json, text/javascript, */*; q=0.01",
-    "X-Requested-With": "XMLHttpRequest",
-    "Content-Type": "application/x-www-form-urlencoded",
-    "Origin": "https://www.darbydental.com",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Dest": "empty",
-    "Referer": "https://www.darbydental.com/DarbyHome.aspx",
-}
-
-GET_CART_HEADERS = {
-    **BASE_HEADERS,
-    "Upgrade-Insecure-Requests": "1",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
-    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "Referer": "https://www.darbydental.com/Home.aspx",
-}
-
-ADD_PRODUCTS_TO_CART_HEADERS = {
-    **BASE_HEADERS,
-    "Accept": "application/json, text/javascript, */*; q=0.01",
-    "Content-Type": "application/x-www-form-urlencoded",
-    "X-Requested-With": "XMLHttpRequest",
-    "sec-ch-ua-mobile": "?0",
-    "Origin": "https://www.darbydental.com",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Dest": "empty",
-    "Referer": "https://www.darbydental.com",
-}
-
-CHECKOUT_HEADERS = {
-    **BASE_HEADERS,
-    "Upgrade-Insecure-Requests": "1",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
-    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "Referer": "https://www.darbydental.com/scripts/cart.aspx",
-}
-
-ORDER_HEADERS = {
-    **BASE_HEADERS,
-    "Pragma": "no-cache",
-    "Cache-Control": "no-cache",
-    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-    "X-Requested-With": "XMLHttpRequest",
-    "X-MicrosoftAjax": "Delta=true",
-    "Accept": "*/*",
-    "Origin": "https://www.darbydental.com",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Dest": "empty",
-    "Referer": "https://www.darbydental.com/scripts/checkout.aspx",
-}
-GET_PRODUCT_PAGE_HEADERS = {
-    **BASE_HEADERS,
-    "Pragma": "no-cache",
-    "Cache-Control": "no-cache",
-    "Host": "www.darbydental.com",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
-    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Accept-Encoding": "gzip, deflate, br",
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-User": "?1",
-    "Referer": "https://www.darbydental.com/categories/Acrylics",
-    "Upgrade-Insecure-Requests": "1",
-}
+from apps.vendor_clients.async_clients.base import BaseClient
+from apps.vendor_clients.headers.darby import (
+    ADD_PRODUCTS_TO_CART_HEADERS,
+    CHECKOUT_HEADERS,
+    GET_CART_HEADERS,
+    GET_PRODUCT_PAGE_HEADERS,
+    LOGIN_HEADERS,
+    ORDER_HEADERS,
+)
 
 
 class DarbyClient(BaseClient):
@@ -141,6 +70,25 @@ class DarbyClient(BaseClient):
         await self.session.post(
             "https://www.darbydental.com/api/ShopCart/doAddToCart2", headers=ADD_PRODUCTS_TO_CART_HEADERS, data=data
         )
+
+    async def get_product_price(
+        self, product: types.Product, login_required: bool = False
+    ) -> Dict[str, types.ProductPrice]:
+        page_response_dom = await self.get_response_as_dom(url=product["url"], headers=GET_PRODUCT_PAGE_HEADERS)
+        product_id = product["product_id"]
+        price_text = page_response_dom.xpath(
+            f'//tr[@class="pdpHelltPrimary"]/td//input[@data-sku="{product_id}"]'
+            '/../following-sibling::td//span[contains(@id, "_lblPrice")]//text()'
+        ).get()
+
+        if not price_text:
+            price_text = page_response_dom.xpath('//span[@id="MainContent_lblPrice"]//text()').get()
+
+        product_unit = Decimal(price_text[:1])
+        price = convert_string_to_price(price_text[1:])
+        price = price / product_unit
+        product_vendor_status = ""
+        return {product_id: {"price": price, "product_vendor_status": product_vendor_status}}
 
     def serialize(self, data: Union[dict, Selector]) -> Optional[types.Product]:
         product_id = data.xpath(".//span[@id='MainContent_lblItemNo']/text()").get()

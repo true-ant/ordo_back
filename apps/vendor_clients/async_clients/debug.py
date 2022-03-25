@@ -1,7 +1,7 @@
 import asyncio
 import os
 
-from apps.vendor_clients import BaseClient
+from apps.vendor_clients.async_clients import BaseClient
 
 
 def get_config(vendor_slug: str):
@@ -190,9 +190,9 @@ async def main():
         vendor_client: BaseClient = BaseClient.make_handler(vendor_slug, session, username, password)
         # results = await vendor_client.get_orders()
         # results = await vendor_client.confirm_order(configs["products"], fake=True)
-        # results = await vendor_client.get_products_prices(list(map(lambda x: x["product"], configs["products"])))
-        if hasattr(vendor_client, "search_products"):
-            results = await vendor_client.search_products(q="septocaine")
+        results = await vendor_client.get_products_prices(list(map(lambda x: x["product"], configs["products"])))
+        # if hasattr(vendor_client, "search_products"):
+        #     results = await vendor_client.search_products(q="septocaine")
 
     print(results)
 

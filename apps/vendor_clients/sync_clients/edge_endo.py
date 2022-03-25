@@ -3,41 +3,15 @@ from typing import Optional
 from aiohttp import ClientResponse
 
 from apps.vendor_clients import types
-from apps.vendor_clients.base import BASE_HEADERS, BaseClient
-
-LOGIN_PAGE_HEADERS = {
-    **BASE_HEADERS,
-    "Cache-Control": "max-age=0",
-    "Upgrade-Insecure-Requests": "1",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
-    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-Fetch-Site": "none",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-}
-
-LOGIN_HEADERS = {
-    **BASE_HEADERS,
-    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-    "Cache-Control": "no-cache",
-    "X-Requested-With": "XMLHttpRequest",
-    "X-MicrosoftAjax": "Delta=true",
-    "sec-ch-ua-platform": '"Windows"',
-    "Accept": "*/*",
-    "Origin": "https://store.edgeendo.com",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Dest": "empty",
-    "Referer": "https://store.edgeendo.com/login.aspx",
-}
+from apps.vendor_clients.headers.edge_endo import LOGIN_HEADERS, LOGIN_PAGE_HEADERS
+from apps.vendor_clients.sync_clients.base import BaseClient
 
 
 class EdgeEndoClient(BaseClient):
     VENDOR_SLUG = "edge_endo"
 
-    async def get_login_form(self):
-        login_dom = await self.get_response_as_dom(
+    def get_login_form(self):
+        login_dom = self.get_response_as_dom(
             url="https://store.edgeendo.com/login.aspx",
             headers=LOGIN_PAGE_HEADERS,
         )
@@ -55,8 +29,8 @@ class EdgeEndoClient(BaseClient):
             "view_state_generator": view_state_generator,
         }
 
-    async def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
-        form = await self.get_login_form()
+    def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
+        form = self.get_login_form()
         return {
             "url": "https://store.edgeendo.com/login.aspx",
             "headers": LOGIN_HEADERS,
@@ -101,6 +75,6 @@ class EdgeEndoClient(BaseClient):
             },
         }
 
-    async def check_authenticated(self, response: ClientResponse) -> bool:
-        text = await response.text()
+    def check_authenticated(self, response: ClientResponse) -> bool:
+        text = response.text
         return "CustomerID" in text

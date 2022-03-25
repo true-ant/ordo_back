@@ -44,8 +44,9 @@ from apps.orders.models import OfficeProduct as OfficeProductModel
 from apps.orders.models import Product as ProductModel
 from apps.orders.models import ProductCategory as ProductCategoryModel
 from apps.orders.models import ProductImage as ProductImageModel
-from apps.vendor_clients import BaseClient
+from apps.vendor_clients.async_clients import BaseClient as BaseAsyncClient
 from apps.vendor_clients.errors import VendorAuthenticationFailed
+from apps.vendor_clients.sync_clients import BaseClient as BaseSyncClient
 from apps.vendor_clients.types import Product, ProductPrice, VendorCredential
 
 SmartID = Union[int, str]
@@ -191,7 +192,9 @@ class OfficeProductHelper:
             vendors_credentials = await sync_to_async(OfficeProductHelper.get_office_vendors)(
                 vendor_slugs=vendor_slugs, office_id=office_id
             )
-            product_prices_from_vendors = await VendorHelper.get_products_prices(products, vendors_credentials)
+            product_prices_from_vendors = await VendorHelper.get_products_prices(
+                products=products, vendors_credentials=vendors_credentials, use_async_client=True
+            )
             await sync_to_async(OfficeProductHelper.update_products_prices)(product_prices_from_vendors, office_id)
 
         return product_prices_from_vendors
@@ -249,7 +252,7 @@ class VendorHelper:
     ):
 
         try:
-            vendor_client = BaseClient.make_handler(
+            vendor_client = BaseAsyncClient.make_handler(
                 vendor_slug=vendor_slug,
                 session=apps.get_app_config("accounts").session,
                 username=username,
@@ -261,24 +264,33 @@ class VendorHelper:
             return False
 
     @staticmethod
-    def get_vendor_clients(
+    def get_vendor_async_clients(
         vendors_credentials: Dict[str, VendorCredential], session: ClientSession
-    ) -> List[BaseClient]:
-        clients = []
+    ) -> Dict[str, BaseAsyncClient]:
+        clients = {}
         for vendor_slug, vendors_credential in vendors_credentials.items():
-            clients.append(
-                BaseClient.make_handler(
-                    vendor_slug=vendor_slug,
-                    session=session,
-                    username=vendors_credential["username"],
-                    password=vendors_credential["password"],
-                )
+            clients[vendor_slug] = BaseAsyncClient.make_handler(
+                vendor_slug=vendor_slug,
+                session=session,
+                username=vendors_credential["username"],
+                password=vendors_credential["password"],
+            )
+        return clients
+
+    @staticmethod
+    def get_vendor_sync_clients(vendors_credentials: Dict[str, VendorCredential]) -> Dict[str, BaseAsyncClient]:
+        clients = {}
+        for vendor_slug, vendors_credential in vendors_credentials.items():
+            clients[vendor_slug] = BaseSyncClient.make_handler(
+                vendor_slug=vendor_slug,
+                username=vendors_credential["username"],
+                password=vendors_credential["password"],
             )
         return clients
 
     @staticmethod
     async def get_products_prices(
-        products: Dict[str, Product], vendors_credentials: Dict[str, VendorCredential]
+        products: Dict[str, Product], vendors_credentials: Dict[str, VendorCredential], use_async_client=True
     ) -> Dict[str, ProductPrice]:
         vendor_products_2_products_mapping = defaultdict(dict)
         vendor_slugs = set()
@@ -287,15 +299,18 @@ class VendorHelper:
             vendor_products_2_products_mapping[product["vendor"]][product["product_id"]] = product_id
 
         tasks = []
-        session = getattr(apps.get_app_config("accounts"), "session", None)
-        aio_session = None
-        if session is None:
-            aio_session = ClientSession()
+        if use_async_client:
+            session = getattr(apps.get_app_config("accounts"), "session", None)
+            aio_session = None
+            if session is None:
+                aio_session = ClientSession()
 
-        clients = VendorHelper.get_vendor_clients(vendors_credentials, session or aio_session)
-        for vendor_slug, client in zip(vendor_slugs, clients):
+            clients = VendorHelper.get_vendor_async_clients(vendors_credentials, session or aio_session)
+        else:
+            clients = VendorHelper.get_vendor_sync_clients(vendors_credentials)
+        for vendor_slug in vendor_slugs:
             vendor_products = list(filter(lambda x: x["vendor"] == vendor_slug, products.values()))
-            tasks.append(client.get_products_prices(vendor_products))
+            tasks.append(clients[vendor_slug].get_products_prices(vendor_products))
         prices_results = await aio.gather(*tasks, return_exceptions=True)
 
         ret: Dict[str, ProductPrice] = {}
@@ -305,8 +320,9 @@ class VendorHelper:
             for vendor_product_id, price in prices_result.items():
                 ret[vendor_products_2_products_mapping[vendor_slug][vendor_product_id]] = price
 
-        if aio_session is not None:
-            await aio_session.close()
+        if use_async_client:
+            if aio_session is not None:
+                await aio_session.close()
         return ret
 
     @staticmethod
@@ -317,7 +333,7 @@ class VendorHelper:
         min_price: int = 0,
         max_price: int = 0,
     ):
-        clients = VendorHelper.get_vendor_clients(vendors_credentials)
+        clients = VendorHelper.get_vendor_async_clients(vendors_credentials)
         tasks = []
         for client in clients:
             if hasattr(client, "search_products"):

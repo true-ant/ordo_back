@@ -12,96 +12,23 @@ from apps.common.utils import (
     strip_whitespaces,
 )
 from apps.vendor_clients import types
-from apps.vendor_clients.base import BASE_HEADERS, BaseClient
-
-LOGIN_HEADERS = {
-    **BASE_HEADERS,
-    "authority": "www.henryschein.com",
-    "n": "pikP/UtnnyEIsCZl3cphEgyUhacC9CnLZqSaDcvfufM=",
-    "iscallingfromcms": "False",
-    "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-    "accept": "application/json, text/javascript, */*; q=0.01",
-    "x-requested-with": "XMLHttpRequest",
-    "origin": "https://www.henryschein.com",
-    "sec-fetch-site": "same-origin",
-    "sec-fetch-mode": "cors",
-    "sec-fetch-dest": "empty",
-    "referer": "https://www.henryschein.com/us-en/Profiles/Logout.aspx?redirdone=1",
-}
-
-CLEAR_CART_HEADERS = {
-    **BASE_HEADERS,
-    "authority": "www.henryschein.com",
-    "n": "faMC175siE4Ji7eGjyxEnEahdp30gAd6F12KILNn68E=",
-    "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-    "accept": "application/json, text/javascript, */*; q=0.01",
-    "x-requested-with": "XMLHttpRequest",
-    "sec-ch-ua-platform": '"Windows"',
-    "origin": "https://www.henryschein.com",
-    "sec-fetch-site": "same-origin",
-    "sec-fetch-mode": "cors",
-    "sec-fetch-dest": "empty",
-    "referer": "https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx",
-}
-
-ADD_PRODUCTS_TO_CART_HEADERS = {
-    "authority": "www.henryschein.com",
-    "sec-ch-ua": '"Google Chrome";v="95", "Chromium";v="95", ";Not A Brand";v="99"',
-    "n": "8Q66eFEZrl21cfd7A18MlrVGecsxls25GU/+P6Nw3QM=",
-    "iscallingfromcms": "False",
-    "sec-ch-ua-mobile": "?0",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36",
-    "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-    "accept": "application/json, text/javascript, */*; q=0.01",
-    "x-requested-with": "XMLHttpRequest",
-    "sec-ch-ua-platform": '"Windows"',
-    "origin": "https://www.henryschein.com",
-    "sec-fetch-site": "same-origin",
-    "sec-fetch-mode": "cors",
-    "sec-fetch-dest": "empty",
-    "referer": "https://www.henryschein.com",
-    "accept-language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
-}
-
-CHECKOUT_HEADER = {
-    **BASE_HEADERS,
-    "authority": "www.henryschein.com",
-    "cache-control": "max-age=0",
-    "upgrade-insecure-requests": "1",
-    "origin": "https://www.henryschein.com",
-    "content-type": "application/x-www-form-urlencoded",
-    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,"
-    "image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "sec-fetch-site": "same-origin",
-    "sec-fetch-mode": "navigate",
-    "sec-fetch-user": "?1",
-    "sec-fetch-dest": "document",
-}
-
-GET_PRODUCT_PRICES_HEADERS = {
-    **BASE_HEADERS,
-    "authority": "www.henryschein.com",
-    "n": "pikP/UtnnyEIsCZl3cphEgyUhacC9CnLZqSaDcvfufM=",
-    "iscallingfromcms": "False",
-    "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-    "accept": "application/json, text/javascript, */*; q=0.01",
-    "x-requested-with": "XMLHttpRequest",
-    "origin": "https://www.henryschein.com",
-    "sec-fetch-site": "same-origin",
-    "sec-fetch-mode": "cors",
-    "sec-fetch-dest": "empty",
-    "referer": "https://www.henryschein.com",
-}
+from apps.vendor_clients.headers.henry_schein import (
+    ADD_PRODUCTS_TO_CART_HEADERS,
+    CHECKOUT_HEADER,
+    CLEAR_CART_HEADERS,
+    GET_PRODUCT_PRICES_HEADERS,
+    LOGIN_HEADERS,
+)
+from apps.vendor_clients.sync_clients.base import BaseClient
 
 
 class HenryScheinClient(BaseClient):
     VENDOR_SLUG = "henry_schein"
 
-    async def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
+    def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
         """Provide login credentials and additional data along with headers"""
-        async with self.session.get("https://www.henryschein.com/us-en/dental/Default.aspx") as resp:
-            text = await resp.text()
+        with self.session.get("https://www.henryschein.com/us-en/dental/Default.aspx") as resp:
+            text = resp.text
             n = text.split("var _n =")[1].split(";")[0].strip(" '")
         self.session.headers.update({"n": n})
         return {
@@ -116,14 +43,14 @@ class HenryScheinClient(BaseClient):
             },
         }
 
-    async def check_authenticated(self, response: ClientResponse) -> bool:
+    def check_authenticated(self, response: ClientResponse) -> bool:
         """Check if whether session is authenticated or not"""
-        res = await response.json()
+        res = response.json()
         return res.get("IsAuthenticated", False)
 
-    async def get_cart_page(self) -> Union[Selector, dict]:
+    def get_cart_page(self) -> Union[Selector, dict]:
         """Get cart page in order to get products in cart"""
-        return await self.get_response_as_dom(url="https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx")
+        return self.get_response_as_dom(url="https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx")
 
     def get_checkout_products_sensitive_data(self, dom: Selector) -> dict:
         data = {}
@@ -147,9 +74,9 @@ class HenryScheinClient(BaseClient):
                 data[key] = product_dom.xpath(f'.//input[@name="{key}"]/@value').get()
         return data
 
-    async def clear_cart(self):
+    def clear_cart(self):
         # TODO: check if the cart contains products, clear cart only if the cart contains products
-        cart_page_dom = await self.get_cart_page()
+        cart_page_dom = self.get_cart_page()
         data = {
             "__LASTFOCUS": "",
             "ctl00_ScriptManager_TSM": ";;System.Web.Extensions, Version=4.0.0.0, Culture=neutral, "
@@ -177,11 +104,11 @@ class HenryScheinClient(BaseClient):
             "dest": "",
         }
         data.update(self.get_checkout_products_sensitive_data(cart_page_dom))
-        await self.session.post(
+        self.session.post(
             "https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx", headers=CLEAR_CART_HEADERS, data=data
         )
 
-    async def add_products_to_cart(self, products: List[types.CartProduct]):
+    def add_products_to_cart(self, products: List[types.CartProduct]):
         item_data_to_add = {"ItemDataToAdd": []}
         for product in products:
             item_data_to_add["ItemDataToAdd"].append(
@@ -206,15 +133,15 @@ class HenryScheinClient(BaseClient):
             "culture": "us-en",
         }
 
-        await self.session.post(
+        self.session.post(
             "https://www.henryschein.com/webservices/JSONRequestHandler.ashx",
             headers=ADD_PRODUCTS_TO_CART_HEADERS,
             data=data,
         )
 
-    async def checkout(self):
+    def checkout(self):
         checkout_time = datetime.date.today()
-        cart_page_dom = await self.get_cart_page()
+        cart_page_dom = self.get_cart_page()
         data = {
             "__LASTFOCUS": "",
             "ctl00_ScriptManager_TSM": ";;System.Web.Extensions, Version=4.0.0.0, Culture=neutral, "
@@ -242,20 +169,20 @@ class HenryScheinClient(BaseClient):
 
         headers = CHECKOUT_HEADER.copy()
         headers["referer"] = "https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx"
-        async with self.session.post(
+        with self.session.post(
             "https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx", headers=headers, data=data
         ) as resp:
-            response_dom = Selector(text=await resp.text())
+            response_dom = Selector(text=resp.text)
             if len(response_dom.xpath("//div[@id='MessagePanel']/div[contains(@class, 'informational')]")):
-                return await self.checkout()
+                return self.checkout()
             else:
                 return response_dom
 
-    async def review_checkout(self, checkout_dom: Selector, shipping_method: Optional[str] = None):
+    def review_checkout(self, checkout_dom: Selector, shipping_method: Optional[str] = None):
         for shipping_method_option in checkout_dom.xpath(
             "//select[@name='ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ddlShippingMethod']/option"
         ):
-            if shipping_method_option.xpath("./text()").get() == shipping_method:
+            if shipping_method_option.xpath("./text").get() == shipping_method:
                 shipping_method_value = shipping_method_option.attrib["value"]
                 break
         else:
@@ -315,44 +242,42 @@ class HenryScheinClient(BaseClient):
 
         headers = CHECKOUT_HEADER.copy()
         headers["referer"] = "https://www.henryschein.com/us-en/Checkout/BillingShipping.aspx"
-        async with self.session.post(
+        with self.session.post(
             "https://www.henryschein.com/us-en/Checkout/BillingShipping.aspx",
             headers=headers,
             params=params,
             data=data,
         ) as resp:
-            return Selector(text=await resp.text())
+            return Selector(text=resp.text)
 
-    async def review_order(self, review_checkout_dom: Selector) -> types.VendorOrderDetail:
+    def review_order(self, review_checkout_dom: Selector) -> types.VendorOrderDetail:
         subtotal_amount = convert_string_to_price(
             review_checkout_dom.xpath(
-                "//div[@id='ctl00_cphMainContentHarmony_divOrderSummarySubTotal']/strong//text()"
+                "//div[@id='ctl00_cphMainContentHarmony_divOrderSummarySubTotal']/strong//text"
             ).get()
         )
         shipping_amount = convert_string_to_price(
             review_checkout_dom.xpath(
-                "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryShipping']/strong//text()"
+                "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryShipping']/strong//text"
             ).get()
         )
         tax_amount = convert_string_to_price(
-            review_checkout_dom.xpath(
-                "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryTax']/strong//text()"
-            ).get()
+            review_checkout_dom.xpath("//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryTax']/strong//text").get()
         )
         total_amount = convert_string_to_price(
             review_checkout_dom.xpath(
-                "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryTotal']/strong//text()"
+                "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryTotal']/strong//text"
             ).get()
         )
         payment_method = strip_whitespaces(
             review_checkout_dom.xpath(
-                "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryPaymentMethod']/strong//text()"
+                "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryPaymentMethod']/strong//text"
             ).get()
         )
         shipping_address = concatenate_strings(
             review_checkout_dom.xpath(
                 "//section[contains(@class, 'order-details')]"
-                "//section[contains(@class, 'half')]/div[@class='half'][1]//address/p/span[2]/text()",
+                "//section[contains(@class, 'half')]/div[@class='half'][1]//address/p/span[2]/text",
             ).extract(),
             delimeter=", ",
         )
@@ -366,17 +291,17 @@ class HenryScheinClient(BaseClient):
             shipping_address=shipping_address,
         )
 
-    async def checkout_and_review_order(self, shipping_method: Optional[str] = None) -> dict:
+    def checkout_and_review_order(self, shipping_method: Optional[str] = None) -> dict:
         """Review the order without making real order"""
-        checkout_dom = await self.checkout()
-        review_checkout_dom = await self.review_checkout(checkout_dom, shipping_method)
-        order_detail = await self.review_order(review_checkout_dom)
+        checkout_dom = self.checkout()
+        review_checkout_dom = self.review_checkout(checkout_dom, shipping_method)
+        order_detail = self.review_order(review_checkout_dom)
         return {
             "order_detail": order_detail,
             "review_checkout_dom": review_checkout_dom,
         }
 
-    async def place_order(self, *args, **kwargs) -> str:
+    def place_order(self, *args, **kwargs) -> str:
         review_checkout_dom = kwargs.get("review_checkout_dom")
         headers = CHECKOUT_HEADER.copy()
         headers["referer"] = "https://www.henryschein.com/us-en/Checkout/OrderReview.aspx"
@@ -395,18 +320,16 @@ class HenryScheinClient(BaseClient):
         }
         data.update(self.get_checkout_products_sensitive_data(review_checkout_dom))
 
-        async with self.session.post(
+        with self.session.post(
             "https://www.henryschein.com/us-en/Checkout/OrderReview.aspx", headers=headers, data=data
         ) as resp:
-            response = await resp.text()
+            response = resp.text
             res_data = response.split("dataLayer.push(", 1)[1].split(");")[0]
             res_data = res_data.replace("'", '"')
             res_data = json.loads(res_data)
             return res_data["ecommerce"]["purchase"]["actionField"]["id"]
 
-    async def _get_products_prices(
-        self, products: List[types.Product], *args, **kwargs
-    ) -> Dict[str, types.ProductPrice]:
+    def _get_products_prices(self, products: List[types.Product], *args, **kwargs) -> Dict[str, types.ProductPrice]:
         """get vendor specific products prices"""
         # keyword = products[0]["name"][:3]
         data = {
@@ -438,12 +361,12 @@ class HenryScheinClient(BaseClient):
         headers = GET_PRODUCT_PRICES_HEADERS.copy()
         # headers["referer"] = f"https://www.henryschein.com/us-en/Search.aspx?searchkeyWord={keyword}"
         product_prices = defaultdict(dict)
-        async with self.session.post(
+        with self.session.post(
             "https://www.henryschein.com/webservices/JSONRequestHandler.ashx",
             data=data,
             headers=headers,
         ) as resp:
-            res = await resp.json()
+            res = resp.json()
             for product_price in res["ItemDataToPrice"]:
                 # if product_price["InventoryStatus"] in ["Unavailable", "Error", "Discontinued", "Unknown"]:
                 #     continue
