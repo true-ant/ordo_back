@@ -97,11 +97,24 @@ ADD_PRODUCT_CART_HEADERS = {
     "Sec-Fetch-Dest": "empty",
     "Referer": "https://www.pattersondental.com/ShoppingCart",
 }
+GET_PRODUCT_PAGE_HEADERS = {
+    **BASE_HEADERS,
+    "Pragma": "no-cache",
+    "Cache-Control": "no-cache",
+    "Upgrade-Insecure-Requests": "1",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
+    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-User": "?1",
+    "Sec-Fetch-Dest": "document",
+    "Referer": "https://www.pattersondental.com/Supplies/ProductFamilyDetails/PIF_459804?mc=0",
+}
 
 
 class PattersonClient(BaseClient):
     VENDOR_SLUG = "patterson"
-    GET_PRODUCT_PAGE_HEADERS = BASE_HEADERS
+    GET_PRODUCT_PAGE_HEADERS = GET_PRODUCT_PAGE_HEADERS
 
     async def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
         params = {

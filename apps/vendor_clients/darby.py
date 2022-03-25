@@ -75,8 +75,9 @@ ORDER_HEADERS = {
 }
 GET_PRODUCT_PAGE_HEADERS = {
     **BASE_HEADERS,
+    "Pragma": "no-cache",
+    "Cache-Control": "no-cache",
     "Host": "www.darbydental.com",
-    "Cache-Control": "max-age=0",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
     "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
     "Accept-Encoding": "gzip, deflate, br",
@@ -84,6 +85,7 @@ GET_PRODUCT_PAGE_HEADERS = {
     "Sec-Fetch-Mode": "navigate",
     "Sec-Fetch-Site": "same-origin",
     "Sec-Fetch-User": "?1",
+    "Referer": "https://www.darbydental.com/categories/Acrylics",
     "Upgrade-Insecure-Requests": "1",
 }
 

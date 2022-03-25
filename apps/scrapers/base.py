@@ -282,6 +282,13 @@ class Scraper:
                         price=product_price,
                         office_product_category=office_product_category,
                     )
+                    if product.parent:
+                        OfficeProductModel.objects.get_or_create(
+                            office=office,
+                            product=product.parent,
+                            is_inventory=is_inventory,
+                            office_product_category=office_product_category,
+                        )
             else:
                 office_product = None
 
