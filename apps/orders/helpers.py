@@ -61,6 +61,23 @@ class ParentProduct(TypedDict):
 
 class OfficeProductHelper:
     @staticmethod
+    def get_associated_office_product(
+        office: Union[SmartID, OfficeModel],
+        product: Union[SmartID, ProductModel],
+        is_inventory: Optional[bool] = None,
+    ) -> Optional[OfficeProductModel]:
+        if isinstance(office, OfficeModel):
+            office = office.id
+
+        q = Q(product_id=product) & Q(office_id=office)
+        if is_inventory is not None:
+            q &= Q(is_inventory=is_inventory)
+
+        office_product = OfficeProductModel.objects.filter(q).first()
+        if office_product:
+            return office_product
+
+    @staticmethod
     def get_product_price(
         office: Union[SmartID, OfficeModel], product: Union[SmartID, ProductModel]
     ) -> Optional[Decimal]:
