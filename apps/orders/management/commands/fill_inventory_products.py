@@ -7,16 +7,22 @@ from apps.orders.models import OfficeProduct, VendorOrderProduct
 class Command(BaseCommand):
     def handle(self, *args, **options):
         # TODO: distinct
-        vendor_order_products = VendorOrderProduct.objects.select_related(
-            "vendor_order", "vendor_order__order", "product"
+        office_products = OfficeProduct.objects.filter(
+            product__vendor__isnull=False, is_inventory=True, last_order_date__isnull=True
         )
-        office_products = []
-        for vendor_order_product in vendor_order_products:
-            office = vendor_order_product.vendor_order.order.office
-            product = vendor_order_product.product
-            order_date = vendor_order_product.vendor_order.order_date
-            office_product = OfficeProduct.objects.filter(office=office, product=product).first()
-            if office_product:
-                office_product.last_order_date = order_date
-                office_products.append(office_product)
+        for office_product in office_products:
+            vendor_order_products = (
+                VendorOrderProduct.objects.select_related(
+                    "vendor_order",
+                )
+                .filter(
+                    product=office_product.product,
+                    vendor_order__order__office=office_product.office,
+                )
+                .order_by("-vendor_order__order_date")
+                .values("vendor_order__order_date")
+            )
+            if vendor_order_products:
+                office_product.last_order_date = vendor_order_products[0]["vendor_order__order_date"]
+
         bulk_update(OfficeProduct, office_products, fields=["last_order_date"])
