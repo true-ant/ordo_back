@@ -859,8 +859,8 @@ class ProductHelper:
             # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
             .annotate(
                 product_price=Case(
-                    When(office_product_price__isnull=False, then=F("office_product_price")),
                     When(price__isnull=False, then=F("price")),
+                    When(office_product_price__isnull=False, then=F("office_product_price")),
                     default=Value(None),
                 )
             )
