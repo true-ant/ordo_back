@@ -1,7 +1,6 @@
 import asyncio
 import datetime
 import re
-import uuid
 from typing import Dict, List, Optional
 
 from aiohttp import ClientResponse
@@ -147,9 +146,14 @@ class DarbyScraper(Scraper):
                 tracking_dom = track_response_dom.xpath(
                     "//table[contains(@id, 'MainContent_rpt_gvInvoiceTrack_')]//tr[@class='pdpHelltPrimary']"
                 )[0]
-                order["status"] = self.extract_first(tracking_dom, "./td[4]//text()")
+                vendor_order_status = self.extract_first(tracking_dom, "./td[4]//text()")
+                order["status"] = vendor_order_status.split(" ", 1)[0].lower()
             except IndexError:
-                order["status"] = "Unknown"
+                # TODO: this is possible cases
+                # mar 21 2022  4:13am out for delivery
+                # feb 23 2022 10:41am package is in transit to a ups facility
+                # received by ups:feb 11 2022  4:47pm
+                order["status"] = "processing"
 
     async def get_order_products(self, order, link):
         async with self.session.get(f"{self.BASE_URL}/Scripts/{link}", headers=HEADERS) as resp:
