@@ -66,8 +66,8 @@ class ProductV2Serializer(serializers.ModelSerializer):
     category = ProductCategorySerializer()
     images = ProductImageSerializer(many=True, required=False)
     product_price = serializers.DecimalField(decimal_places=2, max_digits=10, read_only=True)
-    product_vendor_status = serializers.CharField(read_only=True)
     is_inventory = serializers.BooleanField(default=False, read_only=True)
+    product_vendor_status = serializers.CharField(read_only=True)
     last_order_date = serializers.DateField(read_only=True)
     last_order_price = serializers.DecimalField(decimal_places=2, max_digits=10, read_only=True)
 
@@ -81,10 +81,10 @@ class ProductV2Serializer(serializers.ModelSerializer):
             "category",
             "product_unit",
             "url",
-            "product_price",
-            "product_vendor_status",
             "images",
+            "product_price",
             "is_inventory",
+            "product_vendor_status",
             "last_order_date",
             "last_order_price",
         )
@@ -94,6 +94,11 @@ class ProductV2Serializer(serializers.ModelSerializer):
         ret = super().to_representation(instance)
         office_pk = self.context.get("office_pk")
         vendors = self.context.get("vendors")
+        if hasattr(instance, "office_product") and instance.office_product:
+            ret["product_vendor_status"] = instance.office_product[0].product_vendor_status
+            ret["last_order_date"] = instance.office_product[0].last_order_date
+            ret["last_order_price"] = instance.office_product[0].price
+
         children_ids = instance.children.values_list("id", flat=True)
         if vendors:
             children_ids = children_ids.filter(vendor__slug__in=vendors)
@@ -103,10 +108,18 @@ class ProductV2Serializer(serializers.ModelSerializer):
                 office=office_pk, fetch_parents=False, product_ids=children_ids
             )
             ret["children"] = self.__class__(children_products, many=True, context={"office_pk": office_pk}).data
-            # last_order_dates = sorted([(child["last_order_date"], child["last_order_price"]) for child in ret["children"] if child["is_inventory"]], key=lambda x: x[0], reverse=True)
-            # if last_order_dates:
-            #     ret["last_order_date"] = last_order_dates[0][0]
-            #     ret["last_order_price"] = last_order_dates[0][1]
+            last_order_dates = sorted(
+                [
+                    (child["last_order_date"], child["last_order_price"])
+                    for child in ret["children"]
+                    if child["is_inventory"]
+                ],
+                key=lambda x: x[0],
+                reverse=True,
+            )
+            if last_order_dates:
+                ret["last_order_date"] = last_order_dates[0][0]
+                ret["last_order_price"] = last_order_dates[0][1]
         else:
             ret["children"] = []
 

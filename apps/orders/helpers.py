@@ -19,6 +19,7 @@ from django.db.models import (
     F,
     Model,
     OuterRef,
+    Prefetch,
     Q,
     QuerySet,
     Subquery,
@@ -823,10 +824,14 @@ class ProductHelper:
         connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_pk)
 
         # get products from vendors that are linked to the office account
-        products = ProductModel.objects.filter(
-            Q(vendor_id__in=connected_vendor_ids)
-            | (Q(vendor__isnull=True) & Q(child__vendor_id__in=connected_vendor_ids))
-        ).distinct()
+        products = (
+            ProductModel.objects.select_related("vendor", "category")
+            .filter(
+                Q(vendor_id__in=connected_vendor_ids)
+                | (Q(vendor__isnull=True) & Q(child__vendor_id__in=connected_vendor_ids))
+            )
+            .distinct()
+        )
         if fetch_parents:
             products = products.filter(parent__isnull=True)
 
@@ -837,18 +842,21 @@ class ProductHelper:
             selected_products = []
 
         # TODO: this should be optimized
-        office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk) & Q(product_id=OuterRef("pk")))
+        office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk))
+        office_product = OfficeProductModel.objects.filter(Q(office_id=office_pk) & Q(product_id=OuterRef("pk")))
 
         # we treat parent product as inventory product if it has inventory children product
-        inventory_office_products = OfficeProductModel.objects.filter(
+        inventory_office_product = OfficeProductModel.objects.filter(
             Q(office_id=office_pk) & Q(is_inventory=True) & Q(product_id=OuterRef("pk"))
         )
 
         return (
-            products.annotate(office_product_price=Subquery(office_products.values("price")[:1]))
-            .annotate(is_inventory=Exists(inventory_office_products))
-            .annotate(last_order_date=Subquery(inventory_office_products.values("last_order_date")[:1]))
-            .annotate(last_order_price=Subquery(inventory_office_products.values("price")[:1]))
+            products.prefetch_related(Prefetch("office_products", queryset=office_products, to_attr="office_product"))
+            .annotate(office_product_price=Subquery(office_product.values("price")[:1]))
+            .annotate(is_inventory=Exists(inventory_office_product))
+            # .annotate(last_order_date=Subquery(inventory_office_products.values("last_order_date")[:1]))
+            # .annotate(last_order_price=Subquery(inventory_office_products.values("price")[:1]))
+            # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
             .annotate(
                 product_price=Case(
                     When(office_product_price__isnull=False, then=F("office_product_price")),
@@ -856,7 +864,6 @@ class ProductHelper:
                     default=Value(None),
                 )
             )
-            .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
             .annotate(
                 selected_product=Case(
                     When(id__in=selected_products, then=Value(0)),
