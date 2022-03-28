@@ -199,10 +199,9 @@ class Net32Scraper(Scraper):
                     for line_item in vendor_order["lineItems"]:
                         tracking_link = None
                         tracking_number = None
-                        manifest = line_item["manifests"][0]
-                        if "shippingMethod" in manifest:
-                            shipping_method = manifest["shippingMethod"]
-                            tracking_number = manifest["trackingNumber"]
+                        if line_item["manifests"] and "shippingMethod" in line_item["manifests"][0]:
+                            shipping_method = line_item["manifests"][0]["shippingMethod"]
+                            tracking_number = line_item["manifests"][0]["trackingNumber"]
                             tracking_link = f"{shipping_base_tracking_urls[shipping_method]}{tracking_number}"
 
                         order_products.append(
