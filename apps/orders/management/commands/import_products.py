@@ -21,19 +21,26 @@ class Command(BaseCommand):
             default="products",
         )
         parser.add_argument(
+            "--fields",
+            type=str,
+            help="list of fields that should be updated",
+        )
+        parser.add_argument(
             "--vendors",
             type=str,
             help="import products from vendors",
         )
         parser.add_argument("--verbose", type=bool, help="debug mode", default=False)
 
-    def load_products(self, directory, vendors, verbose=False):
+    def load_products(self, directory, vendors, fields=None, verbose=False):
         for file_name in sorted(glob.glob(f"{directory}/*.csv")):
             print(f"Read product data from {file_name}")
             vendor, _ = get_file_name_and_ext(file_name)
             if vendors and vendor not in vendors:
                 continue
-            ProductHelper.import_products_from_csv(file_path=file_name, vendor_slug=vendor, verbose=verbose)
+            ProductHelper.import_products_from_csv(
+                file_path=file_name, vendor_slug=vendor, fields=fields, verbose=verbose
+            )
 
     def handle(self, *args, **options):
         vendors = options["vendors"]
@@ -41,4 +48,10 @@ class Command(BaseCommand):
             vendors = vendors.split(",")
         else:
             vendors = []
-        self.load_products(options["directory"], vendors, options["verbose"])
+
+        fields = options["fields"]
+        if fields:
+            fields = fields.split(",")
+        else:
+            fields = []
+        self.load_products(options["directory"], vendors, fields, options["verbose"])

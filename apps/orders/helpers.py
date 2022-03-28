@@ -401,7 +401,7 @@ class ProductHelper:
         return df.drop_duplicates(subset=["product_id"], keep="first")
 
     @staticmethod
-    def import_products_from_csv(file_path, vendor_slug, verbose: bool = True):
+    def import_products_from_csv(file_path, vendor_slug, fields: Optional[List[str]] = None, verbose: bool = True):
         df = ProductHelper.read_products_from_csv(file_path, output_duplicates=verbose)
         df_index = 0
         batch_size = 500
@@ -425,27 +425,45 @@ class ProductHelper:
                 except Exception:
                     product_price = None
 
-                product_objs.append(
-                    ProductModel(
-                        vendor=vendor,
-                        product_id=row["product_id"],
-                        name=row["name"],
-                        product_unit=row["product_unit"],
-                        url=row["url"],
-                        category=product_category,
-                        price=product_price,
+                if fields:
+                    product = ProductModel.objects.filter(product_id=row["product_id"], vendor=vendor).first()
+                    if product:
+                        for field in fields:
+                            if field == "price":
+                                value = product_price
+                            else:
+                                value = row[field]
+                            setattr(product, field, value)
+
+                        product_objs.append(product)
+                    else:
+                        print(f"Cannot find out {row['product_id']}")
+                else:
+                    product_objs.append(
+                        ProductModel(
+                            vendor=vendor,
+                            product_id=row["product_id"],
+                            name=row["name"],
+                            product_unit=row["product_unit"],
+                            url=row["url"],
+                            category=product_category,
+                            price=product_price,
+                        )
                     )
-                )
 
-            product_objs = bulk_create(model_class=ProductModel, objs=product_objs)
-            print(f"{vendor}: {len(product_objs)} products created")
-            product_image_objs = []
-            for product, product_images in zip(product_objs, sub_df["images"]):
-                product_images = product_images.split(";")
-                for product_image in product_images:
-                    product_image_objs.append(ProductImageModel(product=product, image=product_image))
+            if fields:
+                bulk_update(model_class=ProductModel, objs=product_objs, fields=fields)
+                print(f"{vendor}: {len(product_objs)} products updated")
+            else:
+                product_objs = bulk_create(model_class=ProductModel, objs=product_objs)
+                print(f"{vendor}: {len(product_objs)} products created")
+                product_image_objs = []
+                for product, product_images in zip(product_objs, sub_df["images"]):
+                    product_images = product_images.split(";")
+                    for product_image in product_images:
+                        product_image_objs.append(ProductImageModel(product=product, image=product_image))
 
-            bulk_create(model_class=ProductImageModel, objs=product_image_objs)
+                bulk_create(model_class=ProductImageModel, objs=product_image_objs)
             df_index += batch_size
 
     @staticmethod
