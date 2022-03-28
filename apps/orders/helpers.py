@@ -809,6 +809,7 @@ class ProductHelper:
         office: Union[OfficeModel, SmartID],
         fetch_parents: bool = True,
         product_ids: Optional[List[SmartID]] = None,
+        products: Optional[QuerySet] = None,
         selected_products: Optional[List[SmartID]] = None,
     ):
         """
@@ -824,14 +825,14 @@ class ProductHelper:
         connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_pk)
 
         # get products from vendors that are linked to the office account
-        products = (
-            ProductModel.objects.select_related("vendor", "category")
-            .filter(
-                Q(vendor_id__in=connected_vendor_ids)
-                | (Q(vendor__isnull=True) & Q(child__vendor_id__in=connected_vendor_ids))
-            )
-            .distinct()
-        )
+        if products is None:
+            products = ProductModel.objects.select_related("vendor", "category")
+
+        products = products.filter(
+            Q(vendor_id__in=connected_vendor_ids)
+            | (Q(vendor__isnull=True) & Q(child__vendor_id__in=connected_vendor_ids))
+        ).distinct()
+
         if fetch_parents:
             products = products.filter(parent__isnull=True)
 

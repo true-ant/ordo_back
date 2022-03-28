@@ -93,7 +93,7 @@ class ProductFilter(filters.FilterSet):
 class ProductV2Filter(filters.FilterSet):
     vendors = filters.CharFilter(method="filter_by_vendors")
     # search = filters.CharFilter(field_name="name", lookup_expr="search")
-    search = filters.CharFilter(method="filter_by_name")
+    # search = filters.CharFilter(method="filter_by_name")
 
     def filter_by_vendors(self, queryset, name, value):
         vendor_slugs = value.split(",")
@@ -101,15 +101,15 @@ class ProductV2Filter(filters.FilterSet):
 
         return queryset.filter(q).distinct()
 
-    def filter_by_name(self, queryset, name, value):
-        product_id_value = value.replace("-", "")
-        return queryset.filter(
-            Q(name__search=value)
-            | Q(product_id__icontains=product_id_value)
-            | Q(product_id__icontains=value)
-            | Q(child__product_id__icontains=product_id_value)
-            | Q(child__product_id__icontains=value)
-        ).distinct()
+    # def filter_by_name(self, queryset, name, value):
+    #     product_id_value = value.replace("-", "")
+    #     return queryset.filter(
+    #         Q(name__search=value)
+    #         | Q(product_id__icontains=product_id_value)
+    #         | Q(product_id__icontains=value)
+    #         | Q(child__product_id__icontains=product_id_value)
+    #         | Q(child__product_id__icontains=value)
+    #     ).distinct()
 
 
 class OfficeProductFilter(filters.FilterSet):
