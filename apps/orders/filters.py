@@ -107,7 +107,7 @@ class ProductV2Filter(filters.FilterSet):
             Q(name__search=value)
             | Q(product_id__icontains=product_id_value)
             | Q(product_id__icontains=value)
-            | Q(child__product_id__icontains=value)
+            | Q(child__product_id__icontains=product_id_value)
             | Q(child__product_id__icontains=value)
         ).distinct()
 
