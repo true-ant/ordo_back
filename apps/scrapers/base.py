@@ -312,6 +312,7 @@ class Scraper:
         order_id = order_data["order_id"]
         order_data["vendor_status"] = order_data["status"]
         order_data["status"] = self.normalize_order_status(order_data["status"])
+        order_date = order_data["order_date"]
         with transaction.atomic():
             try:
                 if self.vendor.slug == "henry_schein":
@@ -324,7 +325,6 @@ class Scraper:
                 else:
                     vendor_order = VendorOrderModel.objects.get(vendor=self.vendor, vendor_order_id=order_id)
             except VendorOrderModel.DoesNotExist:
-                order_date = order_data["order_date"]
                 order = OrderModel.objects.create(
                     office=office,
                     status=order_data["status"],
