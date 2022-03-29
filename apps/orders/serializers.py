@@ -97,7 +97,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
         if hasattr(instance, "office_product") and instance.office_product:
             ret["product_vendor_status"] = instance.office_product[0].product_vendor_status
             ret["last_order_date"] = instance.office_product[0].last_order_date
-            ret["last_order_price"] = instance.office_product[0].price
+            ret["last_order_price"] = instance.office_product[0].last_order_price
 
         children_ids = instance.children.values_list("id", flat=True)
         if vendors:

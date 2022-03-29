@@ -274,7 +274,8 @@ class Scraper:
                         office_product.is_inventory = is_inventory
 
                     if order_date:
-                        office_product.last_order_date = order_date
+                        if office_product.last_order_date is None or office_product.last_order_date < order_date:
+                            office_product.last_order_date = order_date
 
                     office_product.save()
                 except OfficeProductModel.DoesNotExist:
