@@ -6,10 +6,8 @@ from apps.orders.models import OfficeProduct, VendorOrderProduct
 
 class Command(BaseCommand):
     def handle(self, *args, **options):
-        # TODO: distinct
-        office_products = OfficeProduct.objects.filter(
-            product__vendor__isnull=False, is_inventory=True, last_order_date__isnull=True
-        )
+        office_products_to_be_updated = []
+        office_products = OfficeProduct.objects.filter(product__vendor__isnull=False, is_inventory=True)
         for office_product in office_products:
             vendor_order_products = (
                 VendorOrderProduct.objects.select_related(
@@ -22,7 +20,12 @@ class Command(BaseCommand):
                 .order_by("-vendor_order__order_date")
                 .values("vendor_order__order_date")
             )
-            if vendor_order_products:
+            if not vendor_order_products:
+                continue
+            last_order_date = vendor_order_products[0]["vendor_order__order_date"]
+            if office_product.last_order_date is None or office_product.last_order_date < last_order_date:
                 office_product.last_order_date = vendor_order_products[0]["vendor_order__order_date"]
+                office_products_to_be_updated.append(office_product)
 
-        bulk_update(OfficeProduct, office_products, fields=["last_order_date"])
+        bulk_update(OfficeProduct, office_products_to_be_updated, fields=["last_order_date"])
+        print(f"{len(office_products_to_be_updated)} products updated")
