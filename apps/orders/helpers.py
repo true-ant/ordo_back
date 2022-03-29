@@ -6,7 +6,7 @@ from decimal import Decimal
 from functools import reduce
 from itertools import chain
 from operator import or_
-from typing import Dict, List, Optional, TypedDict, Union
+from typing import Dict, List, Optional, Tuple, TypedDict, Union
 
 import pandas as pd
 from aiohttp import ClientSession
@@ -805,6 +805,20 @@ class ProductHelper:
                 bulk_update(ProductModel, children_products, fields=["parent"])
 
     @staticmethod
+    def get_products_for_office(office_pk: SmartID, products: Optional[QuerySet] = None) -> Tuple[QuerySet, QuerySet]:
+        """Get all products for the office"""
+        connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_pk)
+        if products is None:
+            products = ProductModel.objects.select_related("vendor", "category")
+
+        products = products.filter(
+            Q(vendor_id__in=connected_vendor_ids)
+            | (Q(vendor__isnull=True) & Q(child__vendor_id__in=connected_vendor_ids))
+        ).distinct()
+        available_vendors = products.filter(vendor__isnull=False).values_list("vendor__slug", flat=True).distinct()
+        return products, available_vendors
+
+    @staticmethod
     def get_products(
         office: Union[OfficeModel, SmartID],
         fetch_parents: bool = True,
@@ -822,16 +836,8 @@ class ProductHelper:
         else:
             office_pk = office
 
-        connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_pk)
-
-        # get products from vendors that are linked to the office account
         if products is None:
-            products = ProductModel.objects.select_related("vendor", "category")
-
-        products = products.filter(
-            Q(vendor_id__in=connected_vendor_ids)
-            | (Q(vendor__isnull=True) & Q(child__vendor_id__in=connected_vendor_ids))
-        ).distinct()
+            products, _ = ProductHelper.get_products_for_office(office_pk, products)
 
         if fetch_parents:
             products = products.filter(parent__isnull=True)

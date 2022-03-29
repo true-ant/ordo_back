@@ -1377,6 +1377,8 @@ class ProductV2ViewSet(ModelViewSet):
         office_pk = self.request.query_params.get("office_pk")
         selected_products = self.request.query_params.get("selected_products")
         selected_products = selected_products.split(",") if selected_products else []
+        products, available_vendors = ProductHelper.get_products_for_office(office_pk, products)
+        self.available_vendors = available_vendors
         return ProductHelper.get_products(office=office_pk, selected_products=selected_products, products=products)
 
     def get_serializer_context(self):
@@ -1387,6 +1389,23 @@ class ProductV2ViewSet(ModelViewSet):
             vendors = vendors.split(",")
         serializer_context = {**serializer_context, "office_pk": office_pk, "vendors": vendors}
         return serializer_context
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        ret = {
+            "vendor_slugs": getattr(self, "available_vendors", None),
+            "products": [],
+        }
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            ret["products"] = serializer.data
+            return self.get_paginated_response(ret)
+
+        serializer = self.get_serializer(queryset, many=True)
+        ret["products"] = serializer.data
+        return Response(ret)
 
     @action(detail=False, url_path="search/vendors")
     async def search_from_vendors(self, request, *args, **kwargs):

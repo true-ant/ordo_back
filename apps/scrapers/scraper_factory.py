@@ -20,7 +20,7 @@ from apps.scrapers.patterson import PattersonScraper
 from apps.scrapers.schema import Product
 from apps.scrapers.ultradent import UltraDentScraper
 
-SCRAPER_SLUG = "net_32"
+SCRAPER_SLUG = "darby"
 SCRAPERS = {
     "henry_schein": HenryScheinScraper,
     "net_32": Net32Scraper,
@@ -441,8 +441,8 @@ if __name__ == "__main__":
     from apps.accounts.models import Vendor
     from apps.orders.models import Keyword, Office, VendorOrderProduct
 
-    vendors = Vendor.objects.all()
-    office = Office.objects.first()
+    vendors = list(Vendor.objects.all())
+    office = Office.objects.get(id=115)
     keyword = Keyword.objects.first()
     vendor_order_product = (
         VendorOrderProduct.objects.select_related("vendor_order", "product")
