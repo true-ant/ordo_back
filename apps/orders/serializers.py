@@ -335,7 +335,6 @@ class OfficeProductSerializer(serializers.ModelSerializer):
     product_data = ProductSerializer(write_only=True)
     office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), write_only=True)
     office_product_category = serializers.PrimaryKeyRelatedField(queryset=m.OfficeProductCategory.objects.all())
-    last_order_price = serializers.DecimalField(max_digits=10, decimal_places=2, source="price")
     vendor = serializers.CharField(read_only=True)
 
     class Meta:
