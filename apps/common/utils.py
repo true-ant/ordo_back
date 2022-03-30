@@ -252,6 +252,10 @@ def extract_numeric_values(text: str) -> List[str]:
     return re.findall(r"(\d[\d.,]*)\s*", text)
 
 
+def remove_character_between_numerics(text: str, character: str) -> str:
+    return re.sub(rf"(\d+){character}(\d+)", r"\1\2", text)
+
+
 def convert_string_to_price(text: str) -> Decimal:
     try:
         price = extract_numeric_values(text)[0]

@@ -12,7 +12,6 @@ from typing import Union
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
 from django.apps import apps
-from django.contrib.postgres.search import SearchVector
 from django.db import transaction
 from django.db.models import Case, Count, F, Q, Sum, Value, When
 from django.http import HttpResponse
@@ -1372,11 +1371,10 @@ class ProductV2ViewSet(ModelViewSet):
 
     def get_queryset(self):
         query = self.request.GET.get("search", "")
-        query = query.replace("-", "")
-        products = self.queryset.annotate(search=SearchVector("name", "product_id")).filter(search=query)
         office_pk = self.request.query_params.get("office_pk")
         selected_products = self.request.query_params.get("selected_products")
         selected_products = selected_products.split(",") if selected_products else []
+        products = m.Product.objects.search(query)
         return ProductHelper.get_products(office=office_pk, selected_products=selected_products, products=products)
 
     def get_serializer_context(self):

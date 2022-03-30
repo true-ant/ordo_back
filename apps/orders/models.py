@@ -1,5 +1,13 @@
 from datetime import timedelta
+from functools import reduce
+from operator import or_
 
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import (
+    SearchQuery,
+    SearchVectorField,
+    TrigramSimilarity,
+)
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
@@ -8,6 +16,7 @@ from slugify import slugify
 
 from apps.accounts.models import Office, User, Vendor
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
+from apps.common.utils import remove_character_between_numerics
 from apps.scrapers.schema import Product as ProductDataClass
 from apps.scrapers.schema import ProductImage as ProductImageDataClass
 from apps.scrapers.schema import Vendor as VendorDataClass
@@ -35,6 +44,18 @@ class Keyword(TimeStampedModel):
         return self.keyword
 
 
+class ProductManager(models.Manager):
+    def search(self, text):
+        text = remove_character_between_numerics(text, character="-")
+        trigram_similarity = TrigramSimilarity("name", text)
+        q = reduce(or_, [SearchQuery(word) for word in text.split(" ")])
+        return (
+            self.get_queryset()
+            .annotate(similarity=trigram_similarity)
+            .filter(Q(similarity__gt=0.3) | Q(search_vector=q))
+        )
+
+
 class Product(TimeStampedModel):
     """
     This model store basic product info from vendor store
@@ -56,9 +77,13 @@ class Product(TimeStampedModel):
         related_name="children",
         related_query_name="child",
     )
+    search_vector = SearchVectorField(null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
+    objects = ProductManager()
+
     class Meta:
+        indexes = (GinIndex(fields=["search_vector"]),)
         unique_together = [
             "vendor",
             "product_id",
