@@ -5,6 +5,7 @@ from operator import or_
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import (
     SearchQuery,
+    SearchVector,
     SearchVectorField,
     TrigramSimilarity,
 )
@@ -51,8 +52,10 @@ class ProductManager(models.Manager):
         q = reduce(or_, [SearchQuery(word) for word in text.split(" ")])
         return (
             self.get_queryset()
+            .annotate(search=SearchVector("product_id", "name", config="english"))
             .annotate(similarity=trigram_similarity)
-            .filter(Q(similarity__gt=0.3) | Q(search_vector=q))
+            .filter(Q(similarity__gt=0.3) | Q(search=q))
+            # .filter(Q(similarity__gt=0.3) | Q(search_vector=q))
         )
 
 

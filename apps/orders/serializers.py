@@ -4,7 +4,7 @@ from rest_framework import serializers
 from rest_framework_recursive.fields import RecursiveField
 
 from apps.accounts.serializers import VendorSerializer
-from apps.orders.helpers import OfficeProductHelper, OfficeVendorHelper, ProductHelper
+from apps.orders.helpers import OfficeProductHelper, ProductHelper
 
 from . import models as m
 
@@ -319,9 +319,13 @@ class CartSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         # TODO: return sibling products from linked vendor
         ret = super().to_representation(instance)
-        connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office=instance.office)
-        ret["sibling_products"] = ProductSerializer(
-            instance.product.sibling_products.filter(vendor_id__in=connected_vendor_ids),
+        sibling_products = ProductHelper.get_products(
+            office=instance.office.id,
+            fetch_parents=False,
+            product_ids=instance.product.sibling_products.values_list("id", flat=True),
+        )
+        ret["sibling_products"] = ProductV2Serializer(
+            sibling_products,
             many=True,
         ).data
         return ret
