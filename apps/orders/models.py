@@ -1,16 +1,15 @@
 from datetime import timedelta
 from functools import reduce
-from operator import or_
+from operator import and_
 
-from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import (
     SearchQuery,
-    SearchVector,
     SearchVectorField,
     TrigramSimilarity,
 )
 from django.db import models
 from django.db.models import Q
+from django.db.models.expressions import RawSQL
 from django.utils import timezone
 from django_extensions.db.fields import AutoSlugField
 from slugify import slugify
@@ -49,13 +48,12 @@ class ProductManager(models.Manager):
     def search(self, text):
         text = remove_character_between_numerics(text, character="-")
         trigram_similarity = TrigramSimilarity("name", text)
-        q = reduce(or_, [SearchQuery(word) for word in text.split(" ")])
+        q = reduce(and_, [SearchQuery(word) for word in text.split(" ")])
         return (
             self.get_queryset()
-            .annotate(search=SearchVector("product_id", "name", config="english"))
+            .annotate(search=RawSQL("search_vector", [], output_field=SearchVectorField()))
             .annotate(similarity=trigram_similarity)
             .filter(Q(similarity__gt=0.3) | Q(search=q))
-            # .filter(Q(similarity__gt=0.3) | Q(search_vector=q))
         )
 
 
@@ -80,13 +78,11 @@ class Product(TimeStampedModel):
         related_name="children",
         related_query_name="child",
     )
-    search_vector = SearchVectorField(null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     objects = ProductManager()
 
     class Meta:
-        indexes = (GinIndex(fields=["search_vector"]),)
         unique_together = [
             "vendor",
             "product_id",

@@ -124,15 +124,17 @@ class OfficeProductFilter(filters.FilterSet):
         fields = ["q", "inventory", "favorite"]
 
     def filter_product(self, queryset, name, value):
-        q = (
-            Q(product__product_id=value)
-            | Q(product__name__icontains=value)
-            | Q(product__tags__keyword__iexact=value)
-            | Q(product__child__product_id=value)
-            | Q(product__child__name__icontains=value)
-            | Q(product__child__tags__keyword__iexact=value)
-        )
-        return queryset.filter(q).distinct()
+        product_ids = Product.objects.search(value).values_list("id", flat=True)
+        return queryset.filter(product_id__in=product_ids).distinct()
+        # q = (
+        #     Q(product__product_id=value)
+        #     | Q(product__name__icontains=value)
+        #     | Q(product__tags__keyword__iexact=value)
+        #     | Q(product__child__product_id=value)
+        #     | Q(product__child__name__icontains=value)
+        #     | Q(product__child__tags__keyword__iexact=value)
+        # )
+        # return queryset.filter(q).distinct()
 
     def filter_by_vendors(self, queryset, name, value):
         vendors = value.split(",")

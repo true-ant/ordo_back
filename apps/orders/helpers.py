@@ -39,6 +39,7 @@ from apps.common.utils import (
     find_numeric_values_from_string,
     find_words_from_string,
     get_file_name_and_ext,
+    remove_character_between_numerics,
     sort_and_write_to_csv,
 )
 from apps.orders.models import OfficeProduct as OfficeProductModel
@@ -822,22 +823,26 @@ class ProductHelper:
         else:
             office_pk = office
 
-        connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_pk)
-
         # get products from vendors that are linked to the office account
         if products is None:
             products = ProductModel.objects.select_related("vendor", "category")
 
-        products = products.filter(
-            Q(vendor_id__in=connected_vendor_ids)
-            | (Q(vendor__isnull=True) & Q(child__vendor_id__in=connected_vendor_ids))
-        ).distinct()
-
+        connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_pk)
         if fetch_parents:
             products = products.filter(parent__isnull=True)
 
-        if product_ids is not None:
-            products = products.filter(id__in=product_ids)
+            if product_ids is not None:
+                products = products.filter(Q(id__in=product_ids) | Q(child__id__in=product_ids)).distinct()
+
+            products = products.filter(
+                Q(vendor_id__in=connected_vendor_ids)
+                | (Q(vendor__isnull=True) & Q(child__vendor_id__in=connected_vendor_ids))
+            ).distinct()
+        else:
+            if product_ids is not None:
+                products = products.filter(Q(id__in=product_ids)).distinct()
+
+            products = products.filter(Q(vendor_id__in=connected_vendor_ids)).distinct()
 
         if selected_products is None:
             selected_products = []
@@ -884,7 +889,7 @@ class ProductHelper:
             sub_query_filter &= Q(office_id=office)
         inventory_products = OfficeProductModel.objects.filter(sub_query_filter)
 
-        product_id_search = search.replace("-", "")
+        product_id_search = remove_character_between_numerics(search, character="-")
         product_filter = Q(parent__isnull=True) & (
             Q(name__icontains=search)
             | Q(product_id__icontains=search)
