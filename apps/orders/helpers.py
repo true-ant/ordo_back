@@ -63,6 +63,35 @@ class ParentProduct(TypedDict):
 
 class OfficeProductHelper:
     @staticmethod
+    def get_available_sibling_products(office: Union[SmartID, OfficeModel], product: Union[SmartID, ProductModel]):
+        if isinstance(product, str):
+            product = ProductModel.objects.get(id=product)
+        if isinstance(office, OfficeModel):
+            office_id = office.id
+        else:
+            office_id = office
+
+        office_products = OfficeProductModel.objects.filter(Q(office_id=office_id))
+        if product.parent:
+            sibling_products = (
+                product.parent.children.select_related("vendor")
+                .prefetch_related(Prefetch("office_products", queryset=office_products, to_attr="office_product"))
+                .exclude(id=product.id)
+            )
+            ret = []
+            for product in sibling_products:
+                if product.vendor.slug in ("net_32", "implant_direct", "edge_endo", "dental_city"):
+                    if product.price is None or product.price == 0:
+                        continue
+                else:
+                    if product.office_product and product.office_product[0].product_vendor_status:
+                        pass
+
+                ret.append(product)
+            return ret
+        return ProductModel.objects.none()
+
+    @staticmethod
     def get_associated_office_product(
         office: Union[SmartID, OfficeModel],
         product: Union[SmartID, ProductModel],
@@ -177,7 +206,12 @@ class OfficeProductHelper:
         products_to_be_fetched = {}
         for product_id, product in products.items():
             # TODO: should be exclude products that has no vendor
-            if product_id not in product_prices_from_db.keys():
+            if product_id not in product_prices_from_db.keys() and product.vendor.slug not in (
+                "net_32",
+                "implant_direct",
+                "edge_endo",
+                "dental_city",
+            ):
                 products_to_be_fetched[product_id] = await sync_to_async(product.to_dict)()
 
         if products_to_be_fetched:
