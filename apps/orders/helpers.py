@@ -230,7 +230,7 @@ class OfficeProductHelper:
         product_prices = defaultdict(dict)
         office_products = OfficeProductModel.objects.filter(
             product_id__in=products.keys(), office_id=office_id
-        ).values("product_id", "price")
+        ).values("product_id", "price", "product_vendor_status")
         for office_product in office_products:
             product_prices[office_product["product_id"]]["price"] = office_product["price"]
             product_prices[office_product["product_id"]]["product_vendor_status"] = office_product[
