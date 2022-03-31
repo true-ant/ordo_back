@@ -36,8 +36,11 @@ class Command(BaseCommand):
         print(f"Converting {file_path} into fixture format")
 
         df = pd.read_csv(file_path)
+        df.fillna("", inplace=True)
         json_data = []
         for i, row in df.iterrows():
+            shipping_options = row.pop("shipping_options")
+            shipping_options = shipping_options.split(";") if shipping_options else []
             json_data.append(
                 {
                     "model": app_model,
@@ -45,6 +48,7 @@ class Command(BaseCommand):
                     "fields": {
                         "slug": (slug := slugify(row["name"], separator="_")),
                         "logo": f"https://cdn.joinordo.com/vendors/{slug}.jpg",
+                        "shipping_options": shipping_options,
                         **row,
                     },
                 }

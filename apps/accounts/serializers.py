@@ -29,6 +29,12 @@ class CompanyMemberSerializer(serializers.ModelSerializer):
         exclude = ("token", "token_expires_at")
 
 
+class VendorLiteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.Vendor
+        fields = "__all__"
+
+
 class VendorSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.Vendor
@@ -71,7 +77,7 @@ class OfficeSerializer(serializers.ModelSerializer):
     company = serializers.PrimaryKeyRelatedField(queryset=m.Company.objects.all(), required=False)
     addresses = OfficeAddressSerializer(many=True, required=False)
     logo = Base64ImageField(required=False)
-    vendors = VendorSerializer(many=True, required=False)
+    vendors = VendorLiteSerializer(many=True, required=False)
     phone_number = PhoneNumberField()
     website = serializers.CharField(validators=[OptionalSchemeURLValidator()], allow_null=True)
     cc_number = serializers.CharField(validators=[CCNumberValidator()], write_only=True)
@@ -251,7 +257,7 @@ class OfficeVendorSerializer(serializers.ModelSerializer):
 
 
 class OfficeVendorListSerializer(serializers.ModelSerializer):
-    vendor = VendorSerializer()
+    vendor = VendorLiteSerializer()
     # status = serializers.SerializerMethodField()
 
     class Meta:

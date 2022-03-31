@@ -3,7 +3,7 @@ from django.db.models import Q
 from rest_framework import serializers
 from rest_framework_recursive.fields import RecursiveField
 
-from apps.accounts.serializers import VendorSerializer
+from apps.accounts.serializers import VendorLiteSerializer
 from apps.orders.helpers import OfficeProductHelper, ProductHelper
 
 from . import models as m
@@ -62,7 +62,7 @@ class SimpleProductSerializer(serializers.ModelSerializer):
 
 
 class ProductV2Serializer(serializers.ModelSerializer):
-    vendor = VendorSerializer()
+    vendor = VendorLiteSerializer()
     category = ProductCategorySerializer()
     images = ProductImageSerializer(many=True, required=False)
     product_price = serializers.DecimalField(decimal_places=2, max_digits=10, read_only=True)
@@ -98,6 +98,8 @@ class ProductV2Serializer(serializers.ModelSerializer):
             ret["product_vendor_status"] = instance.office_product[0].product_vendor_status
             ret["last_order_date"] = instance.office_product[0].last_order_date
             ret["last_order_price"] = instance.office_product[0].last_order_price
+            if "product_price" not in ret:
+                ret["product_price"] = instance.office_product[0].price
 
         children_ids = instance.children.values_list("id", flat=True)
         if vendors:
@@ -149,7 +151,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        ret["vendor"] = VendorSerializer(m.Vendor.objects.get(id=ret["vendor"])).data
+        ret["vendor"] = VendorLiteSerializer(m.Vendor.objects.get(id=ret["vendor"])).data
         if not self.context.get("include_children", False):
             ret.pop("children", None)
 
@@ -195,7 +197,7 @@ class VendorOrderProductSerializer(serializers.ModelSerializer):
 
 class VendorOrderSerializer(serializers.ModelSerializer):
     products = VendorOrderProductSerializer(many=True, source="order_products")
-    vendor = VendorSerializer()
+    vendor = VendorLiteSerializer()
     status_display_text = serializers.CharField(source="get_status_display")
 
     class Meta:
@@ -227,7 +229,7 @@ class OrderListSerializer(serializers.ModelSerializer):
 
     def get_vendors(self, instance):
         vendors = instance.vendor_orders.select_related("vendor")
-        return VendorSerializer([vendor.vendor for vendor in vendors], many=True).data
+        return VendorLiteSerializer([vendor.vendor for vendor in vendors], many=True).data
 
 
 class OfficeVendorConnectedSerializer(serializers.Serializer):

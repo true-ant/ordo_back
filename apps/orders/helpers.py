@@ -761,6 +761,7 @@ class ProductHelper:
         include_category_slugs: Optional[List[str]] = None,
         exclude_category_slugs: Optional[List[str]] = None,
     ):
+        delimiter = "!@#$%"
         """export grouped products to csv format"""
         products = ProductModel.objects.filter(vendor__isnull=True).order_by("category__name")
         if include_category_slugs:
@@ -788,15 +789,16 @@ class ProductHelper:
                 csvwriter.writerow(
                     [
                         product.category.slug,
-                        concatenate_strings(product_ids, delimeter=";"),
-                        concatenate_strings(vendor_products, delimeter=";"),
-                        concatenate_strings(product_names, delimeter=";"),
-                        concatenate_strings(product_urls, delimeter=";"),
+                        concatenate_strings(product_ids, delimeter=delimiter),
+                        concatenate_strings(vendor_products, delimeter=delimiter),
+                        concatenate_strings(product_names, delimeter=delimiter),
+                        concatenate_strings(product_urls, delimeter=delimiter),
                     ]
                 )
 
     @staticmethod
     def import_products_similarity(file_name: str, use_by: str = "id"):
+        delimiter = "!@#$%"
         print(f"reading {file_name}..")
         df = pd.read_csv(file_name)
 
@@ -806,9 +808,9 @@ class ProductHelper:
         for _, row in df.iterrows():
             category = product_categories[row["category"]]
             if use_by == "id":
-                product_ids = row["product_ids"].split(";")
+                product_ids = row["product_ids"].split(delimiter)
             else:
-                vendor_products = row["vendor_products"].split(";")
+                vendor_products = row["vendor_products"].split(delimiter)
                 vendor_products = [
                     Q(vendor__slug=vendor_product.split("-")[0]) & Q(product_id=vendor_product.split("-", 1)[1])
                     for vendor_product in vendor_products
@@ -816,7 +818,7 @@ class ProductHelper:
                 q = reduce(or_, vendor_products)
                 product_ids = list(ProductModel.objects.filter(q).values_list("id", flat=True))
 
-            product_names = row["product_names"].split(";")
+            product_names = row["product_names"].split(delimiter)
             parent_product_objs.append(
                 ParentProduct(
                     product=ProductModel(
