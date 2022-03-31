@@ -206,13 +206,15 @@ class OfficeProductHelper:
         products_to_be_fetched = {}
         for product_id, product in products.items():
             # TODO: should be exclude products that has no vendor
-            if product_id not in product_prices_from_db.keys() and product.vendor.slug not in (
-                "net_32",
-                "implant_direct",
-                "edge_endo",
-                "dental_city",
-            ):
-                products_to_be_fetched[product_id] = await sync_to_async(product.to_dict)()
+            if product_id not in product_prices_from_db.keys():
+                product_data = await sync_to_async(product.to_dict)()
+                if product_data["vendor"] not in (
+                    "net_32",
+                    "implant_direct",
+                    "edge_endo",
+                    "dental_city",
+                ):
+                    products_to_be_fetched[product_id] = product_data
 
         if products_to_be_fetched:
             product_prices_from_vendors = await OfficeProductHelper.get_product_prices_from_vendors(
