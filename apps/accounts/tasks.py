@@ -2,7 +2,6 @@ import asyncio
 import logging
 import operator
 from calendar import monthrange
-from datetime import timedelta
 from functools import reduce
 from http.cookies import SimpleCookie
 from typing import List
@@ -17,8 +16,8 @@ from django.core.management import call_command
 from django.db.models import Q
 from django.template.loader import render_to_string
 from django.utils import timezone
-from month import Month
 
+from apps.accounts.helper import OfficeBudgetHelper
 from apps.accounts.models import CompanyMember, Office, OfficeVendor, User
 from apps.orders.helpers import OfficeProductHelper
 from apps.orders.models import OfficeProductCategory, OrderStatus, VendorOrder
@@ -240,17 +239,4 @@ def send_budget_update_notification():
 
 @shared_task
 def update_office_budget():
-    today = timezone.now().date()
-    month_first_day = today.replace(day=1)
-    current_month = Month(today.year, today.month)
-    previous_month_last_day = (month_first_day - timedelta(days=1)).replace(day=1)
-    previous_month = Month(previous_month_last_day.year, previous_month_last_day.month)
-
-    offices = Office.objects.exclude(budgets__month=current_month)
-    for office in offices:
-        office_budget = office.budgets.get(month=previous_month)
-        office_budget.id = None
-        office_budget.dental_spend = 0
-        office_budget.office_spend = 0
-        office_budget.month = current_month
-        office_budget.save()
+    OfficeBudgetHelper.update_budget_with_previous_month()
