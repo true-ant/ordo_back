@@ -101,6 +101,9 @@ class ProductV2Serializer(serializers.ModelSerializer):
             if "product_price" not in ret:
                 ret["product_price"] = instance.office_product[0].price
 
+        if "product_price" not in ret or ret["product_price"] is None:
+            ret["product_price"] = instance.price
+
         children_ids = instance.children.values_list("id", flat=True)
         if vendors:
             children_ids = children_ids.filter(vendor__slug__in=vendors)
