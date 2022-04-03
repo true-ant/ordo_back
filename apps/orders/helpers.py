@@ -54,6 +54,7 @@ from apps.vendor_clients.types import Product, ProductPrice, VendorCredential
 SmartID = Union[int, str]
 ProductID = SmartID
 ProductIDs = List[ProductID]
+CSV_DELIMITER = "!@#$%"
 
 
 class ParentProduct(TypedDict):
@@ -761,7 +762,6 @@ class ProductHelper:
         include_category_slugs: Optional[List[str]] = None,
         exclude_category_slugs: Optional[List[str]] = None,
     ):
-        delimiter = "!@#$%"
         """export grouped products to csv format"""
         products = ProductModel.objects.filter(vendor__isnull=True).order_by("category__name")
         if include_category_slugs:
@@ -789,16 +789,15 @@ class ProductHelper:
                 csvwriter.writerow(
                     [
                         product.category.slug,
-                        concatenate_strings(product_ids, delimeter=delimiter),
-                        concatenate_strings(vendor_products, delimeter=delimiter),
-                        concatenate_strings(product_names, delimeter=delimiter),
-                        concatenate_strings(product_urls, delimeter=delimiter),
+                        concatenate_strings(product_ids, delimeter=CSV_DELIMITER),
+                        concatenate_strings(vendor_products, delimeter=CSV_DELIMITER),
+                        concatenate_strings(product_names, delimeter=CSV_DELIMITER),
+                        concatenate_strings(product_urls, delimeter=CSV_DELIMITER),
                     ]
                 )
 
     @staticmethod
     def import_products_similarity(file_name: str, use_by: str = "id"):
-        delimiter = "!@#$%"
         print(f"reading {file_name}..")
         df = pd.read_csv(file_name)
 
@@ -808,9 +807,9 @@ class ProductHelper:
         for _, row in df.iterrows():
             category = product_categories[row["category"]]
             if use_by == "id":
-                product_ids = row["product_ids"].split(delimiter)
+                product_ids = row["product_ids"].split(CSV_DELIMITER)
             else:
-                vendor_products = row["vendor_products"].split(delimiter)
+                vendor_products = row["vendor_products"].split(CSV_DELIMITER)
                 vendor_products = [
                     Q(vendor__slug=vendor_product.split("-")[0]) & Q(product_id=vendor_product.split("-", 1)[1])
                     for vendor_product in vendor_products
@@ -818,7 +817,7 @@ class ProductHelper:
                 q = reduce(or_, vendor_products)
                 product_ids = list(ProductModel.objects.filter(q).values_list("id", flat=True))
 
-            product_names = row["product_names"].split(delimiter)
+            product_names = row["product_names"].split(CSV_DELIMITER)
             parent_product_objs.append(
                 ParentProduct(
                     product=ProductModel(
