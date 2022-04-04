@@ -8,7 +8,7 @@ from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
-from apps.scrapers.schema import Order, Product
+from apps.scrapers.schema import Order, Product, VendorOrderDetail
 from apps.scrapers.utils import semaphore_coroutine
 from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation, ProductSearch
@@ -493,5 +493,21 @@ class PattersonScraper(Scraper):
             "last_page": page_size * page >= total_size,
         }
 
-    async def checkout(self, products: List[CartProduct]):
-        pass
+    async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
+        vendor_order_detail = {
+            "retail_amount": "",
+            "savings_amount": "",
+            "subtotal_amount": "",
+            "shipping_amount": "",
+            "tax_amount": "",
+            "total_amount": "",
+            "payment_method": "",
+            "shipping_address": "",
+        }
+        vendor_slug: str = self.vendor.slug
+        return {
+            vendor_slug: {
+                **vendor_order_detail,
+                **self.vendor.to_dict(),
+            },
+        }

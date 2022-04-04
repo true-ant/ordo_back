@@ -1,9 +1,12 @@
 import logging
+from typing import Dict, List
 
 from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
+from apps.scrapers.schema import VendorOrderDetail
+from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation, ProductSearch
 
 logger = logging.getLogger(__name__)
@@ -114,3 +117,22 @@ class ImplantDirectScraper(Scraper):
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price", office_id=None
     ) -> ProductSearch:
         return await self._search_products_from_table(query, page, min_price, max_price, sort_by, office_id)
+
+    async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
+        vendor_order_detail = {
+            "retail_amount": "",
+            "savings_amount": "",
+            "subtotal_amount": "",
+            "shipping_amount": "",
+            "tax_amount": "",
+            "total_amount": "",
+            "payment_method": "",
+            "shipping_address": "",
+        }
+        vendor_slug: str = self.vendor.slug
+        return {
+            vendor_slug: {
+                **vendor_order_detail,
+                **self.vendor.to_dict(),
+            },
+        }

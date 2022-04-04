@@ -900,12 +900,22 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         try:
             session = apps.get_app_config("accounts").session
             tasks = []
+            tmp_variables = []
             for office_vendor in office_vendors:
                 scraper = ScraperFactory.create_scraper(
                     vendor=office_vendor.vendor,
                     session=session,
                     username=office_vendor.username,
                     password=office_vendor.password,
+                )
+                tmp_variables.append(
+                    sum(
+                        [
+                            cart_product.quantity * cart_product.unit_price
+                            for cart_product in cart_products
+                            if cart_product.product.vendor.id == office_vendor.vendor.id
+                        ]
+                    )
                 )
                 tasks.append(
                     scraper.create_order(
@@ -921,7 +931,15 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                     )
                 )
             results = await asyncio.gather(*tasks, return_exceptions=True)
-            for result in results:
+            for i, result in enumerate(results):
+                vendor_slug = list(result.keys())[0]
+                if vendor_slug not in ("henry_schien", "darby", "benco", "net_32"):
+                    result[vendor_slug]["retail_amount"] = Decimal(0)
+                    result[vendor_slug]["savings_amount"] = Decimal(0)
+                    result[vendor_slug]["subtotal_amount"] = tmp_variables[i]
+                    result[vendor_slug]["shipping_amount"] = Decimal(0)
+                    result[vendor_slug]["tax_amount"] = Decimal(0)
+                    result[vendor_slug]["total_amount"] = tmp_variables[i]
                 ret.update(result)
         except Exception as e:
             return Response({"message": f"{e}"}, status=HTTP_400_BAD_REQUEST)

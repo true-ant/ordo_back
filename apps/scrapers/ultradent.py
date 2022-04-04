@@ -1,14 +1,15 @@
 import asyncio
 import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from aiohttp import ClientResponse
 from asgiref.sync import sync_to_async
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
-from apps.scrapers.schema import Order, Product, ProductCategory
+from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network, semaphore_coroutine
+from apps.types.orders import CartProduct
 from apps.types.scraper import InvoiceFile, LoginInformation, ProductSearch
 
 HEADERS = {
@@ -487,3 +488,22 @@ class UltraDentScraper(Scraper):
         ) as resp:
             order_detail_html = (await resp.json())["data"]["orderHtml"]["orderDetailHtml"]
             return await self.html2pdf(order_detail_html.encode("utf-8"))
+
+    async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
+        vendor_order_detail = {
+            "retail_amount": "",
+            "savings_amount": "",
+            "subtotal_amount": "",
+            "shipping_amount": "",
+            "tax_amount": "",
+            "total_amount": "",
+            "payment_method": "",
+            "shipping_address": "",
+        }
+        vendor_slug: str = self.vendor.slug
+        return {
+            vendor_slug: {
+                **vendor_order_detail,
+                **self.vendor.to_dict(),
+            },
+        }
