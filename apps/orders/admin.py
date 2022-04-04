@@ -1,12 +1,34 @@
+import csv
+
 from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
 from django.db.models import Q
+from django.http import HttpResponse
 from django.utils.safestring import mark_safe
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
 from apps.common.admins import ReadOnlyAdminMixin
 
 from . import models as m
+
+
+class ExportCsvMixin:
+    def export_as_csv(self, request, queryset):
+
+        meta = self.model._meta
+        field_names = [field.name for field in meta.fields]
+
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = "attachment; filename={}.csv".format(meta)
+        writer = csv.writer(response)
+
+        writer.writerow(field_names)
+        for obj in queryset:
+            writer.writerow([getattr(obj, field) for field in field_names])
+
+        return response
+
+    export_as_csv.short_description = "Export Selected"
 
 
 class VendorOrderProductInline(ReadOnlyAdminMixin, NestedTabularInline):
@@ -185,7 +207,8 @@ class OfficeKeywordAdmin(admin.ModelAdmin):
 
 
 @admin.register(m.OfficeProduct)
-class OfficeProductAdmin(admin.ModelAdmin):
+class OfficeProductAdmin(admin.ModelAdmin, ExportCsvMixin):
+    actions = ["export_as_csv"]
     list_display = (
         "id",
         "office",
@@ -204,6 +227,7 @@ class OfficeProductAdmin(admin.ModelAdmin):
         "product__product_id",
         "product__name",
         "product__tags__keyword",
+        "office__name",
     )
 
     list_filter = (
