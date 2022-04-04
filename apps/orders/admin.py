@@ -207,7 +207,7 @@ class OfficeKeywordAdmin(admin.ModelAdmin):
 
 
 @admin.register(m.OfficeProduct)
-class OfficeProductAdmin(admin.ModelAdmin, ExportCsvMixin):
+class OfficeProductAdmin(admin.ModelAdmin):
     actions = ["export_as_csv"]
     list_display = (
         "id",
@@ -251,3 +251,39 @@ class OfficeProductAdmin(admin.ModelAdmin, ExportCsvMixin):
     @admin.display(description="Product Category")
     def product_category(self, obj):
         return obj.product.category
+
+    def export_as_csv(self, request, queryset):
+        field_names = ["Product Name", "Product ID", "Vendor", "price", "last_order_date", "last_order_price"]
+
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = "attachment; filename=inventory.csv"
+        writer = csv.writer(response)
+
+        writer.writerow(field_names)
+        queryset = (
+            queryset.select_related("vendor", "product")
+            .filter(product__vendor__isnull=False)
+            .values(
+                "product__name",
+                "product__product_id",
+                "product__vendor__name",
+                "price",
+                "last_order_date",
+                "last_order_price",
+            )
+        )
+        for obj in queryset:
+            writer.writerow(
+                [
+                    obj["product__name"],
+                    obj["product__product_id"],
+                    obj["product__vendor__name"],
+                    obj["price"],
+                    obj["last_order_date"],
+                    obj["last_order_price"],
+                ]
+            )
+
+        return response
+
+    export_as_csv.short_description = "Export Selected"
