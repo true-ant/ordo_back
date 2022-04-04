@@ -680,9 +680,9 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
             return queryset.order_by("product__vendor", "created_at", "-save_for_later")
 
     def get_serializer_class(self):
-        if self.request.method in ["POST"]:
-            return s.CartCreateSerializer
-        return s.CartSerializer
+        if self.request.method in ["GET"]:
+            return s.CartSerializer
+        return s.CartCreateSerializer
 
     async def update_vendor_cart(self, product_id, vendor, serializer=None):
         office_vendor = await sync_to_async(get_office_vendor)(office_pk=self.kwargs["office_pk"], vendor_pk=vendor.id)
