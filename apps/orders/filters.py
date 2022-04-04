@@ -125,7 +125,7 @@ class OfficeProductFilter(filters.FilterSet):
 
     def filter_product(self, queryset, name, value):
         product_ids = Product.objects.search(value).values_list("id", flat=True)
-        return queryset.filter(product_id__in=product_ids).distinct()
+        return queryset.filter(Q(product_id__in=product_ids) | Q(product__child__id__in=product_ids)).distinct()
         # q = (
         #     Q(product__product_id=value)
         #     | Q(product__name__icontains=value)
