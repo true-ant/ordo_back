@@ -506,6 +506,39 @@ class ProductHelper:
             df_index += batch_size
 
     @staticmethod
+    def import_promotion_products_from_csv(file_path, vendor_slug, verbose=True):
+        df = ProductHelper.read_products_from_csv(file_path, output_duplicates=True)
+        df_index = 0
+        batch_size = 500
+        df_len = len(df)
+
+        vendor = VendorModel.objects.get(slug=vendor_slug)
+        while df_len > df_index:
+            sub_df = df[df_index : df_index + batch_size]
+            product_objs = []
+            for index, row in sub_df.iterrows():
+                product = ProductModel.objects.filter(product_id=row["product_id"], vendor=vendor).first()
+                if product:
+                    product.is_special_offer = True
+                    price = convert_string_to_price(row["price"])
+                    if price:
+                        product.special_price = price
+                    product.promotion_description = row["promo"]
+                    product_objs.append(product)
+                else:
+                    if verbose:
+                        print(f"Missing product {row['product_id']} - {row['name']}")
+
+            bulk_update(
+                model_class=ProductModel,
+                objs=product_objs,
+                fields=["is_special_offer", "special_price", "promotion_description"],
+            )
+            if verbose:
+                print(f"Updated {len(product_objs)}s products")
+            df_index += batch_size
+
+    @staticmethod
     def group_products(
         product_ids: Optional[ProductID] = None,
         include_category_slugs: Optional[List[str]] = None,

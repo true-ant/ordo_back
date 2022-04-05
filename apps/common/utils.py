@@ -261,7 +261,7 @@ def convert_string_to_price(text: str) -> Decimal:
         price = extract_numeric_values(text)[0]
         price = price.replace(",", "")
         return Decimal(price)
-    except (KeyError, ValueError, TypeError):
+    except (KeyError, ValueError, TypeError, IndexError):
         return Decimal("0")
 
 
