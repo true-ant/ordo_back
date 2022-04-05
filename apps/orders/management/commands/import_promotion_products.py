@@ -32,7 +32,7 @@ class Command(BaseCommand):
             vendor, _ = get_file_name_and_ext(file_name)
             if vendors and vendor not in vendors:
                 continue
-            ProductHelper.import_promotion_products_from_csv(file_path=file_name, vendor_slug=vendor, verbose=False)
+            ProductHelper.import_promotion_products_from_csv(file_path=file_name, vendor_slug=vendor)
 
     def handle(self, *args, **options):
         vendors = options["vendors"]

@@ -506,8 +506,8 @@ class ProductHelper:
             df_index += batch_size
 
     @staticmethod
-    def import_promotion_products_from_csv(file_path, vendor_slug, verbose=True):
-        df = ProductHelper.read_products_from_csv(file_path, output_duplicates=True)
+    def import_promotion_products_from_csv(file_path: str, vendor_slug: str):
+        df = ProductHelper.read_products_from_csv(file_path, output_duplicates=False)
         df_index = 0
         batch_size = 500
         df_len = len(df)
@@ -526,16 +526,14 @@ class ProductHelper:
                     product.promotion_description = row["promo"]
                     product_objs.append(product)
                 else:
-                    if verbose:
-                        print(f"Missing product {row['product_id']} - {row['name']}")
+                    print(f"Missing product {row['product_id']} - {row['name']}")
 
             bulk_update(
                 model_class=ProductModel,
                 objs=product_objs,
                 fields=["is_special_offer", "special_price", "promotion_description"],
             )
-            if verbose:
-                print(f"Updated {len(product_objs)}s products")
+            print(f"Updated {len(product_objs)}s products")
             df_index += batch_size
 
     @staticmethod
