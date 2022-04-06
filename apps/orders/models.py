@@ -48,7 +48,7 @@ class ProductManager(models.Manager):
     def search(self, text):
         text = remove_character_between_numerics(text, character="-")
         trigram_similarity = TrigramSimilarity("name", text)
-        q = reduce(and_, [SearchQuery(word) for word in text.split(" ")])
+        q = reduce(and_, [SearchQuery(word, config="english") for word in text.split(" ")])
         return (
             self.get_queryset()
             .annotate(search=RawSQL("search_vector", [], output_field=SearchVectorField()))
