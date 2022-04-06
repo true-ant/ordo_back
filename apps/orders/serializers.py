@@ -78,6 +78,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
             "vendor",
             "name",
             "product_id",
+            "manufacturer_number",
             "category",
             "product_unit",
             "url",

@@ -15,6 +15,7 @@ from django.apps import apps
 from django.db import transaction
 from django.db.models import (
     Case,
+    Count,
     Exists,
     F,
     Model,
@@ -34,6 +35,7 @@ from apps.accounts.models import Vendor as VendorModel
 from apps.common.utils import (
     bulk_create,
     bulk_update,
+    concatenate_list_as_string,
     concatenate_strings,
     convert_string_to_price,
     find_numeric_values_from_string,
@@ -470,6 +472,9 @@ class ProductHelper:
                         for field in fields:
                             if field == "price":
                                 value = product_price
+                            elif field == "manufacturer_number":
+                                manufacturer_number = row[field].replace("-", "")
+                                value = manufacturer_number if manufacturer_number else None
                             else:
                                 value = row[field]
                             setattr(product, field, value)
@@ -535,6 +540,57 @@ class ProductHelper:
             )
             print(f"Updated {len(product_objs)}s products")
             df_index += batch_size
+
+    @staticmethod
+    def group_products_by_manufacturer_numbers():
+        """group products by using manufacturer_number. this number is identical for products"""
+        manufacturer_numbers = set(
+            ProductModel.objects.filter(manufacturer_number__isnull=False)
+            .order_by("manufacturer_number")
+            .values("manufacturer_number")
+            .annotate(products_count=Count("vendor"))
+            .filter(products_count__gte=2)
+            .values_list("manufacturer_number", flat=True)
+        )
+        products_to_be_updated = []
+        parent_products_to_be_created = []
+        for manufacturer_number in manufacturer_numbers:
+            similar_products = ProductModel.objects.filter(
+                manufacturer_number=manufacturer_number, vendor__isnull=False
+            )
+
+            # remove already existing parent products
+            similar_product_ids = similar_products.values_list("id", flat=True)
+            parent_products = ProductModel.objects.filter(child__id__in=similar_product_ids).distinct()
+            product_names = sorted(list(similar_products.values_list("name", flat=True)), key=lambda x: len(x))
+            display_text = concatenate_list_as_string(similar_product_ids, delimiter=",")
+
+            parent_products_count = parent_products.count()
+            if parent_products_count == 1:
+                parent_product = parent_products.first()
+                print(f"Parent product already existed {parent_product.id} {parent_product.name}: {display_text}")
+                parent_product.manufacturer_number = manufacturer_number
+                parent_product.save()
+                for product in similar_products:
+                    product.parent = parent_product
+                    products_to_be_updated.append(product)
+            else:
+                if parent_products_count >= 2:
+                    parent_product_ids = parent_products.values_list("id", flat=True)
+                    print(
+                        f"Existed 2 parents {concatenate_list_as_string(parent_product_ids, delimiter=',')}: {display_text}"
+                    )
+                    ProductModel.objects.filter(id__in=parent_product_ids).delete()
+
+                parent_products_to_be_created.append(
+                    ParentProduct(
+                        product=ProductModel(name=product_names[0], manufacturer_number=manufacturer_number),
+                        children_ids=similar_product_ids,
+                    )
+                )
+
+        bulk_update(model_class=ProductModel, objs=products_to_be_updated, fields=["parent"])
+        ProductHelper.create_parent_products(parent_products_to_be_created)
 
     @staticmethod
     def group_products(

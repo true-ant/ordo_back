@@ -4,7 +4,7 @@ import os
 import re
 import uuid
 from decimal import Decimal
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import pandas as pd
 from dateutil.relativedelta import relativedelta
@@ -286,6 +286,10 @@ def sort_and_write_to_csv(
 
 def concatenate_strings(text: List[str], delimeter="") -> str:
     return delimeter.join(map(str.strip, text))
+
+
+def concatenate_list_as_string(objs: List[Any], delimiter="") -> str:
+    return delimiter.join(map(str.strip, map(str, objs)))
 
 
 def strip_whitespaces(text: str) -> str:
