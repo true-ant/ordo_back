@@ -554,7 +554,7 @@ class ProductHelper:
                 .values_list("manufacturer_number", flat=True)
             )
             products_to_be_updated = []
-            parent_products_to_be_created = []
+            # parent_products_to_be_created = []
             for i, manufacturer_number in enumerate(manufacturer_numbers):
                 print(f"Calculating {i}th: {manufacturer_number}")
                 similar_products = ProductModel.objects.filter(
@@ -573,26 +573,33 @@ class ProductHelper:
                     print(f"Parent product already existed {parent_product.id} {parent_product.name}: {display_text}")
                     parent_product.manufacturer_number = manufacturer_number
                     parent_product.save()
-                    for product in similar_products:
-                        product.parent = parent_product
-                        products_to_be_updated.append(product)
                 else:
                     if parent_products_count >= 2:
                         parent_product_ids = parent_products.values_list("id", flat=True)
-                        print(
-                            f"Existed 2 parents {concatenate_list_as_string(parent_product_ids, delimiter=',')}: {display_text}"
+                        display_text = (
+                            f"{concatenate_list_as_string(parent_product_ids, delimiter=',')}: {display_text}"
                         )
+                        print(f"Existed 2 parents {display_text}")
                         ProductModel.objects.filter(id__in=parent_product_ids).delete()
 
-                    parent_products_to_be_created.append(
-                        ParentProduct(
-                            product=ProductModel(name=product_names[0], manufacturer_number=manufacturer_number),
-                            children_ids=similar_product_ids,
-                        )
+                    parent_product = ProductModel.objects.create(
+                        name=product_names[0], manufacturer_number=manufacturer_number
                     )
 
+                for product in similar_products:
+                    product.parent = parent_product
+                    products_to_be_updated.append(product)
+
+                    # parent_products_to_be_created.append(
+                    #     ParentProduct(
+                    #         product=ProductModel(name=product_names[0], manufacturer_number=manufacturer_number),
+                    #         children_ids=similar_product_ids,
+                    #     )
+                    # )
+
+            print("updating databases...")
             bulk_update(model_class=ProductModel, objs=products_to_be_updated, fields=["parent"])
-            ProductHelper.create_parent_products(parent_products_to_be_created)
+            # ProductHelper.create_parent_products(parent_products_to_be_created)
 
     @staticmethod
     def group_products(
