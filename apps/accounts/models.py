@@ -172,6 +172,11 @@ class OfficeVendor(models.Model):
     username = models.CharField(max_length=100)
     password = models.CharField(max_length=100)
     task_id = models.CharField(max_length=64, null=True, blank=True)
+    vendor_phone_number = PhoneNumberField(null=True, blank=True)
+    vendor_email = models.EmailField(null=True, blank=True)
+    representative_full_name = models.CharField(max_length=256, null=True, blank=True)
+    representative_email = models.EmailField(null=True, blank=True)
+    representative_phone_number = PhoneNumberField(null=True, blank=True)
 
     class Meta:
         unique_together = [
