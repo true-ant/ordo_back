@@ -1,5 +1,6 @@
 import asyncio as aio
 import csv
+import datetime
 import itertools
 from collections import defaultdict
 from decimal import Decimal
@@ -449,12 +450,12 @@ class ProductHelper:
         df_len = len(df)
 
         vendor = VendorModel.objects.get(slug=vendor_slug)
-
         category_mapping = ProductHelper.get_vendor_category_mapping()
 
         while df_len > df_index:
             sub_df = df[df_index : df_index + batch_size]
-            product_objs = []
+            product_objs_to_be_created = []
+            product_objs_to_be_updated = []
             for index, row in sub_df.iterrows():
                 category = slugify(row.pop("category"))
                 product_category = category_mapping[vendor_slug].get(category)
@@ -477,13 +478,26 @@ class ProductHelper:
                                 value = manufacturer_number if manufacturer_number else None
                             else:
                                 value = row[field]
-                            setattr(product, field, value)
 
-                        product_objs.append(product)
+                            if getattr(product, field) != value:
+                                setattr(product, field, value)
+                                product_objs_to_be_updated.append(product)
                     else:
                         print(f"Cannot find out {row['product_id']}")
+                        product_objs_to_be_created.append(
+                            ProductModel(
+                                vendor=vendor,
+                                product_id=row["product_id"],
+                                name=row["name"],
+                                product_unit=row["product_unit"],
+                                url=row["url"],
+                                category=product_category,
+                                price=product_price,
+                                manufacturer_number=row["manufacturer_number"],
+                            )
+                        )
                 else:
-                    product_objs.append(
+                    product_objs_to_be_created.append(
                         ProductModel(
                             vendor=vendor,
                             product_id=row["product_id"],
@@ -492,15 +506,17 @@ class ProductHelper:
                             url=row["url"],
                             category=product_category,
                             price=product_price,
+                            manufacturer_number=row["manufacturer_number"],
                         )
                     )
 
             if fields:
-                bulk_update(model_class=ProductModel, objs=product_objs, fields=fields)
-                print(f"{vendor}: {len(product_objs)} products updated")
-            else:
-                product_objs = bulk_create(model_class=ProductModel, objs=product_objs)
-                print(f"{vendor}: {len(product_objs)} products created")
+                bulk_update(model_class=ProductModel, objs=product_objs_to_be_updated, fields=fields)
+                print(f"{vendor}: {len(product_objs_to_be_updated)} products updated")
+
+            if product_objs_to_be_created:
+                product_objs = bulk_create(model_class=ProductModel, objs=product_objs_to_be_created)
+                print(f"{vendor}: {len(product_objs_to_be_created)} products created")
                 product_image_objs = []
                 for product, product_images in zip(product_objs, sub_df["images"]):
                     product_images = product_images.split(";")
@@ -542,11 +558,13 @@ class ProductHelper:
             df_index += batch_size
 
     @staticmethod
-    def group_products_by_manufacturer_numbers():
+    def group_products_by_manufacturer_numbers(since: Optional[datetime.datetime] = None):
         """group products by using manufacturer_number. this number is identical for products"""
+        products = ProductModel.objects.filter(manufacturer_number__isnull=False)
+        if since:
+            products = products.filter(updated_at__gt=since)
         manufacturer_numbers = set(
-            ProductModel.objects.filter(manufacturer_number__isnull=False)
-            .order_by("manufacturer_number")
+            products.order_by("manufacturer_number")
             .values("manufacturer_number")
             .annotate(products_count=Count("vendor"))
             .filter(products_count__gte=2)

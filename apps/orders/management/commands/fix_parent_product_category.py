@@ -29,3 +29,4 @@ class Command(BaseCommand):
         bulk_update(model_class=Product, objs=parent_products_to_be_updated, fields=["category"])
 
         print(f"Deleted {len(parent_products_to_be_deleted)} products...")
+        Product.objects.filter(id__in=parent_products_to_be_deleted).delete()
