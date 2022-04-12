@@ -157,6 +157,14 @@ class OfficeProductCategory(TimeStampedModel):
     class Meta:
         unique_together = ["office", "name"]
 
+    @classmethod
+    def office_product_categories_mapper(cls, office):
+        if isinstance(office, Office):
+            objs = cls.objects.filter(office=office)
+        else:
+            objs = cls.objects.filter(office_id=office)
+        return {product_category["slug"]: product_category["id"] for product_category in objs.values("id", "slug")}
+
 
 class OfficeProduct(TimeStampedModel):
     """
