@@ -339,10 +339,9 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
         return m.OfficeVendor.objects.filter(office_id=self.kwargs["office_pk"])
 
     def get_serializer_class(self):
-        if self.action == "list":
-            return s.OfficeVendorListSerializer
-        else:
+        if self.request.method in ["POST"]:
             return s.OfficeVendorSerializer
+        return s.OfficeVendorListSerializer
 
     @sync_to_async
     def _validate(self, data):
