@@ -14,7 +14,8 @@ def from_dict(cls, dict_data):
             return field_type(v)
         elif field_type is Decimal:
             try:
-                v = Decimal(str(v).strip(" $"))
+                v = str(v).replace(",", "").strip(" $")
+                v = Decimal(v)
             except InvalidOperation:
                 v = Decimal("0")
             return v
@@ -50,17 +51,47 @@ class BaseDataClass:
 
 
 @dataclass(frozen=True)
+class ProductImage(BaseDataClass):
+    image: str
+
+
+@dataclass(frozen=True)
+class Vendor(BaseDataClass):
+    id: str
+    name: str
+    slug: str
+    url: str
+    logo: str
+
+
+@dataclass(frozen=True)
+class ProductCategory(BaseDataClass):
+    name: str
+    slug: str
+
+
+@dataclass(frozen=True, repr=False)
 class Product(BaseDataClass):
     product_id: str
     name: str
     description: str
     url: str
-    image: str
+    images: List[ProductImage]
     price: Decimal  # Decimal
-    retail_price: str  # Decimal
-    vendor_id: str
+    vendor: Vendor
+    category: List[str]  # this is a list of categories including sub-categories
+    product_unit: str
     # stars: Decimal
     # ratings: Decimal
+
+    def __hash__(self):
+        return hash(f"{self.vendor.id}{self.product_id}")
+
+    def __str__(self):
+        return f"Product(product_id={self.product_id})"
+
+    def __repr__(self):
+        return f"Product(product_id={self.product_id})"
 
 
 @dataclass(frozen=True)
@@ -69,6 +100,8 @@ class OrderProduct(BaseDataClass):
     quantity: int
     unit_price: Decimal
     status: str
+    tracking_link: str
+    tracking_number: str
 
 
 @dataclass(frozen=True)
@@ -81,15 +114,29 @@ class Address(BaseDataClass):
 @dataclass(frozen=True)
 class Order(BaseDataClass):
     order_id: str
+    vendor_order_reference: str
     total_amount: Decimal
     currency: str
     order_date: date
     status: str
     shipping_address: Address
     products: List[OrderProduct]
+    invoice_link: str
     total_items: int = 0
 
     def to_dict(self) -> dict:
         ret = super().to_dict()
         ret["total_items"] = len(self.products)
         return ret
+
+
+@dataclass(frozen=True)
+class VendorOrderDetail(BaseDataClass):
+    retail_amount: Decimal
+    savings_amount: Decimal
+    subtotal_amount: Decimal
+    shipping_amount: Decimal
+    tax_amount: Decimal
+    total_amount: Decimal
+    payment_method: str
+    shipping_address: str

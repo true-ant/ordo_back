@@ -13,8 +13,11 @@ import datetime
 import os
 from pathlib import Path
 
+import sentry_sdk
 from celery.schedules import crontab
 from dotenv import load_dotenv
+from sentry_sdk.integrations.celery import CeleryIntegration
+from sentry_sdk.integrations.django import DjangoIntegration
 
 load_dotenv()
 
@@ -41,6 +44,7 @@ DANGO_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",
 ]
 
 THIRD_PARTY_APPS = [
@@ -50,12 +54,14 @@ THIRD_PARTY_APPS = [
     "django_filters",
     "phonenumber_field",
     "django_celery_beat",
+    "nested_admin",
 ]
 
 ORDO_APPS = [
     "apps.accounts.apps.AccountsConfig",
     "apps.common.apps.CommonConfig",
     "apps.orders.apps.OrdersConfig",
+    "apps.notifications.apps.NotificationsConfig",
 ]
 
 INSTALLED_APPS = DANGO_APPS + THIRD_PARTY_APPS + ORDO_APPS
@@ -146,7 +152,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
 
-# STATIC_URL = "/static/"
+STATIC_URL = "/static/"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
@@ -157,7 +163,9 @@ AUTH_USER_MODEL = "accounts.User"
 STAGE = os.environ.get("STAGE")
 
 # Email Settings
-DEFAULT_FROM_EMAIL = "noreply@joinordo.com"
+DEFAULT_FROM_EMAIL = "hello@joinordo.com"
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
 
 # Frontend Settings
 SITE_URL = os.getenv("SITE_URL", "http://localhost:8000")
@@ -173,8 +181,20 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULE = {
     "update_office_budget": {
         "task": "apps.accounts.tasks.update_office_budget",
-        "schedule": crontab(day_of_month=1),
-    }
+        "schedule": crontab(hour=0, minute=0, day_of_month=1),
+    },
+    "send_budget_update_notification": {
+        "task": "apps.accounts.tasks.send_budget_update_notification",
+        "schedule": crontab(hour=0, minute=0),
+    },
+    "update_office_cart_status": {
+        "task": "apps.orders.tasks.update_office_cart_status",
+        "schedule": crontab(minute="*/10"),
+    },
+    "sync_with_vendors": {
+        "task": "apps.orders.tasks.sync_with_vendors",
+        "schedule": crontab(minute=0, hour=0),
+    },
 }
 
 # Django Rest Framework
@@ -206,13 +226,28 @@ AWS_SES_REGION_NAME = os.getenv("AWS_SES_REGION_NAME")
 AWS_SES_REGION_ENDPOINT = os.getenv("AWS_SES_REGION_ENDPOINT")
 AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
 AWS_DEFAULT_ACL = None
-AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
+AWS_S3_CUSTOM_DOMAIN = "cdn.staging.joinordo.com"
 AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
 
-STATIC_LOCATION = "static"
-STATIC_URL = f"https://s3.amazonaws.com/{AWS_STORAGE_BUCKET_NAME}/{STATIC_LOCATION}/"
+STATIC_LOCATION = "/static/"
 STATICFILES_STORAGE = "apps.common.storage_backends.StaticStorage"
 
-PUBLIC_MEDIA_LOCATION = "media"
-MEDIA_URL = f"https://s3.amazonaws.com/{AWS_STORAGE_BUCKET_NAME}/{PUBLIC_MEDIA_LOCATION}/"
+PUBLIC_MEDIA_LOCATION = "/media/"
 DEFAULT_FILE_STORAGE = "apps.common.storage_backends.PublicMediaStorage"
+
+# phone number field settings
+PHONENUMBER_DB_FORMAT = "NATIONAL"
+PHONENUMBER_DEFAULT_REGION = "US"
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration(), CeleryIntegration()],
+        traces_sample_rate=1.0,
+        send_default_pii=True,
+    )
+
+# Stripe
+STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
+STRIPE_SUBSCRIPTION_PRICE_ID = os.getenv("STRIPE_SUBSCRIPTION_PRICE_ID")
+MAKE_FAKE_ORDER = os.getenv("MAKE_FAKE_ORDER", True)

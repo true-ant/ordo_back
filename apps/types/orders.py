@@ -1,4 +1,7 @@
-from typing import TypedDict
+from decimal import Decimal
+from typing import TypedDict, Union
+
+PriceType = Union[str, Decimal]
 
 
 class LinkedVendor(TypedDict):
@@ -9,4 +12,16 @@ class LinkedVendor(TypedDict):
 
 class CartProduct(TypedDict):
     product_id: str
+    product_unit: str
     quantity: int
+
+
+class VendorCartProduct(TypedDict):
+    product_id: Union[str, int]
+    unit_price: PriceType
+
+
+class ProductTrack(TypedDict):
+    product_id: str
+    tracking_link: str
+    tracking_number: str

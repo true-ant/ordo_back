@@ -1,13 +1,289 @@
+import csv
+
 from django.contrib import admin
+from django.contrib.admin import SimpleListFilter
+from django.db.models import Q
+from django.http import HttpResponse
+from django.utils.safestring import mark_safe
+from nested_admin.nested import NestedModelAdmin, NestedTabularInline
+
+from apps.common.admins import ReadOnlyAdminMixin
 
 from . import models as m
 
 
+class ExportCsvMixin:
+    def export_as_csv(self, request, queryset):
+
+        meta = self.model._meta
+        field_names = [field.name for field in meta.fields]
+
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = "attachment; filename={}.csv".format(meta)
+        writer = csv.writer(response)
+
+        writer.writerow(field_names)
+        for obj in queryset:
+            writer.writerow([getattr(obj, field) for field in field_names])
+
+        return response
+
+    export_as_csv.short_description = "Export Selected"
+
+
+class VendorOrderProductInline(ReadOnlyAdminMixin, NestedTabularInline):
+    model = m.VendorOrderProduct
+    fields = readonly_fields = (
+        "product",
+        "unit_price",
+        "quantity",
+        "total_price",
+        "status",
+        "vendor_status",
+        "track",
+    )
+
+    def total_price(self, obj):
+        return obj.quantity * obj.unit_price
+
+    def track(self, obj):
+        return mark_safe(f"<a href='{obj.tracking_link}'> Track </a>")
+
+
+class VendorOrderInline(ReadOnlyAdminMixin, NestedTabularInline):
+    model = m.VendorOrder
+    fk_name = "order"
+    fields = (
+        "vendor",
+        "invoice",
+        "vendor_order_reference",
+        "order_date",
+        "total_amount",
+        "total_items",
+        "currency",
+        "status",
+    )
+    readonly_fields = fields
+    inlines = (VendorOrderProductInline,)
+
+    def invoice(self, obj):
+        return mark_safe(f"<a href='{obj.invoice_link}'> {obj.vendor_order_id} </a>")
+
+
+class OrderVendorFilter(SimpleListFilter):
+    title = "Vendor"
+    parameter_name = "vendors"
+
+    def lookups(self, request, model_admin):
+        return m.Vendor.objects.values_list("slug", "name")
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if not value:
+            return queryset
+        return queryset.filter(vendor_orders__vendor__slug=value)
+
+
 @admin.register(m.Order)
-class OrderAdmin(admin.ModelAdmin):
-    pass
+class OrderAdmin(NestedModelAdmin):
+    list_display = ("id", "company", "office", "vendors", "order_date", "status")
+    search_fields = ("vendor_orders__vendor_order_id",)
+    list_filter = (
+        "status",
+        OrderVendorFilter,
+    )
+    inlines = (VendorOrderInline,)
+
+    @admin.display(description="Company")
+    def company(self, obj):
+        return obj.office.company
+
+    @admin.display(description="Vendors")
+    def vendors(self, objs):
+        return ", ".join([vendor_order.vendor.name for vendor_order in objs.vendor_orders.all()])
+
+
+class ProductPriceFilter(SimpleListFilter):
+    title = "Price Range"
+    parameter_name = "price"
+
+    def lookups(self, request, model_admin):
+        return ("_100", "0 - 100"), ("100_200", "100 - 200"), ("200_300", "200 - 300"), ("300_", "300 +")
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if not value:
+            return queryset
+        if value == "_100":
+            return queryset.filter(price__lte=100)
+        elif value == "100_200":
+            return queryset.filter(Q(price__gt=100) & Q(price__lte=200))
+        elif value == "200_300":
+            return queryset.filter(Q(price__gt=200) & Q(price__lte=300))
+        else:
+            return queryset.filter(price__gt=300)
+
+
+@admin.register(m.ProductCategory)
+class ProductCategoryAdmin(admin.ModelAdmin):
+    list_display = ("__str__", "name", "parent")
+
+
+@admin.register(m.OfficeProductCategory)
+class OfficeProductCategoryAdmin(admin.ModelAdmin):
+    list_display = ("id", "office", "name", "slug", "predefined")
+    search_fields = (
+        "office__name",
+        "name",
+        "slug",
+    )
+
+
+class ProductImageInline(ReadOnlyAdminMixin, admin.TabularInline):
+    model = m.ProductImage
+    readonly_fields = (
+        "image_preview",
+        "image",
+    )
+
+    def image_preview(self, obj):
+        return mark_safe("<img src='{}'  width='30' height='30' />".format(obj.image))
+
+    image_preview.short_description = "Preview"
 
 
 @admin.register(m.Product)
 class ProductAdmin(admin.ModelAdmin):
-    pass
+    list_per_page = 20
+    list_display = (
+        "id",
+        "product_thumb",
+        "product_id",
+        "name",
+        "vendor",
+        "category",
+        "get_url",
+    )
+    search_fields = (
+        "product_id",
+        "name",
+        "tags__keyword",
+    )
+    list_filter = (
+        "vendor",
+        "category",
+    )
+    inlines = (ProductImageInline,)
+
+    @admin.display(description="url")
+    def get_url(self, obj):
+        return mark_safe(f"<a target='_blank' href={obj.url}>Link</a>")
+
+    @admin.display(description="Image")
+    def product_thumb(self, obj):
+        image = obj.images.first()
+        if image:
+            return mark_safe("<img src='{}'  width='30' height='30' />".format(image.image))
+        else:
+            return "No Image Found"
+
+
+@admin.register(m.Keyword)
+class KeywordAdmin(admin.ModelAdmin):
+    search_fields = ("keyword",)
+
+
+@admin.register(m.OfficeKeyword)
+class OfficeKeywordAdmin(admin.ModelAdmin):
+    list_per_page = 20
+    list_display = (
+        "keyword",
+        "office",
+        "vendor",
+        "task_status",
+    )
+    list_filter = ("task_status", "vendor")
+    search_fields = ("keyword__keyword",)
+
+
+@admin.register(m.OfficeProduct)
+class OfficeProductAdmin(admin.ModelAdmin):
+    actions = ["export_as_csv"]
+    list_display = (
+        "id",
+        "office",
+        "product_id",
+        "product_name",
+        "product_vendor",
+        "office_product_category",
+        "product_category",
+        "price",
+        "is_favorite",
+        "is_inventory",
+        "created_at",
+        "updated_at",
+    )
+    search_fields = (
+        "product__product_id",
+        "product__name",
+        "product__tags__keyword",
+        "office__name",
+    )
+
+    list_filter = (
+        "is_inventory",
+        "is_favorite",
+        "product__vendor",
+    )
+
+    @admin.display(description="Product ID")
+    def product_id(self, obj):
+        return obj.product.product_id
+
+    @admin.display(description="Product Name")
+    def product_name(self, obj):
+        return obj.product.name
+
+    @admin.display(description="Vendor")
+    def product_vendor(self, obj):
+        return obj.product.vendor
+
+    @admin.display(description="Product Category")
+    def product_category(self, obj):
+        return obj.product.category
+
+    def export_as_csv(self, request, queryset):
+        field_names = ["Product Name", "Product ID", "Vendor", "price", "last_order_date", "last_order_price"]
+
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = "attachment; filename=inventory.csv"
+        writer = csv.writer(response)
+
+        writer.writerow(field_names)
+        queryset = (
+            queryset.select_related("vendor", "product")
+            .filter(product__vendor__isnull=False)
+            .values(
+                "product__name",
+                "product__product_id",
+                "product__vendor__name",
+                "price",
+                "last_order_date",
+                "last_order_price",
+            )
+        )
+        for obj in queryset:
+            writer.writerow(
+                [
+                    obj["product__name"],
+                    obj["product__product_id"],
+                    obj["product__vendor__name"],
+                    obj["price"],
+                    obj["last_order_date"],
+                    obj["last_order_price"],
+                ]
+            )
+
+        return response
+
+    export_as_csv.short_description = "Export Selected"

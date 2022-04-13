@@ -1,0 +1,2 @@
+class VendorAuthenticationFailed(Exception):
+    pass

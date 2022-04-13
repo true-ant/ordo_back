@@ -1,8 +1,11 @@
-name,url
-Henry Schein,https://www.henryschein.com/
-Net 32,https://www.net32.com/
-Darby,https://www.darbydental.com/
-Patterson,https://www.pattersondental.com/
-Amazon,https://www.amazon.com/
-Ultradent,https://www.ultradent.com/
-Benco,https://www.benco.com/
+name,url,shipping_options
+Henry Schein,https://www.henryschein.com/,UPS Standard Delivery;Next Day Delivery (extra charge);Saturday Delivery (extra charge);Next Day 10:30 (extra charge);2nd Day Air (extra charge)
+Net 32,https://www.net32.com/,
+Darby,https://www.darbydental.com/,
+Patterson,https://www.pattersondental.com/,Standard;Second Day Air;Next Day Air
+Amazon,https://www.amazon.com/,
+Ultradent,https://www.ultradent.com/,Standard;2 Business Days;Next Business Day
+Benco,https://www.benco.com/,"Default (2DayGrnd.MT,WY,CO);UPS Ground;FedEx Ground;Truck;OnTrac;OnTrac WA,OR;OnTrac AZ;MOVERS;UPS 2nd Day Air;UPS Next Day Air;UPS Saturday Air;UPS 2nd Day Air A.M.;UPS 3 Day Select;UPS Next Day Air Saver;UPS Atlanta;UPS VA Beach;UPS UTAH;2DayGrnd.MT,WY,CO;UPS Southern CAL;UPS S.Carolina;FedEx Carolinas;UPS Ground;Truck"
+Implant Direct,https://www.implantdirect.com/,2 Day;Next Day Air;Next Day;Next Day Air Early;Next Day Early
+Edge Endo,https://www.edgeendo.com/,UPS Ground;UPS 3 Day Select;UPS 2nd Day Air;UPS Next Day Air Saver;UPS Next Day Air;UPS Next Day Air Early A.M.
+Dental City,https://dentalcity.com/,UPS Ground

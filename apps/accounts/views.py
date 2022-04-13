@@ -1,9 +1,12 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
+from decimal import Decimal
 
 from asgiref.sync import sync_to_async
+from dateutil.relativedelta import relativedelta
+
+# from celery.result import AsyncResult
 from django.apps import apps
 from django.db import transaction
-from django.db.utils import IntegrityError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from month import Month
@@ -12,20 +15,31 @@ from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.serializers import ValidationError
-from rest_framework.status import HTTP_201_CREATED, HTTP_400_BAD_REQUEST
+from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_REQUEST
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 from rest_framework_jwt.serializers import jwt_encode_handler, jwt_payload_handler
 
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
-from apps.scrapers.errors import VendorAuthenticationFailed, VendorNotSupported
+from apps.scrapers.errors import (
+    NetworkConnectionException,
+    VendorAuthenticationFailed,
+    VendorNotSupported,
+)
 from apps.scrapers.scraper_factory import ScraperFactory
 
+from . import filters as f
 from . import models as m
 from . import permissions as p
 from . import serializers as s
-from .tasks import fetch_orders_from_vendor, send_company_invite_email
+from .services.offices import OfficeService
+from .tasks import (
+    fetch_orders_from_vendor,
+    fetch_vendor_products_prices,
+    send_company_invite_email,
+    send_welcome_email,
+)
 
 
 class UserSignupAPIView(APIView):
@@ -64,13 +78,15 @@ class UserSignupAPIView(APIView):
                     invite_status=m.CompanyMember.InviteStatus.INVITE_APPROVED,
                     date_joined=timezone.now(),
                 )
-            payload = jwt_payload_handler(user)
-            return Response(
-                {
-                    "token": jwt_encode_handler(payload),
-                    "company": s.CompanySerializer(company).data,
-                }
-            )
+
+        payload = jwt_payload_handler(user)
+        send_welcome_email.delay(user_id=user.id)
+        return Response(
+            {
+                "token": jwt_encode_handler(payload),
+                "company": s.CompanySerializer(company).data,
+            }
+        )
 
 
 class CompanyViewSet(
@@ -106,6 +122,9 @@ class CompanyViewSet(
             instance.is_active = False
             instance.save()
 
+            for office in instance.offices.all():
+                OfficeService.cancel_subscription(office)
+
 
 class OfficeViewSet(ModelViewSet):
     permission_classes = [p.CompanyOfficePermission]
@@ -119,15 +138,32 @@ class OfficeViewSet(ModelViewSet):
         kwargs["partial"] = True
         return super().update(request, *args, **kwargs)
 
+    @action(detail=True, methods=["get"], url_path="renew-subscription")
+    def renew_subscription(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        result, message = OfficeService.create_subscription(instance)
+        return Response({"message": message}, status=HTTP_200_OK if result else HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=["get"], url_path="cancel-subscription")
+    def cancel_subscription(self, request, *args, **kwargs):
+        instance = self.get_object()
+        result, message = OfficeService.cancel_subscription(instance)
+        return Response({"message": message}, status=HTTP_200_OK if result else HTTP_400_BAD_REQUEST)
+
     def perform_destroy(self, instance):
         with transaction.atomic():
             active_members = m.CompanyMember.objects.filter(office=instance)
             for active_member in active_members:
                 active_member.is_active = False
 
-            m.CompanyMember.objects.bulk_update(active_members, ["is_active"])
+            if active_members:
+                m.CompanyMember.objects.bulk_update(active_members, ["is_active"])
             instance.is_active = False
             instance.save()
+
+            # cancel subscription
+            OfficeService.cancel_subscription(instance)
 
 
 class CompanyMemberViewSet(ModelViewSet):
@@ -144,6 +180,8 @@ class CompanyMemberViewSet(ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         request.data.setdefault("company", self.kwargs["company_pk"])
+        data = request.data
+        data["invited_by"] = request.user.id
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
@@ -161,6 +199,8 @@ class CompanyMemberViewSet(ModelViewSet):
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer_class = self.get_serializer_class()
+        data = request.data
+        data["invited_by"] = request.user.id
         serializer = serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         instance.role = serializer.validated_data["role"]
@@ -174,24 +214,51 @@ class CompanyMemberViewSet(ModelViewSet):
         emails = [member["email"] for member in serializer.validated_data["members"]]
         with transaction.atomic():
             company = m.Company.objects.get(id=self.kwargs["company_pk"])
-            company.on_boarding_step = serializer.validated_data["on_boarding_step"]
-            company.save()
+            on_boarding_step = serializer.validated_data.get("on_boarding_step")
+            if on_boarding_step:
+                company.on_boarding_step = serializer.validated_data.get("on_boarding_step")
+                company.save()
+
             users = m.User.objects.in_bulk(emails, field_name="username")
-            members = (
-                m.CompanyMember(
-                    company_id=kwargs["company_pk"],
-                    office=member.get("office", None),
-                    email=member["email"],
-                    role=member["role"],
-                    user=users.get(member["email"], None),
-                    token_expires_at=timezone.now() + timedelta(m.INVITE_EXPIRES_DAYS),
+
+            for member in serializer.validated_data["members"]:
+                pre_associated_offices = set(
+                    m.CompanyMember.objects.filter(company_id=kwargs["company_pk"], email=member["email"]).values_list(
+                        "office", flat=True
+                    )
                 )
-                for member in serializer.validated_data["members"]
-            )
-            try:
-                m.CompanyMember.objects.bulk_create(members)
-            except IntegrityError:
-                return Response({"message": msgs.INVITE_EMAIL_EXIST}, status=HTTP_400_BAD_REQUEST)
+
+                offices = member.get("offices")
+                if offices:
+                    offices = set(offices)
+                    to_be_removed_offices = pre_associated_offices
+
+                    if to_be_removed_offices:
+                        m.CompanyMember.objects.filter(
+                            email=member["email"], office_id__in=to_be_removed_offices
+                        ).delete()
+
+                    for i, office in enumerate(offices):
+                        m.CompanyMember.objects.create(
+                            company_id=kwargs["company_pk"],
+                            office=office,
+                            email=member["email"],
+                            role=member["role"],
+                            user=users.get(member["email"], None),
+                            invited_by=request.user,
+                            token_expires_at=timezone.now() + timedelta(m.INVITE_EXPIRES_DAYS),
+                        )
+                else:
+                    m.CompanyMember.objects.create(
+                        company_id=kwargs["company_pk"],
+                        office=None,
+                        email=member["email"],
+                        role=member["role"],
+                        user=users.get(member["email"], None),
+                        invited_by=request.user,
+                        token_expires_at=timezone.now() + timedelta(m.INVITE_EXPIRES_DAYS),
+                    )
+
         send_company_invite_email.delay(
             [
                 {
@@ -247,6 +314,22 @@ class VendorViewSet(ModelViewSet):
         kwargs.setdefault("partial", True)
         return super().update(request, *args, **kwargs)
 
+    @action(detail=False, methods=["post"], url_path="shipping_methods")
+    def shipping_methods(self, request, *args, **kwargs):
+        # TODO: currently hard code because not sure about shipping method across all vendors
+        vendors = request.data.get("vendors")
+        ret = {
+            "henry_schein": [
+                "UPS Standard Delivery",
+                "Next Day Delivery (extra charge)",
+                "Saturday Delivery (extra charge)",
+                "Next Day 10:30 (extra charge)",
+                "2nd Day Air (extra charge)",
+            ]
+        }
+        ret = {k: v for k, v in ret.items() if k in vendors}
+        return Response(ret)
+
 
 class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
     serializer_class = s.OfficeVendorListSerializer
@@ -254,6 +337,11 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
 
     def get_queryset(self):
         return m.OfficeVendor.objects.filter(office_id=self.kwargs["office_pk"])
+
+    def get_serializer_class(self):
+        if self.request.method in ["POST"]:
+            return s.OfficeVendorSerializer
+        return s.OfficeVendorListSerializer
 
     @sync_to_async
     def _validate(self, data):
@@ -269,27 +357,31 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
         serializer.is_valid(raise_exception=True)
         return serializer
 
-    @sync_to_async
-    def _save(self, serializer):
-        return serializer.save()
-
     async def create(self, request, *args, **kwargs):
         serializer = await self._validate({**request.data, "office": kwargs["office_pk"]})
         session = apps.get_app_config("accounts").session
         session._cookie_jar.clear()
         try:
-            scraper = ScraperFactory.create_scraper(
-                scraper_name=serializer.validated_data["vendor"].slug,
-                username=serializer.validated_data["username"],
-                password=serializer.validated_data["password"],
-                session=session,
-            )
-            login_cookies = await scraper.login()
-            office_vendor = await self._save(serializer)
-            fetch_orders_from_vendor.delay(
-                office_vendor_id=office_vendor.id,
-                login_cookies=login_cookies.output(),
-            )
+            if serializer.validated_data["vendor"].slug != "amazon":
+                scraper = ScraperFactory.create_scraper(
+                    vendor=serializer.validated_data["vendor"],
+                    username=serializer.validated_data["username"],
+                    password=serializer.validated_data["password"],
+                    session=session,
+                )
+                login_cookies = await scraper.login()
+                office_vendor = await sync_to_async(serializer.save)()
+                fetch_orders_from_vendor.delay(
+                    office_vendor_id=office_vendor.id,
+                    login_cookies=login_cookies.output(),
+                    # all scrapers work with login_cookies, but henryschein not working with login_cookies
+                    perform_login=serializer.validated_data["vendor"].slug == "henry_schein",
+                )
+            else:
+                await sync_to_async(serializer.save)()
+                # office_vendor.task_id = ar.id
+                # await sync_to_async(office_vendor.save)()
+
         except VendorNotSupported:
             return Response(
                 {
@@ -299,14 +391,36 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
             )
         except VendorAuthenticationFailed:
             return Response({"message": msgs.VENDOR_WRONG_INFORMATION}, status=HTTP_400_BAD_REQUEST)
+        except NetworkConnectionException:
+            return Response({"message": msgs.VENDOR_BAD_NETWORK_CONNECTION}, status=HTTP_400_BAD_REQUEST)
 
         return Response({"message": msgs.VENDOR_CONNECTED, **serializer.data})
+
+    @action(detail=True, methods=["get"], url_path="fetch-prices")
+    def fetch_product_prices(self, request, *args, **kwargs):
+        instance = self.get_object()
+        fetch_vendor_products_prices.delay(office_vendor_id=instance.id)
+        return Response(s.OfficeVendorSerializer(instance).data)
 
     @action(detail=True, methods=["post"], url_path="fetch")
     def fetch_orders(self, request, *args, **kwargs):
         instance = self.get_object()
         fetch_orders_from_vendor.delay(office_vendor_id=instance.id, login_cookies=None, perform_login=True)
-        return Response({})
+        # ar: AsyncResult = fetch_orders_from_vendor.delay(
+        #     office_vendor_id=instance.id, login_cookies=None, perform_login=True
+        # )
+        # instance.task_id = ar.id
+        # instance.save()
+        return Response(s.OfficeVendorSerializer(instance).data)
+
+    # @action(detail=True, methods=["get"], url_path="fetch-status")
+    # def get_fetching_status(self, request, *args, **kwargs):
+    #     instance = self.get_object()
+    #     if not instance.task_id:
+    #         return Response({"status": "SUCCESS", "message": "Fetching Orders has been finished"})
+    #
+    #     ar: AsyncResult = fetch_orders_from_vendor.AsyncResult(instance.task_id)
+    #     return Response({"status": ar.status})
 
 
 class UserViewSet(ModelViewSet):
@@ -333,14 +447,23 @@ class UserViewSet(ModelViewSet):
             active_memberships = m.CompanyMember.objects.filter(user=instance)
             for active_membership in active_memberships:
                 active_membership.is_active = False
-            instance.is_active = False
-            instance.save()
+
+            m.CompanyMember.objects.bulk_update(active_memberships, fields=["is_active"])
+
+            # cancel subscription if noone is in office
+            for active_membership in active_memberships:
+                if not m.CompanyMember.objects.filter(
+                    role=m.User.Role.ADMIN, company=active_membership.company
+                ).exists():
+                    for office in active_membership.company.offices.all():
+                        OfficeService.cancel_subscription(office)
 
 
 class OfficeBudgetViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = s.OfficeBudgetSerializer
     queryset = m.OfficeBudget.objects.all()
+    filterset_class = f.OfficeBudgetFilter
 
     def get_queryset(self):
         return super().get_queryset().filter(office_id=self.kwargs["office_pk"])
@@ -352,16 +475,69 @@ class OfficeBudgetViewSet(ModelViewSet):
             company.on_boarding_step = on_boarding_step
             company.save()
 
+        now_date = timezone.now().date()
         request.data.setdefault("office", self.kwargs["office_pk"])
+        request.data.setdefault("month", now_date)
         return super().create(request, *args, **kwargs)
+
+    @action(detail=False, methods=["get"], url_path="charts")
+    def get_chart_data(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        this_month = timezone.now().date().replace(day=1)
+        a_year_ago = this_month - relativedelta(months=11)
+        queryset = list(
+            queryset.filter(month__lte=this_month, month__gte=a_year_ago)
+            .order_by("month")
+            .values("month", "dental_budget", "dental_spend", "office_budget", "office_spend")
+        )
+        queryset = {str(q["month"]): q for q in queryset}
+
+        ret = []
+        for i in range(12):
+            month = a_year_ago + relativedelta(months=i)
+            month_str = month.strftime("%Y-%m")
+            if month_str in queryset:
+                ret.append(queryset[month_str])
+            else:
+                decimal_0 = Decimal(0)
+                ret.append(
+                    {
+                        "month": month_str,
+                        "dental_budget": decimal_0,
+                        "dental_spend": decimal_0,
+                        "office_budget": decimal_0,
+                        "office_spend": decimal_0,
+                    }
+                )
+        serializer = s.OfficeBudgetChartSerializer(ret, many=True)
+        return Response(serializer.data)
 
     def update(self, request, *args, **kwargs):
         kwargs.setdefault("partial", True)
         return super().update(request, *args, **kwargs)
 
-    @action(detail=False, url_path="current", methods=["get"])
-    def get_current_month_budget(self, *args, **kwargs):
-        current_date = timezone.now().date()
-        current_month_budget = self.get_queryset().filter(month=Month(current_date.year, current_date.month)).first()
+    @action(detail=False, url_path="stats", methods=["get"])
+    def get_current_month_budget(self, request, *args, **kwargs):
+        month = self.request.query_params.get("month", "")
+        try:
+            requested_date = datetime.strptime(month, "%Y-%m")
+        except ValueError:
+            requested_date = timezone.now().date()
+        current_month_budget = (
+            self.get_queryset().filter(month=Month(requested_date.year, requested_date.month)).first()
+        )
         serializer = self.get_serializer(current_month_budget)
         return Response(serializer.data)
+
+
+class HealthCheck(APIView):
+    def get(self, request):
+        return Response(status=HTTP_200_OK)
+
+
+class VendorRequestViewSet(ModelViewSet):
+    queryset = m.VendorRequest.objects.all()
+    serializer_class = s.VendorRequestSerializer
+
+    def get_queryset(self):
+        return self.queryset.filter(company_id=self.kwargs["company_pk"])

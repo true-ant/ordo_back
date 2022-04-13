@@ -115,10 +115,12 @@ class CompanyOfficeSpendTests(APITestCase):
         self.product1_price = Decimal("10.00")
         self.product2_price = Decimal("100.00")
         self.product1 = ProductFactory(
-            vendor=self.vendor1, price=self.product1_price, retail_price=self.product1_price
+            vendor=self.vendor1,
+            price=self.product1_price,
         )
         self.product2 = ProductFactory(
-            vendor=self.vendor2, price=self.product2_price, retail_price=self.product2_price
+            vendor=self.vendor2,
+            price=self.product2_price,
         )
         self.office1_vendor1 = OfficeVendorFactory(company=self.office1, vendor=self.vendor1)
         self.office1_vendor2 = OfficeVendorFactory(company=self.office1, vendor=self.vendor2)

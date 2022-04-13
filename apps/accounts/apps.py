@@ -9,9 +9,9 @@ class AccountsConfig(AppConfig):
         import apps.accounts.signals  # noqa
 
     async def initialize(self):
-        from aiohttp import ClientSession
+        from aiohttp import ClientSession, ClientTimeout
 
-        self.session = ClientSession()
+        self.session = ClientSession(timeout=ClientTimeout(300))
 
     async def finalize(self):
         await self.session.close()

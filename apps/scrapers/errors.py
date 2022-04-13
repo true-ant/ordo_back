@@ -1,3 +1,7 @@
+class VendorSiteError(Exception):
+    pass
+
+
 class VendorNotSupported(Exception):
     pass
 
@@ -7,4 +11,12 @@ class VendorAuthenticationFailed(Exception):
 
 
 class OrderFetchException(Exception):
+    pass
+
+
+class NetworkConnectionException(Exception):
+    pass
+
+
+class VendorNotConnected(Exception):
     pass
