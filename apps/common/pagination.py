@@ -9,16 +9,13 @@ class StandardResultsSetPagination(PageNumberPagination):
 
     def get_paginated_response(self, data):
         per_page = self.page.paginator.per_page
-        total = self.page.paginator.count
         page_number = int(self.request.query_params.get(self.page_query_param, 1))
         bottom = (page_number - 1) * per_page
         top = bottom + per_page
-        if top >= total:
-            top = total
 
         return Response(
             {
-                "total": total,
+                "total": -1,
                 "from": bottom + 1,
                 "to": top,
                 "per_page": per_page,

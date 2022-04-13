@@ -1393,8 +1393,9 @@ class ProductV2ViewSet(ModelViewSet):
         selected_products = self.request.query_params.get("selected_products")
         selected_products = selected_products.split(",") if selected_products else []
         products = m.Product.objects.search(query)
+        product_ids = list(products.values_list("id", flat=True))
         return ProductHelper.get_products(
-            office=office_pk, selected_products=selected_products, product_ids=products.values_list("id", flat=True)
+            office=office_pk, selected_products=selected_products, product_ids=product_ids
         )
 
     def get_serializer_context(self):

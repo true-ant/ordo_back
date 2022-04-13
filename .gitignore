@@ -134,3 +134,5 @@ dmypy.json
 !.elasticbeanstalk/*.cfg.yml
 !.elasticbeanstalk/*.global.yml
 *.csv
+
+init.sql
