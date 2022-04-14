@@ -53,7 +53,7 @@ class ProductManager(models.Manager):
             self.get_queryset()
             .annotate(search=RawSQL("search_vector", [], output_field=SearchVectorField()))
             .annotate(similarity=trigram_similarity)
-            .filter(Q(similarity__gt=0.3) | Q(search=q))
+            .filter(Q(search=q))
         )
 
 
@@ -84,6 +84,7 @@ class Product(TimeStampedModel):
     is_special_offer = models.BooleanField(default=False)
     special_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     promotion_description = models.TextField(null=True, blank=True)
+    search_vector = SearchVectorField()
 
     objects = ProductManager()
 

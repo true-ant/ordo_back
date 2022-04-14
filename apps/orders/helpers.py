@@ -988,9 +988,9 @@ class ProductHelper:
             ).distinct()
         else:
             if product_ids is not None:
-                products = products.filter(Q(id__in=product_ids)).distinct()
+                products = products.filter(Q(id__in=product_ids))
 
-            products = products.filter(Q(vendor_id__in=connected_vendor_ids)).distinct()
+            products = products.filter(Q(vendor_id__in=connected_vendor_ids))
 
         if selected_products is None:
             selected_products = []
@@ -1019,6 +1019,75 @@ class ProductHelper:
                 )
             )
             .annotate(
+                selected_product=Case(
+                    When(id__in=selected_products, then=Value(0)),
+                    default=Value(1),
+                )
+            )
+            .order_by("selected_product", "-is_inventory", "product_price")
+        )
+
+    @staticmethod
+    def get_products_v2(
+            office: Union[OfficeModel, SmartID],
+            fetch_parents: bool = True,
+            product_ids: Optional[List[SmartID]] = None,
+            products: Optional[QuerySet] = None,
+            selected_products: Optional[List[SmartID]] = None,
+    ):
+        """
+        fetch_parents:  True:   fetch parent products
+                        False:  fetch all products
+        selected_products: list of product id, product ids in this list will be ordered first
+        """
+        if isinstance(office, OfficeModel):
+            office_pk = office.id
+        else:
+            office_pk = office
+
+        # get products from vendors that are linked to the office account
+        if products is None:
+            products = ProductModel.objects.all()
+
+        connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_pk)
+        products = products.exclude(parent__isnull=True)
+
+        if product_ids is not None:
+            products = products.filter(Q(id__in=product_ids))
+
+        products = products.filter(Q(vendor_id__in=connected_vendor_ids))
+
+        if selected_products is None:
+            selected_products = []
+
+        parent_product_ids = products.values_list("parent_id", flat=True)
+        products = ProductModel.objects.filter(id__in=parent_product_ids).select_related("vendor", "category")
+
+
+        # TODO: this should be optimized
+        office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk))
+        office_product = OfficeProductModel.objects.filter(Q(office_id=office_pk) & Q(product_id=OuterRef("pk")))
+
+        # we treat parent product as inventory product if it has inventory children product
+        inventory_office_product = OfficeProductModel.objects.filter(
+            Q(office_id=office_pk) & Q(is_inventory=True) & Q(product_id=OuterRef("pk"))
+        )
+
+        return (
+            products.prefetch_related(Prefetch("office_products", queryset=office_products, to_attr="office_product"))
+                .annotate(office_product_price=Subquery(office_product.values("price")[:1]))
+                .annotate(is_inventory=Exists(inventory_office_product))
+                # .annotate(last_order_date=Subquery(inventory_office_products.values("last_order_date")[:1]))
+                # .annotate(last_order_price=Subquery(inventory_office_products.values("price")[:1]))
+                # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
+                .annotate(
+                product_price=Case(
+                    When(price__isnull=False, then=F("price")),
+                    When(office_product_price__isnull=False, then=F("office_product_price")),
+                    default=Value(None),
+                )
+            )
+                .annotate(
                 selected_product=Case(
                     When(id__in=selected_products, then=Value(0)),
                     default=Value(1),

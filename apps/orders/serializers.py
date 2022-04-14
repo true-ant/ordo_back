@@ -423,9 +423,14 @@ class OfficeProductSerializer(serializers.ModelSerializer):
                     key=lambda x: x[0],
                     reverse=True,
                 )
-                ret["last_order_date"] = last_order_products[0][0]
-                ret["last_order_price"] = last_order_products[0][1]
-                ret["vendor"] = last_order_products[0][2]
+                if last_order_products:
+                    ret["last_order_date"] = last_order_products[0][0]
+                    ret["last_order_price"] = last_order_products[0][1]
+                    ret["vendor"] = last_order_products[0][2]
+                else:
+                    ret["last_order_date"] = None
+                    ret["last_order_price"] = None
+                    ret["vendor"] = None
 
             # children_products = ret["product"].get("children", [])
         # if children_products:
