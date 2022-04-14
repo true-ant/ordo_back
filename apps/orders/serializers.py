@@ -160,7 +160,8 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        ret["vendor"] = VendorLiteSerializer(m.Vendor.objects.get(id=ret["vendor"])).data
+        if ret["vendor"]:
+            ret["vendor"] = VendorLiteSerializer(m.Vendor.objects.get(id=ret["vendor"])).data
         if not self.context.get("include_children", False):
             ret.pop("children", None)
 

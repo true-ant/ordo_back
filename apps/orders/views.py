@@ -606,6 +606,15 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
         return Response(serializer.data)
 
 
+class ProductDataViewSet(ModelViewSet):
+    serializer_class = s.ProductSerializer
+    queryset = m.Product.objects.all()
+
+    def get_queryset(self):
+        query = self.request.GET.get("search", "")
+        return m.Product.objects.search(query)
+
+
 def get_office_vendor(office_pk, vendor_pk):
     try:
         return OfficeVendor.objects.get(office_id=office_pk, vendor_id=vendor_pk)
