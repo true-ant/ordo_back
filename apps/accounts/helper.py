@@ -7,6 +7,7 @@ from django.utils import timezone
 from month import Month
 
 from apps.accounts.models import Office, OfficeBudget
+from apps.common.choices import BUDGET_SPEND_TYPE
 from apps.common.utils import bulk_create
 
 
@@ -22,6 +23,38 @@ class OfficeBudgetHelper:
         if office_budget:
             office_budget.dental_spend = F("dental_spend") + amount
             office_budget.save()
+
+    @staticmethod
+    def move_spend_category(
+        office: Union[int, str, Office],
+        date: datetime.date,
+        amount: Decimal,
+        from_category: BUDGET_SPEND_TYPE,
+        to_category: BUDGET_SPEND_TYPE,
+    ):
+        """This function will move spend from one category to other category"""
+        if from_category and to_category and from_category != to_category:
+            month = Month.from_date(date)
+            if not isinstance(office, Office):
+                office_budget = OfficeBudget.objects.filter(office_id=office, month=month).first()
+            else:
+                office_budget = OfficeBudget.objects.filter(office=office, month=month).first()
+
+            if office_budget:
+                if from_category == BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET:
+                    office_budget.dental_spend = F("dental_spend") - amount
+                elif from_category == BUDGET_SPEND_TYPE.FRONT_OFFICE_SUPPLY_SPEND_BUDGET:
+                    office_budget.office_spend = F("office_spend") - amount
+                elif from_category == BUDGET_SPEND_TYPE.MISCELLANEOUS_SPEND_BUDGET:
+                    office_budget.miscellaneous_spend = F("miscellaneous_spend") - amount
+
+                if to_category == BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET:
+                    office_budget.dental_spend = F("dental_spend") + amount
+                elif to_category == BUDGET_SPEND_TYPE.FRONT_OFFICE_SUPPLY_SPEND_BUDGET:
+                    office_budget.office_spend = F("office_spend") + amount
+                elif to_category == BUDGET_SPEND_TYPE.MISCELLANEOUS_SPEND_BUDGET:
+                    office_budget.miscellaneous_spend = F("miscellaneous_spend") + amount
+                office_budget.save()
 
     @staticmethod
     def update_budget_with_previous_month():

@@ -156,6 +156,8 @@ class OfficeBudget(TimeStampedModel):
     office_budget = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     office_spend = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
+    miscellaneous_spend = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
     month = MonthField()
 
     class Meta:
