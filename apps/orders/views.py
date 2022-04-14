@@ -323,6 +323,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
             total_dental_spend=Sum("dental_spend"),
             total_office_budget=Sum("office_budget"),
             total_office_spend=Sum("office_spend"),
+            total_miscellaneous_spend=Sum("miscellaneous_spend"),
         )
 
         approved_orders_queryset = queryset.exclude(
@@ -357,10 +358,14 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
                 "average_amount": average_amount,
             },
             "budget": {
-                "total_dental_budget": budget_stats["total_dental_budget"],
-                "total_dental_spend": budget_stats["total_dental_spend"],
-                "total_office_budget": budget_stats["total_office_budget"],
-                "total_office_spend": budget_stats["total_office_spend"],
+                field: budget_stats[field]
+                for field in (
+                    "total_dental_budget",
+                    "total_dental_spend",
+                    "total_office_budget",
+                    "total_office_spend",
+                    "total_miscellaneous_spend",
+                )
             },
             "vendors": [
                 {
@@ -604,6 +609,15 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
 
         serializer = s.ProductSuggestionSerializer(suggestion_products, many=True)
         return Response(serializer.data)
+
+
+class ProductDataViewSet(ModelViewSet):
+    serializer_class = s.ProductSerializer
+    queryset = m.Product.objects.all()
+
+    def get_queryset(self):
+        query = self.request.GET.get("search", "")
+        return m.Product.objects.search(query)
 
 
 def get_office_vendor(office_pk, vendor_pk):

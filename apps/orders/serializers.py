@@ -3,6 +3,7 @@ from django.db.models import Q
 from rest_framework import serializers
 from rest_framework_recursive.fields import RecursiveField
 
+from apps.accounts.helper import OfficeBudgetHelper
 from apps.accounts.serializers import VendorLiteSerializer
 from apps.orders.helpers import OfficeProductHelper, ProductHelper
 
@@ -160,7 +161,8 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        ret["vendor"] = VendorLiteSerializer(m.Vendor.objects.get(id=ret["vendor"])).data
+        if ret["vendor"]:
+            ret["vendor"] = VendorLiteSerializer(m.Vendor.objects.get(id=ret["vendor"])).data
         if not self.context.get("include_children", False):
             ret.pop("children", None)
 
@@ -183,25 +185,34 @@ class VendorOrderProductSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def update(self, instance, validated_data):
-        instance = super().update(instance, validated_data)
+        with transaction.atomic():
+            OfficeBudgetHelper.move_spend_category(
+                office=instance.vendor_order.order.office,
+                date=instance.vendor_order.order.order_date,
+                amount=instance.unit_price * instance.quantity,
+                from_category=instance.budget_spend_type,
+                to_category=validated_data.get("budget_spend_type"),
+            )
 
-        if instance.status == m.VendorOrderProduct.Status.RECEIVED:
-            vendor_order = instance.vendor_order
-            order = vendor_order.order
+            instance = super().update(instance, validated_data)
 
-            if not m.VendorOrderProduct.objects.filter(
-                Q(vendor_order=vendor_order), ~Q(status=m.VendorOrderProduct.Status.RECEIVED)
-            ).exists():
-                instance.vendor_order.status = m.OrderStatus.COMPLETE
-                instance.vendor_order.save()
+            if instance.status == m.VendorOrderProduct.Status.RECEIVED:
+                vendor_order = instance.vendor_order
+                order = vendor_order.order
 
-            if not m.VendorOrderProduct.objects.filter(
-                Q(vendor_order__order=order), ~Q(status=m.VendorOrderProduct.Status.RECEIVED)
-            ).exists():
-                order.status = m.OrderStatus.COMPLETE
-                order.save()
+                if not m.VendorOrderProduct.objects.filter(
+                    Q(vendor_order=vendor_order), ~Q(status=m.VendorOrderProduct.Status.RECEIVED)
+                ).exists():
+                    instance.vendor_order.status = m.OrderStatus.COMPLETE
+                    instance.vendor_order.save()
 
-        return instance
+                if not m.VendorOrderProduct.objects.filter(
+                    Q(vendor_order__order=order), ~Q(status=m.VendorOrderProduct.Status.RECEIVED)
+                ).exists():
+                    order.status = m.OrderStatus.COMPLETE
+                    order.save()
+
+            return instance
 
 
 class VendorOrderSerializer(serializers.ModelSerializer):

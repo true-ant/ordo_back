@@ -10,7 +10,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         """
-        python manage.py fill_office_product_categories
+        python manage.py group_products_by_manufacturer_number --since 2022-04-12T11:50:29.751119+00:00
         """
         parser.add_argument(
             "--since",

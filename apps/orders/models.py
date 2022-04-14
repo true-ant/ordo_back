@@ -15,6 +15,7 @@ from django_extensions.db.fields import AutoSlugField
 from slugify import slugify
 
 from apps.accounts.models import Office, User, Vendor
+from apps.common.choices import BUDGET_SPEND_TYPE
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
 from apps.common.utils import remove_character_between_numerics
 from apps.scrapers.schema import Product as ProductDataClass
@@ -327,6 +328,14 @@ class VendorOrderProduct(TimeStampedModel):
     status = models.CharField(max_length=100, choices=Status.choices, null=True, blank=True)
     vendor_status = models.CharField(max_length=100, null=True, blank=True)
     rejected_reason = models.CharField(max_length=128, choices=RejectReason.choices, null=True, blank=True)
+    budget_spend_type = models.CharField(
+        max_length=64,
+        choices=BUDGET_SPEND_TYPE.choices,
+        default=BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET,
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     # status = models.IntegerField(choices=Status.choices, default=Status.OPEN)
 
     @classmethod
