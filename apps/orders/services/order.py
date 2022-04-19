@@ -55,34 +55,41 @@ class OrderService:
     async def approve_vendor_order(approved_by, vendor_order: VendorOrder, validated_data, stage: str):
         session = apps.get_app_config("accounts").session
 
-        office_vendor = await OrderService.get_office_vendor(vendor_order=vendor_order)
-
-        scraper = ScraperFactory.create_scraper(
-            vendor=office_vendor.vendor,
-            session=session,
-            username=office_vendor.username,
-            password=office_vendor.password,
-        )
         products = await OrderService.get_vendor_order_products(vendor_order, validated_data)
 
-        vendor_order_result = await scraper.confirm_order(
-            [
-                CartProduct(
-                    product_id=product.product.product_id,
-                    product_unit=product.product.product_unit,
-                    quantity=product.quantity,
-                )
-                for product in products
-            ],
-            fake=OrderService.is_debug_mode(stage=stage),
-        )
+        if products:
+            office_vendor = await OrderService.get_office_vendor(vendor_order=vendor_order)
 
-        vendor_order.vendor_order_id = vendor_order_result["order_id"]
-        vendor_order.status = OrderStatus.PROCESSING
+            scraper = ScraperFactory.create_scraper(
+                vendor=office_vendor.vendor,
+                session=session,
+                username=office_vendor.username,
+                password=office_vendor.password,
+            )
+            vendor_order_result = await scraper.confirm_order(
+                [
+                    CartProduct(
+                        product_id=product.product.product_id,
+                        product_unit=product.product.product_unit,
+                        quantity=product.quantity,
+                    )
+                    for product in products
+                ],
+                fake=OrderService.is_debug_mode(stage=stage),
+            )
+
+            vendor_order.vendor_order_id = vendor_order_result["order_id"]
+            vendor_order.status = OrderStatus.PROCESSING
+        else:
+            vendor_order.status = OrderStatus.REJECTED
+
         vendor_order.approved_at = timezone.now()
         vendor_order.approved_by = approved_by
         await sync_to_async(vendor_order.save)()
-        notify_order_creation.delay([vendor_order.id], approval_needed=False)
+
+        if products:
+            # TODO: this logics should be refactored
+            notify_order_creation.delay([vendor_order.id], approval_needed=False)
 
     @staticmethod
     def reject_vendor_order(approved_by, vendor_order: VendorOrder, validated_data):
