@@ -36,7 +36,11 @@ from apps.accounts.models import Company, Office, OfficeBudget, OfficeVendor
 from apps.accounts.services.offices import OfficeService
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncCreateModelMixin, AsyncMixin
-from apps.common.pagination import SearchProductPagination, StandardResultsSetPagination
+from apps.common.pagination import (
+    SearchProductPagination,
+    SearchProductV2Pagination,
+    StandardResultsSetPagination,
+)
 from apps.common.utils import get_date_range, group_products_from_search_result
 from apps.orders.helpers import OfficeProductHelper, ProductHelper
 from apps.orders.services.order import OrderService
@@ -1397,7 +1401,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
 class ProductV2ViewSet(ModelViewSet):
     queryset = m.Product.objects.all()
     serializer_class = s.ProductV2Serializer
-    pagination_class = StandardResultsSetPagination
+    pagination_class = SearchProductV2Pagination
     filterset_class = f.ProductV2Filter
     http_method_names = ["get"]
 
