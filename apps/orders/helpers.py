@@ -541,10 +541,13 @@ class ProductHelper:
                 product = ProductModel.objects.filter(product_id=row["product_id"], vendor=vendor).first()
                 if product:
                     product.is_special_offer = True
-                    price = convert_string_to_price(row["price"])
+                    price = convert_string_to_price(row.get("price"))
                     if price:
                         product.special_price = price
-                    product.promotion_description = row["promo"]
+                    if vendor_slug == "patterson":
+                        product.promotion_description = row["promo"] or row["FreeGood"]
+                    else:
+                        product.promotion_description = row["promo"]
                     product_objs.append(product)
                 else:
                     print(f"Missing product {row['product_id']} - {row['name']}")
@@ -1029,11 +1032,11 @@ class ProductHelper:
 
     @staticmethod
     def get_products_v2(
-            office: Union[OfficeModel, SmartID],
-            fetch_parents: bool = True,
-            product_ids: Optional[List[SmartID]] = None,
-            products: Optional[QuerySet] = None,
-            selected_products: Optional[List[SmartID]] = None,
+        office: Union[OfficeModel, SmartID],
+        fetch_parents: bool = True,
+        product_ids: Optional[List[SmartID]] = None,
+        products: Optional[QuerySet] = None,
+        selected_products: Optional[List[SmartID]] = None,
     ):
         """
         fetch_parents:  True:   fetch parent products
@@ -1063,7 +1066,6 @@ class ProductHelper:
         parent_product_ids = products.values_list("parent_id", flat=True)
         products = ProductModel.objects.filter(id__in=parent_product_ids).select_related("vendor", "category")
 
-
         # TODO: this should be optimized
         office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk))
         office_product = OfficeProductModel.objects.filter(Q(office_id=office_pk) & Q(product_id=OuterRef("pk")))
@@ -1075,19 +1077,19 @@ class ProductHelper:
 
         return (
             products.prefetch_related(Prefetch("office_products", queryset=office_products, to_attr="office_product"))
-                .annotate(office_product_price=Subquery(office_product.values("price")[:1]))
-                .annotate(is_inventory=Exists(inventory_office_product))
-                # .annotate(last_order_date=Subquery(inventory_office_products.values("last_order_date")[:1]))
-                # .annotate(last_order_price=Subquery(inventory_office_products.values("price")[:1]))
-                # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
-                .annotate(
+            .annotate(office_product_price=Subquery(office_product.values("price")[:1]))
+            .annotate(is_inventory=Exists(inventory_office_product))
+            # .annotate(last_order_date=Subquery(inventory_office_products.values("last_order_date")[:1]))
+            # .annotate(last_order_price=Subquery(inventory_office_products.values("price")[:1]))
+            # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
+            .annotate(
                 product_price=Case(
                     When(price__isnull=False, then=F("price")),
                     When(office_product_price__isnull=False, then=F("office_product_price")),
                     default=Value(None),
                 )
             )
-                .annotate(
+            .annotate(
                 selected_product=Case(
                     When(id__in=selected_products, then=Value(0)),
                     default=Value(1),
