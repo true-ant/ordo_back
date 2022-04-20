@@ -8,12 +8,12 @@ class Command(BaseCommand):
     def normalize_order_status(self, model_class):
         orders = model_class.objects.filter(Q(status__iexact="pending") | Q(status__iexact="processing"))
         for order in orders:
-            order.status = OrderStatus.PROCESSING
+            order.status = OrderStatus.OPEN
         model_class.objects.bulk_update(orders, fields=["status"])
 
         orders = model_class.objects.filter(Q(status__iexact="complete") | Q(status__iexact="shipped"))
         for order in orders:
-            order.status = OrderStatus.COMPLETE
+            order.status = OrderStatus.CLOSED
         model_class.objects.bulk_update(orders, fields=["status"])
 
     def handle(self, *args, **options):

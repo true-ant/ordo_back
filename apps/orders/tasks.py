@@ -16,13 +16,13 @@ from django.utils import timezone
 from slugify import slugify
 
 from apps.accounts.models import CompanyMember, OfficeVendor, Subscription, User
+from apps.common.choices import OrderStatus
 from apps.common.utils import group_products
 from apps.notifications.models import Notification
 from apps.orders.models import Keyword as KeyModel
 from apps.orders.models import OfficeCheckoutStatus
 from apps.orders.models import OfficeKeyword as OfficeKeyModel
 from apps.orders.models import OfficeProduct as OfficeProductModel
-from apps.orders.models import OrderStatus
 from apps.orders.models import Product as ProductModel
 from apps.orders.models import ProductCategory
 from apps.orders.models import ProductImage as ProductImageModel
@@ -354,11 +354,11 @@ def get_vendor_orders_id_and_last_processing_order_date(office_vendor):
 
     order_id_field = "vendor_order_reference" if office_vendor.vendor.slug == "henry_schein" else "vendor_order_id"
     completed_vendor_order_ids = list(
-        vendor_orders.filter(status=OrderStatus.COMPLETE).values_list(order_id_field, flat=True)
+        vendor_orders.filter(status=OrderStatus.CLOSED).values_list(order_id_field, flat=True)
     )
     return (
         completed_vendor_order_ids,
-        vendor_orders.filter(status=OrderStatus.PROCESSING).order_by("order_date").first(),
+        vendor_orders.filter(status=OrderStatus.OPEN).order_by("order_date").first(),
     )
 
 

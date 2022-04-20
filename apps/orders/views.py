@@ -4,7 +4,7 @@ import operator
 import os
 import tempfile
 import zipfile
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 from functools import reduce
 from typing import Union
@@ -103,76 +103,76 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
     def get_queryset(self):
         return super().get_queryset().filter(office__id=self.kwargs["office_pk"])
 
-    @action(detail=False, methods=["get"], url_path="stats")
-    def get_orders_stats(self, request, *args, **kwargs):
-        # TODO: this should be removed
-        office_id = self.kwargs["office_pk"]
-
-        total_items = 0
-        total_amount = 0
-        average_amount = 0
-
-        month = self.request.query_params.get("month", "")
-        try:
-            requested_date = datetime.strptime(month, "%Y-%m")
-        except ValueError:
-            requested_date = timezone.now().date()
-
-        month_first_day = requested_date.replace(day=1)
-        next_month_first_day = (requested_date + timedelta(days=32)).replace(day=1)
-
-        queryset = (
-            m.Order.objects.filter(
-                Q(order_date__gte=month_first_day) & Q(order_date__lt=next_month_first_day) & Q(office_id=office_id)
-            )
-            .exclude(status__in=[m.OrderStatus.REJECTED, m.OrderStatus.WAITING_APPROVAL])
-            .annotate(month_total_items=Sum("total_items", distinct=True))
-            .annotate(month_total_amount=Sum("total_amount", distinct=True))
-        )
-        orders_count = queryset.count()
-        if orders_count:
-            total_items = queryset[0].month_total_items
-            total_amount = queryset[0].month_total_amount
-            average_amount = (total_amount / orders_count).quantize(Decimal(".01"), rounding=decimal.ROUND_UP)
-
-        pending_orders_count = m.VendorOrder.objects.filter(
-            order__office_id=office_id,
-            status=m.OrderStatus.WAITING_APPROVAL,
-        ).count()
-        vendors = (
-            m.VendorOrder.objects.filter(
-                Q(order_date__gte=month_first_day)
-                & Q(order_date__lt=next_month_first_day)
-                & Q(order__office_id=office_id)
-            )
-            .order_by("vendor_id")
-            .values("vendor_id")
-            .annotate(order_counts=Count("vendor_id"))
-            .annotate(order_total_amount=Sum("total_amount"))
-            .annotate(vendor_name=F("vendor__name"))
-            .annotate(vendor_logo=F("vendor__logo"))
-        )
-
-        ret = {
-            "order": {
-                "order_counts": orders_count,
-                "pending_order_counts": pending_orders_count,
-                "total_items": total_items,
-                "total_amount": total_amount,
-                "average_amount": average_amount,
-            },
-            "vendors": [
-                {
-                    "id": vendor["vendor_id"],
-                    "name": vendor["vendor_name"],
-                    "logo": f"{vendor['vendor_logo']}",
-                    "order_counts": vendor["order_counts"],
-                    "total_amount": vendor["order_total_amount"],
-                }
-                for vendor in vendors
-            ],
-        }
-        return Response(ret)
+    # @action(detail=False, methods=["get"], url_path="stats")
+    # def get_orders_stats(self, request, *args, **kwargs):
+    #     # TODO: this should be removed
+    #     office_id = self.kwargs["office_pk"]
+    #
+    #     total_items = 0
+    #     total_amount = 0
+    #     average_amount = 0
+    #
+    #     month = self.request.query_params.get("month", "")
+    #     try:
+    #         requested_date = datetime.strptime(month, "%Y-%m")
+    #     except ValueError:
+    #         requested_date = timezone.now().date()
+    #
+    #     month_first_day = requested_date.replace(day=1)
+    #     next_month_first_day = (requested_date + timedelta(days=32)).replace(day=1)
+    #
+    #     queryset = (
+    #         m.Order.objects.filter(
+    #             Q(order_date__gte=month_first_day) & Q(order_date__lt=next_month_first_day) & Q(office_id=office_id)
+    #         )
+    #         .exclude(status__in=[m.OrderStatus.REJECTED, m.OrderStatus.WAITING_APPROVAL])
+    #         .annotate(month_total_items=Sum("total_items", distinct=True))
+    #         .annotate(month_total_amount=Sum("total_amount", distinct=True))
+    #     )
+    #     orders_count = queryset.count()
+    #     if orders_count:
+    #         total_items = queryset[0].month_total_items
+    #         total_amount = queryset[0].month_total_amount
+    #         average_amount = (total_amount / orders_count).quantize(Decimal(".01"), rounding=decimal.ROUND_UP)
+    #
+    #     pending_orders_count = m.VendorOrder.objects.filter(
+    #         order__office_id=office_id,
+    #         status=m.OrderStatus.WAITING_APPROVAL,
+    #     ).count()
+    #     vendors = (
+    #         m.VendorOrder.objects.filter(
+    #             Q(order_date__gte=month_first_day)
+    #             & Q(order_date__lt=next_month_first_day)
+    #             & Q(order__office_id=office_id)
+    #         )
+    #         .order_by("vendor_id")
+    #         .values("vendor_id")
+    #         .annotate(order_counts=Count("vendor_id"))
+    #         .annotate(order_total_amount=Sum("total_amount"))
+    #         .annotate(vendor_name=F("vendor__name"))
+    #         .annotate(vendor_logo=F("vendor__logo"))
+    #     )
+    #
+    #     ret = {
+    #         "order": {
+    #             "order_counts": orders_count,
+    #             "pending_order_counts": pending_orders_count,
+    #             "total_items": total_items,
+    #             "total_amount": total_amount,
+    #             "average_amount": average_amount,
+    #         },
+    #         "vendors": [
+    #             {
+    #                 "id": vendor["vendor_id"],
+    #                 "name": vendor["vendor_name"],
+    #                 "logo": f"{vendor['vendor_logo']}",
+    #                 "order_counts": vendor["order_counts"],
+    #                 "total_amount": vendor["order_total_amount"],
+    #             }
+    #             for vendor in vendors
+    #         ],
+    #     }
+    #     return Response(ret)
 
     @action(detail=True, methods=["get"], url_path="invoice-download")
     async def download_invoice(self, request, *args, **kwargs):
@@ -246,7 +246,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
         serializer.is_valid(raise_exception=True)
         vendor_order = await sync_to_async(self.get_object)()
 
-        if vendor_order.status != m.OrderStatus.WAITING_APPROVAL:
+        if vendor_order.status != m.OrderStatus.PENDING_APPROVAL:
             return Response({"message": "this order status is not waiting approval"})
 
         if serializer.validated_data["is_approved"]:
@@ -330,9 +330,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
             total_miscellaneous_spend=Sum("miscellaneous_spend"),
         )
 
-        approved_orders_queryset = queryset.exclude(
-            status__in=[m.OrderStatus.REJECTED, m.OrderStatus.WAITING_APPROVAL]
-        )
+        approved_orders_queryset = queryset.exclude(status=m.OrderStatus.PENDING_APPROVAL)
         aggregation = approved_orders_queryset.aggregate(
             total_items=Sum("total_items"), total_amount=Sum("total_amount")
         )
@@ -342,7 +340,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
             total_amount = aggregation["total_amount"]
             average_amount = (total_amount / approved_orders_count).quantize(Decimal(".01"), rounding=decimal.ROUND_UP)
 
-        pending_orders_count = queryset.filter(status=m.OrderStatus.WAITING_APPROVAL).count()
+        pending_orders_count = queryset.filter(status=m.OrderStatus.PENDING_APPROVAL).count()
 
         vendors = (
             queryset.order_by("vendor_id")
@@ -834,7 +832,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 office_id=self.kwargs["office_pk"],
                 created_by=self.request.user,
                 order_date=order_date,
-                status=m.OrderStatus.WAITING_APPROVAL if approval_needed else m.OrderStatus.PROCESSING,
+                status=m.OrderStatus.PENDING_APPROVAL if approval_needed else m.OrderStatus.OPEN,
             )
             total_amount = 0
             total_items = 0
@@ -857,7 +855,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                     total_items=vendor_total_items,
                     currency="USD",
                     order_date=order_date,
-                    status=m.OrderStatus.WAITING_APPROVAL if approval_needed else m.OrderStatus.PROCESSING,
+                    status=m.OrderStatus.PENDING_APPROVAL if approval_needed else m.OrderStatus.OPEN,
                 )
                 vendor_order_ids.append(vendor_order.id)
                 objs = []
@@ -868,9 +866,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                             product=vendor_order_product.product,
                             quantity=vendor_order_product.quantity,
                             unit_price=vendor_order_product.unit_price,
-                            status=m.VendorOrderProduct.Status.WAITING_APPROVAL
-                            if approval_needed
-                            else m.VendorOrderProduct.Status.OPEN,
+                            status=m.ProductStatus.PENDING_APPROVAL if approval_needed else m.ProductStatus.PROCESSING,
                         )
                     )
                 m.VendorOrderProduct.objects.bulk_create(objs)

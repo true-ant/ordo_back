@@ -4,6 +4,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import OfficeVendor
+from apps.common.choices import ProductStatus
 from apps.orders.models import OrderStatus, VendorOrder, VendorOrderProduct
 from apps.orders.tasks import notify_order_creation
 from apps.scrapers.scraper_factory import ScraperFactory
@@ -39,7 +40,7 @@ class OrderService:
         for vendor_order_product in vendor_order_products:
             if str(vendor_order_product.id) in rejected_items:
                 vendor_order_product.rejected_reason = rejected_items[str(vendor_order_product.id)]
-                vendor_order_product.status = VendorOrderProduct.Status.REJECTED
+                vendor_order_product.status = ProductStatus.REJECTED
                 rejected_vendor_order_products.append(vendor_order_product)
             else:
                 approved_vendor_order_products.append(vendor_order_product)
@@ -79,9 +80,9 @@ class OrderService:
             )
 
             vendor_order.vendor_order_id = vendor_order_result["order_id"]
-            vendor_order.status = OrderStatus.PROCESSING
+            vendor_order.status = OrderStatus.OPEN
         else:
-            vendor_order.status = OrderStatus.REJECTED
+            vendor_order.status = OrderStatus.CLOSED
 
         vendor_order.approved_at = timezone.now()
         vendor_order.approved_by = approved_by
@@ -94,7 +95,7 @@ class OrderService:
     @staticmethod
     def reject_vendor_order(approved_by, vendor_order: VendorOrder, validated_data):
         with transaction.atomic():
-            vendor_order.status = OrderStatus.REJECTED
+            vendor_order.status = OrderStatus.CLOSED
             vendor_order.approved_at = timezone.now()
             vendor_order.approved_by = approved_by
             vendor_order.rejected_reason = validated_data["rejected_reason"]
@@ -102,7 +103,7 @@ class OrderService:
 
             vendor_order_products = vendor_order.order_products.all()
             for vendor_order_product in vendor_order_products:
-                vendor_order_product.status = VendorOrderProduct.Status.REJECTED
+                vendor_order_product.status = ProductStatus.REJECTED
                 vendor_order_product.rejected_reason = VendorOrderProduct.RejectReason.NOT_NEEDED
 
             VendorOrderProduct.objects.bulk_update(vendor_order_products, ["rejected_reason", "status"])

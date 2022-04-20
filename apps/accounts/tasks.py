@@ -159,7 +159,7 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
     order_id_field = "vendor_order_reference" if office_vendor.vendor.slug == "henry_schein" else "vendor_order_id"
     completed_order_ids = list(
         VendorOrder.objects.filter(
-            vendor=office_vendor.vendor, order__office=office_vendor.office, status=OrderStatus.COMPLETE
+            vendor=office_vendor.vendor, order__office=office_vendor.office, status=OrderStatus.CLOSED
         ).values_list(order_id_field, flat=True)
     )
     asyncio.run(get_orders(office_vendor, cookie, perform_login, completed_order_ids))

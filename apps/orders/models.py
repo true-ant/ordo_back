@@ -15,7 +15,7 @@ from django_extensions.db.fields import AutoSlugField
 from slugify import slugify
 
 from apps.accounts.models import Office, User, Vendor
-from apps.common.choices import BUDGET_SPEND_TYPE
+from apps.common.choices import BUDGET_SPEND_TYPE, OrderStatus, ProductStatus
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
 from apps.common.utils import remove_character_between_numerics
 from apps.scrapers.schema import Product as ProductDataClass
@@ -85,7 +85,6 @@ class Product(TimeStampedModel):
     is_special_offer = models.BooleanField(default=False)
     special_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     promotion_description = models.TextField(null=True, blank=True)
-    search_vector = SearchVectorField()
 
     objects = ProductManager()
 
@@ -230,17 +229,6 @@ class OrderMonthManager(models.Manager):
         )
 
 
-class OrderStatus(models.TextChoices):
-    COMPLETE = "complete", "Complete"
-    PROCESSING = "processing", "Processing"
-    WAITING_APPROVAL = "waitingapproval", "Pending Approval"
-    SHIPPED = "shipped", "Shipped"
-    DELIVERED = "delivered", "Delivered"
-    BACK_ORDERED = "backordered", "Back Ordered"
-    RETURNED = "returned", "Returned"
-    REJECTED = "rejected", "Rejected"
-
-
 class Order(TimeStampedModel):
     office = FlexibleForeignKey(Office)
     created_by = models.ForeignKey(
@@ -253,7 +241,7 @@ class Order(TimeStampedModel):
     order_date = models.DateField()
     total_items = models.IntegerField(default=1)
     total_amount = models.DecimalField(decimal_places=2, max_digits=10, default=0)
-    status = models.CharField(max_length=100, choices=OrderStatus.choices, default=OrderStatus.PROCESSING)
+    status = models.CharField(max_length=100, choices=OrderStatus.choices, default=OrderStatus.OPEN)
 
     objects = models.Manager()
     current_months = OrderMonthManager()
@@ -275,7 +263,7 @@ class VendorOrder(TimeStampedModel):
     total_items = models.IntegerField(default=1)
     currency = models.CharField(max_length=100, default="USD")
     order_date = models.DateField()
-    status = models.CharField(max_length=100, choices=OrderStatus.choices, default=OrderStatus.PROCESSING)
+    status = models.CharField(max_length=100, choices=OrderStatus.choices, default=OrderStatus.OPEN)
     vendor_status = models.CharField(max_length=100, null=True, blank=True)
     products = models.ManyToManyField(Product, through="VendorOrderProduct")
     invoice_link = models.URLField(null=True, blank=True)
@@ -305,14 +293,6 @@ class VendorOrder(TimeStampedModel):
 
 
 class VendorOrderProduct(TimeStampedModel):
-    class Status(models.TextChoices):
-        OPEN = "open", "Processing"
-        SHIPPED = "shipped", "Shipped"
-        ARRIVED = "arrived", "Arrived"
-        RECEIVED = "received", "Received"
-        REJECTED = "rejected", "Rejected"
-        WAITING_APPROVAL = "waitingapproval", "Pending Approval"
-
     class RejectReason(models.TextChoices):
         NOT_NEEDED = "noneed", "Not Needed"
         WRONG_ITEM = "wrong", "Wrong Item"
@@ -325,7 +305,7 @@ class VendorOrderProduct(TimeStampedModel):
     unit_price = models.DecimalField(decimal_places=2, max_digits=10)
     tracking_link = models.URLField(max_length=512, null=True, blank=True)
     tracking_number = models.URLField(max_length=512, null=True, blank=True)
-    status = models.CharField(max_length=100, choices=Status.choices, null=True, blank=True)
+    status = models.CharField(max_length=100, choices=ProductStatus.choices, null=True, blank=True)
     vendor_status = models.CharField(max_length=100, null=True, blank=True)
     rejected_reason = models.CharField(max_length=128, choices=RejectReason.choices, null=True, blank=True)
     budget_spend_type = models.CharField(
@@ -344,7 +324,8 @@ class VendorOrderProduct(TimeStampedModel):
 
     @property
     def is_trackable(self):
-        return self.status == self.Status.SHIPPED and (self.tracking_number or self.tracking_link)
+        # return self.status == ProductStatus.SHIPPED and (self.tracking_number or self.tracking_link)
+        return bool(self.tracking_number or self.tracking_link)
 
 
 class YearMonth(models.Func):

@@ -5,6 +5,7 @@ from rest_framework_recursive.fields import RecursiveField
 
 from apps.accounts.helper import OfficeBudgetHelper
 from apps.accounts.serializers import VendorLiteSerializer
+from apps.common.choices import OrderStatus
 from apps.orders.helpers import OfficeProductHelper, ProductHelper
 
 from . import models as m
@@ -196,20 +197,20 @@ class VendorOrderProductSerializer(serializers.ModelSerializer):
 
             instance = super().update(instance, validated_data)
 
-            if instance.status == m.VendorOrderProduct.Status.RECEIVED:
+            if instance.status == m.ProductStatus.RECEIVED:
                 vendor_order = instance.vendor_order
                 order = vendor_order.order
 
                 if not m.VendorOrderProduct.objects.filter(
-                    Q(vendor_order=vendor_order), ~Q(status=m.VendorOrderProduct.Status.RECEIVED)
+                    Q(vendor_order=vendor_order), ~Q(status=m.ProductStatus.RECEIVED)
                 ).exists():
-                    instance.vendor_order.status = m.OrderStatus.COMPLETE
+                    instance.vendor_order.status = OrderStatus.CLOSED
                     instance.vendor_order.save()
 
                 if not m.VendorOrderProduct.objects.filter(
-                    Q(vendor_order__order=order), ~Q(status=m.VendorOrderProduct.Status.RECEIVED)
+                    Q(vendor_order__order=order), ~Q(status=m.ProductStatus.RECEIVED)
                 ).exists():
-                    order.status = m.OrderStatus.COMPLETE
+                    order.status = OrderStatus.CLOSED
                     order.save()
 
             return instance
