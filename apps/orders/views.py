@@ -1406,11 +1406,17 @@ class ProductV2ViewSet(ModelViewSet):
         office_pk = self.request.query_params.get("office_pk")
         selected_products = self.request.query_params.get("selected_products")
         selected_products = selected_products.split(",") if selected_products else []
-        products = m.Product.objects.search(query)
-        product_ids = products.values_list("id", flat=True)
-        return ProductHelper.get_products_v2(
-            office=office_pk, fetch_parents=True, selected_products=selected_products, product_ids=product_ids
+        return ProductHelper.get_products_v3(
+            query=query,
+            office=office_pk,
+            fetch_parents=True,
+            selected_products=selected_products,
         )
+        # products = m.Product.objects.search(query)
+        # product_ids = products.values_list("id", flat=True)
+        # return ProductHelper.get_products_v2(
+        #     office=office_pk, fetch_parents=True, selected_products=selected_products, product_ids=product_ids
+        # )
 
     def get_serializer_context(self):
         serializer_context = super().get_serializer_context()

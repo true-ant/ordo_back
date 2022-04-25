@@ -45,17 +45,23 @@ class Keyword(TimeStampedModel):
         return self.keyword
 
 
-class ProductManager(models.Manager):
+class ProductQuerySet(models.QuerySet):
     def search(self, text):
         text = remove_character_between_numerics(text, character="-")
         trigram_similarity = TrigramSimilarity("name", text)
         q = reduce(and_, [SearchQuery(word, config="english") for word in text.split(" ")])
         return (
-            self.get_queryset()
-            .annotate(search=RawSQL("search_vector", [], output_field=SearchVectorField()))
+            self.annotate(search=RawSQL("search_vector", [], output_field=SearchVectorField()))
             .annotate(similarity=trigram_similarity)
             .filter(Q(search=q))
         )
+
+
+class ProductManager(models.Manager):
+    _queryset_class = ProductQuerySet
+
+    def search(self, text):
+        return self.get_queryset().search(text)
 
 
 class Product(TimeStampedModel):

@@ -1099,6 +1099,69 @@ class ProductHelper:
         )
 
     @staticmethod
+    def get_products_v3(
+        query: str,
+        office: Union[OfficeModel, SmartID],
+        fetch_parents: bool = True,
+        selected_products: Optional[List[SmartID]] = None,
+    ):
+        if isinstance(office, OfficeModel):
+            office_pk = office.id
+        else:
+            office_pk = office
+
+        connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_pk)
+        products = ProductModel.objects.filter(Q(vendor_id__in=connected_vendor_ids))
+        products = products.search(query)
+
+        if selected_products is None:
+            selected_products = []
+
+        parent_product_ids = products.filter(parent__isnull=False).values_list("parent_id", flat=True)
+        product_ids = products.filter(parent__isnull=True).values_list("id", flat=True)
+        products = ProductModel.objects.filter(Q(id__in=parent_product_ids) | Q(id__in=product_ids)).select_related(
+            "vendor", "category"
+        )
+
+        # TODO: this should be optimized
+        office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk))
+        office_product = OfficeProductModel.objects.filter(Q(office_id=office_pk) & Q(product_id=OuterRef("pk")))
+
+        # we treat parent product as inventory product if it has inventory children product
+        inventory_office_product = OfficeProductModel.objects.filter(
+            Q(office_id=office_pk) & Q(is_inventory=True) & Q(product_id=OuterRef("pk"))
+        )
+
+        return (
+            products.prefetch_related(Prefetch("office_products", queryset=office_products, to_attr="office_product"))
+            .annotate(office_product_price=Subquery(office_product.values("price")[:1]))
+            .annotate(is_inventory=Exists(inventory_office_product))
+            # .annotate(last_order_date=Subquery(inventory_office_products.values("last_order_date")[:1]))
+            # .annotate(last_order_price=Subquery(inventory_office_products.values("price")[:1]))
+            # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
+            .annotate(
+                product_price=Case(
+                    When(price__isnull=False, then=F("price")),
+                    When(office_product_price__isnull=False, then=F("office_product_price")),
+                    default=Value(None),
+                )
+            )
+            .annotate(
+                selected_product=Case(
+                    When(id__in=selected_products, then=Value(0)),
+                    default=Value(1),
+                )
+            )
+            .annotate(
+                group=Case(
+                    When(vendor__isnull=True, then=Value(0)),
+                    default=Value(1),
+                )
+            )
+            .order_by("selected_product", "-is_inventory", "group", "product_price")
+        )
+
+    @staticmethod
     def suggest_products(search: str, office: Union[OfficeModel, SmartID]):
         if isinstance(office, OfficeModel):
             office = office.id
