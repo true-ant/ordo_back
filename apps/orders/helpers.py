@@ -1113,7 +1113,11 @@ class ProductHelper:
         connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_pk)
         products = ProductModel.objects.filter(Q(vendor_id__in=connected_vendor_ids))
         products = products.search(query)
-
+        available_vendors = [
+            vendor
+            for vendor in products.values_list("vendor__slug", flat=True).order_by("vendor__slug").distinct()
+            if vendor
+        ]
         if selected_products is None:
             selected_products = []
 
@@ -1159,7 +1163,7 @@ class ProductHelper:
                 )
             )
             .order_by("selected_product", "-is_inventory", "group", "product_price")
-        )
+        ), available_vendors
 
     @staticmethod
     def suggest_products(search: str, office: Union[OfficeModel, SmartID]):
