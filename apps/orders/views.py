@@ -1406,12 +1406,18 @@ class ProductV2ViewSet(ModelViewSet):
         office_pk = self.request.query_params.get("office_pk")
         selected_products = self.request.query_params.get("selected_products")
         selected_products = selected_products.split(",") if selected_products else []
-        return ProductHelper.get_products_v3(
+        products = ProductHelper.get_products_v3(
             query=query,
             office=office_pk,
             fetch_parents=True,
             selected_products=selected_products,
         )
+        self.available_vendors = [
+            vendor
+            for vendor in products.values_list("vendor__slug", flat=True).order_by("vendor__slug").distinct()
+            if vendor
+        ]
+        return products
         # products = m.Product.objects.search(query)
         # product_ids = products.values_list("id", flat=True)
         # return ProductHelper.get_products_v2(
@@ -1426,6 +1432,23 @@ class ProductV2ViewSet(ModelViewSet):
             vendors = vendors.split(",")
         serializer_context = {**serializer_context, "office_pk": office_pk, "vendors": vendors}
         return serializer_context
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        ret = {
+            "vendor_slugs": getattr(self, "available_vendors", None),
+            "products": [],
+        }
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            ret["products"] = serializer.data
+            return self.get_paginated_response(ret)
+
+        serializer = self.get_serializer(queryset, many=True)
+        ret["products"] = serializer.data
+        return Response(ret)
 
     @action(detail=False, url_path="search/vendors")
     async def search_from_vendors(self, request, *args, **kwargs):
