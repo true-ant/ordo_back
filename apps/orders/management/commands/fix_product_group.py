@@ -73,15 +73,3 @@ class Command(BaseCommand):
 
         if parent_products_to_be_created:
             ProductHelper.create_parent_products(parent_products_to_be_created)
-
-
-# parent_product = parent_products.search("septocaine").first()
-# parent_product = Product.objects.get(id=738899)
-# name = parent_product.children.first().name
-# aliens = parent_product.children.annotate(similarity=TrigramSimilarity("name", name)).exclude(similarity__gt=0.3)
-# parent_product = parent_products.filter(manufacturer_number="3535").first()
-# name = parent_product.name
-# aliens = parent_product.children.annotate(similarity=TrigramSimilarity("name", name)).exclude(similarity__gt=0.3)
-# parent_product.children.values("url", "name")
-
-737652
