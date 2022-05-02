@@ -10,7 +10,7 @@ from apps.orders.models import Product
 
 
 class Command(BaseCommand):
-    help = "Clean Product grouping"
+    help = "Clean Product grouping; this is "
 
     def handle(self, *args, **options):
         similarity_threshold = 0.15

@@ -121,8 +121,8 @@ async def get_orders(office_vendor, login_cookies, perform_login, completed_orde
             completed_order_ids=completed_order_ids,
         )
 
-        if vendor.slug == "ultradent":
-            await scraper.get_all_products_v2(office_vendor.office)
+        # if vendor.slug == "ultradent":
+        #     await scraper.get_all_products_v2(office_vendor.office)
 
 
 @shared_task

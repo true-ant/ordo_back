@@ -306,7 +306,9 @@ class BencoScraper(Scraper):
         }
 
         data = {"id_token": id_token, "scope": scope, "state": state, "session_state": session_state}
-        await self.session.post(self.BASE_URL, headers=headers, data=data, ssl=self._ssl_context)
+        await self.session.post(
+            "https://shop.benco.com/signin-oidc", headers=headers, data=data, ssl=self._ssl_context
+        )
         return True
 
     async def _after_login_hook(self, response: ClientResponse):
@@ -433,7 +435,8 @@ class BencoScraper(Scraper):
 
         async with self.session.get(url, headers=ORDER_HISTORY_HEADERS, params=params, ssl=self._ssl_context) as resp:
             url = str(resp.url)
-            response_dom = Selector(text=await resp.text())
+            text = await resp.text()
+            response_dom = Selector(text=text)
             tasks = []
             for order_preview_dom in response_dom.xpath(
                 "//div[@class='order-history']"
