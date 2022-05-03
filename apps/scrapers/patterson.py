@@ -217,7 +217,8 @@ class PattersonScraper(Scraper):
                 product_url = self.extract_first(
                     order_product_dom, ".//div[contains(@class, 'orderHistoryOrderDetailItemText')]//@href"
                 )
-                product_url = f"{self.BASE_URL}{product_url}"
+                if product_url:
+                    product_url = f"{self.BASE_URL}{product_url}"
                 product_price = self.remove_thousands_separator(
                     self.extract_first(
                         order_product_dom, ".//div[contains(@class, 'orderHistoryOrderDetailPriceText')]//text()"
@@ -261,7 +262,7 @@ class PattersonScraper(Scraper):
             order["products"],
             fields=(
                 "name",
-                "description",
+                # "description",
                 "images",
                 "category",
             ),
