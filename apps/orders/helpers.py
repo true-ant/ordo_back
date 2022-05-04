@@ -467,6 +467,8 @@ class ProductHelper:
                 except Exception:
                     product_price = None
 
+                manufacturer_number_origin = row.get("manufacturer_number")
+                manufacturer_number = manufacturer_number_origin.replace("-", "") if manufacturer_number_origin else ""
                 if fields:
                     product = ProductModel.objects.filter(product_id=row["product_id"], vendor=vendor).first()
                     if product:
@@ -474,8 +476,9 @@ class ProductHelper:
                             if field == "price":
                                 value = product_price
                             elif field == "manufacturer_number":
-                                manufacturer_number = row[field].replace("-", "")
-                                value = manufacturer_number if manufacturer_number else None
+                                value = manufacturer_number
+                            elif field == "manufacturer_number_origin":
+                                value = manufacturer_number_origin
                             else:
                                 value = row[field]
 
@@ -493,7 +496,8 @@ class ProductHelper:
                                 url=row["url"],
                                 category=product_category,
                                 price=product_price,
-                                manufacturer_number=row["manufacturer_number"],
+                                manufacturer_number=manufacturer_number,
+                                manufacturer_number_origin=manufacturer_number_origin,
                             )
                         )
                 else:
@@ -506,7 +510,8 @@ class ProductHelper:
                             url=row["url"],
                             category=product_category,
                             price=product_price,
-                            manufacturer_number=row["manufacturer_number"],
+                            manufacturer_number=manufacturer_number,
+                            manufacturer_number_origin=manufacturer_number_origin,
                         )
                     )
 
