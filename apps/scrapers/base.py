@@ -83,12 +83,32 @@ class Scraper:
     @staticmethod
     def normalize_order_status(order_status):
         order_status = order_status.lower()
-        if order_status in ("shipped", "complete", "order shipped"):
-            return "complete"
-        elif order_status in ("in progress", "processing"):
-            return "processing"
+        if any(
+            status in order_status
+            for status in ("delivered", "shipped", "complete", "order shipped", "cancelled", "closed")
+        ):
+            return "closed"
+        elif any([status in order_status for status in ("open", "in progress", "processing", "pending")]):
+            return "open"
         else:
             return order_status
+
+    @staticmethod
+    def normalize_order_product_status(order_product_status):
+        order_product_status = order_product_status.lower()
+
+        if any(status in order_product_status for status in ("processing", "pending", "open")):
+            return "processing"
+        elif any([status in order_product_status for status in ("backordered",)]):
+            return "backordered"
+        elif any([status in order_product_status for status in ("returned",)]):
+            return "returned"
+        elif any([status in order_product_status for status in ("cancelled",)]):
+            return "cancelled"
+        elif any([status in order_product_status for status in ("received", "complete", "shipped")]):
+            return "received"
+        else:
+            return order_product_status
 
     @staticmethod
     def normalize_product_status(product_status):
@@ -314,7 +334,7 @@ class Scraper:
         order_products_data = order_data.pop("products")
         order_id = order_data["order_id"]
         order_data["vendor_status"] = order_data["status"]
-        order_data["status"] = self.normalize_order_status(order_data["status"])
+        order_data["status"] = self.normalize_order_status(order_data["vendor_status"])
         order_date = order_data["order_date"]
         with transaction.atomic():
             try:
@@ -356,6 +376,8 @@ class Scraper:
                 product, _ = self.save_single_product_to_db(
                     product_data, office, is_inventory=True, order_date=order_date
                 )
+                order_product_data["vendor_status"] = order_product_data["status"]
+                order_product_data["status"] = self.normalize_order_product_status(order_product_data["vendor_status"])
 
                 VendorOrderProductModel.objects.update_or_create(
                     vendor_order=vendor_order,
