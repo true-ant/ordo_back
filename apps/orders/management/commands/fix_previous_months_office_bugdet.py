@@ -24,7 +24,11 @@ class Command(BaseCommand):
                     office_id=office_id, month=monthly_budget_by_office["month"]
                 )
             except OfficeBudget.DoesNotExist:
-                office_budget = offices_first_budgets[office_id]
+                if office_id in offices_first_budgets:
+                    office_budget = offices_first_budgets[office_id]
+                else:
+                    office_budget = OfficeBudget.objects.filter(office_id=office_id).order_by("-month").first()
+                    offices_first_budgets[office_id] = office_budget
                 office_budget.id = None
                 office_budget.month = monthly_budget_by_office["month"]
                 office_budget.dental_spend = monthly_budget_by_office["total_amount"]
