@@ -54,6 +54,4 @@ class Command(BaseCommand):
             objs.append(vendor_order_product)
 
         if objs:
-            VendorOrder.objects.bulk_update(objs, fields=["status"])
-
-        self.normalize_order_status(VendorOrder)
+            VendorOrderProduct.objects.bulk_update(objs, fields=["status"])
