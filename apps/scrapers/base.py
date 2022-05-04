@@ -276,6 +276,7 @@ class Scraper:
                     if order_date:
                         if office_product.last_order_date is None or office_product.last_order_date < order_date:
                             office_product.last_order_date = order_date
+                            office_product.last_order_price = product_price
 
                     office_product.save()
                 except OfficeProductModel.DoesNotExist:
@@ -286,6 +287,7 @@ class Scraper:
                         price=product_price,
                         office_product_category=office_product_category,
                         last_order_date=order_date,
+                        last_order_price=product_price,
                     )
                     if product.parent:
                         OfficeProductModel.objects.get_or_create(
