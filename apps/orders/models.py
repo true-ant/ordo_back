@@ -199,12 +199,17 @@ class OfficeProduct(TimeStampedModel):
     def __str__(self):
         return f"{self.product} for {self.office}"
 
+    class Meta:
+        unique_together = ["office", "product"]
+
+    @property
+    def recent_product(self):
+        if self.last_price_updated and (timezone.now() - self.last_price_updated).days > 10:
+            return self.price
+
     @classmethod
     def from_dataclass(cls, vendor, dict_data):
         return cls.objects.create(vendor=vendor, **dict_data)
-
-    class Meta:
-        unique_together = ["office", "product"]
 
     def to_dataclass(self):
         return ProductDataClass.from_dict(

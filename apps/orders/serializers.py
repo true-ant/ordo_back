@@ -110,7 +110,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
 
         if hasattr(instance, "office_product") and instance.office_product:
             if "product_price" not in ret:
-                ret["product_price"] = instance.office_product[0].price
+                ret["product_price"] = instance.office_product[0].recent_price
 
         children_ids = instance.children.values_list("id", flat=True)
         if vendors:

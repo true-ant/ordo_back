@@ -13,6 +13,7 @@ import pandas as pd
 from aiohttp import ClientSession
 from asgiref.sync import sync_to_async
 from django.apps import apps
+from django.conf import settings
 from django.db import transaction
 from django.db.models import (
     Case,
@@ -28,6 +29,7 @@ from django.db.models import (
     Value,
     When,
 )
+from django.utils import timezone
 from slugify import slugify
 
 from apps.accounts.models import Office as OfficeModel
@@ -146,6 +148,7 @@ class OfficeProductHelper:
     @staticmethod
     def update_products_prices(products_prices: Dict[str, ProductPrice], office_id: str):
         """Store product prices to table"""
+        last_price_updated = timezone.now()
         product_ids = products_prices.keys()
         products = ProductModel.objects.in_bulk(product_ids)
         office_products = OfficeProductModel.objects.select_related("product").filter(
@@ -159,10 +162,13 @@ class OfficeProductHelper:
                 office_product.product_vendor_status = products_prices[office_product.product.id][
                     "product_vendor_status"
                 ]
+                office_product.last_price_updated = last_price_updated
                 updated_product_ids.append(office_product.product.id)
 
             bulk_update(
-                model_class=OfficeProductModel, objs=office_products, fields=["price", "product_vendor_status"]
+                model_class=OfficeProductModel,
+                objs=office_products,
+                fields=["price", "product_vendor_status", "last_price_updated"],
             )
 
             creating_products = []
@@ -174,6 +180,7 @@ class OfficeProductHelper:
                         office_id=office_id,
                         product=products[product_id],
                         price=products_prices[product_id]["price"],
+                        last_price_updated=last_price_updated,
                         product_vendor_status=products_prices[product_id]["product_vendor_status"],
                     )
                 )
@@ -232,8 +239,9 @@ class OfficeProductHelper:
     def get_products_prices_from_db(products: Dict[str, ProductModel], office_id: str) -> Dict[str, ProductPrice]:
         # fetch prices from database
         product_prices = defaultdict(dict)
+        price_least_update_date = timezone.now() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
         office_products = OfficeProductModel.objects.filter(
-            product_id__in=products.keys(), office_id=office_id
+            product_id__in=products.keys(), office_id=office_id, last_price_updated__gte=price_least_update_date
         ).values("product_id", "price", "product_vendor_status")
         for office_product in office_products:
             product_prices[office_product["product_id"]]["price"] = office_product["price"]
@@ -1005,7 +1013,10 @@ class ProductHelper:
 
         # TODO: this should be optimized
         office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk))
-        office_product = OfficeProductModel.objects.filter(Q(office_id=office_pk) & Q(product_id=OuterRef("pk")))
+        price_least_update_date = timezone.now() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
+        office_product_price = OfficeProductModel.objects.filter(
+            Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(last_price_updated__gte=price_least_update_date)
+        ).values("price")
 
         # we treat parent product as inventory product if it has inventory children product
         inventory_office_product = OfficeProductModel.objects.filter(
@@ -1014,7 +1025,7 @@ class ProductHelper:
 
         return (
             products.prefetch_related(Prefetch("office_products", queryset=office_products, to_attr="office_product"))
-            .annotate(office_product_price=Subquery(office_product.values("price")[:1]))
+            .annotate(office_product_price=Subquery(office_product_price[:1]))
             .annotate(is_inventory=Exists(inventory_office_product))
             # .annotate(last_order_date=Subquery(inventory_office_products.values("last_order_date")[:1]))
             # .annotate(last_order_price=Subquery(inventory_office_products.values("price")[:1]))
@@ -1134,7 +1145,10 @@ class ProductHelper:
 
         # TODO: this should be optimized
         office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk))
-        office_product = OfficeProductModel.objects.filter(Q(office_id=office_pk) & Q(product_id=OuterRef("pk")))
+        price_least_update_date = timezone.now() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
+        office_product_price = OfficeProductModel.objects.filter(
+            Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(last_price_updated__gte=price_least_update_date)
+        ).values("price")
 
         # we treat parent product as inventory product if it has inventory children product
         inventory_office_product = OfficeProductModel.objects.filter(
@@ -1143,7 +1157,7 @@ class ProductHelper:
 
         return (
             products.prefetch_related(Prefetch("office_products", queryset=office_products, to_attr="office_product"))
-            .annotate(office_product_price=Subquery(office_product.values("price")[:1]))
+            .annotate(office_product_price=Subquery(office_product_price[:1]))
             .annotate(is_inventory=Exists(inventory_office_product))
             # .annotate(last_order_date=Subquery(inventory_office_products.values("last_order_date")[:1]))
             # .annotate(last_order_price=Subquery(inventory_office_products.values("price")[:1]))
