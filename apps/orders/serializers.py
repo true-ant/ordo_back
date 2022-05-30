@@ -50,7 +50,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 
 class SimpleProductSerializer(serializers.ModelSerializer):
-    images = ProductImageSerializer(many=True, required=False)
+    image = serializers.SerializerMethodField()
     is_inventory = serializers.BooleanField(default=False, read_only=True)
 
     class Meta:
@@ -58,9 +58,17 @@ class SimpleProductSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "name",
-            "images",
+            "image",
             "is_inventory",
         )
+
+    def get_image(self, instance):
+        if instance.vendor is None:
+            image = m.ProductImage.objects.filter(product__parent=instance).first()
+        else:
+            image = instance.images.first()
+        if image:
+            return image.image
 
 
 class ProductV2Serializer(serializers.ModelSerializer):
