@@ -168,7 +168,7 @@ class OfficeBudget(TimeStampedModel):
         return f"{self.office}'s {self.month} budget"
 
 
-class OfficeVendor(models.Model):
+class OfficeVendor(TimeStampedModel):
     vendor = FlexibleForeignKey(Vendor, related_name="connected_offices")
     office = FlexibleForeignKey(Office, related_name="connected_vendors")
     username = models.CharField(max_length=100)
@@ -181,6 +181,7 @@ class OfficeVendor(models.Model):
     representative_phone_number = PhoneNumberField(null=True, blank=True)
 
     class Meta:
+        ordering = ("vendor__name",)
         unique_together = [
             ["office", "vendor"],
             ["vendor", "username"],
