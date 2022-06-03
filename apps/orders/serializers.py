@@ -107,7 +107,8 @@ class ProductV2Serializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         office_pk = self.context.get("office_pk")
-        vendors = self.context.get("vendors")
+        # if you want to filter out pricing comparision products, uncomment it
+        # vendors = self.context.get("vendors")
         if hasattr(instance, "office_product") and instance.office_product:
             ret["product_vendor_status"] = instance.office_product[0].product_vendor_status
             ret["last_order_date"] = instance.office_product[0].last_order_date
@@ -121,8 +122,9 @@ class ProductV2Serializer(serializers.ModelSerializer):
                 ret["product_price"] = instance.office_product[0].recent_price
 
         children_ids = instance.children.values_list("id", flat=True)
-        if vendors:
-            children_ids = children_ids.filter(vendor__slug__in=vendors)
+        # if you want to filter out pricing comparision products, uncomment it
+        # if vendors:
+        #     children_ids = children_ids.filter(vendor__slug__in=vendors)
 
         if children_ids:
             children_products = ProductHelper.get_products(
