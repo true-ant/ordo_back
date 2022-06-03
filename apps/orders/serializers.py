@@ -164,6 +164,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "product_id",
             "name",
             "product_unit",
+            "is_special_offer",
             "description",
             "url",
         )
