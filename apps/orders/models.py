@@ -2,10 +2,10 @@ from datetime import timedelta
 from functools import reduce
 from operator import and_
 
-from django.contrib.postgres.search import (
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import (  # TrigramSimilarity,
     SearchQuery,
     SearchVectorField,
-    TrigramSimilarity,
 )
 from django.db import models
 from django.db.models import Q
@@ -48,12 +48,12 @@ class Keyword(TimeStampedModel):
 class ProductQuerySet(models.QuerySet):
     def search(self, text):
         text = remove_character_between_numerics(text, character="-")
-        trigram_similarity = TrigramSimilarity("name", text)
+        # trigram_similarity = TrigramSimilarity("name", text)
         q = reduce(and_, [SearchQuery(word, config="english") for word in text.split(" ")])
         return (
             self.annotate(search=RawSQL("search_vector", [], output_field=SearchVectorField()))
-            .annotate(similarity=trigram_similarity)
-            .filter(Q(search=q))
+            # .annotate(similarity=trigram_similarity)
+            .filter(Q(search=q) | Q(name__icontains=text))
         )
 
 
@@ -99,6 +99,9 @@ class Product(TimeStampedModel):
         unique_together = [
             "vendor",
             "product_id",
+        ]
+        indexes = [
+            GinIndex(name="product_name_gin_idx", fields=["name"], opclasses=["gin_trgm_ops"]),
         ]
 
     def __str__(self):
