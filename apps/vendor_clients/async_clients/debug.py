@@ -158,7 +158,7 @@ def get_config(vendor_slug: str):
             "products": [
                 {
                     "product": {
-                        "product_id": "",
+                        "product_id": "9233",
                         "url": "https://www.dentalcity.com/product/9233/ortho-direct-bond-buttons-round-base",
                         "product_unit": "",
                     },
@@ -166,7 +166,7 @@ def get_config(vendor_slug: str):
                 },
                 {
                     "product": {
-                        "product_id": "",
+                        "product_id": "1072",
                         "url": "https://www.dentalcity.com"
                         "/product/1072/septodont-cook-waite-lidocaine-hcl-2-epinephrine-1100000-50bx",
                         "product_unit": "",

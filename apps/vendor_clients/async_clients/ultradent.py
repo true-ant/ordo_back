@@ -164,17 +164,19 @@ class UltradentClient(BaseClient):
     async def place_order(self, *args, **kwargs) -> str:
         pass
 
-    def serialize(self, data: dict) -> Optional[types.Product]:
+    def serialize(self, base_product: types.Product, data: dict) -> Optional[types.Product]:
         product_url = data["url"]
         if product_url:
             category = product_url.split("/")[3]
             return {
+                "vendor": self.VENDOR_SLUG,
                 "product_id": data["sku"],
                 "sku": data["sku"],
                 "name": data["productName"],
                 "url": f"https://www.ultradent.com{product_url}?sku={data['sku']}",
                 "images": list(map(lambda x: x["source"], data["images"])),
                 "price": Decimal(data.get("catalogPrice", "")),
+                "product_vendor_status": "",
                 "category": category,
                 "unit": "",
             }

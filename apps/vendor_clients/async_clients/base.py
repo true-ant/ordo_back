@@ -76,7 +76,7 @@ class BaseClient:
         """Clear all products from the cart"""
         raise NotImplementedError("`clear_cart` must be implemented")
 
-    def serialize(self, data: Union[dict, Selector]) -> Optional[types.Product]:
+    def serialize(self, base_product: types.Product, data: Union[dict, Selector]) -> Optional[types.Product]:
         """Serialize vendor-specific product detail to our data"""
         raise NotImplementedError("`clear_cart` must be implemented")
 
@@ -186,7 +186,7 @@ class BaseClient:
         else:
             headers = getattr(self, "GET_PRODUCT_PAGE_HEADERS")
             product_page_dom = await self.get_response_as_dom(url=product["url"], headers=headers)
-            product_detail = self.serialize(product_page_dom)
+            product_detail = self.serialize(product, product_page_dom)
 
         if semaphore:
             semaphore.release()
@@ -222,7 +222,11 @@ class BaseClient:
         if hasattr(self, "_get_products_prices"):
             return await self._get_products_prices(products, *args, **kwargs)
         elif hasattr(self, "get_product_price"):
-            tasks = (self.get_product_price(product=product, login_required=False) for product in products)
+            semaphore = Semaphore(value=self.MULTI_CONNECTIONS)
+            tasks = (
+                self.get_product_price(product=product, semaphore=semaphore, login_required=False)
+                for product in products
+            )
             results = await asyncio.gather(*tasks, return_exceptions=True)
             results = [result for result in results if isinstance(result, dict)]
             return dict(ChainMap(*results))

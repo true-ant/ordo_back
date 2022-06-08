@@ -126,7 +126,7 @@ class BencoClient(BaseClient):
             "cart_verify_token": self.get_cart_verify_token(cart_page_dom),
         }
 
-    def serialize(self, data: Union[dict, Selector]) -> Optional[types.Product]:
+    def serialize(self, base_product: types.Product, data: Union[dict, Selector]) -> Optional[types.Product]:
         # TODO: this should be updated in the future
         product_name = data.xpath(".//h3[@class='product-name']/text()").get()
         images = data.xpath(".//div[@class='thumbnail']/img/@src").extract()

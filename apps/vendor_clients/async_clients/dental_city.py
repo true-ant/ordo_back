@@ -4,6 +4,8 @@ from typing import Optional, Union
 from aiohttp import ClientResponse
 from scrapy import Selector
 
+from apps.common.utils import convert_string_to_price
+from apps.vendor_clients import types
 from apps.vendor_clients.async_clients import BaseClient
 from apps.vendor_clients.headers.dental_city import (
     ADD_PRODUCT_TO_CART_HEADERS,
@@ -13,13 +15,13 @@ from apps.vendor_clients.headers.dental_city import (
     LOGIN_PAGE_HEADERS,
     REMOVE_PRODUCT_FROM_CART_HEADERS,
 )
-from apps.vendor_clients.types import CartProduct, LoginInformation
 
 
 class DentalCityClient(BaseClient):
     VENDOR_SLUG = "dental_city"
+    GET_PRODUCT_PAGE_HEADERS = GET_PRODUCT_PAGE_HEADERS
 
-    async def get_login_data(self, *args, **kwargs) -> LoginInformation:
+    async def get_login_data(self, *args, **kwargs) -> types.LoginInformation:
         await self.session.get("https://www.dentalcity.com/account/login", headers=LOGIN_PAGE_HEADERS)
         return {
             "url": "https://www.dentalcity.com/account/login/",
@@ -39,6 +41,24 @@ class DentalCityClient(BaseClient):
         dom = Selector(text=text)
         login_success = dom.xpath("//input[@id='Message']/@value").get()
         return login_success == "success"
+
+    def serialize(self, base_product: types.Product, data: Union[dict, Selector]) -> Optional[types.Product]:
+        # TODO: we need to parse all product details in the future if that is required.
+        price = convert_string_to_price(data.xpath('//div[@class="yourpricecontainer"]//span/text()').get())
+        product = {
+            "vendor": self.VENDOR_SLUG,
+            "product_id": "",
+            "sku": "",
+            "name": "",
+            "url": "",
+            "images": [],
+            "price": price,
+            "product_vendor_status": "",
+            "category": "",
+            "unit": "",
+        }
+        product.update(base_product)
+        return product
 
     async def get_cart_page(self) -> Union[Selector, dict]:
         return await self.get_response_as_dom(
@@ -60,7 +80,7 @@ class DentalCityClient(BaseClient):
 
         await asyncio.gather(*tasks)
 
-    async def add_product_to_cart(self, product: CartProduct, *args, **kwargs):
+    async def add_product_to_cart(self, product: types.CartProduct, *args, **kwargs):
         # TODO: We should store sku id to our database
         product_page_dom = await self.get_product_page(
             product_link=product["product"]["url"], headers=GET_PRODUCT_PAGE_HEADERS
