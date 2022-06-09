@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 from aiohttp import ClientResponse
 from scrapy import Selector
 
+from apps.common.utils import concatenate_list_as_string
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import (
@@ -405,7 +406,9 @@ class DarbyScraper(Scraper):
     async def review_order(self) -> VendorOrderDetail:
         cart_page_dom = await self.get_cart_page()
 
-        shipping_address = cart_page_dom.xpath('//span[@id="MainContent_lblAddress"]//text()').extract()
+        shipping_address = concatenate_list_as_string(
+            cart_page_dom.xpath('//span[@id="MainContent_lblAddress"]//text()').extract()
+        )
         subtotal_amount = convert_string_to_price(
             cart_page_dom.xpath('//tbody[@id="orderTotals"]//td/span[@id="MainContent_lblSubTotal"]//text()').get()
         )
