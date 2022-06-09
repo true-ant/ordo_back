@@ -168,6 +168,7 @@ class OfficeViewSet(ModelViewSet):
 
 class CompanyMemberViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
+    filterset_class = f.CompanyMemberFilter
 
     def get_queryset(self):
         return m.CompanyMember.objects.filter(company_id=self.kwargs["company_pk"])
