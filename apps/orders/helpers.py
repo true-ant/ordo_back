@@ -250,17 +250,19 @@ class OfficeProductHelper:
 
         # get prices of products from formula vendors
         price_least_update_date = timezone.now() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
-        office_products = OfficeProductModel.objects.annotate(
-            outdated=Case(
-                When(
-                    Q(last_price_updated__lt=price_least_update_date) | Q(last_price_updated__isnull=True),
-                    then=True
-                ),
-                default=False
+        office_products = (
+            OfficeProductModel.objects.annotate(
+                outdated=Case(
+                    When(
+                        Q(last_price_updated__lt=price_least_update_date) | Q(last_price_updated__isnull=True),
+                        then=True,
+                    ),
+                    default=False,
+                )
             )
-        ).filter(
-            product_id__in=product_ids_from_formula_vendors, office_id=office_id, outdated=True
-        ).values("product_id", "price", "product_vendor_status")
+            .filter(product_id__in=product_ids_from_formula_vendors, office_id=office_id, outdated=True)
+            .values("product_id", "price", "product_vendor_status")
+        )
 
         # get prices of products from non-informula vendors
         price_least_update_date = timezone.now() - datetime.timedelta(days=settings.NET32_PRODUCT_PRICE_UPDATE_CYCLE)
@@ -1034,23 +1036,24 @@ class ProductHelper:
         # TODO: this should be optimized
         office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk))
         price_least_update_date = timezone.now() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
-        net32_price_least_update_date = timezone.now() - datetime.timedelta(days=settings.NET32_PRODUCT_PRICE_UPDATE_CYCLE)
-        office_product_price = OfficeProductModel.objects.annotate(
-            outdated=Case(
-                When(
-                    Q(last_price_updated__lt=price_least_update_date)
-                    | Q(last_price_updated__isnull=True)
-                    | (
-                            Q(product__vendor_id=2)
-                            & Q(last_price_updated__lt=net32_price_least_update_date)
+        net32_price_least_update_date = timezone.now() - datetime.timedelta(
+            days=settings.NET32_PRODUCT_PRICE_UPDATE_CYCLE
+        )
+        office_product_price = (
+            OfficeProductModel.objects.annotate(
+                outdated=Case(
+                    When(
+                        Q(last_price_updated__lt=price_least_update_date)
+                        | Q(last_price_updated__isnull=True)
+                        | (Q(product__vendor_id=2) & Q(last_price_updated__lt=net32_price_least_update_date)),
+                        then=True,
                     ),
-                    then=True
-                ),
-                default=False
+                    default=False,
+                )
             )
-        ).filter(
-            Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(outdated=False)
-        ).values("price")
+            .filter(Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(outdated=False))
+            .values("price")
+        )
 
         # we treat parent product as inventory product if it has inventory children product
         inventory_office_product = OfficeProductModel.objects.filter(
@@ -1180,23 +1183,24 @@ class ProductHelper:
         # TODO: this should be optimized
         office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk))
         price_least_update_date = timezone.now() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
-        net32_price_least_update_date = timezone.now() - datetime.timedelta(days=settings.NET32_PRODUCT_PRICE_UPDATE_CYCLE)
-        office_product_price = OfficeProductModel.objects.annotate(
-            outdated=Case(
-                When(
-                    Q(last_price_updated__lt=price_least_update_date)
-                    | Q(last_price_updated__isnull=True)
-                    | (
-                            Q(product__vendor_id=2)
-                            & Q(last_price_updated__lt=net32_price_least_update_date)
+        net32_price_least_update_date = timezone.now() - datetime.timedelta(
+            days=settings.NET32_PRODUCT_PRICE_UPDATE_CYCLE
+        )
+        office_product_price = (
+            OfficeProductModel.objects.annotate(
+                outdated=Case(
+                    When(
+                        Q(last_price_updated__lt=price_least_update_date)
+                        | Q(last_price_updated__isnull=True)
+                        | (Q(product__vendor_id=2) & Q(last_price_updated__lt=net32_price_least_update_date)),
+                        then=True,
                     ),
-                    then=True
-                ),
-                default=False
+                    default=False,
+                )
             )
-        ).filter(
-            Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(outdated=False)
-        ).values("price")
+            .filter(Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(outdated=False))
+            .values("price")
+        )
 
         # we treat parent product as inventory product if it has inventory children product
         inventory_office_product = OfficeProductModel.objects.filter(
