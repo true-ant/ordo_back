@@ -146,6 +146,8 @@ class ProductV2Serializer(serializers.ModelSerializer):
         else:
             ret["children"] = []
 
+        if instance.parent is None:
+            ret["description"] = instance.description
         return ret
 
 

@@ -465,7 +465,8 @@ class ProductHelper:
             product_objs_to_be_created = []
             product_objs_to_be_updated = []
             for index, row in sub_df.iterrows():
-                category = slugify(row.pop("category"))
+                category = row.get("category", "")
+                category = slugify(category)
                 product_category = category_mapping[vendor_slug].get(category)
                 if product_category is None:
                     product_category = category_mapping["other"]
@@ -495,19 +496,24 @@ class ProductHelper:
                                 product_objs_to_be_updated.append(product)
                     else:
                         print(f"Cannot find out {row['product_id']}")
-                        product_objs_to_be_created.append(
-                            ProductModel(
-                                vendor=vendor,
-                                product_id=row["product_id"],
-                                name=row["name"],
-                                product_unit=row["product_unit"],
-                                url=row["url"],
-                                category=product_category,
-                                price=product_price,
-                                manufacturer_number=manufacturer_number,
-                                manufacturer_number_origin=manufacturer_number_origin,
-                            )
-                        )
+                        # product_name = row.get("name")
+                        # product_unit = row.get("product_unit")
+                        # url = row.get("url")
+                        # if product_name is None:
+                        #     continue
+                        # product_objs_to_be_created.append(
+                        #     ProductModel(
+                        #         vendor=vendor,
+                        #         product_id=row["product_id"],
+                        #         name=product_name,
+                        #         product_unit=product_unit,
+                        #         url=url,
+                        #         category=product_category,
+                        #         price=product_price,
+                        #         manufacturer_number=manufacturer_number,
+                        #         manufacturer_number_origin=manufacturer_number_origin,
+                        #     )
+                        # )
                 else:
                     product_objs_to_be_created.append(
                         ProductModel(

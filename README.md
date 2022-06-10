@@ -1,7 +1,8 @@
-## how to import products
-
-```
-python manage.py s3_download
-python manage.py normalize_products_csv
-python manage.py import_products
-```
+- Import Products from CSV files
+    ```shell
+    python manage.py import_products --directory ./products
+    ```
+- Update Products from CSV files
+    ```shell
+    python manage.py import_products --directory ./products --fields description
+    ```
