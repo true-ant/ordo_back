@@ -88,6 +88,7 @@ class Product(TimeStampedModel):
         related_query_name="child",
     )
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    last_price_updated = models.DateTimeField(null=True, blank=True, db_index=True)
 
     is_special_offer = models.BooleanField(default=False)
     special_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -195,7 +196,7 @@ class OfficeProduct(TimeStampedModel):
     )
     last_order_date = models.DateField(null=True, blank=True)
     last_order_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    last_price_updated = models.DateTimeField(null=True, blank=True)
+    last_price_updated = models.DateTimeField(null=True, blank=True, db_index=True)
     is_favorite = models.BooleanField(default=False)
     is_inventory = models.BooleanField(default=False)
 
