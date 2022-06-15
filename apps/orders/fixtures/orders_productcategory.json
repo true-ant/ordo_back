@@ -746,7 +746,7 @@
         "model": "orders.productcategory",
         "pk": 24,
         "fields": {
-            "name": "other",
+            "name": "Uncategorized",
             "slug": "other",
             "description": ""
         }

@@ -492,7 +492,13 @@ class OfficeProductCategoryViewSet(ModelViewSet):
     serializer_class = s.OfficeProductCategorySerializer
 
     def get_queryset(self):
-        return super().get_queryset().filter(office__id=self.kwargs["office_pk"]).order_by("name")
+        return (
+            super()
+            .get_queryset()
+            .annotate(has_category=Case(When(slug="other", then=Value(1)), default=Value(0)))
+            .filter(office__id=self.kwargs["office_pk"])
+            .order_by("has_category", "name")
+        )
 
     def create(self, request, *args, **kwargs):
         request.data.setdefault("office", self.kwargs["office_pk"])
@@ -506,18 +512,25 @@ class OfficeProductCategoryViewSet(ModelViewSet):
 
         with transaction.atomic():
             office_products = instance.products.all()
-            office_product_categories = {}
+
+            # move products to original uncategorized category
+            other_product_category = m.OfficeProductCategory.objects.filter(slug="other", office=instance.office)
             for office_product in office_products:
-                original_product_category_slug = office_product.product.category.slug
-                original_product_category = office_product_categories.get(original_product_category_slug)
+                office_product.office_product_category = other_product_category
 
-                if original_product_category is None:
-                    original_product_category = m.OfficeProductCategory.objects.filter(
-                        slug=original_product_category_slug, office=instance.office
-                    ).first()
-                    office_product_categories[original_product_category_slug] = original_product_category
-
-                office_product.office_product_category = original_product_category
+            # this uncommented logic move products to original product category
+            # office_product_categories = {}
+            # for office_product in office_products:
+            #     original_product_category_slug = office_product.product.category.slug
+            #     original_product_category = office_product_categories.get(original_product_category_slug)
+            #
+            #     if original_product_category is None:
+            #         original_product_category = m.OfficeProductCategory.objects.filter(
+            #             slug=original_product_category_slug, office=instance.office
+            #         ).first()
+            #         office_product_categories[original_product_category_slug] = original_product_category
+            #
+            #     office_product.office_product_category = original_product_category
 
             if office_products:
                 m.OfficeProduct.objects.bulk_update(office_products, fields=["office_product_category"])
@@ -1137,6 +1150,14 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
     def update(self, request, *args, **kwargs):
         kwargs["partial"] = True
         return super().update(request, *args, **kwargs)
+
+    @action(detail=True, methods=["post"], url_path="remove")
+    def remove_from_inventory(self, request, *args, **kwargs):
+        instance = self.get_object()
+        other_category = m.OfficeProductCategory.objects.filter(office=instance.office, slug="other").first()
+        instance.office_product_category = other_category
+        instance.save()
+        return Response({"message": "Deleted successfully"}, status=HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=["post"], url_path="prices")
     async def get_product_prices(self, request, *args, **kwargs):

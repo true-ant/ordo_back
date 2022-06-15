@@ -162,7 +162,8 @@ class OfficeProductCategory(TimeStampedModel):
         return f"{self.slug}"
 
     def save(self, *args, **kwargs):
-        self.slug = slugify(self.name)
+        if not self.slug:
+            self.slug = slugify(self.name)
         super().save(*args, **kwargs)
 
     class Meta:
