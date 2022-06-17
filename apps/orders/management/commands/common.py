@@ -1,5 +1,11 @@
-from apps.orders.models import OfficeProductCategory, ProductCategory
+from apps.orders.models import (
+    OfficeProduct,
+    OfficeProductCategory,
+    Product,
+    ProductCategory,
+)
 
+# Change Other slug to Uncategorized
 product_categories = ProductCategory.objects.filter(slug="other")
 for product_category in product_categories:
     product_category.name = "Uncategorized"
@@ -10,3 +16,13 @@ office_product_categories = OfficeProductCategory.objects.filter(slug="other")
 for product_category in office_product_categories:
     product_category.name = "Uncategorized"
     product_category.save()
+
+
+products = Product.objects.filter(manufacturer_number__isnull=True, vendor__isnull=True)
+for product in products:
+    children_manufacturer_numbers = product.children.values_list("manufacturer_number", flat=True).distinct()
+    if len(children_manufacturer_numbers) == 1 and children_manufacturer_numbers[0]:
+        product.manufacturer_number = children_manufacturer_numbers[0]
+        product.save()
+    else:
+        product.delete()

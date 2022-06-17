@@ -441,7 +441,7 @@ class OfficeProductSerializer(serializers.ModelSerializer):
             else:
                 last_order_products = sorted(
                     [
-                        (child["last_order_date"], child["last_order_price"], child["vendor"]["slug"])
+                        (child["last_order_date"], child["last_order_price"], child["vendor"]["slug"], child["id"])
                         for child in ret["product"]["children"]
                         if child["is_inventory"] is True
                     ],
@@ -452,6 +452,8 @@ class OfficeProductSerializer(serializers.ModelSerializer):
                     ret["last_order_date"] = last_order_products[0][0]
                     ret["last_order_price"] = last_order_products[0][1]
                     ret["vendor"] = last_order_products[0][2]
+                    # this is a little complicated
+                    ret["product"]["id"] = last_order_products[0][3]
                 else:
                     ret["last_order_date"] = None
                     ret["last_order_price"] = None
