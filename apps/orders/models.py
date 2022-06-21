@@ -72,6 +72,7 @@ class Product(TimeStampedModel):
 
     vendor = FlexibleForeignKey(Vendor, related_name="products", null=True, blank=True)
     product_id = models.CharField(max_length=128, db_index=True, null=True)
+    sku = models.CharField(max_length=32, null=True, blank=True)
     manufacturer_number = models.CharField(max_length=128, null=True, blank=True)
     manufacturer_number_origin = models.CharField(max_length=128, null=True, blank=True)
     category = models.ForeignKey(ProductCategory, null=True, blank=True, on_delete=models.SET_NULL, db_index=True)
