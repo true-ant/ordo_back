@@ -123,14 +123,17 @@ class Product(TimeStampedModel):
 
     @property
     def recent_price(self):
-        if self.vendor.slug in settings.NON_FORMULA_VENDORS and self.last_price_updated:
-            ages_in_days = (timezone.now() - self.last_price_updated).days
-            life_span_in_days = (
-                settings.NET32_PRODUCT_PRICE_UPDATE_CYCLE
-                if self.vendor.slug == "net_32"
-                else settings.PRODUCT_PRICE_UPDATE_CYCLE
-            )
-            if ages_in_days < life_span_in_days:
+        if self.vendor.slug in settings.NON_FORMULA_VENDORS:
+            if self.vendor.slug in ["net_32", "dental_city"] and self.last_price_updated:
+                ages_in_days = (timezone.now() - self.last_price_updated).days
+                life_span_in_days = (
+                    settings.NET32_PRODUCT_PRICE_UPDATE_CYCLE
+                    if self.vendor.slug == "net_32"
+                    else settings.PRODUCT_PRICE_UPDATE_CYCLE
+                )
+                if ages_in_days < life_span_in_days:
+                    return self.price
+            else:
                 return self.price
 
     def to_dict(self) -> ProductDict:
