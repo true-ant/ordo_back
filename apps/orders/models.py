@@ -48,9 +48,13 @@ class Keyword(TimeStampedModel):
 
 class ProductQuerySet(models.QuerySet):
     def search(self, text):
+        original_text = text
+        # this is for search for henry schein product id
         text = remove_character_between_numerics(text, character="-")
         # trigram_similarity = TrigramSimilarity("name", text)
-        q = reduce(and_, [SearchQuery(word, config="english") for word in text.split(" ")])
+        q1 = reduce(and_, [SearchQuery(word, config="english") for word in text.split(" ")])
+        q2 = reduce(and_, [SearchQuery(word, config="english") for word in original_text.split(" ")])
+        q = q1 | q2
         return (
             self.annotate(search=RawSQL("search_vector", [], output_field=SearchVectorField()))
             # .annotate(similarity=trigram_similarity)
