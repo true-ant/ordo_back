@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 from rest_framework import serializers
@@ -114,12 +115,12 @@ class ProductV2Serializer(serializers.ModelSerializer):
             ret["last_order_date"] = instance.office_product[0].last_order_date
             ret["last_order_price"] = instance.office_product[0].last_order_price
 
-        if "product_price" not in ret or ret["product_price"] is None:
-            ret["product_price"] = instance.price
+        if instance.vendor and instance.vendor.slug in settings.NON_FORMULA_VENDORS:
+            ret["product_price"] = instance.recent_price
 
-        if hasattr(instance, "office_product") and instance.office_product:
-            if "product_price" not in ret:
-                ret["product_price"] = instance.office_product[0].recent_price
+        # if hasattr(instance, "office_product") and instance.office_product:
+        #     if "product_price" not in ret:
+        #         ret["product_price"] = instance.office_product[0].recent_price
 
         children_ids = instance.children.values_list("id", flat=True)
         # if you want to filter out pricing comparision products, uncomment it

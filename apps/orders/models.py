@@ -2,6 +2,7 @@ from datetime import timedelta
 from functools import reduce
 from operator import and_
 
+from django.conf import settings
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import (  # TrigramSimilarity,
     SearchQuery,
@@ -88,6 +89,8 @@ class Product(TimeStampedModel):
         related_query_name="child",
     )
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    last_price_updated = models.DateTimeField(null=True, blank=True, db_index=True)
+    product_vendor_status = models.CharField(max_length=512, null=True, blank=True)
 
     is_special_offer = models.BooleanField(default=False)
     special_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -112,6 +115,18 @@ class Product(TimeStampedModel):
         if self.parent:
             return self.parent.children.exclude(id=self.id)
         return self.__class__.objects.none()
+
+    @property
+    def recent_price(self):
+        if self.vendor.slug in settings.NON_FORMULA_VENDORS and self.last_price_updated:
+            ages_in_days = (timezone.now() - self.last_price_updated).days
+            life_span_in_days = (
+                settings.NET32_PRODUCT_PRICE_UPDATE_CYCLE
+                if self.vendor.slug == "net_32"
+                else settings.PRODUCT_PRICE_UPDATE_CYCLE
+            )
+            if ages_in_days < life_span_in_days:
+                return self.price
 
     def to_dict(self) -> ProductDict:
         return {
@@ -196,7 +211,7 @@ class OfficeProduct(TimeStampedModel):
     )
     last_order_date = models.DateField(null=True, blank=True)
     last_order_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    last_price_updated = models.DateTimeField(null=True, blank=True)
+    last_price_updated = models.DateTimeField(null=True, blank=True, db_index=True)
     is_favorite = models.BooleanField(default=False)
     is_inventory = models.BooleanField(default=False)
 

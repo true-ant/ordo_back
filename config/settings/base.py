@@ -252,3 +252,18 @@ STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
 STRIPE_SUBSCRIPTION_PRICE_ID = os.getenv("STRIPE_SUBSCRIPTION_PRICE_ID")
 MAKE_FAKE_ORDER = os.getenv("MAKE_FAKE_ORDER", True)
 PRODUCT_PRICE_UPDATE_CYCLE = 14
+NET32_PRODUCT_PRICE_UPDATE_CYCLE = 2
+FORMULA_VENDORS = [
+    "henry_schein",
+    "darby",
+    "patterson",
+    "amazon",
+    "benco",
+]
+NON_FORMULA_VENDORS = [
+    "ultradent",
+    "implant_direct",
+    "edge_endo",
+    "net_32",
+    "dental_city",
+]

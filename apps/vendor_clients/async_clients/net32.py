@@ -111,9 +111,9 @@ class Net32Client(BaseClient):
                 )
                 price = vendor_options[0]["priceBreaks"][0]["unitPrice"]
         except Exception:
-            return {product_id: {"price": 0, "product_vendor_status": "Network Error"}}
+            return {product_id: {"price": Decimal(0), "product_vendor_status": "Network Error"}}
         else:
-            return {product_id: {"price": price, "product_vendor_status": "Active"}}
+            return {product_id: {"price": Decimal(str(price)), "product_vendor_status": "Active"}}
         finally:
             if semaphore:
                 semaphore.release()

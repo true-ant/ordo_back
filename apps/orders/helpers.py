@@ -171,6 +171,22 @@ class OfficeProductHelper:
                 fields=["price", "product_vendor_status", "last_price_updated"],
             )
 
+            # update product price
+            products_to_be_updated = []
+            for product_id, product in products.items():
+                if product.vendor.slug not in settings.NON_FORMULA_VENDORS:
+                    continue
+                product.price = products_prices[product_id]["price"]
+                product.product_vendor_status = products_prices[product_id]["product_vendor_status"]
+                product.last_price_updated = last_price_updated
+                products_to_be_updated.append(product)
+
+            bulk_update(
+                model_class=ProductModel,
+                objs=products_to_be_updated,
+                fields=["price", "product_vendor_status", "last_price_updated"],
+            )
+
             creating_products = []
             for product_id in product_ids:
                 if product_id in updated_product_ids:
@@ -220,10 +236,10 @@ class OfficeProductHelper:
             if product_id not in product_prices_from_db.keys():
                 product_data = await sync_to_async(product.to_dict)()
                 if product_data["vendor"] not in (
-                    "net_32",
                     "implant_direct",
                     "edge_endo",
-                    "dental_city",
+                    # "net_32",
+                    # "dental_city",
                 ):
                     products_to_be_fetched[product_id] = product_data
 
@@ -237,17 +253,43 @@ class OfficeProductHelper:
 
     @staticmethod
     def get_products_prices_from_db(products: Dict[str, ProductModel], office_id: str) -> Dict[str, ProductPrice]:
-        # fetch prices from database
+        product_ids_from_formula_vendors = []
+        product_ids_from_non_formula_vendors = []
+        for product_id, product in products.items():
+            if product.vendor.slug in settings.FORMULA_VENDORS:
+                product_ids_from_formula_vendors.append(product_id)
+            else:
+                product_ids_from_non_formula_vendors.append(product_id)
+
         product_prices = defaultdict(dict)
+
+        # get prices of products from formula vendors
         price_least_update_date = timezone.now() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
-        office_products = OfficeProductModel.objects.filter(
-            product_id__in=products.keys(), office_id=office_id, last_price_updated__gte=price_least_update_date
-        ).values("product_id", "price", "product_vendor_status")
+        office_products = (
+            OfficeProductModel.objects.annotate(
+                outdated=Case(
+                    When(
+                        Q(last_price_updated__lt=price_least_update_date) | Q(last_price_updated__isnull=True),
+                        then=True,
+                    ),
+                    default=False,
+                )
+            )
+            .filter(product_id__in=product_ids_from_formula_vendors, office_id=office_id, outdated=True)
+            .values("product_id", "price", "product_vendor_status")
+        )
         for office_product in office_products:
             product_prices[office_product["product_id"]]["price"] = office_product["price"]
             product_prices[office_product["product_id"]]["product_vendor_status"] = office_product[
                 "product_vendor_status"
             ]
+
+        # get prices of products from non-informula vendors
+        for product_id in product_ids_from_non_formula_vendors:
+            recent_price = products[product_id].recent_price
+            if recent_price:
+                product_prices[product_id]["price"] = recent_price
+                product_prices[product_id]["product_vendor_status"] = ""
 
         return product_prices
 
