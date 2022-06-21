@@ -1,3 +1,5 @@
+# flake8: noqa
+
 from apps.orders.models import (
     OfficeProduct,
     OfficeProductCategory,
@@ -6,15 +8,14 @@ from apps.orders.models import (
 )
 
 # Change Other slug to Uncategorized
-product_categories = ProductCategory.objects.filter(slug="other")
+product_categories = ProductCategory.objects.filter(name="Dental Equipment Parts and Accessories")
 for product_category in product_categories:
-    product_category.name = "Uncategorized"
+    product_category.name = "Dental Equipment Parts & Accessories"
     product_category.save()
 
-
-office_product_categories = OfficeProductCategory.objects.filter(slug="other")
+office_product_categories = OfficeProductCategory.objects.filter(name="Dental Equipment Parts and Accessories")
 for product_category in office_product_categories:
-    product_category.name = "Uncategorized"
+    product_category.name = "Dental Equipment Parts & Accessories"
     product_category.save()
 
 

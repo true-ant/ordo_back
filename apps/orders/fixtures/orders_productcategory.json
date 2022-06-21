@@ -164,7 +164,7 @@
         "model": "orders.productcategory",
         "pk": 5,
         "fields": {
-            "name": "Dental Equipment Parts and Accessories",
+            "name": "Dental Equipment Parts & Accessories",
             "slug": "dental-equipment-parts-and-accessories",
             "vendor_categories": {
                 "benco": [
@@ -533,8 +533,8 @@
         "model": "orders.productcategory",
         "pk": 16,
         "fields": {
-            "name": "Orthodontic",
-            "slug": "orthodontic",
+            "name": "Orthodontics",
+            "slug": "orthodontics",
             "vendor_categories": {
                 "darby": [
                     "orthodontics"
@@ -650,7 +650,7 @@
         "model": "orders.productcategory",
         "pk": 20,
         "fields": {
-            "name": "Surgical supplies",
+            "name": "Surgical Supplies",
             "slug": "surgical-supplies",
             "vendor_categories": {
                 "benco": [
@@ -686,7 +686,7 @@
         "model": "orders.productcategory",
         "pk": 21,
         "fields": {
-            "name": "X-Ray And Digital Imaging",
+            "name": "X-Ray & Digital Imaging",
             "slug": "x-ray-and-digital-imaging",
             "vendor_categories": {
                 "benco": [
