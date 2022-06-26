@@ -168,6 +168,12 @@ class OfficeBudget(TimeStampedModel):
         return f"{self.office}'s {self.month} budget"
 
 
+class OfficeSetting(TimeStampedModel):
+    office = models.OneToOneField(Office, related_name="settings", on_delete=models.CASCADE)
+    requires_approval_notification_for_all_orders = models.BooleanField(default=False)
+    budget_threshold = models.DecimalField(default=0, decimal_places=1, max_digits=10)
+
+
 class OfficeVendor(TimeStampedModel):
     vendor = FlexibleForeignKey(Vendor, related_name="connected_offices")
     office = FlexibleForeignKey(Office, related_name="connected_vendors")

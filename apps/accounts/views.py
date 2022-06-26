@@ -165,6 +165,15 @@ class OfficeViewSet(ModelViewSet):
             # cancel subscription
             OfficeService.cancel_subscription(instance)
 
+    @action(detail=True, methods=["post"], url_path="settings")
+    def update_settings(self, request, *args, **kwargs):
+        instance = self.get_object()
+        office_setting, created = m.OfficeSetting.objects.get_or_create(office=instance)
+        serializer = s.OfficeSettingSerializer(office_setting, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
 
 class CompanyMemberViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]

@@ -1,5 +1,6 @@
 # flake8: noqa
 
+from apps.accounts.models import Office, OfficeSetting
 from apps.orders.models import (
     OfficeProduct,
     OfficeProductCategory,
@@ -27,3 +28,7 @@ for product in products:
         product.save()
     else:
         product.delete()
+
+offices = Office.objects.all()
+for office in offices:
+    OfficeSetting.objects.create(office=office)

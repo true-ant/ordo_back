@@ -988,14 +988,25 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         tasks = []
 
         debug = OrderService.is_debug_mode(request.META["HTTP_HOST"])
-        total_amount = sum(
-            [Decimal(str(vendor_data["total_amount"])) for vendor, vendor_data in data.items() if vendor != "amazon"]
-        )
-        remaining_budget = await sync_to_async(OfficeService.get_office_remaining_budget)(
-            office_pk=self.kwargs["office_pk"]
-        )
 
-        order_approval_needed = request.user.role == m.User.Role.USER and remaining_budget[0] < total_amount
+        # check order app
+        if request.user.role == m.User.Role.ADMIN:
+            order_approval_needed = False
+        else:
+            # total_amount = sum(
+            #     [Decimal(str(vendor_data["total_amount"])) for vendor, vendor_data in data.items() if
+            #      vendor != "amazon"]
+            # )
+
+            remaining_budget = await sync_to_async(OfficeService.get_office_remaining_budget)(
+                office_pk=self.kwargs["office_pk"]
+            )
+            office_setting = await sync_to_async(OfficeService.get_office_setting)(office_pk=self.kwargs["office_pk"])
+            order_approval_needed = (office_setting.requires_approval_notification_for_all_orders is True) or (
+                office_setting.requires_approval_notification_for_all_orders is False
+                and remaining_budget[0] < office_setting.budget_threshold
+            )
+
         fake_order = debug or order_approval_needed
 
         for office_vendor in office_vendors:

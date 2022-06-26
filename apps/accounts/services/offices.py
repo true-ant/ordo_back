@@ -3,7 +3,7 @@ from typing import Optional, Tuple
 from django.utils import timezone
 from month import Month
 
-from apps.accounts.models import Office, OfficeBudget, Subscription
+from apps.accounts.models import Office, OfficeBudget, OfficeSetting, Subscription
 from apps.accounts.services.stripe import (
     cancel_subscription as stripe_cancel_subscription,
 )
@@ -34,6 +34,10 @@ class OfficeService:
                 office_budget.dental_budget - office_budget.dental_spend,
                 office_budget.office_budget - office_budget.office_spend,
             )
+
+    @staticmethod
+    def get_office_setting(office_pk: int):
+        return OfficeSetting.objects.get(office_id=office_pk)
 
     @staticmethod
     def cancel_subscription(office: Office) -> Tuple[bool, str]:
