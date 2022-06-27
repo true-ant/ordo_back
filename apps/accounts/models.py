@@ -172,6 +172,7 @@ class OfficeSetting(TimeStampedModel):
     office = models.OneToOneField(Office, related_name="settings", on_delete=models.CASCADE)
     requires_approval_notification_for_all_orders = models.BooleanField(default=False)
     budget_threshold = models.DecimalField(default=0, decimal_places=1, max_digits=10)
+    percentage_threshold = models.DecimalField(default=0, decimal_places=2, max_digits=5)
 
 
 class OfficeVendor(TimeStampedModel):
