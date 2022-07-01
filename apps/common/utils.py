@@ -244,12 +244,20 @@ def find_numeric_values_from_string(s):
     return re.findall(r"\w*[\d]+\w*", s)
 
 
+def find_numerics_from_string(text: str) -> List[str]:
+    return re.findall(r"(\d[\d.,]*)\s*", text)
+
+
 def find_words_from_string(s):
     return re.findall(r"\w+", s)
 
 
 def extract_numeric_values(text: str) -> List[str]:
     return re.findall(r"(\d[\d.,]*)\s*", text)
+
+
+def find_prices_from_string(text: str) -> List[str]:
+    return re.findall(r"\$(\d[\d.,]*)\s*", text)
 
 
 def remove_character_between_numerics(text: str, character: str) -> str:
@@ -263,6 +271,24 @@ def convert_string_to_price(text: str) -> Decimal:
         return Decimal(price)
     except (KeyError, ValueError, TypeError, IndexError):
         return Decimal("0")
+
+
+def extract_price_from_string(text: str) -> Decimal:
+    try:
+        price = find_prices_from_string(text)[0]
+        price = price.replace(",", "")
+        return Decimal(price)
+    except (KeyError, ValueError, TypeError, IndexError):
+        return Decimal("0")
+
+
+def extract_integer_from_string(text: str) -> int:
+    try:
+        price = find_numerics_from_string(text)[0]
+        price = price.replace(",", "")
+        return int(price)
+    except (KeyError, ValueError, TypeError, IndexError):
+        return 0
 
 
 def get_file_name_and_ext(file_path: str) -> Tuple[str, str]:

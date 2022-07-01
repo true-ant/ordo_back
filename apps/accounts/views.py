@@ -551,3 +551,11 @@ class VendorRequestViewSet(ModelViewSet):
 
     def get_queryset(self):
         return self.queryset.filter(company_id=self.kwargs["company_pk"])
+
+
+from collections import Counter
+from itertools import chain
+
+array1 = [2, 3, 4, 5, 6, 7, 19, 19, 25]
+array2 = [1, 3, 5, 7, 9, 11, 19, 19]
+array3 = [0, 1, 3, 6, 7, 9, 13, 15, 19, 19]

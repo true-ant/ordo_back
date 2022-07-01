@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import os
 
 from apps.vendor_clients.async_clients import BaseClient
@@ -188,9 +189,11 @@ async def main():
     password = configs["password"]
     async with ClientSession() as session:
         vendor_client: BaseClient = BaseClient.make_handler(vendor_slug, session, username, password)
-        # results = await vendor_client.get_orders()
+        results = await vendor_client.get_orders(
+            from_date=datetime.date.today() - datetime.timedelta(days=30), to_date=datetime.date.today()
+        )
         # results = await vendor_client.confirm_order(configs["products"], fake=True)
-        results = await vendor_client.get_products_prices(list(map(lambda x: x["product"], configs["products"])))
+        # results = await vendor_client.get_products_prices(list(map(lambda x: x["product"], configs["products"])))
         # if hasattr(vendor_client, "search_products"):
         #     results = await vendor_client.search_products(q="septocaine")
 
