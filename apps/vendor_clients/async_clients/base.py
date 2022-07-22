@@ -137,20 +137,21 @@ class BaseClient:
 
     async def get_order(self, *args, **kwargs) -> Optional[types.Order]:
         """Get Order information"""
-        semaphore = kwargs.get("semaphore")
+        semaphore = kwargs.pop("semaphore", None)
         if semaphore:
-            await args[0].acquire()
+            await semaphore.acquire()
 
         if hasattr(self, "_get_order"):
-            order = await self._get_order(*args, **kwargs)
-            queue: asyncio.Queue = kwargs.get("queue", None)
+            queue: asyncio.Queue = kwargs.pop("queue", None)
+
+            order = await self._get_order(*args)
             if queue:
                 await queue.put(order)
 
             return order
 
         if semaphore:
-            args[0].release()
+            semaphore.release()
 
     async def get_orders(
         self,
@@ -164,7 +165,7 @@ class BaseClient:
         order_list = await self.get_order_list(from_date=from_date, to_date=to_date)
         tasks = []
         for order_id, order_data in order_list.items():
-            if order_id in exclude_order_ids:
+            if exclude_order_ids and order_id in exclude_order_ids:
                 continue
             tasks.append(self.get_order(order_data, semaphore=semaphore, queue=queue))
 
