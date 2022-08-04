@@ -47,3 +47,4 @@ def get_asgi_application():
 
 
 application = get_asgi_application()
+print("========== asgi ==========")

@@ -120,6 +120,7 @@ class Scraper:
 
     @catch_network
     async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> SimpleCookie:
+        print("base/login")
         if username:
             self.username = username
         if password:

@@ -12,6 +12,8 @@ ALLOWED_HOSTS = [
     "ordo-backend-dev.us-east-1.elasticbeanstalk.com",
     "api.staging.joinordo.com",
     "172.31.29.138",
+    "127.0.0.1",
+    "localhost"
 ]
 # CORS_ALLOWED_ORIGINS = [
 #     "https://staging.joinordo.com",
