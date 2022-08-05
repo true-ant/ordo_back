@@ -75,21 +75,18 @@ class ImplantDirectScraper(Scraper):
     # TRACKING_BASE_URL = "https://narvar.com/tracking/itemvisibility/v1/henryschein-dental/orders"
 
     async def _check_authenticated(self, response: ClientResponse) -> bool:
-        print("ImplantDirect/_check_authenticated")
         text = await response.text()
         dom = Selector(text=text)
         page_title = dom.css("title::text").get()
         return page_title != "Customer Login"
 
     async def get_login_link(self):
-        print("ImplantDirect/get_login_link")
         async with self.session.get("https://store.implantdirect.com/", headers=HOMEPAGE_HEADERS) as resp:
             text = await resp.text()
             home_dom = Selector(text=text)
             return home_dom.xpath('//ul/li[@class="authorization-link"]/a/@href').get()
 
     async def get_login_form(self, login_link):
-        print("ImplantDirect/get_login_form")
         async with self.session.get(login_link, headers=LOGIN_PAGE_HEADERS) as resp:
             text = await resp.text()
             login_dom = Selector(text=text)
