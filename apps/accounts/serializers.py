@@ -72,6 +72,12 @@ class OfficeAddressSerializer(serializers.ModelSerializer):
         exclude = ("office",)
 
 
+class OfficeSettingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.OfficeSetting
+        exclude = ("office",)
+
+
 class OfficeSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
     company = serializers.PrimaryKeyRelatedField(queryset=m.Company.objects.all(), required=False)
@@ -86,6 +92,7 @@ class OfficeSerializer(serializers.ModelSerializer):
     )
     cc_code = serializers.CharField(validators=[CSCValidator()], write_only=True)
     budget = OfficeBudgetSerializer()
+    settings = OfficeSettingSerializer(read_only=True)
 
     class Meta:
         model = m.Office
@@ -157,6 +164,7 @@ class CompanySerializer(serializers.ModelSerializer):
                 phone_number=kwargs.get("phone_number"),
                 website=kwargs.get("website"),
             )
+            m.OfficeSetting.objects.create(office=office)
 
         for address in addresses:
             address_id = address.pop("id", [])

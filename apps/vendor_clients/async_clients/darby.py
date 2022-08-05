@@ -1,5 +1,6 @@
 import datetime
 import re
+from asyncio import Semaphore
 from decimal import Decimal
 from typing import Dict, List, Optional, Union
 
@@ -72,25 +73,36 @@ class DarbyClient(BaseClient):
         )
 
     async def get_product_price(
-        self, product: types.Product, login_required: bool = False
+        self, product: types.Product, semaphore: Optional[Semaphore] = None, login_required: bool = False
     ) -> Dict[str, types.ProductPrice]:
-        page_response_dom = await self.get_response_as_dom(url=product["url"], headers=GET_PRODUCT_PAGE_HEADERS)
+        if semaphore:
+            await semaphore.acquire()
+        if login_required:
+            await self.login()
         product_id = product["product_id"]
-        price_text = page_response_dom.xpath(
-            f'//tr[@class="pdpHelltPrimary"]/td//input[@data-sku="{product_id}"]'
-            '/../following-sibling::td//span[contains(@id, "_lblPrice")]//text()'
-        ).get()
+        try:
+            page_response_dom = await self.get_response_as_dom(url=product["url"], headers=GET_PRODUCT_PAGE_HEADERS)
+            price_text = page_response_dom.xpath(
+                f'//tr[@class="pdpHelltPrimary"]/td//input[@data-sku="{product_id}"]'
+                '/../following-sibling::td//span[contains(@id, "_lblPrice")]//text()'
+            ).get()
 
-        if not price_text:
-            price_text = page_response_dom.xpath('//span[@id="MainContent_lblPrice"]//text()').get()
+            if not price_text:
+                price_text = page_response_dom.xpath('//span[@id="MainContent_lblPrice"]//text()').get()
 
-        product_unit = Decimal(price_text[:1])
-        price = convert_string_to_price(price_text[1:])
-        price = price / product_unit
-        product_vendor_status = ""
-        return {product_id: {"price": price, "product_vendor_status": product_vendor_status}}
+            product_unit = Decimal(price_text[:1])
+            price = convert_string_to_price(price_text[1:])
+            price = price / product_unit
+            product_vendor_status = ""
+        except Exception:
+            return {product_id: {"price": 0, "product_vendor_status": "Network Error"}}
+        else:
+            return {product_id: {"price": price, "product_vendor_status": product_vendor_status}}
+        finally:
+            if semaphore:
+                semaphore.release()
 
-    def serialize(self, data: Union[dict, Selector]) -> Optional[types.Product]:
+    def serialize(self, base_product: types.Product, data: Union[dict, Selector]) -> Optional[types.Product]:
         product_id = data.xpath(".//span[@id='MainContent_lblItemNo']/text()").get()
         product_main_name = data.xpath(".//span[@id='MainContent_lblName']/text()").get()
         product_detail_name = data.xpath(
@@ -102,6 +114,7 @@ class DarbyClient(BaseClient):
         product_price = convert_string_to_price(product_price[1:]) / units
         product_category = data.xpath(".//ul[contains(@class, 'breadcrumb')]/li/a/text()").extract()[1]
         return {
+            "vendor": self.VENDOR_SLUG,
             "product_id": product_id,
             "sku": product_id,
             "name": product_name,

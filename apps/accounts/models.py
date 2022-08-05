@@ -156,6 +156,8 @@ class OfficeBudget(TimeStampedModel):
     office_budget = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     office_spend = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
+    miscellaneous_spend = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
     month = MonthField()
 
     class Meta:
@@ -166,7 +168,14 @@ class OfficeBudget(TimeStampedModel):
         return f"{self.office}'s {self.month} budget"
 
 
-class OfficeVendor(models.Model):
+class OfficeSetting(TimeStampedModel):
+    office = models.OneToOneField(Office, related_name="settings", on_delete=models.CASCADE)
+    requires_approval_notification_for_all_orders = models.BooleanField(default=False)
+    budget_threshold = models.DecimalField(default=0, decimal_places=1, max_digits=10)
+    percentage_threshold = models.DecimalField(default=0, decimal_places=2, max_digits=5)
+
+
+class OfficeVendor(TimeStampedModel):
     vendor = FlexibleForeignKey(Vendor, related_name="connected_offices")
     office = FlexibleForeignKey(Office, related_name="connected_vendors")
     username = models.CharField(max_length=100)
@@ -179,6 +188,7 @@ class OfficeVendor(models.Model):
     representative_phone_number = PhoneNumberField(null=True, blank=True)
 
     class Meta:
+        ordering = ("vendor__name",)
         unique_together = [
             ["office", "vendor"],
             ["vendor", "username"],

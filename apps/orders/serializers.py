@@ -1,9 +1,12 @@
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 from rest_framework import serializers
 from rest_framework_recursive.fields import RecursiveField
 
+from apps.accounts.helper import OfficeBudgetHelper
 from apps.accounts.serializers import VendorLiteSerializer
+from apps.common.choices import OrderStatus
 from apps.orders.helpers import OfficeProductHelper, ProductHelper
 
 from . import models as m
@@ -48,7 +51,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 
 class SimpleProductSerializer(serializers.ModelSerializer):
-    images = ProductImageSerializer(many=True, required=False)
+    image = serializers.SerializerMethodField()
     is_inventory = serializers.BooleanField(default=False, read_only=True)
 
     class Meta:
@@ -56,9 +59,17 @@ class SimpleProductSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "name",
-            "images",
+            "image",
             "is_inventory",
         )
+
+    def get_image(self, instance):
+        if instance.vendor is None:
+            image = m.ProductImage.objects.filter(product__parent=instance).first()
+        else:
+            image = instance.images.first()
+        if image:
+            return image.image
 
 
 class ProductV2Serializer(serializers.ModelSerializer):
@@ -97,22 +108,24 @@ class ProductV2Serializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         office_pk = self.context.get("office_pk")
-        vendors = self.context.get("vendors")
+        # if you want to filter out pricing comparision products, uncomment it
+        # vendors = self.context.get("vendors")
         if hasattr(instance, "office_product") and instance.office_product:
             ret["product_vendor_status"] = instance.office_product[0].product_vendor_status
             ret["last_order_date"] = instance.office_product[0].last_order_date
             ret["last_order_price"] = instance.office_product[0].last_order_price
 
-        if "product_price" not in ret or ret["product_price"] is None:
-            ret["product_price"] = instance.price
+        if instance.vendor and instance.vendor.slug in settings.NON_FORMULA_VENDORS:
+            ret["product_price"] = instance.recent_price
 
-        if hasattr(instance, "office_product") and instance.office_product:
-            if "product_price" not in ret:
-                ret["product_price"] = instance.office_product[0].price
+        # if hasattr(instance, "office_product") and instance.office_product:
+        #     if "product_price" not in ret:
+        #         ret["product_price"] = instance.office_product[0].recent_price
 
         children_ids = instance.children.values_list("id", flat=True)
-        if vendors:
-            children_ids = children_ids.filter(vendor__slug__in=vendors)
+        # if you want to filter out pricing comparision products, uncomment it
+        # if vendors:
+        #     children_ids = children_ids.filter(vendor__slug__in=vendors)
 
         if children_ids:
             children_products = ProductHelper.get_products(
@@ -134,6 +147,8 @@ class ProductV2Serializer(serializers.ModelSerializer):
         else:
             ret["children"] = []
 
+        if instance.parent is None:
+            ret["description"] = instance.description
         return ret
 
 
@@ -154,13 +169,15 @@ class ProductSerializer(serializers.ModelSerializer):
             "product_id",
             "name",
             "product_unit",
+            "is_special_offer",
             "description",
             "url",
         )
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        ret["vendor"] = VendorLiteSerializer(m.Vendor.objects.get(id=ret["vendor"])).data
+        if ret["vendor"]:
+            ret["vendor"] = VendorLiteSerializer(m.Vendor.objects.get(id=ret["vendor"])).data
         if not self.context.get("include_children", False):
             ret.pop("children", None)
 
@@ -183,25 +200,34 @@ class VendorOrderProductSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def update(self, instance, validated_data):
-        instance = super().update(instance, validated_data)
+        with transaction.atomic():
+            OfficeBudgetHelper.move_spend_category(
+                office=instance.vendor_order.order.office,
+                date=instance.vendor_order.order.order_date,
+                amount=instance.unit_price * instance.quantity,
+                from_category=instance.budget_spend_type,
+                to_category=validated_data.get("budget_spend_type"),
+            )
 
-        if instance.status == m.VendorOrderProduct.Status.RECEIVED:
-            vendor_order = instance.vendor_order
-            order = vendor_order.order
+            instance = super().update(instance, validated_data)
 
-            if not m.VendorOrderProduct.objects.filter(
-                Q(vendor_order=vendor_order), ~Q(status=m.VendorOrderProduct.Status.RECEIVED)
-            ).exists():
-                instance.vendor_order.status = m.OrderStatus.COMPLETE
-                instance.vendor_order.save()
+            if instance.status == m.ProductStatus.RECEIVED:
+                vendor_order = instance.vendor_order
+                order = vendor_order.order
 
-            if not m.VendorOrderProduct.objects.filter(
-                Q(vendor_order__order=order), ~Q(status=m.VendorOrderProduct.Status.RECEIVED)
-            ).exists():
-                order.status = m.OrderStatus.COMPLETE
-                order.save()
+                if not m.VendorOrderProduct.objects.filter(
+                    Q(vendor_order=vendor_order), ~Q(status=m.ProductStatus.RECEIVED)
+                ).exists():
+                    instance.vendor_order.status = OrderStatus.CLOSED
+                    instance.vendor_order.save()
 
-        return instance
+                if not m.VendorOrderProduct.objects.filter(
+                    Q(vendor_order__order=order), ~Q(status=m.ProductStatus.RECEIVED)
+                ).exists():
+                    order.status = OrderStatus.CLOSED
+                    order.save()
+
+            return instance
 
 
 class VendorOrderSerializer(serializers.ModelSerializer):
@@ -416,16 +442,23 @@ class OfficeProductSerializer(serializers.ModelSerializer):
             else:
                 last_order_products = sorted(
                     [
-                        (child["last_order_date"], child["last_order_price"], child["vendor"]["slug"])
+                        (child["last_order_date"], child["last_order_price"], child["vendor"]["slug"], child["id"])
                         for child in ret["product"]["children"]
                         if child["is_inventory"] is True
                     ],
                     key=lambda x: x[0],
                     reverse=True,
                 )
-                ret["last_order_date"] = last_order_products[0][0]
-                ret["last_order_price"] = last_order_products[0][1]
-                ret["vendor"] = last_order_products[0][2]
+                if last_order_products:
+                    ret["last_order_date"] = last_order_products[0][0]
+                    ret["last_order_price"] = last_order_products[0][1]
+                    ret["vendor"] = last_order_products[0][2]
+                    # this is a little complicated
+                    ret["product"]["id"] = last_order_products[0][3]
+                else:
+                    ret["last_order_date"] = None
+                    ret["last_order_price"] = None
+                    ret["vendor"] = None
 
             # children_products = ret["product"].get("children", [])
         # if children_products:

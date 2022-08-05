@@ -4,7 +4,7 @@ import operator
 import os
 import tempfile
 import zipfile
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 from functools import reduce
 from typing import Union
@@ -36,7 +36,11 @@ from apps.accounts.models import Company, Office, OfficeBudget, OfficeVendor
 from apps.accounts.services.offices import OfficeService
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncCreateModelMixin, AsyncMixin
-from apps.common.pagination import SearchProductPagination, StandardResultsSetPagination
+from apps.common.pagination import (
+    SearchProductPagination,
+    SearchProductV2Pagination,
+    StandardResultsSetPagination,
+)
 from apps.common.utils import get_date_range, group_products_from_search_result
 from apps.orders.helpers import OfficeProductHelper, ProductHelper
 from apps.orders.services.order import OrderService
@@ -99,76 +103,76 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
     def get_queryset(self):
         return super().get_queryset().filter(office__id=self.kwargs["office_pk"])
 
-    @action(detail=False, methods=["get"], url_path="stats")
-    def get_orders_stats(self, request, *args, **kwargs):
-        # TODO: this should be removed
-        office_id = self.kwargs["office_pk"]
-
-        total_items = 0
-        total_amount = 0
-        average_amount = 0
-
-        month = self.request.query_params.get("month", "")
-        try:
-            requested_date = datetime.strptime(month, "%Y-%m")
-        except ValueError:
-            requested_date = timezone.now().date()
-
-        month_first_day = requested_date.replace(day=1)
-        next_month_first_day = (requested_date + timedelta(days=32)).replace(day=1)
-
-        queryset = (
-            m.Order.objects.filter(
-                Q(order_date__gte=month_first_day) & Q(order_date__lt=next_month_first_day) & Q(office_id=office_id)
-            )
-            .exclude(status__in=[m.OrderStatus.REJECTED, m.OrderStatus.WAITING_APPROVAL])
-            .annotate(month_total_items=Sum("total_items", distinct=True))
-            .annotate(month_total_amount=Sum("total_amount", distinct=True))
-        )
-        orders_count = queryset.count()
-        if orders_count:
-            total_items = queryset[0].month_total_items
-            total_amount = queryset[0].month_total_amount
-            average_amount = (total_amount / orders_count).quantize(Decimal(".01"), rounding=decimal.ROUND_UP)
-
-        pending_orders_count = m.VendorOrder.objects.filter(
-            order__office_id=office_id,
-            status=m.OrderStatus.WAITING_APPROVAL,
-        ).count()
-        vendors = (
-            m.VendorOrder.objects.filter(
-                Q(order_date__gte=month_first_day)
-                & Q(order_date__lt=next_month_first_day)
-                & Q(order__office_id=office_id)
-            )
-            .order_by("vendor_id")
-            .values("vendor_id")
-            .annotate(order_counts=Count("vendor_id"))
-            .annotate(order_total_amount=Sum("total_amount"))
-            .annotate(vendor_name=F("vendor__name"))
-            .annotate(vendor_logo=F("vendor__logo"))
-        )
-
-        ret = {
-            "order": {
-                "order_counts": orders_count,
-                "pending_order_counts": pending_orders_count,
-                "total_items": total_items,
-                "total_amount": total_amount,
-                "average_amount": average_amount,
-            },
-            "vendors": [
-                {
-                    "id": vendor["vendor_id"],
-                    "name": vendor["vendor_name"],
-                    "logo": f"{vendor['vendor_logo']}",
-                    "order_counts": vendor["order_counts"],
-                    "total_amount": vendor["order_total_amount"],
-                }
-                for vendor in vendors
-            ],
-        }
-        return Response(ret)
+    # @action(detail=False, methods=["get"], url_path="stats")
+    # def get_orders_stats(self, request, *args, **kwargs):
+    #     # TODO: this should be removed
+    #     office_id = self.kwargs["office_pk"]
+    #
+    #     total_items = 0
+    #     total_amount = 0
+    #     average_amount = 0
+    #
+    #     month = self.request.query_params.get("month", "")
+    #     try:
+    #         requested_date = datetime.strptime(month, "%Y-%m")
+    #     except ValueError:
+    #         requested_date = timezone.now().date()
+    #
+    #     month_first_day = requested_date.replace(day=1)
+    #     next_month_first_day = (requested_date + timedelta(days=32)).replace(day=1)
+    #
+    #     queryset = (
+    #         m.Order.objects.filter(
+    #             Q(order_date__gte=month_first_day) & Q(order_date__lt=next_month_first_day) & Q(office_id=office_id)
+    #         )
+    #         .exclude(status__in=[m.OrderStatus.REJECTED, m.OrderStatus.WAITING_APPROVAL])
+    #         .annotate(month_total_items=Sum("total_items", distinct=True))
+    #         .annotate(month_total_amount=Sum("total_amount", distinct=True))
+    #     )
+    #     orders_count = queryset.count()
+    #     if orders_count:
+    #         total_items = queryset[0].month_total_items
+    #         total_amount = queryset[0].month_total_amount
+    #         average_amount = (total_amount / orders_count).quantize(Decimal(".01"), rounding=decimal.ROUND_UP)
+    #
+    #     pending_orders_count = m.VendorOrder.objects.filter(
+    #         order__office_id=office_id,
+    #         status=m.OrderStatus.WAITING_APPROVAL,
+    #     ).count()
+    #     vendors = (
+    #         m.VendorOrder.objects.filter(
+    #             Q(order_date__gte=month_first_day)
+    #             & Q(order_date__lt=next_month_first_day)
+    #             & Q(order__office_id=office_id)
+    #         )
+    #         .order_by("vendor_id")
+    #         .values("vendor_id")
+    #         .annotate(order_counts=Count("vendor_id"))
+    #         .annotate(order_total_amount=Sum("total_amount"))
+    #         .annotate(vendor_name=F("vendor__name"))
+    #         .annotate(vendor_logo=F("vendor__logo"))
+    #     )
+    #
+    #     ret = {
+    #         "order": {
+    #             "order_counts": orders_count,
+    #             "pending_order_counts": pending_orders_count,
+    #             "total_items": total_items,
+    #             "total_amount": total_amount,
+    #             "average_amount": average_amount,
+    #         },
+    #         "vendors": [
+    #             {
+    #                 "id": vendor["vendor_id"],
+    #                 "name": vendor["vendor_name"],
+    #                 "logo": f"{vendor['vendor_logo']}",
+    #                 "order_counts": vendor["order_counts"],
+    #                 "total_amount": vendor["order_total_amount"],
+    #             }
+    #             for vendor in vendors
+    #         ],
+    #     }
+    #     return Response(ret)
 
     @action(detail=True, methods=["get"], url_path="invoice-download")
     async def download_invoice(self, request, *args, **kwargs):
@@ -242,7 +246,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
         serializer.is_valid(raise_exception=True)
         vendor_order = await sync_to_async(self.get_object)()
 
-        if vendor_order.status != m.OrderStatus.WAITING_APPROVAL:
+        if vendor_order.status != m.OrderStatus.PENDING_APPROVAL:
             return Response({"message": "this order status is not waiting approval"})
 
         if serializer.validated_data["is_approved"]:
@@ -291,6 +295,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="stats")
     def get_orders_stats(self, request, *args, **kwargs):
+        print("=================== orders/views/get_orders_stats ===================")
         queryset = self.filter_queryset(self.get_queryset())
 
         total_items = 0
@@ -323,11 +328,10 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
             total_dental_spend=Sum("dental_spend"),
             total_office_budget=Sum("office_budget"),
             total_office_spend=Sum("office_spend"),
+            total_miscellaneous_spend=Sum("miscellaneous_spend"),
         )
 
-        approved_orders_queryset = queryset.exclude(
-            status__in=[m.OrderStatus.REJECTED, m.OrderStatus.WAITING_APPROVAL]
-        )
+        approved_orders_queryset = queryset.exclude(status=m.OrderStatus.PENDING_APPROVAL)
         aggregation = approved_orders_queryset.aggregate(
             total_items=Sum("total_items"), total_amount=Sum("total_amount")
         )
@@ -337,7 +341,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
             total_amount = aggregation["total_amount"]
             average_amount = (total_amount / approved_orders_count).quantize(Decimal(".01"), rounding=decimal.ROUND_UP)
 
-        pending_orders_count = queryset.filter(status=m.OrderStatus.WAITING_APPROVAL).count()
+        pending_orders_count = queryset.filter(status=m.OrderStatus.PENDING_APPROVAL).count()
 
         vendors = (
             queryset.order_by("vendor_id")
@@ -357,10 +361,14 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
                 "average_amount": average_amount,
             },
             "budget": {
-                "total_dental_budget": budget_stats["total_dental_budget"],
-                "total_dental_spend": budget_stats["total_dental_spend"],
-                "total_office_budget": budget_stats["total_office_budget"],
-                "total_office_spend": budget_stats["total_office_spend"],
+                field: budget_stats[field]
+                for field in (
+                    "total_dental_budget",
+                    "total_dental_spend",
+                    "total_office_budget",
+                    "total_office_spend",
+                    "total_miscellaneous_spend",
+                )
             },
             "vendors": [
                 {
@@ -402,6 +410,7 @@ class VendorOrderProductViewSet(ModelViewSet):
 
 
 def get_spending(by, orders, company):
+    print("=================== orders/views/get_spending ===================")
     if by == "month":
         last_year_today = (timezone.now() - relativedelta(months=11)).date()
         last_year_today.replace(day=1)
@@ -485,7 +494,13 @@ class OfficeProductCategoryViewSet(ModelViewSet):
     serializer_class = s.OfficeProductCategorySerializer
 
     def get_queryset(self):
-        return super().get_queryset().filter(office__id=self.kwargs["office_pk"]).order_by("name")
+        return (
+            super()
+            .get_queryset()
+            .annotate(has_category=Case(When(slug="other", then=Value(1)), default=Value(0)))
+            .filter(office__id=self.kwargs["office_pk"])
+            .order_by("has_category", "name")
+        )
 
     def create(self, request, *args, **kwargs):
         request.data.setdefault("office", self.kwargs["office_pk"])
@@ -499,18 +514,25 @@ class OfficeProductCategoryViewSet(ModelViewSet):
 
         with transaction.atomic():
             office_products = instance.products.all()
-            office_product_categories = {}
+
+            # move products to original uncategorized category
+            other_product_category = m.OfficeProductCategory.objects.filter(slug="other", office=instance.office)
             for office_product in office_products:
-                original_product_category_slug = office_product.product.category.slug
-                original_product_category = office_product_categories.get(original_product_category_slug)
+                office_product.office_product_category = other_product_category
 
-                if original_product_category is None:
-                    original_product_category = m.OfficeProductCategory.objects.filter(
-                        slug=original_product_category_slug, office=instance.office
-                    ).first()
-                    office_product_categories[original_product_category_slug] = original_product_category
-
-                office_product.office_product_category = original_product_category
+            # this uncommented logic move products to original product category
+            # office_product_categories = {}
+            # for office_product in office_products:
+            #     original_product_category_slug = office_product.product.category.slug
+            #     original_product_category = office_product_categories.get(original_product_category_slug)
+            #
+            #     if original_product_category is None:
+            #         original_product_category = m.OfficeProductCategory.objects.filter(
+            #             slug=original_product_category_slug, office=instance.office
+            #         ).first()
+            #         office_product_categories[original_product_category_slug] = original_product_category
+            #
+            #     office_product.office_product_category = original_product_category
 
             if office_products:
                 m.OfficeProduct.objects.bulk_update(office_products, fields=["office_product_category"])
@@ -606,6 +628,15 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
         return Response(serializer.data)
 
 
+class ProductDataViewSet(ModelViewSet):
+    serializer_class = s.ProductSerializer
+    queryset = m.Product.objects.all()
+
+    def get_queryset(self):
+        query = self.request.GET.get("search", "")
+        return m.Product.objects.search(query)
+
+
 def get_office_vendor(office_pk, vendor_pk):
     try:
         return OfficeVendor.objects.get(office_id=office_pk, vendor_id=vendor_pk)
@@ -614,6 +645,7 @@ def get_office_vendor(office_pk, vendor_pk):
 
 
 def get_cart(office_pk):
+    print("=================== orders/views/get_cart ===================")
     cart_products = (
         m.Cart.objects.filter(office_id=office_pk, save_for_later=False, instant_checkout=True)
         .order_by("-updated_at")
@@ -684,45 +716,46 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
             return s.CartSerializer
         return s.CartCreateSerializer
 
-    async def update_vendor_cart(self, product_id, vendor, serializer=None):
-        office_vendor = await sync_to_async(get_office_vendor)(office_pk=self.kwargs["office_pk"], vendor_pk=vendor.id)
-        if office_vendor is None:
-            raise VendorNotConnected()
-        session = apps.get_app_config("accounts").session
-        scraper = ScraperFactory.create_scraper(
-            vendor=vendor,
-            session=session,
-            username=office_vendor.username,
-            password=office_vendor.password,
-        )
-        try:
-            await scraper.remove_product_from_cart(product_id=product_id, use_bulk=False, perform_login=True)
-        except Exception as e:
-            raise VendorSiteError(f"{e}")
+    # async def update_vendor_cart(self, product_id, vendor, serializer=None):
+    #     office_vendor = await sync_to_async(get_office_vendor)(office_pk=self.kwargs["office_pk"], vendor_pk=vendor.id)
+    #     if office_vendor is None:
+    #         raise VendorNotConnected()
+    #     session = apps.get_app_config("accounts").session
+    #     scraper = ScraperFactory.create_scraper(
+    #         vendor=vendor,
+    #         session=session,
+    #         username=office_vendor.username,
+    #         password=office_vendor.password,
+    #     )
+    #     try:
+    #         await scraper.remove_product_from_cart(product_id=product_id, use_bulk=False, perform_login=True)
+    #     except Exception as e:
+    #         raise VendorSiteError(f"{e}")
 
-        if not serializer:
-            return True
+    #     if not serializer:
+    #         return True
 
-        updated_save_for_later = serializer.instance and "save_for_later" in serializer.validated_data
+    #     updated_save_for_later = serializer.instance and "save_for_later" in serializer.validated_data
 
-        if updated_save_for_later and serializer.validated_data["save_for_later"]:
-            return True
+    #     if updated_save_for_later and serializer.validated_data["save_for_later"]:
+    #         return True
 
-        if updated_save_for_later and not serializer.validated_data["save_for_later"]:
-            quantity = serializer.instance.quantity
-        else:
-            quantity = serializer.validated_data["quantity"]
+    #     if updated_save_for_later and not serializer.validated_data["save_for_later"]:
+    #         quantity = serializer.instance.quantity
+    #     else:
+    #         quantity = serializer.validated_data["quantity"]
 
-        try:
-            vendor_cart_product = await scraper.add_product_to_cart(
-                CartProduct(product_id=product_id, product_unit=serializer, quantity=quantity),
-                perform_login=True,
-            )
-            serializer.validated_data["unit_price"] = vendor_cart_product["unit_price"]
-        except Exception as e:
-            raise VendorSiteError(f"{e}")
+    #     try:
+    #         vendor_cart_product = await scraper.add_product_to_cart(
+    #             CartProduct(product_id=product_id, product_unit=serializer, quantity=quantity),
+    #             perform_login=True,
+    #         )
+    #         serializer.validated_data["unit_price"] = vendor_cart_product["unit_price"]
+    #     except Exception as e:
+    #         raise VendorSiteError(f"{e}")
 
     async def create(self, request, *args, **kwargs):
+        print("=================== orders/views/create ===================")
         data = request.data
         office_pk = self.kwargs["office_pk"]
         data["office"] = office_pk
@@ -744,6 +777,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
     @action(detail=True, url_path="change-product", methods=["post"])
     def change_product(self, request, *args, **kwargs):
+        print("=================== ordres/views/change_product ===================")
         instance = self.get_object()
         product_id = request.data.get("product_id")
         unit_price = request.data.get("unit_price")
@@ -797,6 +831,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="clear")
     def clear_cart(self, request, *args, **kwargs):
+        print("=================== orders/views/clear_cart ===================")
         serializer = s.ClearCartSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         cart_products = self.get_queryset()
@@ -808,6 +843,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
     @sync_to_async
     def _create_order(self, office_vendors, vendor_order_results, cart_products, approval_needed, data):
+        print("=================== orders/views/_create_order ===================")
         order_date = timezone.now().date()
         office = office_vendors[0].office
         vendor_order_ids = []
@@ -816,7 +852,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 office_id=self.kwargs["office_pk"],
                 created_by=self.request.user,
                 order_date=order_date,
-                status=m.OrderStatus.WAITING_APPROVAL if approval_needed else m.OrderStatus.PROCESSING,
+                status=m.OrderStatus.PENDING_APPROVAL if approval_needed else m.OrderStatus.OPEN,
             )
             total_amount = 0
             total_items = 0
@@ -839,7 +875,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                     total_items=vendor_total_items,
                     currency="USD",
                     order_date=order_date,
-                    status=m.OrderStatus.WAITING_APPROVAL if approval_needed else m.OrderStatus.PROCESSING,
+                    status=m.OrderStatus.PENDING_APPROVAL if approval_needed else m.OrderStatus.OPEN,
                 )
                 vendor_order_ids.append(vendor_order.id)
                 objs = []
@@ -850,9 +886,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                             product=vendor_order_product.product,
                             quantity=vendor_order_product.quantity,
                             unit_price=vendor_order_product.unit_price,
-                            status=m.VendorOrderProduct.Status.WAITING_APPROVAL
-                            if approval_needed
-                            else m.VendorOrderProduct.Status.OPEN,
+                            status=m.ProductStatus.PENDING_APPROVAL if approval_needed else m.ProductStatus.PROCESSING,
                         )
                     )
                 m.VendorOrderProduct.objects.bulk_create(objs)
@@ -881,6 +915,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
     @action(detail=False, url_path="checkout", methods=["get"], permission_classes=[p.OrderCheckoutPermission])
     async def checkout(self, request, *args, **kwargs):
+        print("=================== orders/views/checkout ===================")
         can_use_cart = await sync_to_async(get_cart_status_and_order_status)(
             office=self.kwargs["office_pk"], user=request.user
         )
@@ -898,6 +933,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         )
         ret = {}
         try:
+            retacc = apps.get_app_config("accounts")
             session = apps.get_app_config("accounts").session
             tasks = []
             tmp_variables = []
@@ -917,6 +953,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                         ]
                     )
                 )
+
                 tasks.append(
                     scraper.create_order(
                         [
@@ -924,6 +961,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                                 product_id=cart_product.product.product_id,
                                 product_unit=cart_product.product.product_unit,
                                 quantity=cart_product.quantity,
+                                product_url=cart_product.product.url
                             )
                             for cart_product in cart_products
                             if cart_product.product.vendor.id == office_vendor.vendor.id
@@ -933,7 +971,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for i, result in enumerate(results):
                 vendor_slug = list(result.keys())[0]
-                if vendor_slug not in ("henry_schien", "darby", "benco", "net_32"):
+                if vendor_slug not in ("henry_schien", "implant_direct", "darby", "benco", "net_32"):
                     result[vendor_slug]["retail_amount"] = Decimal(0)
                     result[vendor_slug]["savings_amount"] = Decimal(0)
                     result[vendor_slug]["subtotal_amount"] = tmp_variables[i]
@@ -949,6 +987,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
     @action(detail=False, url_path="confirm-order", methods=["post"], permission_classes=[p.OrderCheckoutPermission])
     async def confirm_order(self, request, *args, **kwargs):
+        print("=================== orders/views/confirm_order ===================")
         data = request.data["data"]
         shipping_options = request.data["shipping_options"]
 
@@ -959,16 +998,27 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
         session = apps.get_app_config("accounts").session
         tasks = []
-
+        reqMeta = request.META["HTTP_HOST"]
         debug = OrderService.is_debug_mode(request.META["HTTP_HOST"])
-        total_amount = sum(
-            [Decimal(str(vendor_data["total_amount"])) for vendor, vendor_data in data.items() if vendor != "amazon"]
-        )
-        remaining_budget = await sync_to_async(OfficeService.get_office_remaining_budget)(
-            office_pk=self.kwargs["office_pk"]
-        )
 
-        order_approval_needed = request.user.role == m.User.Role.USER and remaining_budget[0] < total_amount
+        # check order app
+        if request.user.role == m.User.Role.ADMIN:
+            order_approval_needed = False
+        else:
+            # total_amount = sum(
+            #     [Decimal(str(vendor_data["total_amount"])) for vendor, vendor_data in data.items() if
+            #      vendor != "amazon"]
+            # )
+
+            remaining_budget = await sync_to_async(OfficeService.get_office_remaining_budget)(
+                office_pk=self.kwargs["office_pk"]
+            )
+            office_setting = await sync_to_async(OfficeService.get_office_setting)(office_pk=self.kwargs["office_pk"])
+            order_approval_needed = (office_setting.requires_approval_notification_for_all_orders is True) or (
+                office_setting.requires_approval_notification_for_all_orders is False
+                and remaining_budget[0] < office_setting.budget_threshold
+            )
+
         fake_order = debug or order_approval_needed
 
         for office_vendor in office_vendors:
@@ -987,6 +1037,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                             CartProduct(
                                 product_id=cart_product.product.product_id,
                                 product_unit=cart_product.product.product_unit,
+                                product_url=cart_product.product.url,
                                 quantity=cart_product.quantity,
                             )
                             for cart_product in cart_products
@@ -1124,8 +1175,17 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
         kwargs["partial"] = True
         return super().update(request, *args, **kwargs)
 
+    @action(detail=True, methods=["post"], url_path="remove")
+    def remove_from_inventory(self, request, *args, **kwargs):
+        instance = self.get_object()
+        other_category = m.OfficeProductCategory.objects.filter(office=instance.office, slug="other").first()
+        instance.office_product_category = other_category
+        instance.save()
+        return Response({"message": "Deleted successfully"}, status=HTTP_204_NO_CONTENT)
+
     @action(detail=False, methods=["post"], url_path="prices")
     async def get_product_prices(self, request, *args, **kwargs):
+        print("=================== orders/views/get_product_prices ===================")
         serializer = s.ProductPriceRequestSerializer(data=request.data)
         await sync_to_async(serializer.is_valid)(raise_exception=True)
         products = {product.id: product for product in serializer.validated_data["products"]}
@@ -1224,6 +1284,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
 
     @sync_to_async
     def get_products_from_db(self, *args, **kwargs):
+        print("=================== orders/views/get_products_from_db ===================")
         queryset = self.get_queryset()
         requested_vendors = kwargs.get("requested_vendors", None)
         if requested_vendors:
@@ -1271,6 +1332,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         )
 
     async def fetch_products(self, keyword, min_price, max_price, vendors=None, include_amazon=False):
+        print("=================== orders/views/fetch_products ===================")
         pagination_meta = self.request.data.get("meta", {})
         vendors_meta = {vendor_meta["vendor"]: vendor_meta for vendor_meta in pagination_meta.get("vendors", [])}
         session = apps.get_app_config("accounts").session
@@ -1383,7 +1445,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
 class ProductV2ViewSet(ModelViewSet):
     queryset = m.Product.objects.all()
     serializer_class = s.ProductV2Serializer
-    pagination_class = StandardResultsSetPagination
+    pagination_class = SearchProductV2Pagination
     filterset_class = f.ProductV2Filter
     http_method_names = ["get"]
 
@@ -1392,10 +1454,19 @@ class ProductV2ViewSet(ModelViewSet):
         office_pk = self.request.query_params.get("office_pk")
         selected_products = self.request.query_params.get("selected_products")
         selected_products = selected_products.split(",") if selected_products else []
-        products = m.Product.objects.search(query)
-        return ProductHelper.get_products(
-            office=office_pk, selected_products=selected_products, product_ids=products.values_list("id", flat=True)
+        products, available_vendors = ProductHelper.get_products_v3(
+            query=query,
+            office=office_pk,
+            fetch_parents=True,
+            selected_products=selected_products,
         )
+        self.available_vendors = available_vendors
+        return products
+        # products = m.Product.objects.search(query)
+        # product_ids = products.values_list("id", flat=True)
+        # return ProductHelper.get_products_v2(
+        #     office=office_pk, fetch_parents=True, selected_products=selected_products, product_ids=product_ids
+        # )
 
     def get_serializer_context(self):
         serializer_context = super().get_serializer_context()
@@ -1405,6 +1476,23 @@ class ProductV2ViewSet(ModelViewSet):
             vendors = vendors.split(",")
         serializer_context = {**serializer_context, "office_pk": office_pk, "vendors": vendors}
         return serializer_context
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        ret = {
+            "vendor_slugs": getattr(self, "available_vendors", None),
+            "products": [],
+        }
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            ret["products"] = serializer.data
+            return self.get_paginated_response(ret)
+
+        serializer = self.get_serializer(queryset, many=True)
+        ret["products"] = serializer.data
+        return Response(ret)
 
     @action(detail=False, url_path="search/vendors")
     async def search_from_vendors(self, request, *args, **kwargs):

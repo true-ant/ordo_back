@@ -1,5 +1,6 @@
+from asyncio import Semaphore
 from decimal import Decimal
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from aiohttp import ClientResponse
 from scrapy import Selector
@@ -92,15 +93,42 @@ class Net32Client(BaseClient):
             res = await resp.json()
             return self.serialize(res)
 
-    def serialize(self, data: Union[dict, Selector]) -> Optional[types.Product]:
+    async def get_product_price(
+        self, product: types.Product, semaphore: Optional[Semaphore] = None, login_required: bool = False
+    ) -> Dict[str, types.ProductPrice]:
+        if semaphore:
+            await semaphore.acquire()
+        if login_required:
+            await self.login()
+        product_id = product["product_id"]
+        try:
+            async with self.session.get(
+                f"https://www.net32.com/rest/neo/pdp/{product['product_id']}/vendor-options"
+            ) as resp:
+                vendor_options = await resp.json()
+                vendor_options = sorted(
+                    vendor_options, key=lambda x: (x["promisedHandlingTime"], x["priceBreaks"][0]["unitPrice"])
+                )
+                price = vendor_options[0]["priceBreaks"][0]["unitPrice"]
+        except Exception:
+            return {product_id: {"price": Decimal(0), "product_vendor_status": "Network Error"}}
+        else:
+            return {product_id: {"price": Decimal(str(price)), "product_vendor_status": "Active"}}
+        finally:
+            if semaphore:
+                semaphore.release()
+
+    def serialize(self, base_product: types.Product, data: Union[dict, Selector]) -> Optional[types.Product]:
         """Serialize vendor-specific product detail to our data"""
         return {
+            "vendor": self.VENDOR_SLUG,
             "product_id": "",
             "sku": "",
             "name": data["title"],
             "url": f"https://www.net32.com/{data['url']}",
             "images": [f"https://www.net32.com/media{data['mediaPath']}"],
             "price": Decimal(data["retailPrice"]),
+            "product_vendor_status": "",
             "category": "",
             "unit": "",
         }

@@ -2,10 +2,11 @@ from datetime import timedelta
 from functools import reduce
 from operator import and_
 
-from django.contrib.postgres.search import (
+from django.conf import settings
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import (  # TrigramSimilarity,
     SearchQuery,
     SearchVectorField,
-    TrigramSimilarity,
 )
 from django.db import models
 from django.db.models import Q
@@ -15,6 +16,7 @@ from django_extensions.db.fields import AutoSlugField
 from slugify import slugify
 
 from apps.accounts.models import Office, User, Vendor
+from apps.common.choices import BUDGET_SPEND_TYPE, OrderStatus, ProductStatus
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
 from apps.common.utils import remove_character_between_numerics
 from apps.scrapers.schema import Product as ProductDataClass
@@ -44,17 +46,28 @@ class Keyword(TimeStampedModel):
         return self.keyword
 
 
-class ProductManager(models.Manager):
+class ProductQuerySet(models.QuerySet):
     def search(self, text):
+        original_text = text
+        # this is for search for henry schein product id
         text = remove_character_between_numerics(text, character="-")
-        trigram_similarity = TrigramSimilarity("name", text)
-        q = reduce(and_, [SearchQuery(word, config="english") for word in text.split(" ")])
+        # trigram_similarity = TrigramSimilarity("name", text)
+        q1 = reduce(and_, [SearchQuery(word, config="english") for word in text.split(" ")])
+        q2 = reduce(and_, [SearchQuery(word, config="english") for word in original_text.split(" ")])
+        q = q1 | q2
+        print(q)
         return (
-            self.get_queryset()
-            .annotate(search=RawSQL("search_vector", [], output_field=SearchVectorField()))
-            .annotate(similarity=trigram_similarity)
-            .filter(Q(similarity__gt=0.3) | Q(search=q))
+            self.annotate(search=RawSQL("search_vector", [], output_field=SearchVectorField()))
+            # .annotate(similarity=trigram_similarity)
+            .filter(Q(search=q) | Q(name__icontains=text))
         )
+
+
+class ProductManager(models.Manager):
+    _queryset_class = ProductQuerySet
+
+    def search(self, text):
+        return self.get_queryset().search(text)
 
 
 class Product(TimeStampedModel):
@@ -64,7 +77,9 @@ class Product(TimeStampedModel):
 
     vendor = FlexibleForeignKey(Vendor, related_name="products", null=True, blank=True)
     product_id = models.CharField(max_length=128, db_index=True, null=True)
+    sku = models.CharField(max_length=32, null=True, blank=True)
     manufacturer_number = models.CharField(max_length=128, null=True, blank=True)
+    manufacturer_number_origin = models.CharField(max_length=128, null=True, blank=True)
     category = models.ForeignKey(ProductCategory, null=True, blank=True, on_delete=models.SET_NULL, db_index=True)
     name = models.CharField(max_length=512)
     product_unit = models.CharField(max_length=16, null=True, blank=True)
@@ -80,6 +95,8 @@ class Product(TimeStampedModel):
         related_query_name="child",
     )
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    last_price_updated = models.DateTimeField(null=True, blank=True, db_index=True)
+    product_vendor_status = models.CharField(max_length=512, null=True, blank=True)
 
     is_special_offer = models.BooleanField(default=False)
     special_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -92,6 +109,9 @@ class Product(TimeStampedModel):
             "vendor",
             "product_id",
         ]
+        indexes = [
+            GinIndex(name="product_name_gin_idx", fields=["name"], opclasses=["gin_trgm_ops"]),
+        ]
 
     def __str__(self):
         return f"{self.name} from {self.vendor}"
@@ -101,6 +121,21 @@ class Product(TimeStampedModel):
         if self.parent:
             return self.parent.children.exclude(id=self.id)
         return self.__class__.objects.none()
+
+    @property
+    def recent_price(self):
+        if self.vendor.slug in settings.NON_FORMULA_VENDORS:
+            if self.vendor.slug in ["net_32", "dental_city"] and self.last_price_updated:
+                ages_in_days = (timezone.now() - self.last_price_updated).days
+                life_span_in_days = (
+                    settings.NET32_PRODUCT_PRICE_UPDATE_CYCLE
+                    if self.vendor.slug == "net_32"
+                    else settings.PRODUCT_PRICE_UPDATE_CYCLE
+                )
+                if ages_in_days < life_span_in_days:
+                    return self.price
+            else:
+                return self.price
 
     def to_dict(self) -> ProductDict:
         return {
@@ -151,7 +186,8 @@ class OfficeProductCategory(TimeStampedModel):
         return f"{self.slug}"
 
     def save(self, *args, **kwargs):
-        self.slug = slugify(self.name)
+        if not self.slug:
+            self.slug = slugify(self.name)
         super().save(*args, **kwargs)
 
     class Meta:
@@ -184,19 +220,24 @@ class OfficeProduct(TimeStampedModel):
     )
     last_order_date = models.DateField(null=True, blank=True)
     last_order_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    last_price_updated = models.DateTimeField(null=True, blank=True)
+    last_price_updated = models.DateTimeField(null=True, blank=True, db_index=True)
     is_favorite = models.BooleanField(default=False)
     is_inventory = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.product} for {self.office}"
 
+    class Meta:
+        unique_together = ["office", "product"]
+
+    @property
+    def recent_product(self):
+        if self.last_price_updated and (timezone.now() - self.last_price_updated).days > 10:
+            return self.price
+
     @classmethod
     def from_dataclass(cls, vendor, dict_data):
         return cls.objects.create(vendor=vendor, **dict_data)
-
-    class Meta:
-        unique_together = ["office", "product"]
 
     def to_dataclass(self):
         return ProductDataClass.from_dict(
@@ -228,17 +269,6 @@ class OrderMonthManager(models.Manager):
         )
 
 
-class OrderStatus(models.TextChoices):
-    COMPLETE = "complete", "Complete"
-    PROCESSING = "processing", "Processing"
-    WAITING_APPROVAL = "waitingapproval", "Pending Approval"
-    SHIPPED = "shipped", "Shipped"
-    DELIVERED = "delivered", "Delivered"
-    BACK_ORDERED = "backordered", "Back Ordered"
-    RETURNED = "returned", "Returned"
-    REJECTED = "rejected", "Rejected"
-
-
 class Order(TimeStampedModel):
     office = FlexibleForeignKey(Office)
     created_by = models.ForeignKey(
@@ -251,7 +281,7 @@ class Order(TimeStampedModel):
     order_date = models.DateField()
     total_items = models.IntegerField(default=1)
     total_amount = models.DecimalField(decimal_places=2, max_digits=10, default=0)
-    status = models.CharField(max_length=100, choices=OrderStatus.choices, default=OrderStatus.PROCESSING)
+    status = models.CharField(max_length=100, choices=OrderStatus.choices, default=OrderStatus.OPEN)
 
     objects = models.Manager()
     current_months = OrderMonthManager()
@@ -273,7 +303,7 @@ class VendorOrder(TimeStampedModel):
     total_items = models.IntegerField(default=1)
     currency = models.CharField(max_length=100, default="USD")
     order_date = models.DateField()
-    status = models.CharField(max_length=100, choices=OrderStatus.choices, default=OrderStatus.PROCESSING)
+    status = models.CharField(max_length=100, choices=OrderStatus.choices, default=OrderStatus.OPEN)
     vendor_status = models.CharField(max_length=100, null=True, blank=True)
     products = models.ManyToManyField(Product, through="VendorOrderProduct")
     invoice_link = models.URLField(null=True, blank=True)
@@ -303,14 +333,6 @@ class VendorOrder(TimeStampedModel):
 
 
 class VendorOrderProduct(TimeStampedModel):
-    class Status(models.TextChoices):
-        OPEN = "open", "Processing"
-        SHIPPED = "shipped", "Shipped"
-        ARRIVED = "arrived", "Arrived"
-        RECEIVED = "received", "Received"
-        REJECTED = "rejected", "Rejected"
-        WAITING_APPROVAL = "waitingapproval", "Pending Approval"
-
     class RejectReason(models.TextChoices):
         NOT_NEEDED = "noneed", "Not Needed"
         WRONG_ITEM = "wrong", "Wrong Item"
@@ -323,9 +345,17 @@ class VendorOrderProduct(TimeStampedModel):
     unit_price = models.DecimalField(decimal_places=2, max_digits=10)
     tracking_link = models.URLField(max_length=512, null=True, blank=True)
     tracking_number = models.URLField(max_length=512, null=True, blank=True)
-    status = models.CharField(max_length=100, choices=Status.choices, null=True, blank=True)
+    status = models.CharField(max_length=100, choices=ProductStatus.choices, null=True, blank=True)
     vendor_status = models.CharField(max_length=100, null=True, blank=True)
     rejected_reason = models.CharField(max_length=128, choices=RejectReason.choices, null=True, blank=True)
+    budget_spend_type = models.CharField(
+        max_length=64,
+        choices=BUDGET_SPEND_TYPE.choices,
+        default=BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET,
+        null=True,
+        blank=True,
+        db_index=True,
+    )
     # status = models.IntegerField(choices=Status.choices, default=Status.OPEN)
 
     @classmethod
@@ -334,7 +364,8 @@ class VendorOrderProduct(TimeStampedModel):
 
     @property
     def is_trackable(self):
-        return self.status == self.Status.SHIPPED and (self.tracking_number or self.tracking_link)
+        # return self.status == ProductStatus.SHIPPED and (self.tracking_number or self.tracking_link)
+        return bool(self.tracking_number or self.tracking_link)
 
 
 class YearMonth(models.Func):

@@ -12,6 +12,8 @@ ALLOWED_HOSTS = [
     "ordo-backend-dev.us-east-1.elasticbeanstalk.com",
     "api.staging.joinordo.com",
     "172.31.29.138",
+    "127.0.0.1",
+    "localhost"
 ]
 # CORS_ALLOWED_ORIGINS = [
 #     "https://staging.joinordo.com",
@@ -22,7 +24,7 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 CELERY_RESULT_BACKEND = None
 BROKER_TRANSPORT_OPTIONS = {
-    "polling_interval": 5,
+    "polling_interval": 2,
     "region": "us-east-1",
 }
 BROKER_URL = f"sqs://{AWS_ACCESS_KEY_ID}:{AWS_SECRET_ACCESS_KEY}@"  # noqa

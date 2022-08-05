@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import logging
 import operator
 from calendar import monthrange
@@ -23,6 +24,7 @@ from apps.orders.helpers import OfficeProductHelper
 from apps.orders.models import OfficeProductCategory, OrderStatus, VendorOrder
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import CompanyInvite
+from apps.vendor_clients.async_clients import BaseClient
 
 UserModel = get_user_model()
 logger = logging.getLogger(__name__)
@@ -121,8 +123,8 @@ async def get_orders(office_vendor, login_cookies, perform_login, completed_orde
             completed_order_ids=completed_order_ids,
         )
 
-        if vendor.slug == "ultradent":
-            await scraper.get_all_products_v2(office_vendor.office)
+        # if vendor.slug == "ultradent":
+        #     await scraper.get_all_products_v2(office_vendor.office)
 
 
 @shared_task
@@ -159,10 +161,10 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
     order_id_field = "vendor_order_reference" if office_vendor.vendor.slug == "henry_schein" else "vendor_order_id"
     completed_order_ids = list(
         VendorOrder.objects.filter(
-            vendor=office_vendor.vendor, order__office=office_vendor.office, status=OrderStatus.COMPLETE
+            vendor=office_vendor.vendor, order__office=office_vendor.office, status=OrderStatus.CLOSED
         ).values_list(order_id_field, flat=True)
     )
-    asyncio.run(get_orders(office_vendor, cookie, perform_login, completed_order_ids))
+    asyncio.run(get_orders(office_vendor, cookie, True, completed_order_ids))
     # office_vendor = OfficeVendor.objects.select_related("office", "vendor").get(id=office_vendor_id)
     # asyncio.run(
     #     OfficeProductHelper.get_all_product_prices_from_vendors(
@@ -240,3 +242,44 @@ def send_budget_update_notification():
 @shared_task
 def update_office_budget():
     OfficeBudgetHelper.update_budget_with_previous_month()
+
+
+#####################################################################################################################
+# v2
+#####################################################################################################################
+
+
+async def get_orders_v2(office_vendor, completed_order_ids):
+
+    async with ClientSession(timeout=ClientTimeout(30)) as session:
+        vendor = office_vendor.vendor
+        client = BaseClient.make_handler(
+            vendor_slug=vendor.slug,
+            session=session,
+            username=office_vendor.username,
+            password=office_vendor.password,
+        )
+        from_date = timezone.now().date()
+        to_date = from_date - relativedelta(year=1)
+        orders = await client.get_orders(from_date=from_date, to_date=to_date, exclude_order_ids=completed_order_ids)
+
+
+@shared_task
+def fetch_orders_v2(office_vendor_id):
+    """
+    this is used for fetching implant orders only, but in the future, we should fetch orders using this
+    """
+
+    office_vendor = OfficeVendor.objects.select_related("office", "vendor").get(id=office_vendor_id)
+
+    if not OfficeProductCategory.objects.filter(office=office_vendor.office).exists():
+        call_command("fill_office_product_categories", office_ids=[office_vendor.office.id])
+
+    order_id_field = "vendor_order_reference" if office_vendor.vendor.slug == "henry_schein" else "vendor_order_id"
+
+    completed_order_ids = list(
+        VendorOrder.objects.filter(
+            vendor=office_vendor.vendor, order__office=office_vendor.office, status=OrderStatus.CLOSED
+        ).values_list(order_id_field, flat=True)
+    )
+    asyncio.run(get_orders_v2(office_vendor, completed_order_ids))

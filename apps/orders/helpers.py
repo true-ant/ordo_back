@@ -13,6 +13,7 @@ import pandas as pd
 from aiohttp import ClientSession
 from asgiref.sync import sync_to_async
 from django.apps import apps
+from django.conf import settings
 from django.db import transaction
 from django.db.models import (
     Case,
@@ -28,6 +29,7 @@ from django.db.models import (
     Value,
     When,
 )
+from django.utils import timezone
 from slugify import slugify
 
 from apps.accounts.models import Office as OfficeModel
@@ -146,6 +148,7 @@ class OfficeProductHelper:
     @staticmethod
     def update_products_prices(products_prices: Dict[str, ProductPrice], office_id: str):
         """Store product prices to table"""
+        last_price_updated = timezone.now()
         product_ids = products_prices.keys()
         products = ProductModel.objects.in_bulk(product_ids)
         office_products = OfficeProductModel.objects.select_related("product").filter(
@@ -159,10 +162,29 @@ class OfficeProductHelper:
                 office_product.product_vendor_status = products_prices[office_product.product.id][
                     "product_vendor_status"
                 ]
+                office_product.last_price_updated = last_price_updated
                 updated_product_ids.append(office_product.product.id)
 
             bulk_update(
-                model_class=OfficeProductModel, objs=office_products, fields=["price", "product_vendor_status"]
+                model_class=OfficeProductModel,
+                objs=office_products,
+                fields=["price", "product_vendor_status", "last_price_updated"],
+            )
+
+            # update product price
+            products_to_be_updated = []
+            for product_id, product in products.items():
+                if product.vendor.slug not in settings.NON_FORMULA_VENDORS:
+                    continue
+                product.price = products_prices[product_id]["price"]
+                product.product_vendor_status = products_prices[product_id]["product_vendor_status"]
+                product.last_price_updated = last_price_updated
+                products_to_be_updated.append(product)
+
+            bulk_update(
+                model_class=ProductModel,
+                objs=products_to_be_updated,
+                fields=["price", "product_vendor_status", "last_price_updated"],
             )
 
             creating_products = []
@@ -174,6 +196,7 @@ class OfficeProductHelper:
                         office_id=office_id,
                         product=products[product_id],
                         price=products_prices[product_id]["price"],
+                        last_price_updated=last_price_updated,
                         product_vendor_status=products_prices[product_id]["product_vendor_status"],
                     )
                 )
@@ -213,10 +236,10 @@ class OfficeProductHelper:
             if product_id not in product_prices_from_db.keys():
                 product_data = await sync_to_async(product.to_dict)()
                 if product_data["vendor"] not in (
-                    "net_32",
                     "implant_direct",
                     "edge_endo",
-                    "dental_city",
+                    # "net_32",
+                    # "dental_city",
                 ):
                     products_to_be_fetched[product_id] = product_data
 
@@ -230,16 +253,43 @@ class OfficeProductHelper:
 
     @staticmethod
     def get_products_prices_from_db(products: Dict[str, ProductModel], office_id: str) -> Dict[str, ProductPrice]:
-        # fetch prices from database
+        product_ids_from_formula_vendors = []
+        product_ids_from_non_formula_vendors = []
+        for product_id, product in products.items():
+            if product.vendor.slug in settings.FORMULA_VENDORS:
+                product_ids_from_formula_vendors.append(product_id)
+            else:
+                product_ids_from_non_formula_vendors.append(product_id)
+
         product_prices = defaultdict(dict)
-        office_products = OfficeProductModel.objects.filter(
-            product_id__in=products.keys(), office_id=office_id
-        ).values("product_id", "price", "product_vendor_status")
+
+        # get prices of products from formula vendors
+        price_least_update_date = timezone.now() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
+        office_products = (
+            OfficeProductModel.objects.annotate(
+                outdated=Case(
+                    When(
+                        Q(last_price_updated__lt=price_least_update_date) | Q(last_price_updated__isnull=True),
+                        then=True,
+                    ),
+                    default=False,
+                )
+            )
+            .filter(product_id__in=product_ids_from_formula_vendors, office_id=office_id, outdated=True)
+            .values("product_id", "price", "product_vendor_status")
+        )
         for office_product in office_products:
             product_prices[office_product["product_id"]]["price"] = office_product["price"]
             product_prices[office_product["product_id"]]["product_vendor_status"] = office_product[
                 "product_vendor_status"
             ]
+
+        # get prices of products from non-informula vendors
+        for product_id in product_ids_from_non_formula_vendors:
+            recent_price = products[product_id].recent_price
+            if recent_price:
+                product_prices[product_id]["price"] = recent_price
+                product_prices[product_id]["product_vendor_status"] = ""
 
         return product_prices
 
@@ -457,7 +507,8 @@ class ProductHelper:
             product_objs_to_be_created = []
             product_objs_to_be_updated = []
             for index, row in sub_df.iterrows():
-                category = slugify(row.pop("category"))
+                category = row.get("category", "")
+                category = slugify(category)
                 product_category = category_mapping[vendor_slug].get(category)
                 if product_category is None:
                     product_category = category_mapping["other"]
@@ -467,6 +518,8 @@ class ProductHelper:
                 except Exception:
                     product_price = None
 
+                manufacturer_number_origin = row.get("manufacturer_number")
+                manufacturer_number = manufacturer_number_origin.replace("-", "") if manufacturer_number_origin else ""
                 if fields:
                     product = ProductModel.objects.filter(product_id=row["product_id"], vendor=vendor).first()
                     if product:
@@ -474,8 +527,9 @@ class ProductHelper:
                             if field == "price":
                                 value = product_price
                             elif field == "manufacturer_number":
-                                manufacturer_number = row[field].replace("-", "")
-                                value = manufacturer_number if manufacturer_number else None
+                                value = manufacturer_number
+                            elif field == "manufacturer_number_origin":
+                                value = manufacturer_number_origin
                             else:
                                 value = row[field]
 
@@ -484,18 +538,24 @@ class ProductHelper:
                                 product_objs_to_be_updated.append(product)
                     else:
                         print(f"Cannot find out {row['product_id']}")
-                        product_objs_to_be_created.append(
-                            ProductModel(
-                                vendor=vendor,
-                                product_id=row["product_id"],
-                                name=row["name"],
-                                product_unit=row["product_unit"],
-                                url=row["url"],
-                                category=product_category,
-                                price=product_price,
-                                manufacturer_number=row["manufacturer_number"],
-                            )
-                        )
+                        # product_name = row.get("name")
+                        # product_unit = row.get("product_unit")
+                        # url = row.get("url")
+                        # if product_name is None:
+                        #     continue
+                        # product_objs_to_be_created.append(
+                        #     ProductModel(
+                        #         vendor=vendor,
+                        #         product_id=row["product_id"],
+                        #         name=product_name,
+                        #         product_unit=product_unit,
+                        #         url=url,
+                        #         category=product_category,
+                        #         price=product_price,
+                        #         manufacturer_number=manufacturer_number,
+                        #         manufacturer_number_origin=manufacturer_number_origin,
+                        #     )
+                        # )
                 else:
                     product_objs_to_be_created.append(
                         ProductModel(
@@ -506,7 +566,8 @@ class ProductHelper:
                             url=row["url"],
                             category=product_category,
                             price=product_price,
-                            manufacturer_number=row["manufacturer_number"],
+                            manufacturer_number=manufacturer_number,
+                            manufacturer_number_origin=manufacturer_number_origin,
                         )
                     )
 
@@ -541,10 +602,13 @@ class ProductHelper:
                 product = ProductModel.objects.filter(product_id=row["product_id"], vendor=vendor).first()
                 if product:
                     product.is_special_offer = True
-                    price = convert_string_to_price(row["price"])
+                    price = convert_string_to_price(row.get("price"))
                     if price:
                         product.special_price = price
-                    product.promotion_description = row["promo"]
+                    if vendor_slug == "patterson":
+                        product.promotion_description = row["promo"] or row["FreeGood"]
+                    else:
+                        product.promotion_description = row["promo"]
                     product_objs.append(product)
                 else:
                     print(f"Missing product {row['product_id']} - {row['name']}")
@@ -988,12 +1052,83 @@ class ProductHelper:
             ).distinct()
         else:
             if product_ids is not None:
-                products = products.filter(Q(id__in=product_ids)).distinct()
+                products = products.filter(Q(id__in=product_ids))
 
-            products = products.filter(Q(vendor_id__in=connected_vendor_ids)).distinct()
+            products = products.filter(Q(vendor_id__in=connected_vendor_ids))
 
         if selected_products is None:
             selected_products = []
+
+        # TODO: this should be optimized
+        office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk))
+        price_least_update_date = timezone.now() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
+        office_product_price = OfficeProductModel.objects.filter(
+            Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(last_price_updated__gte=price_least_update_date)
+        ).values("price")
+
+        # we treat parent product as inventory product if it has inventory children product
+        inventory_office_product = OfficeProductModel.objects.filter(
+            Q(office_id=office_pk) & Q(is_inventory=True) & Q(product_id=OuterRef("pk"))
+        )
+
+        return (
+            products.prefetch_related(Prefetch("office_products", queryset=office_products, to_attr="office_product"))
+            .annotate(office_product_price=Subquery(office_product_price[:1]))
+            .annotate(is_inventory=Exists(inventory_office_product))
+            # .annotate(last_order_date=Subquery(inventory_office_products.values("last_order_date")[:1]))
+            # .annotate(last_order_price=Subquery(inventory_office_products.values("price")[:1]))
+            # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
+            .annotate(
+                product_price=Case(
+                    When(price__isnull=False, then=F("price")),
+                    When(office_product_price__isnull=False, then=F("office_product_price")),
+                    default=Value(None),
+                )
+            )
+            .annotate(
+                selected_product=Case(
+                    When(id__in=selected_products, then=Value(0)),
+                    default=Value(1),
+                )
+            )
+            .order_by("selected_product", "-is_inventory", "product_price")
+        )
+
+    @staticmethod
+    def get_products_v2(
+        office: Union[OfficeModel, SmartID],
+        fetch_parents: bool = True,
+        product_ids: Optional[List[SmartID]] = None,
+        products: Optional[QuerySet] = None,
+        selected_products: Optional[List[SmartID]] = None,
+    ):
+        """
+        fetch_parents:  True:   fetch parent products
+                        False:  fetch all products
+        selected_products: list of product id, product ids in this list will be ordered first
+        """
+        if isinstance(office, OfficeModel):
+            office_pk = office.id
+        else:
+            office_pk = office
+
+        # get products from vendors that are linked to the office account
+        if products is None:
+            products = ProductModel.objects.all()
+
+        connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_pk)
+        products = products.exclude(parent__isnull=True)
+
+        if product_ids is not None:
+            products = products.filter(Q(id__in=product_ids))
+
+        products = products.filter(Q(vendor_id__in=connected_vendor_ids))
+
+        if selected_products is None:
+            selected_products = []
+
+        parent_product_ids = products.values_list("parent_id", flat=True)
+        products = ProductModel.objects.filter(id__in=parent_product_ids).select_related("vendor", "category")
 
         # TODO: this should be optimized
         office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk))
@@ -1026,6 +1161,76 @@ class ProductHelper:
             )
             .order_by("selected_product", "-is_inventory", "product_price")
         )
+
+    @staticmethod
+    def get_products_v3(
+        query: str,
+        office: Union[OfficeModel, SmartID],
+        fetch_parents: bool = True,
+        selected_products: Optional[List[SmartID]] = None,
+    ):
+        if isinstance(office, OfficeModel):
+            office_pk = office.id
+        else:
+            office_pk = office
+
+        connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_pk)
+        products = ProductModel.objects.filter(Q(vendor_id__in=connected_vendor_ids))
+        products = products.search(query)
+        available_vendors = [
+            vendor
+            for vendor in products.values_list("vendor__slug", flat=True).order_by("vendor__slug").distinct()
+            if vendor
+        ]
+        if selected_products is None:
+            selected_products = []
+
+        parent_product_ids = products.filter(parent__isnull=False).values_list("parent_id", flat=True)
+        product_ids = products.filter(parent__isnull=True).values_list("id", flat=True)
+        products = ProductModel.objects.filter(Q(id__in=parent_product_ids) | Q(id__in=product_ids)).select_related(
+            "vendor", "category"
+        )
+
+        # TODO: this should be optimized
+        office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk))
+        price_least_update_date = timezone.now() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
+        office_product_price = OfficeProductModel.objects.filter(
+            Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(last_price_updated__gte=price_least_update_date)
+        ).values("price")
+
+        # we treat parent product as inventory product if it has inventory children product
+        inventory_office_product = OfficeProductModel.objects.filter(
+            Q(office_id=office_pk) & Q(is_inventory=True) & Q(product_id=OuterRef("pk"))
+        )
+
+        return (
+            products.prefetch_related(Prefetch("office_products", queryset=office_products, to_attr="office_product"))
+            .annotate(office_product_price=Subquery(office_product_price[:1]))
+            .annotate(is_inventory=Exists(inventory_office_product))
+            # .annotate(last_order_date=Subquery(inventory_office_products.values("last_order_date")[:1]))
+            # .annotate(last_order_price=Subquery(inventory_office_products.values("price")[:1]))
+            # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
+            .annotate(
+                product_price=Case(
+                    When(price__isnull=False, then=F("price")),
+                    When(office_product_price__isnull=False, then=F("office_product_price")),
+                    default=Value(None),
+                )
+            )
+            .annotate(
+                selected_product=Case(
+                    When(id__in=selected_products, then=Value(0)),
+                    default=Value(1),
+                )
+            )
+            .annotate(
+                group=Case(
+                    When(vendor__isnull=True, then=Value(0)),
+                    default=Value(1),
+                )
+            )
+            .order_by("selected_product", "-is_inventory", "group", "product_price")
+        ), available_vendors
 
     @staticmethod
     def suggest_products(search: str, office: Union[OfficeModel, SmartID]):

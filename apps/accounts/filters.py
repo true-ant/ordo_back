@@ -1,6 +1,7 @@
+from django.db.models import Q
 from django_filters import rest_framework as filters
 
-from .models import OfficeBudget, Vendor
+from .models import CompanyMember, OfficeBudget, Vendor
 
 
 class OfficeBudgetFilter(filters.FilterSet):
@@ -24,3 +25,14 @@ class VendorFilter(filters.FilterSet):
         if slugs:
             return queryset.filter(slug__in=slugs)
         return queryset
+
+
+class CompanyMemberFilter(filters.FilterSet):
+    office_id = filters.NumberFilter(method="filter_office_members")
+
+    class Meta:
+        model = CompanyMember
+        fields = ["office_id"]
+
+    def filter_office_members(self, queryset, name, value):
+        return queryset.filter(Q(office_id=value) | Q(office__isnull=True))

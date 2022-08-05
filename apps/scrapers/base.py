@@ -83,12 +83,32 @@ class Scraper:
     @staticmethod
     def normalize_order_status(order_status):
         order_status = order_status.lower()
-        if order_status in ("shipped", "complete", "order shipped"):
-            return "complete"
-        elif order_status in ("in progress", "processing"):
-            return "processing"
+        if any(
+            status in order_status
+            for status in ("delivered", "shipped", "complete", "order shipped", "cancelled", "closed")
+        ):
+            return "closed"
+        elif any([status in order_status for status in ("open", "in progress", "processing", "pending")]):
+            return "open"
         else:
             return order_status
+
+    @staticmethod
+    def normalize_order_product_status(order_product_status):
+        order_product_status = order_product_status.lower()
+
+        if any(status in order_product_status for status in ("processing", "pending", "open")):
+            return "processing"
+        elif any([status in order_product_status for status in ("backordered",)]):
+            return "backordered"
+        elif any([status in order_product_status for status in ("returned",)]):
+            return "returned"
+        elif any([status in order_product_status for status in ("cancelled",)]):
+            return "cancelled"
+        elif any([status in order_product_status for status in ("received", "complete", "shipped")]):
+            return "received"
+        else:
+            return order_product_status
 
     @staticmethod
     def normalize_product_status(product_status):
@@ -100,6 +120,7 @@ class Scraper:
 
     @catch_network
     async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> SimpleCookie:
+        print("base/login")
         if username:
             self.username = username
         if password:
@@ -276,6 +297,7 @@ class Scraper:
                     if order_date:
                         if office_product.last_order_date is None or office_product.last_order_date < order_date:
                             office_product.last_order_date = order_date
+                            office_product.last_order_price = product_price
 
                     office_product.save()
                 except OfficeProductModel.DoesNotExist:
@@ -286,6 +308,7 @@ class Scraper:
                         price=product_price,
                         office_product_category=office_product_category,
                         last_order_date=order_date,
+                        last_order_price=product_price,
                     )
                     if product.parent:
                         OfficeProductModel.objects.get_or_create(
@@ -312,7 +335,7 @@ class Scraper:
         order_products_data = order_data.pop("products")
         order_id = order_data["order_id"]
         order_data["vendor_status"] = order_data["status"]
-        order_data["status"] = self.normalize_order_status(order_data["status"])
+        order_data["status"] = self.normalize_order_status(order_data["vendor_status"])
         order_date = order_data["order_date"]
         with transaction.atomic():
             try:
@@ -340,12 +363,22 @@ class Scraper:
                 if office_budget:
                     office_budget.dental_spend = F("dental_spend") + order_data["total_amount"]
                     office_budget.save()
+                else:
+                    office_budget = office.budgets.filter(month__gte=month).order_by("month").first()
+                    office_budget.id = None
+                    office_budget.month = month
+                    office_budget.dental_spend = order_data["total_amount"]
+                    office_budget.office_spend = 0
+                    office_budget.miscellaneous_spend = 0
+                    office_budget.save()
 
             for order_product_data in order_products_data:
                 product_data = order_product_data.pop("product")
                 product, _ = self.save_single_product_to_db(
                     product_data, office, is_inventory=True, order_date=order_date
                 )
+                order_product_data["vendor_status"] = order_product_data["status"]
+                order_product_data["status"] = self.normalize_order_product_status(order_product_data["vendor_status"])
 
                 VendorOrderProductModel.objects.update_or_create(
                     vendor_order=vendor_order,

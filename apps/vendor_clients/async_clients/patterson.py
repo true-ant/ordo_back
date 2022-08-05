@@ -138,7 +138,7 @@ class PattersonClient(BaseClient):
             data=json.dumps(data),
         )
 
-    def serialize(self, data: Union[dict, Selector]) -> Optional[types.Product]:
+    def serialize(self, base_product: types.Product, data: Union[dict, Selector]) -> Optional[types.Product]:
         product_detail = data.xpath("//input[@id='ItemSkuDetail']/@value").get()
         try:
             product_detail = json.loads(product_detail)

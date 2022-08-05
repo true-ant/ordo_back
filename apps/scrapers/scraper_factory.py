@@ -4,6 +4,7 @@ import os
 from typing import Optional
 
 from aiohttp import ClientSession, ClientTimeout
+from dateutil.relativedelta import relativedelta
 from dotenv import load_dotenv
 
 from apps.common.utils import group_products, group_products_from_search_result
@@ -20,7 +21,7 @@ from apps.scrapers.patterson import PattersonScraper
 from apps.scrapers.schema import Product
 from apps.scrapers.ultradent import UltraDentScraper
 
-SCRAPER_SLUG = "net_32"
+SCRAPER_SLUG = "patterson"
 SCRAPERS = {
     "henry_schein": HenryScheinScraper,
     "net_32": Net32Scraper,
@@ -234,8 +235,10 @@ def get_task(scraper, scraper_name, test="login", **kwargs):
         return scraper.get_orders(office, perform_login=True)
     elif test == "order_history_date_range":
         office = kwargs.get("office")
-        orders_from_date = datetime.date(year=2021, month=10, day=16)
-        orders_to_date = datetime.date(year=2022, month=2, day=16)
+        orders_to_date = datetime.date.today()
+        orders_from_date = orders_to_date - relativedelta(year=1)
+        # orders_from_date = datetime.date(year=2021, month=10, day=16)
+        # orders_to_date = datetime.date(year=2022, month=2, day=16)
         return scraper.get_orders(office, perform_login=True, from_date=orders_from_date, to_date=orders_to_date)
     elif test == "create_order":
         return scraper.create_order(
@@ -317,7 +320,7 @@ async def main(vendors, **kwargs):
                 username=scraper_data["username"],
                 password=scraper_data["password"],
             )
-            tasks.append(get_task(scraper, scraper_name, "order_history", **kwargs))
+            tasks.append(get_task(scraper, scraper_name, "order_history_date_range", **kwargs))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
     # products = [
@@ -456,7 +459,7 @@ if __name__ == "__main__":
         "keyword": keyword,
         "vendor_order_product": vendor_order_product,
     }
-    asyncio.run(main(vendors, **kwargs))
+    # asyncio.run(main(vendors, **kwargs))
     # asyncio.run(search_products())
-    # test_search_products()
+    test_search_products()
     print(time.perf_counter() - start_time)

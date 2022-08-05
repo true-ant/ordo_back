@@ -8,7 +8,7 @@ from apps.orders.helpers import ProductHelper
 
 class Command(BaseCommand):
     """
-    python manage.py import_products
+    python manage.py import_promotion_products --directory promotions --vendors benco
     """
 
     help = "Import products from csv files to table"
