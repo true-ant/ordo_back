@@ -419,6 +419,7 @@ class ImplantDirectScraper(Scraper):
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("Implant Direct/create_order")
+        self.backsession = self.session
         self.session = ClientSession()
         await self.login()
         await self.clear_cart()
@@ -435,6 +436,8 @@ class ImplantDirectScraper(Scraper):
             "payment_method": "",
             "shipping_address": self.shipping_address,
         }
+        await self.session.close()
+        self.session = self.backsession
         vendor_slug: str = self.vendor.slug
         return {
             vendor_slug: {
@@ -445,6 +448,7 @@ class ImplantDirectScraper(Scraper):
 
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
         print("Implant Direct/confirm_order")
+        self.backsession = self.session
         self.session = ClientSession()
         headers = {
             'authority': 'store.implantdirect.com',
@@ -471,6 +475,8 @@ class ImplantDirectScraper(Scraper):
         await self.add_to_cart(products)
         self.cartId, self.shipping_payload = await self.checkout()
         if fake:
+            await self.session.close()
+            self.session = self.backsession
             vendor_order_detail = {
             "retail_amount": "",
             "savings_amount": self.discount,
@@ -515,7 +521,8 @@ class ImplantDirectScraper(Scraper):
             "payment_method": "",
             "shipping_address": self.shipping_address,
         }
-        vendor_slug: str = self.vendor.slug
+        await self.session.close()
+        self.session = self.backsession
         return {
             **vendor_order_detail,
             **self.vendor.to_dict(),
