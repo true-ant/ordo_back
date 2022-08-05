@@ -934,9 +934,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         ret = {}
         try:
             retacc = apps.get_app_config("accounts")
-            session = None
-            if hasattr(retacc, 'session'):
-                session = apps.get_app_config("accounts").session
+            session = apps.get_app_config("accounts").session
             tasks = []
             tmp_variables = []
             for office_vendor in office_vendors:
@@ -955,6 +953,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                         ]
                     )
                 )
+
                 tasks.append(
                     scraper.create_order(
                         [
@@ -962,6 +961,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                                 product_id=cart_product.product.product_id,
                                 product_unit=cart_product.product.product_unit,
                                 quantity=cart_product.quantity,
+                                product_url=cart_product.product.url
                             )
                             for cart_product in cart_products
                             if cart_product.product.vendor.id == office_vendor.vendor.id
@@ -971,7 +971,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for i, result in enumerate(results):
                 vendor_slug = list(result.keys())[0]
-                if vendor_slug not in ("henry_schien", "darby", "benco", "net_32"):
+                if vendor_slug not in ("henry_schien", "implant_direct", "darby", "benco", "net_32"):
                     result[vendor_slug]["retail_amount"] = Decimal(0)
                     result[vendor_slug]["savings_amount"] = Decimal(0)
                     result[vendor_slug]["subtotal_amount"] = tmp_variables[i]
@@ -1037,6 +1037,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                             CartProduct(
                                 product_id=cart_product.product.product_id,
                                 product_unit=cart_product.product.product_unit,
+                                product_url=cart_product.product.url,
                                 quantity=cart_product.quantity,
                             )
                             for cart_product in cart_products
