@@ -998,7 +998,6 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
         session = apps.get_app_config("accounts").session
         tasks = []
-        reqMeta = request.META["HTTP_HOST"]
         debug = OrderService.is_debug_mode(request.META["HTTP_HOST"])
 
         # check order app

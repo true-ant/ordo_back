@@ -3,7 +3,7 @@ import datetime
 import re
 from typing import Dict, List, Optional
 
-from aiohttp import ClientResponse
+from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
 
 from apps.common.utils import concatenate_list_as_string
@@ -445,6 +445,21 @@ class DarbyScraper(Scraper):
                 **self.vendor.to_dict(),
             },
         }
+
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+        await self.login()
+        await self.clear_cart()
+        await self.add_products_to_cart(products)
+        if fake:
+            vendor_order_detail = await self.review_order()
+            return {
+                **vendor_order_detail.to_dict(),
+                **self.vendor.to_dict(),
+            }
+
+        
+
+
 
     # async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
     #     vendor_order_detail = await self.create_order(products)
