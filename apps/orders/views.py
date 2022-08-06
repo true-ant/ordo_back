@@ -915,7 +915,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
     @action(detail=False, url_path="checkout", methods=["get"], permission_classes=[p.OrderCheckoutPermission])
     async def checkout(self, request, *args, **kwargs):
-        print("=================== orders/views/checkout ===================")
+        print("Click Proceed to Checkout")
         can_use_cart = await sync_to_async(get_cart_status_and_order_status)(
             office=self.kwargs["office_pk"], user=request.user
         )
@@ -987,7 +987,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
     @action(detail=False, url_path="confirm-order", methods=["post"], permission_classes=[p.OrderCheckoutPermission])
     async def confirm_order(self, request, *args, **kwargs):
-        print("=================== orders/views/confirm_order ===================")
+        print("Click Confirm Order")
         data = request.data["data"]
         shipping_options = request.data["shipping_options"]
 

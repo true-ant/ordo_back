@@ -475,6 +475,7 @@ class ImplantDirectScraper(Scraper):
         await self.add_to_cart(products)
         self.cartId, self.shipping_payload = await self.checkout()
         if fake:
+            # here code goes as fake(debug)
             await self.session.close()
             self.session = self.backsession
             vendor_order_detail = {
