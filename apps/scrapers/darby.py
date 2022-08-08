@@ -1,5 +1,7 @@
 import asyncio
 import datetime
+from email.errors import HeaderParseError
+import time
 import re
 from typing import Dict, List, Optional
 
@@ -122,6 +124,60 @@ ORDER_HEADERS = {
     "Accept-Language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
 }
 
+REVIEW_ORDER_HEADER = {
+    'Connection': 'keep-alive',
+    'sec-ch-ua': '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'Upgrade-Insecure-Requests': '1',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+    'Sec-Fetch-Site': 'same-origin',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-User': '?1',
+    'Sec-Fetch-Dest': 'document',
+    'Referer': 'https://www.darbydental.com/scripts/cart.aspx',
+    'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8',
+}
+
+CHECKOUT_SUBMIT_HEADER = {
+    'Connection': 'keep-alive',
+    'Pragma': 'no-cache',
+    'Cache-Control': 'no-cache',
+    'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="98", "Google Chrome";v="98"',
+    'sec-ch-ua-mobile': '?0',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36',
+    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+    'X-Requested-With': 'XMLHttpRequest',
+    'X-MicrosoftAjax': 'Delta=true',
+    'sec-ch-ua-platform': '"Windows"',
+    'Accept': '*/*',
+    'Origin': 'https://www.darbydental.com',
+    'Sec-Fetch-Site': 'same-origin',
+    'Sec-Fetch-Mode': 'cors',
+    'Sec-Fetch-Dest': 'empty',
+    'Referer': 'https://www.darbydental.com/scripts/checkout.aspx',
+    'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
+}
+REAL_ORDER_HEADER = {
+    'Connection': 'keep-alive',
+    'Pragma': 'no-cache',
+    'Cache-Control': 'no-cache',
+    'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="98", "Google Chrome";v="98"',
+    'sec-ch-ua-mobile': '?0',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36',
+    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+    'X-Requested-With': 'XMLHttpRequest',
+    'X-MicrosoftAjax': 'Delta=true',
+    'sec-ch-ua-platform': '"Windows"',
+    'Accept': '*/*',
+    'Origin': 'https://www.darbydental.com',
+    'Sec-Fetch-Site': 'same-origin',
+    'Sec-Fetch-Mode': 'cors',
+    'Sec-Fetch-Dest': 'empty',
+    'Referer': 'https://www.darbydental.com/scripts/checkout.aspx',
+    'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
+}
 
 class DarbyScraper(Scraper):
     BASE_URL = "https://www.darbydental.com"
@@ -385,9 +441,10 @@ class DarbyScraper(Scraper):
             data[f"items[{index}][Sku]"] = (product["product_id"],)
             data[f"items[{index}][Quantity]"] = product["quantity"]
 
-        await self.session.post(
+        response = await self.session.post(
             "https://www.darbydental.com/api/ShopCart/doAddToCart2", headers=ADD_TO_CART_HEADERS, data=data
         )
+        res = await response.text()
 
     async def clear_cart(self):
         cart_page_dom = await self.get_cart_page()
@@ -433,6 +490,52 @@ class DarbyScraper(Scraper):
             }
         )
 
+    async def checkout(self):
+        response = await self.session.get('https://www.darbydental.com/scripts/checkout.aspx', headers=REVIEW_ORDER_HEADER)
+        dom = Selector(text = await response.text())
+
+        data = {
+            "__EVENTTARGET": "ctl00$MainContent$completeOrder",
+            "ctl00$MainContent$paymode": "rdbAccount",
+            "__EVENTARGUMENT": "",
+            'ctl00$masterSM': 'ctl00$MainContent$UpdatePanel1|ctl00$MainContent$completeOrder',
+            '__ASYNCPOST': 'true',
+            'ctl00$ddlPopular': '-1',
+            'ctl00$MainContent$pono': f"Ordo Order ({time.strftime('%Y-%m-%d')})",
+        }
+
+        for ele in dom.xpath('//input[@name]'):
+            _key = ele.xpath('./@name').get()
+            _val = ele.xpath('./@value').get()
+            if _val is None: _val = ""
+            if _key not in data:
+                if _key not in [
+                    "ctl00$logonControl$btnLogin",
+                    "ctl00$logonControl$btnSignUp",
+                    "ctl00$btnBigSearch",
+                    "ctl00$MainContent$completeOrder"
+                ]:
+                    data[_key] = _val
+
+        for ele in dom.xpath('//select[@name]'):
+            _key = ele.xpath('./@name').get()
+            _val = ele.xpath('./option[@selected="selected"]/@value').get()
+            if not _val:
+                _val = ele.xpath('./option[1]/@value').get()
+            if _val is None: _val = ""
+            if _key not in data: data[_key] = _val
+
+        response = await self.session.post('https://www.darbydental.com/scripts/checkout.aspx', headers=CHECKOUT_SUBMIT_HEADER, data=data)
+        response_text = await response.text()
+        response_text = response_text.replace("%2f", "/")
+        response_text = response_text.replace("%3f", "?")
+        response_text = response_text.replace("%3d", "=")
+        response_text = response_text.replace("%26", "&")
+        response_text = response_text.strip("| ").split("|")[-1]
+        redirect_link = f'https://www.darbydental.com{response_text}'
+        return redirect_link
+
+
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         await self.login()
         await self.clear_cart()
@@ -450,14 +553,20 @@ class DarbyScraper(Scraper):
         await self.login()
         await self.clear_cart()
         await self.add_products_to_cart(products)
+        vendor_order_detail = await self.review_order()
         if fake:
-            vendor_order_detail = await self.review_order()
             return {
                 **vendor_order_detail.to_dict(),
                 **self.vendor.to_dict(),
             }
 
-        
+        link = await self.checkout()
+        await self.session.post(link, headers = REAL_ORDER_HEADER)
+
+        return {
+            **vendor_order_detail.to_dict(),
+            **self.vendor.to_dict(),
+        }
 
 
 
