@@ -854,8 +854,8 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 order_date=order_date,
                 status=m.OrderStatus.PENDING_APPROVAL if approval_needed else m.OrderStatus.OPEN,
             )
-            total_amount = 0
-            total_items = 0
+            total_amount = 0.0
+            total_items = 0.0
 
             for office_vendor, vendor_order_result in zip(office_vendors, vendor_order_results):
                 if not isinstance(vendor_order_result, dict):
@@ -863,8 +863,8 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
                 vendor = office_vendor.vendor
                 vendor_order_id = vendor_order_result.get("order_id", "")
-                vendor_total_amount = vendor_order_result.get("total_amount", 0)
-                total_amount += vendor_total_amount
+                vendor_total_amount = vendor_order_result.get("total_amount", 0.0)
+                total_amount += float(vendor_total_amount)
                 vendor_order_products = cart_products.filter(product__vendor=vendor)
                 total_items += (vendor_total_items := vendor_order_products.count())
                 vendor_order = m.VendorOrder.objects.create(
