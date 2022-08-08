@@ -568,8 +568,6 @@ class DarbyScraper(Scraper):
             **self.vendor.to_dict(),
         }
 
-
-
     # async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
     #     vendor_order_detail = await self.create_order(products)
     #     if fake:
