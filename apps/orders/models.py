@@ -55,7 +55,6 @@ class ProductQuerySet(models.QuerySet):
         q1 = reduce(and_, [SearchQuery(word, config="english") for word in text.split(" ")])
         q2 = reduce(and_, [SearchQuery(word, config="english") for word in original_text.split(" ")])
         q = q1 | q2
-        print(q)
         return (
             self.annotate(search=RawSQL("search_vector", [], output_field=SearchVectorField()))
             # .annotate(similarity=trigram_similarity)
