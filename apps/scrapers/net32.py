@@ -493,11 +493,13 @@ class Net32Scraper(Scraper):
             )
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
+        print("net32/create_order")
         await self.login()
         await self.clear_cart()
         await self.add_products_to_cart(products)
         vendor_order_detail = await self.review_order()
         vendor_slug: str = self.vendor.slug
+        print("net32/create_order DONE")
         return {
             vendor_slug: {
                 **vendor_order_detail.to_dict(),
@@ -506,8 +508,10 @@ class Net32Scraper(Scraper):
         }
 
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+        print("net32/confirm_order")
         result = await self.create_order(products)
         if fake:
+            print("net32/confirm_order DONE")
             return {**result[self.vendor.slug], "order_id": f"{uuid.uuid4()}"}
         async with self.session.post(
             "https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS

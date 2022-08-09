@@ -92,19 +92,16 @@ class ImplantDirectScraper(Scraper):
             login_dom = Selector(text=text)
             form_key = login_dom.xpath('//form[@id="login-form"]/input[@name="form_key"]/@value').get()
             form_action = login_dom.xpath('//form[@id="login-form"]/@action').get()
-            print("ImplantDirect/get_login_form DONE")
             return {
                 "key": form_key,
                 "action": form_action,
             }
 
     async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
-        print("ImplantDirect/_get_login_data")
         login_link = await self.get_login_link()
         form = await self.get_login_form(login_link)
         headers = LOGIN_HEADERS.copy()
         headers["referer"] = login_link
-        print("ImplantDirect/_get_login_data DONE")
         # async with self.session.get("https://store.implantdirect.com/") as resp:
         #     text = await resp.text()
         #     n = text.split("var _n =")[1].split(";")[0].strip(" '")
@@ -214,7 +211,6 @@ class ImplantDirectScraper(Scraper):
         return res["totals"]
 
     async def clear_cart(self):
-        print("ImplantDirect/clear_cart")
         cart_page = await self.getCartPage()
         dom = Selector(text=cart_page)
         form_key = dom.xpath('//form[@id="form-validate"]//input[@name="form_key"]/@value').get()
@@ -252,7 +248,6 @@ class ImplantDirectScraper(Scraper):
             response = await self.session.post('https://store.implantdirect.com/checkout/cart/delete/', headers=headers, data=data)
 
     async def add_to_cart(self, products):
-        print("ImplantDirect/add_to_cart")
         headers = {
             'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:93.0) Gecko/20100101 Firefox/93.0',
             'Accept': 'application/json, text/javascript, */*; q=0.01',
@@ -282,7 +277,6 @@ class ImplantDirectScraper(Scraper):
             response = await self.session.post(action_link, headers=headers, data=data)
 
     async def checkout(self):
-        print("ImplantDirect/checkout")
         headers = {
             'authority': 'store.implantdirect.com',
             'pragma': 'no-cache',
@@ -407,6 +401,7 @@ class ImplantDirectScraper(Scraper):
         await self.session.close()
         self.session = self.backsession
         vendor_slug: str = self.vendor.slug
+        print("implant_direct/create_order DONE")
         return {
             vendor_slug: {
                 **vendor_order_detail,
@@ -456,7 +451,8 @@ class ImplantDirectScraper(Scraper):
             "payment_method": "",
             "shipping_address": self.shipping_address,
             }
-            vendor_slug: str = self.vendor.slug
+            print("Implant Direct/confirm_order DONE")
+
             return {
                 **vendor_order_detail,
                 **self.vendor.to_dict(),

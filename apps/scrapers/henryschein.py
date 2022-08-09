@@ -119,12 +119,10 @@ class HenryScheinScraper(Scraper):
     TRACKING_BASE_URL = "https://narvar.com/tracking/itemvisibility/v1/henryschein-dental/orders"
 
     async def _check_authenticated(self, response: ClientResponse) -> bool:
-        print("henryschein/_check_authenticated")
         res = await response.json()
         return res.get("IsAuthenticated", False)
 
     async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
-        print("henryschein/_get_login_data")
         async with self.session.get("https://www.henryschein.com/us-en/dental/Default.aspx") as resp:
             text = await resp.text()
             n = text.split("var _n =")[1].split(";")[0].strip(" '")
@@ -143,7 +141,6 @@ class HenryScheinScraper(Scraper):
 
     @semaphore_coroutine
     async def get_order(self, sem, order_dom, office=None):
-        print("henryschein/get_order")
         if len(order_dom.xpath("./td")) == 8:
             total_amount_table_index = 6
             order_date_table_index = 4
@@ -266,7 +263,6 @@ class HenryScheinScraper(Scraper):
         return order
 
     async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
-        print("henryschein/get_product_as_dict")
         if perform_login:
             await self.login()
 
@@ -314,7 +310,6 @@ class HenryScheinScraper(Scraper):
         to_date: Optional[datetime.date] = None,
         completed_order_ids: Optional[List[str]] = None,
     ) -> List[Order]:
-        print("henryschein/get_orders")
         params = {}
         if from_date and to_date:
             params["Search"] = f"dateRangeSF|{from_date.strftime('%m/%d/%Y')}|{to_date.strftime('%m/%d/%Y')}"
@@ -342,7 +337,6 @@ class HenryScheinScraper(Scraper):
         return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
 
     async def get_product_prices(self, product_ids, perform_login=False, **kwargs) -> Dict[str, Decimal]:
-        print("henryschein/get_product_prices")
         if perform_login:
             await self.login()
 
@@ -393,7 +387,6 @@ class HenryScheinScraper(Scraper):
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price", office_id=None
     ) -> ProductSearch:
-        print("henryschein/_search_products")
         url = f"{self.BASE_URL}/us-en/Search.aspx"
         page_size = 25
         params = {"searchkeyWord": query, "pagenumber": page}
@@ -454,7 +447,6 @@ class HenryScheinScraper(Scraper):
         }
 
     def _get_vendor_categories(self, response) -> List[ProductCategory]:
-        print("henryschein/_get_vendor_categories")
         return [
             ProductCategory(
                 name=category.attrib["title"],
@@ -464,7 +456,6 @@ class HenryScheinScraper(Scraper):
         ]
 
     async def get_cart(self):
-        print("henryschein/get_cart")
         async with self.session.get("https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx") as resp:
             dom = Selector(text=await resp.text())
             return dom
@@ -472,7 +463,6 @@ class HenryScheinScraper(Scraper):
     async def remove_product_from_cart(
         self, product_id: SmartProductID, perform_login: bool = False, use_bulk: bool = True
     ):
-        print("henryschein/remove_product_from_cart")
         if perform_login:
             await self.login()
 
@@ -506,7 +496,6 @@ class HenryScheinScraper(Scraper):
         return True
 
     async def clear_cart(self):
-        print("henryschein/clear_cart")
         cart_dom = await self.get_cart()
         data = {
             "__LASTFOCUS": "",
@@ -540,7 +529,6 @@ class HenryScheinScraper(Scraper):
         )
 
     async def add_products_to_cart(self, products: List[CartProduct]) -> List[VendorCartProduct]:
-        print("henryschein/add_products_to_cart")
         item_data_to_add = {"ItemDataToAdd": []}
         for product in products:
             item_data_to_add["ItemDataToAdd"].append(
@@ -570,7 +558,6 @@ class HenryScheinScraper(Scraper):
         )
 
     async def add_product_to_cart(self, product: CartProduct, perform_login=False) -> VendorCartProduct:
-        print("henryschein/add_product_to_cart")
         if perform_login:
             await self.login()
 
@@ -593,7 +580,6 @@ class HenryScheinScraper(Scraper):
 
     @staticmethod
     def get_checkout_products_sensitive_data(dom):
-        print("henryschein/get_checkout_products_sensitive_data")
         data = {}
         for i, product_dom in enumerate(
             dom.xpath("//div[@id='ctl00_cphMainContentHarmony_ucOrderCartShop_pnlCartDetails']/ol/li")
@@ -616,7 +602,6 @@ class HenryScheinScraper(Scraper):
         return data
 
     def get_product_checkout_prices(self, dom):
-        print("henryschein/get_product_checkout_prices")
         data = {}
         for i, product_dom in enumerate(
             dom.xpath("//div[@id='ctl00_cphMainContentHarmony_ucOrderCartShop_pnlCartDetails']/ol/li")
@@ -632,7 +617,6 @@ class HenryScheinScraper(Scraper):
         return data
 
     async def checkout(self, products: List[CartProduct], checkout_time: Optional[datetime.date] = None):
-        print("henryschein/checkout")
         if not checkout_time:
             checkout_time = datetime.date.today()
 
@@ -674,7 +658,6 @@ class HenryScheinScraper(Scraper):
                 return response_dom
 
     async def review_checkout(self, checkout_dom, shipping_method=None):
-        print("henryschein/review_checkout")
         for shipping_method_option in checkout_dom.xpath(
             "//select[@name='ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ddlShippingMethod']/option"
         ):
@@ -747,7 +730,6 @@ class HenryScheinScraper(Scraper):
             return Selector(text=await resp.text())
 
     async def review_order(self, review_checkout_dom):
-        print("henryschein/review_order")
         subtotal_amount = self.extract_first(
             review_checkout_dom,
             "//div[@id='ctl00_cphMainContentHarmony_divOrderSummarySubTotal']/strong//text()",
@@ -804,6 +786,7 @@ class HenryScheinScraper(Scraper):
         review_checkout_dom = await self.review_checkout(checkout_dom, shipping_method)
         vendor_order_detail = await self.review_order(review_checkout_dom)
         vendor_slug: str = self.vendor.slug
+        print("henryschein/create_order DONE")
         return {
             vendor_slug: {
                 **vendor_order_detail.to_dict(),
@@ -821,6 +804,7 @@ class HenryScheinScraper(Scraper):
         vendor_order_detail = await self.review_order(review_checkout_dom)
 
         if fake:
+            print("henryschein/confirm_order DONE")
             return {
                 **vendor_order_detail.to_dict(),
                 "order_id": f"{uuid.uuid4()}",
@@ -855,7 +839,6 @@ class HenryScheinScraper(Scraper):
             }
 
     async def track_product(self, order_id, product_id, tracking_link, tracking_number, perform_login=False):
-        print("henryschein/track_product")
         parsed_url = urlparse(tracking_link)
         if parsed_url.netloc == "www.henryschein.com":
             if perform_login:

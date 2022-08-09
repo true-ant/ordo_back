@@ -537,11 +537,13 @@ class DarbyScraper(Scraper):
 
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
+        print("darby/create_order")
         await self.login()
         await self.clear_cart()
         await self.add_products_to_cart(products)
         vendor_order_detail = await self.review_order()
         vendor_slug: str = self.vendor.slug
+        print("darby/create_order DONE")
         return {
             vendor_slug: {
                 **vendor_order_detail.to_dict(),
@@ -550,11 +552,13 @@ class DarbyScraper(Scraper):
         }
 
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+        print("darby/confirm_order")
         await self.login()
         await self.clear_cart()
         await self.add_products_to_cart(products)
         vendor_order_detail = await self.review_order()
         if fake:
+            print("darby/confirm_order DONE")
             return {
                 **vendor_order_detail.to_dict(),
                 **self.vendor.to_dict(),
