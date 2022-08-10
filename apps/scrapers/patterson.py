@@ -210,6 +210,25 @@ SHIP_PAYMENT_HEADERS = {
     'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8',
 }
 
+PLACE_ORDER_HEADERS = {
+    'Connection': 'keep-alive',
+    'Pragma': 'no-cache',
+    'Cache-Control': 'no-cache',
+    'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'Upgrade-Insecure-Requests': '1',
+    'Origin': 'https://www.pattersondental.com',
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+    'Sec-Fetch-Site': 'same-origin',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-User': '?1',
+    'Sec-Fetch-Dest': 'document',
+    'Referer': 'https://www.pattersondental.com/Order/ReviewOrder',
+    'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
+}
 class PattersonScraper(Scraper):
     BASE_URL = "https://www.pattersondental.com"
     async def extract_content(self, ele):
@@ -670,23 +689,22 @@ class PattersonScraper(Scraper):
             '//div[contains(@class, "OrderSummaryBackground")]/following-sibling::div/div[2]'
         ))
         print("--- order_total:\n", order_total.strip() if order_total else "")
-        response_dom = Selector(text=await response.text())
-        return response_dom
+        return response_dom, subtotal, shipping, order_total, shipping_address
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         await self.login()
         await self.clear_cart()
         await self.add_to_cart(products)
-        await self.checkout()
+        order_dom, subtotal, shipping, order_total, shipping_address = await self.checkout()
         vendor_order_detail = {
             "retail_amount": "",
             "savings_amount": "",
-            "subtotal_amount": "",
-            "shipping_amount": "",
+            "subtotal_amount": subtotal,
+            "shipping_amount": shipping,
             "tax_amount": "",
-            "total_amount": "",
+            "total_amount": order_total,
             "payment_method": "",
-            "shipping_address": "",
+            "shipping_address": shipping_address,
         }
         vendor_slug: str = self.vendor.slug
         return {
@@ -700,3 +718,42 @@ class PattersonScraper(Scraper):
         await self.login()
         await self.clear_cart()
         await self.add_to_cart(products)
+        order_dom, subtotal, shipping, order_total, shipping_address = await self.checkout()
+        
+        if fake:
+            vendor_order_detail = {
+                "retail_amount": "",
+                "savings_amount": "",
+                "subtotal_amount": subtotal,
+                "shipping_amount": shipping,
+                "tax_amount": "",
+                "total_amount": order_total,
+                "payment_method": "",
+                "shipping_address": shipping_address,
+            }
+            return {
+                **vendor_order_detail,
+                **self.vendor.to_dict(),
+            }
+        data = {
+            "__RequestVerificationToken": order_dom.xpath("//input[@name='__RequestVerificationToken']/@value").get(),
+            "SpecialInstructions": "",
+            "CustomerPurchaseOrder": "",
+            "PaymentMethodId": order_dom.xpath("//input[@name='PaymentMethodId']/@value").get(),
+            "PlaceOrderButton": "Place+Order",
+        }
+        response = await self.session.post('https://www.pattersondental.com/Order/ReviewOrder', headers=PLACE_ORDER_HEADERS, data=data)
+        vendor_order_detail = {
+            "retail_amount": "",
+            "savings_amount": "",
+            "subtotal_amount": subtotal,
+            "shipping_amount": shipping,
+            "tax_amount": "",
+            "total_amount": order_total,
+            "payment_method": "",
+            "shipping_address": shipping_address,
+        }
+        return {
+            **vendor_order_detail,
+            **self.vendor.to_dict(),
+        }
