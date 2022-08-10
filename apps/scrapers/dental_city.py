@@ -46,7 +46,7 @@ LOGIN_HEADERS = {
 
 
 class DentalCityScraper(Scraper):
-    BASE_URL = "https://www.henryschein.com"
+    BASE_URL = "https://www.dentalcity.com"
     CATEGORY_URL = "https://www.henryschein.com/us-en/dental/c/browsesupplies"
     TRACKING_BASE_URL = "https://narvar.com/tracking/itemvisibility/v1/henryschein-dental/orders"
 
