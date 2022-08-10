@@ -68,6 +68,9 @@ LOGIN_HEADERS = {
     "accept-language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
 }
 
+LOGOUT_HEADERS = {
+
+}
 
 class ImplantDirectScraper(Scraper):
     # BASE_URL = "https://www.henryschein.com"
@@ -84,6 +87,16 @@ class ImplantDirectScraper(Scraper):
         async with self.session.get("https://store.implantdirect.com/", headers=HOMEPAGE_HEADERS) as resp:
             text = await resp.text()
             home_dom = Selector(text=text)
+            link = home_dom.xpath('//ul/li[@class="authorization-link"]/a/@href').get()
+            print(" ============== link logout",  link)
+            #https://store.implantdirect.com/customer/account/logout/
+            if("logout" in link):
+                await self.session.get(link)
+                async with self.session.get("https://store.implantdirect.com/", headers=HOMEPAGE_HEADERS) as resp:
+                    text = await resp.text()
+                    home_dom = Selector(text=text)
+                    return home_dom.xpath('//ul/li[@class="authorization-link"]/a/@href').get()
+                    
             return home_dom.xpath('//ul/li[@class="authorization-link"]/a/@href').get()
 
     async def get_login_form(self, login_link):
@@ -96,6 +109,7 @@ class ImplantDirectScraper(Scraper):
                 "key": form_key,
                 "action": form_action,
             }
+
 
     async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
         login_link = await self.get_login_link()
@@ -118,13 +132,13 @@ class ImplantDirectScraper(Scraper):
             },
         }
 
-    async def _get_check_login_state(self) -> Tuple[bool, dict]:
-        login_link = await self.get_login_link()
-        form = await self.get_login_form(login_link)
-        if form["action"] == None:
-            return True, {}
-        else:
-            return False, {}
+    # async def _get_check_login_state(self) -> Tuple[bool, dict]:
+    #     login_link = await self.get_login_link()
+    #     form = await self.get_login_form(login_link)
+    #     if form["action"] == None:
+    #         return True, {}
+    #     else:
+    #         return False, {}
 
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price", office_id=None
@@ -263,18 +277,25 @@ class ImplantDirectScraper(Scraper):
             'Sec-Fetch-Site': 'same-origin',
             'TE': 'trailers',
         }
-
+        print("55")
         for product in products:
+            print("66")
+            print(product)
             product_page = await self.getProductPage(product["product_url"])
             # product_page = await self.getProductPage(product["link"])
+            print("77")
             dom = Selector(text=product_page)
+            print("11")
             action_link = dom.xpath('//form[@id="product_addtocart_form"]/@action').get()
+            print("22")
             product_id = dom.xpath('//div[@data-product-id]/@data-product-id').get()
 
+            print("33")
             
             data = f'-----------------------------114617192524257728931343838898\r\nContent-Disposition: form-data; name="product"\r\n\r\n{product_id}\r\n-----------------------------114617192524257728931343838898\r\nContent-Disposition: form-data; name="selected_configurable_option"\r\n\r\n\r\n-----------------------------114617192524257728931343838898\r\nContent-Disposition: form-data; name="related_product"\r\n\r\n\r\n-----------------------------114617192524257728931343838898\r\nContent-Disposition: form-data; name="item"\r\n\r\n{product_id}\r\n-----------------------------114617192524257728931343838898\r\nContent-Disposition: form-data; name="form_key"\r\n\r\nXveVoCfshd9HVbEX\r\n-----------------------------114617192524257728931343838898\r\nContent-Disposition: form-data; name="qty"\r\n\r\n{product["quantity"]}\r\n-----------------------------114617192524257728931343838898--\r\n'
 
             response = await self.session.post(action_link, headers=headers, data=data)
+            print("44")
 
     async def checkout(self):
         headers = {
@@ -334,7 +355,7 @@ class ImplantDirectScraper(Scraper):
                 shipping_payload["addressInformation"]["billing_address"]["lastname"] = item["lastname"]
 
                 billing_address = f'{item["inline"]}\n{item["telephone"]}'
-                print("--- billing_address:\n", billing_address.strip() if billing_address else "")
+                # print("--- billing_address:\n", billing_address.strip() if billing_address else "")
 
             if item["default_shipping"]:
                 shipping_payload["addressInformation"]["shipping_address"]["customerAddressId"] = item["id"]
@@ -381,8 +402,8 @@ class ImplantDirectScraper(Scraper):
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("Implant Direct/create_order")
-        self.backsession = self.session
-        self.session = ClientSession()
+        # self.backsession = self.session
+        # self.session = ClientSession()
         await self.login()
         await self.clear_cart()
         await self.add_to_cart(products)
@@ -398,8 +419,8 @@ class ImplantDirectScraper(Scraper):
             "payment_method": "",
             "shipping_address": self.shipping_address,
         }
-        await self.session.close()
-        self.session = self.backsession
+        # await self.session.close()
+        # self.session = self.backsession
         vendor_slug: str = self.vendor.slug
         print("implant_direct/create_order DONE")
         return {
@@ -411,8 +432,8 @@ class ImplantDirectScraper(Scraper):
 
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
         print("Implant Direct/confirm_order")
-        self.backsession = self.session
-        self.session = ClientSession()
+        # self.backsession = self.session
+        # self.session = ClientSession()
         headers = {
             'authority': 'store.implantdirect.com',
             'pragma': 'no-cache',
@@ -434,13 +455,16 @@ class ImplantDirectScraper(Scraper):
         }
 
         await self.login()
+        print("1")
         await self.clear_cart()
+        print("2")
         await self.add_to_cart(products)
+        print("3")
         self.cartId, self.shipping_payload = await self.checkout()
         if fake:
             # here code goes as fake(debug)
-            await self.session.close()
-            self.session = self.backsession
+            # await self.session.close()
+            # self.session = self.backsession
             vendor_order_detail = {
             "retail_amount": "",
             "savings_amount": self.discount,
@@ -486,8 +510,8 @@ class ImplantDirectScraper(Scraper):
             "payment_method": "",
             "shipping_address": self.shipping_address,
         }
-        await self.session.close()
-        self.session = self.backsession
+        # await self.session.close()
+        # self.session = self.backsession
         return {
             **vendor_order_detail,
             **self.vendor.to_dict(),
