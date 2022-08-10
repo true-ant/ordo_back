@@ -378,27 +378,27 @@ class ImplantDirectScraper(Scraper):
                 shipping_payload["addressInformation"]["shipping_address"]["vatId"] = item["vat_id"]
                 shipping_payload["addressInformation"]["shipping_address"]["customAttributes"] = item["custom_attributes"]
 
-                self.shipping_address = f'{item["inline"]}\n{item["telephone"]}'
-                print("--- shipping_address:\n", self.shipping_address.strip() if self.shipping_address else "")
+                shipping_address = f'{item["inline"]}\n{item["telephone"]}'
+                print("--- shipping_address:\n", shipping_address.strip() if shipping_address else "")
 
         total_info = await self.shipping_infomation(shipping_payload)
         currency = total_info["base_currency_code"]
-        self.subtotal = total_info["subtotal"]
-        print("--- subtotal:\n", f'{currency} {self.subtotal}'.strip() if self.subtotal else "")
+        subtotal = total_info["subtotal"]
+        print("--- subtotal:\n", f'{currency} {subtotal}'.strip() if subtotal else "")
 
-        self.shipping = total_info["shipping_amount"]
-        print("--- shipping:\n", f'{currency} { self.shipping}'.strip() if  self.shipping else "")
+        shipping = total_info["shipping_amount"]
+        print("--- shipping:\n", f'{currency} { shipping}'.strip() if  shipping else "")
 
-        self.discount = total_info["discount_amount"]
-        print("--- discount:\n", f'{currency} {self.discount}'.strip() if self.discount else "")
+        discount = total_info["discount_amount"]
+        print("--- discount:\n", f'{currency} {discount}'.strip() if discount else "")
 
-        self.tax = total_info["tax_amount"]
-        print("--- tax:\n", f'{currency} {self.tax}'.strip() if self.tax else "")
+        tax = total_info["tax_amount"]
+        print("--- tax:\n", f'{currency} {tax}'.strip() if tax else "")
 
-        self.order_total = total_info["grand_total"]
-        print("--- order_total:\n", f'{currency} {self.order_total}'.strip() if self.order_total else "")
+        order_total = total_info["grand_total"]
+        print("--- order_total:\n", f'{currency} {order_total}'.strip() if order_total else "")
 
-        return cartId, shipping_payload
+        return cartId, shipping_payload, shipping_address, subtotal, shipping, discount, tax, order_total
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("Implant Direct/create_order")
@@ -407,17 +407,17 @@ class ImplantDirectScraper(Scraper):
         await self.login()
         await self.clear_cart()
         await self.add_to_cart(products)
-        self.cartId, self.shipping_payload = await self.checkout()
+        cartId, shipping_payload, shipping_address, subtotal, shipping, discount, tax, order_total = await self.checkout()
 
         vendor_order_detail = {
             "retail_amount": "",
-            "savings_amount": self.discount,
-            "subtotal_amount": self.subtotal,
-            "shipping_amount": self.shipping,
-            "tax_amount": self.tax,
-            "total_amount": self.order_total,
+            "savings_amount": discount,
+            "subtotal_amount": subtotal,
+            "shipping_amount": shipping,
+            "tax_amount": tax,
+            "total_amount": order_total,
             "payment_method": "",
-            "shipping_address": self.shipping_address,
+            "shipping_address": shipping_address,
         }
         # await self.session.close()
         # self.session = self.backsession
@@ -460,20 +460,21 @@ class ImplantDirectScraper(Scraper):
         print("2")
         await self.add_to_cart(products)
         print("3")
-        self.cartId, self.shipping_payload = await self.checkout()
+        cartId, shipping_payload, shipping_address, subtotal, shipping, discount, tax, order_total = await self.checkout()
+
         if fake:
             # here code goes as fake(debug)
             # await self.session.close()
             # self.session = self.backsession
             vendor_order_detail = {
             "retail_amount": "",
-            "savings_amount": self.discount,
-            "subtotal_amount": self.subtotal,
-            "shipping_amount": self.shipping,
-            "tax_amount": self.tax,
-            "total_amount": self.order_total,
+            "savings_amount": discount,
+            "subtotal_amount": subtotal,
+            "shipping_amount": shipping,
+            "tax_amount": tax,
+            "total_amount": order_total,
             "payment_method": "",
-            "shipping_address": self.shipping_address,
+            "shipping_address": shipping_address,
             }
             print("Implant Direct/confirm_order DONE")
 
@@ -482,11 +483,11 @@ class ImplantDirectScraper(Scraper):
                 **self.vendor.to_dict(),
             }
 
-        billingAddress = self.shipping_payload["addressInformation"]["shipping_address"]
+        billingAddress = shipping_payload["addressInformation"]["shipping_address"]
         billingAddress["saveInAddressBook"] = None
 
         json_data = {
-            'cartId': self.cartId,
+            'cartId': cartId,
             'billingAddress': billingAddress,
             'paymentMethod': {
                 'method': 'authnetcim',
@@ -502,13 +503,13 @@ class ImplantDirectScraper(Scraper):
         response = await self.session.post('https://store.implantdirect.com/rest/new_united_states_store_view/V1/carts/mine/payment-information', headers=headers, json=json_data)
         vendor_order_detail = {
             "retail_amount": "",
-            "savings_amount": self.discount,
-            "subtotal_amount": self.subtotal,
-            "shipping_amount": self.shipping,
-            "tax_amount": self.tax,
-            "total_amount": self.order_total,
+            "savings_amount": discount,
+            "subtotal_amount": subtotal,
+            "shipping_amount": shipping,
+            "tax_amount": tax,
+            "total_amount": order_total,
             "payment_method": "",
-            "shipping_address": self.shipping_address,
+            "shipping_address": shipping_address,
         }
         # await self.session.close()
         # self.session = self.backsession
