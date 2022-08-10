@@ -742,6 +742,7 @@ class PattersonScraper(Scraper):
             "PaymentMethodId": order_dom.xpath("//input[@name='PaymentMethodId']/@value").get(),
             "PlaceOrderButton": "Place+Order",
         }
+        
         response = await self.session.post('https://www.pattersondental.com/Order/ReviewOrder', headers=PLACE_ORDER_HEADERS, data=data)
         vendor_order_detail = {
             "retail_amount": "",
