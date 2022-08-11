@@ -701,11 +701,11 @@ class DentalCityScraper(Scraper):
 
         vendor_order_detail = {
             "retail_amount": "",
-            "savings_amount": saved,
-            "subtotal_amount": sub_total,
-            "shipping_amount": shipping,
-            "tax_amount": tax,
-            "total_amount": order_total,
+            "savings_amount": saved.strip("$") if isinstance(saved, str) else saved,
+            "subtotal_amount": sub_total.strip("$") if isinstance(sub_total, str) else sub_total,
+            "shipping_amount": shipping.strip("$") if isinstance(shipping, str) else shipping,
+            "tax_amount": tax.strip("$") if isinstance(tax, str) else tax,
+            "total_amount": order_total.strip("$") if isinstance(order_total, str) else order_total,
             "payment_method": "",
             "shipping_address": shipping_address,
         }
@@ -721,19 +721,21 @@ class DentalCityScraper(Scraper):
         await self.login()
         await self.clear_cart()
         await self.add_to_cart(products)
-        shipping_address, sub_total, shipping, tax, saved, order_total = await self.checkout()
+        shipping_address = await self.proceed_checkout()
+        await self.save_shipping_address()
+        await self.shipping_quotation()
+        saved, sub_total, shipping, tax, order_total = await self.total_calculation()
         if fake:
             vendor_order_detail = {
                 "retail_amount": "",
-                "savings_amount": saved,
-                "subtotal_amount": sub_total,
-                "shipping_amount": shipping,
-                "tax_amount": tax,
-                "total_amount": order_total,
+                "savings_amount": saved.strip("$") if isinstance(saved, str) else saved,
+                "subtotal_amount": sub_total.strip("$") if isinstance(sub_total, str) else sub_total,
+                "shipping_amount": shipping.strip("$") if isinstance(shipping, str) else shipping,
+                "tax_amount": tax.strip("$") if isinstance(tax, str) else tax,
+                "total_amount": order_total.strip("$") if isinstance(order_total, str) else order_total,
                 "payment_method": "",
                 "shipping_address": shipping_address,
             }
-            vendor_slug: str = self.vendor.slug
             return {
                 **vendor_order_detail,
                 **self.vendor.to_dict(),
@@ -771,11 +773,11 @@ class DentalCityScraper(Scraper):
         
         vendor_order_detail = {
             "retail_amount": "",
-            "savings_amount": saved,
-            "subtotal_amount": sub_total,
-            "shipping_amount": shipping,
-            "tax_amount": tax,
-            "total_amount": order_total,
+            "savings_amount": saved.strip("$") if isinstance(saved, str) else saved,
+            "subtotal_amount": sub_total.strip("$") if isinstance(sub_total, str) else sub_total,
+            "shipping_amount": shipping.strip("$") if isinstance(shipping, str) else shipping,
+            "tax_amount": tax.strip("$") if isinstance(tax, str) else tax,
+            "total_amount": order_total.strip("$") if isinstance(order_total, str) else order_total,
             "payment_method": "",
             "shipping_address": shipping_address,
         }
