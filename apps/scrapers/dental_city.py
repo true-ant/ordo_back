@@ -713,7 +713,7 @@ class DentalCityScraper(Scraper):
         print("dentalcity/create_order DONE")
         return {
             vendor_slug: {
-                **vendor_order_detail,
+                **vendor_order_detail.to_dict(),
                 **self.vendor.to_dict(),
             },
         }
@@ -738,7 +738,7 @@ class DentalCityScraper(Scraper):
                 "shipping_address": shipping_address,
             }
             return {
-                **vendor_order_detail,
+                **vendor_order_detail.to_dict(),
                 **self.vendor.to_dict(),
             }
         data = {
@@ -783,6 +783,6 @@ class DentalCityScraper(Scraper):
             "shipping_address": shipping_address,
         }
         return {
-            **vendor_order_detail,
+            **vendor_order_detail.to_dict(),
             **self.vendor.to_dict(),
         }
