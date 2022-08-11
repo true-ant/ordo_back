@@ -971,7 +971,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for i, result in enumerate(results):
                 vendor_slug = list(result.keys())[0]
-                if vendor_slug not in ("henry_schien", "implant_direct", "darby", "benco", "net_32"):
+                if vendor_slug not in ("henry_schien", "implant_direct", "darby", "benco", "net_32", "patterson", "dental_city"):
                     result[vendor_slug]["retail_amount"] = Decimal(0)
                     result[vendor_slug]["savings_amount"] = Decimal(0)
                     result[vendor_slug]["subtotal_amount"] = tmp_variables[i]

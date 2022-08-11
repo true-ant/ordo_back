@@ -171,10 +171,10 @@ class ImplantDirectScraper(Scraper):
             'accept-language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
         }
 
-        response = await self.session.get(link, headers=headers)
+        response = await self.session.get(link)
+        # response = await self.session.get(link, headers=headers)
         res = await response.text()
         return res
-
     
     async def getCartPage(self):
         headers = {

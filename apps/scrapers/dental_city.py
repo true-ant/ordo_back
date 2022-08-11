@@ -289,6 +289,7 @@ class DentalCityScraper(Scraper):
         response = await self.session.get('https://www.dentalcity.com/widgets-cart/gethtml_shoppingcart', headers=CART_PAGE_HEADERS)
         cart_page = await response.text()
         dom = Selector(text=cart_page)
+
         for line_id in dom.xpath('//div[@class="shoppinglist"]/ul//input[@name="qty"]/@id').extract():
             data = {"OrderLines": [{"LineID":line_id}]}
             response = await self.session.post('https://www.dentalcity.com/widgets-cart/removeitem/', headers=CLEAR_CART_HEADERS, json=data)
@@ -341,8 +342,8 @@ class DentalCityScraper(Scraper):
                             'RelatedOrderLines': [],
                             'IsNonShippableLinesExists': False,
                             'LineNum': 0,
-                            'SkuId': product['skuid'],
-                            'Qty': product['qty'],
+                            'SkuId': product['product_id'],
+                            'Qty': product['quantity'],
                             'StoreID': 0,
                             'OrderID': 0,
                             'LineID': 0,
@@ -374,6 +375,7 @@ class DentalCityScraper(Scraper):
             }
 
             response = await self.session.post('https://www.dentalcity.com/cart/addtocart', headers=ADD_CART_HEADERS, json=json_data)
+            print("add cart response", response.status)
 
     async def checkout(self):
         response = await self.session.get('https://www.dentalcity.com/widgets-checkout/getheader/html_revieworder', headers=CHECKOUT_HEADER)
@@ -431,7 +433,7 @@ class DentalCityScraper(Scraper):
 
         await self.session.post('https://www.dentalcity.com/widgets-checkout/saveheader/html_shippingaddress/saveshippingaddress/', headers=SAVE_SHIPPING_HEADERS, data=data)
 
-        response = await self.session.get('https://www.dentalcity.com/widgets-checkout/getheader/html_ordersingleshipping', headers=WIDGET_CHECK_HEADERS)
+        response = await self.session.get('https://www.dentalcity.com/widgets-checkout/getheader/html_ordersingleshipping')
         response_dom = Selector(text=await response.text())
 
         data = {
@@ -519,6 +521,22 @@ class DentalCityScraper(Scraper):
         await self.clear_cart()
         await self.add_to_cart(products)
         shipping_address, sub_total, shipping, tax, saved, order_total = await self.checkout()
+        if fake:
+            vendor_order_detail = {
+                "retail_amount": "",
+                "savings_amount": saved,
+                "subtotal_amount": sub_total,
+                "shipping_amount": shipping,
+                "tax_amount": tax,
+                "total_amount": order_total,
+                "payment_method": "",
+                "shipping_address": shipping_address,
+            }
+            vendor_slug: str = self.vendor.slug
+            return {
+                **vendor_order_detail,
+                **self.vendor.to_dict(),
+            }
         data = {
             'OrderHeader.OrderComments1': '',
         }
@@ -548,4 +566,19 @@ class DentalCityScraper(Scraper):
         dom = Selector(text=await response.text())
         order_num = dom.xpath('//div[@class="ordercomplete-total"]/ul/li//a[@title]/@title').get()
         print("Order Num:", order_num)
-
+        
+        
+        vendor_order_detail = {
+            "retail_amount": "",
+            "savings_amount": saved,
+            "subtotal_amount": sub_total,
+            "shipping_amount": shipping,
+            "tax_amount": tax,
+            "total_amount": order_total,
+            "payment_method": "",
+            "shipping_address": shipping_address,
+        }
+        return {
+            **vendor_order_detail,
+            **self.vendor.to_dict(),
+        }
