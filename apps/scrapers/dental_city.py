@@ -728,7 +728,7 @@ class DentalCityScraper(Scraper):
         saved, sub_total, shipping, tax, order_total = await self.total_calculation()
         if fake:
             vendor_order_detail = {
-                "retail_amount": "",
+                "retail_amount": "0.0",
                 "savings_amount": saved.strip("$") if isinstance(saved, str) else saved,
                 "subtotal_amount": sub_total.strip("$") if isinstance(sub_total, str) else sub_total,
                 "shipping_amount": shipping.strip("$") if isinstance(shipping, str) else shipping,
@@ -773,7 +773,7 @@ class DentalCityScraper(Scraper):
         
         
         vendor_order_detail = {
-            "retail_amount": "",
+            "retail_amount": "0.0",
             "savings_amount": saved.strip("$") if isinstance(saved, str) else saved,
             "subtotal_amount": sub_total.strip("$") if isinstance(sub_total, str) else sub_total,
             "shipping_amount": shipping.strip("$") if isinstance(shipping, str) else shipping,
