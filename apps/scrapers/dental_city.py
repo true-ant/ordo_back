@@ -1,3 +1,4 @@
+
 from typing import Dict, List
 
 from aiohttp import ClientResponse
@@ -420,13 +421,13 @@ class DentalCityScraper(Scraper):
             "".join(item.xpath('.//text()').extract()).strip()
             for item in response_dom.xpath('//div[@id="defaultbilling"]/div')
         ])
-        print("--- Billing Address:\n", billing_address.strip() if billing_address else "")
+        # print("--- Billing Address:\n", billing_address.strip() if billing_address else "")
 
         shipping_address = "\n".join([
             "".join(item.xpath('.//text()').extract())
             for item in response_dom.xpath('//div[@id="defaultshipping"]/div')
         ])
-        print("--- Shipping Address:\n", shipping_address.strip() if shipping_address else "")
+        # print("--- Shipping Address:\n", shipping_address.strip() if shipping_address else "")
         return shipping_address
 
     async def save_shipping_address(self):
@@ -547,9 +548,8 @@ class DentalCityScraper(Scraper):
             'referer': 'https://www.dentalcity.com/widgets-checkout/securedcheckout',
             'accept-language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
         }
-
         data = {
-            'OrderHeader.ShipToAddressID': response_dom.xpath('//select[@name="CurrentAddress"]/option[@selected="selected"]/@value').get().split("~")[0],
+            'OrderHeader.ShipToAddressID': response_dom.xpath('//select[@name="CurrentAddress"]/option[2]/@value').get().split("~")[0],
             'OrderHeader.ShipToCountryCode': response_dom.xpath('//input[@name="OrderHeader.ShipToCountryCode"]/@value').get(),
             'OrderHeader.ShipToFirstName': response_dom.xpath('//input[@name="OrderHeader.ShipToFirstName"]/@value').get(),
             'OrderHeader.ShipToLastName': response_dom.xpath('//input[@name="OrderHeader.ShipToLastName"]/@value').get(),
@@ -573,7 +573,6 @@ class DentalCityScraper(Scraper):
 
         response = await self.session.post('https://www.dentalcity.com/checkout/gethtml_shippingquotations/', headers=headers, data=data)
         response_dom = Selector(text=await response.text())
-        
         data = {
             'SelectedShippingMethodValue': response_dom.xpath('//input[@name="SelectedShippingMethodValue"]/@value').get(),
             'Message': ''
@@ -607,19 +606,19 @@ class DentalCityScraper(Scraper):
         response_dom = Selector(text=await response.text())
 
         sub_total = response_dom.xpath('//span[@id="ordersubtotal"]//text()').get()
-        print("--- sub_total:\n", sub_total.strip() if sub_total else "")
+        # print("--- sub_total:\n", sub_total.strip() if sub_total else "")
             
         shipping = response_dom.xpath('//label[contains(text(), "Shipping")]/following-sibling::span[@class="price"]//text()').get()
-        print("--- shipping:\n", shipping.strip() if shipping else "")
+        # print("--- shipping:\n", shipping.strip() if shipping else "")
             
         tax = response_dom.xpath('//label[contains(text(), "Tax")]/following-sibling::span[@class="price"]//text()').get()
-        print("--- tax:\n", tax.strip() if tax else "")
+        # print("--- tax:\n", tax.strip() if tax else "")
             
         saved = response_dom.xpath('//label[contains(text(), "You Saved")]/following-sibling::span[@class="price"]//text()').get()
-        print("--- saved:\n", saved.strip() if saved else "")
+        # print("--- saved:\n", saved.strip() if saved else "")
 
         order_total = response_dom.xpath('//label[contains(text(), "Order Total")]/following-sibling::span[@class="price"]//text()').get()
-        print("--- order_total:\n", order_total.strip() if order_total else "")
+        # print("--- order_total:\n", order_total.strip() if order_total else "")
         return saved, sub_total, shipping, tax, order_total
 
     async def submit_order(self):
@@ -691,6 +690,7 @@ class DentalCityScraper(Scraper):
 
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
+        print("dentalcity/create_order")
         await self.login()
         await self.clear_cart()
         await self.add_to_cart(products)
@@ -710,6 +710,7 @@ class DentalCityScraper(Scraper):
             "shipping_address": shipping_address,
         }
         vendor_slug: str = self.vendor.slug
+        print("dentalcity/create_order DONE")
         return {
             vendor_slug: {
                 **vendor_order_detail,
