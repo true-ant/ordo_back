@@ -549,27 +549,13 @@ class DentalCityScraper(Scraper):
             'accept-language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
         }
         data = {
-            'OrderHeader.ShipToAddressID': response_dom.xpath('//select[@name="CurrentAddress"]/option[2]/@value').get().split("~")[0],
-            'OrderHeader.ShipToCountryCode': response_dom.xpath('//input[@name="OrderHeader.ShipToCountryCode"]/@value').get(),
-            'OrderHeader.ShipToFirstName': response_dom.xpath('//input[@name="OrderHeader.ShipToFirstName"]/@value').get(),
-            'OrderHeader.ShipToLastName': response_dom.xpath('//input[@name="OrderHeader.ShipToLastName"]/@value').get(),
-            'OrderHeader.ShipToCompanyName': response_dom.xpath('//input[@name="OrderHeader.ShipToCompanyName"]/@value').get(),
-            'OrderHeader.ShipToAddress': response_dom.xpath('//input[@name="OrderHeader.ShipToAddress"]/@value').get(),
-            'OrderHeader.ShipToAddress2': response_dom.xpath('//input[@name="OrderHeader.ShipToAddress2"]/@value').get(),
-            'OrderHeader.ShipToAddress3': response_dom.xpath('//input[@name="OrderHeader.ShipToAddress3"]/@value').get(),
-            'OrderHeader.ShipToPhone': response_dom.xpath('//input[@name="OrderHeader.ShipToPhone"]/@value').get(),
-            'OrderHeader.ShipToPhoneExtension': response_dom.xpath('//input[@name="OrderHeader.ShipToPhoneExtension"]/@value').get(),
-            'OrderHeader.ShipToPhone2': response_dom.xpath('//input[@name="OrderHeader.ShipToPhone2"]/@value').get(),
-            'OrderHeader.ShipToPhoneExtension2': response_dom.xpath('//input[@name="OrderHeader.ShipToPhoneExtension2"]/@value').get(),
-            'OrderHeader.ShipToPhone3': response_dom.xpath('//input[@name="OrderHeader.ShipToPhone3"]/@value').get(),
-            'OrderHeader.ShipToPhoneExtension3': response_dom.xpath('//input[@name="OrderHeader.ShipToPhoneExtension3"]/@value').get(),
-            'OrderHeader.ShipToFax': response_dom.xpath('//input[@name="OrderHeader.ShipToFax"]/@value').get(),
-            'OrderHeader.ShipToCity': response_dom.xpath('//input[@name="OrderHeader.ShipToCity"]/@value').get(),
-            'OrderHeader.ShipToRegionCode': response_dom.xpath('//input[@name="OrderHeader.ShipToRegionCode"]/@value').get(),
-            'OrderHeader.ShipToCounty': response_dom.xpath('//input[@name="OrderHeader.ShipToCounty"]/@value').get(),
-            'OrderHeader.ShipToZipCode': response_dom.xpath('//input[@name="OrderHeader.ShipToZipCode"]/@value').get(),
-            'OrderHeader.ShipToMethodID': response_dom.xpath('//input[@name="OrderHeader.ShipToMethodID"]/@value').get()
+            "OrderHeader.ShipToAddressName": "PRIMARY",
+            "guestuserregistered": "",
         }
+        for form_value_ele in response_dom.xpath('//form[@id="shippingaddressform"]/input[@name]'):
+            _key = form_value_ele.xpath('./@name').get()
+            _val = form_value_ele.xpath('./@value').get()
+            data[_key] = _val
 
         response = await self.session.post('https://www.dentalcity.com/checkout/gethtml_shippingquotations/', headers=headers, data=data)
         response_dom = Selector(text=await response.text())
