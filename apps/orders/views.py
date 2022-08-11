@@ -1252,7 +1252,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         amazon_linked = False
         for office_vendor in office_vendors:
             if (
-                office_vendor.vendor.slug in ["ultradent", "amazon", "implant_direct", "edge_endo", "dental_city"]
+                office_vendor.vendor.slug in ["ultradent", "amazon", "edge_endo"]
                 or vendors_slugs
                 and office_vendor.vendor.slug not in vendors_slugs
             ):

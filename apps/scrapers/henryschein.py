@@ -141,6 +141,7 @@ class HenryScheinScraper(Scraper):
 
     @semaphore_coroutine
     async def get_order(self, sem, order_dom, office=None):
+        print("henryschein/get_order")
         if len(order_dom.xpath("./td")) == 8:
             total_amount_table_index = 6
             order_date_table_index = 4
@@ -263,6 +264,7 @@ class HenryScheinScraper(Scraper):
         return order
 
     async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
+        print("henryschein/get_product_as_dict")
         if perform_login:
             await self.login()
 
@@ -310,6 +312,8 @@ class HenryScheinScraper(Scraper):
         to_date: Optional[datetime.date] = None,
         completed_order_ids: Optional[List[str]] = None,
     ) -> List[Order]:
+        print("henryschein/get_orders")
+
         params = {}
         if from_date and to_date:
             params["Search"] = f"dateRangeSF|{from_date.strftime('%m/%d/%Y')}|{to_date.strftime('%m/%d/%Y')}"
@@ -337,6 +341,8 @@ class HenryScheinScraper(Scraper):
         return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
 
     async def get_product_prices(self, product_ids, perform_login=False, **kwargs) -> Dict[str, Decimal]:
+        print("henryschein/get_product_prices")
+
         if perform_login:
             await self.login()
 
@@ -387,6 +393,7 @@ class HenryScheinScraper(Scraper):
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price", office_id=None
     ) -> ProductSearch:
+        print("henryschein/_search_products")
         url = f"{self.BASE_URL}/us-en/Search.aspx"
         page_size = 25
         params = {"searchkeyWord": query, "pagenumber": page}
@@ -447,6 +454,7 @@ class HenryScheinScraper(Scraper):
         }
 
     def _get_vendor_categories(self, response) -> List[ProductCategory]:
+        print("henryschein/_get_vendor_categories")
         return [
             ProductCategory(
                 name=category.attrib["title"],
@@ -456,6 +464,7 @@ class HenryScheinScraper(Scraper):
         ]
 
     async def get_cart(self):
+        print("henryschein/get_cart")
         async with self.session.get("https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx") as resp:
             dom = Selector(text=await resp.text())
             return dom
