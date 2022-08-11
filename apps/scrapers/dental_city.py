@@ -295,6 +295,24 @@ class DentalCityScraper(Scraper):
             response = await self.session.post('https://www.dentalcity.com/widgets-cart/removeitem/', headers=CLEAR_CART_HEADERS, json=data)
         
     async def add_to_cart(self, products):
+        headers = {
+            'authority': 'www.dentalcity.com',
+            'pragma': 'no-cache',
+            'cache-control': 'no-cache',
+            'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="98", "Google Chrome";v="98"',
+            'accept': 'application/json, text/javascript, */*; q=0.01',
+            'x-requested-with': 'XMLHttpRequest',
+            'sec-ch-ua-mobile': '?0',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36',
+            'sec-ch-ua-platform': '"Windows"',
+            'origin': 'https://www.dentalcity.com',
+            'sec-fetch-site': 'same-origin',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-dest': 'empty',
+            'referer': 'https://www.dentalcity.com/cart/shoppingcart',
+            'accept-language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
+        }
+
         for product in products:
             json_data = {
                 'IsFreightApplicable': True,
@@ -374,11 +392,28 @@ class DentalCityScraper(Scraper):
                 },
             }
 
-            response = await self.session.post('https://www.dentalcity.com/cart/addtocart', headers=ADD_CART_HEADERS, json=json_data)
-            print("add cart response", response.status)
+            response = await self.session.post('https://www.dentalcity.com/cart/addtocart', headers=headers, json=json_data)
 
-    async def checkout(self):
-        response = await self.session.get('https://www.dentalcity.com/widgets-checkout/getheader/html_revieworder', headers=CHECKOUT_HEADER)
+    async def proceed_checkout(self):
+        headers = {
+            'authority': 'www.dentalcity.com',
+            'pragma': 'no-cache',
+            'cache-control': 'no-cache',
+            'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
+            'accept': '*/*',
+            'content-type': 'text/html; charset=utf-8',
+            'x-requested-with': 'XMLHttpRequest',
+            'sec-ch-ua-mobile': '?0',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36',
+            'sec-ch-ua-platform': '"Windows"',
+            'sec-fetch-site': 'same-origin',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-dest': 'empty',
+            'referer': 'https://www.dentalcity.com/widgets-checkout/securedcheckout',
+            'accept-language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
+        }
+
+        response = await self.session.get('https://www.dentalcity.com/widgets-checkout/getheader/html_revieworder', headers=headers)
         response_dom = Selector(text=await response.text())
 
         billing_address = "\n".join([
@@ -392,9 +427,48 @@ class DentalCityScraper(Scraper):
             for item in response_dom.xpath('//div[@id="defaultshipping"]/div')
         ])
         print("--- Shipping Address:\n", shipping_address.strip() if shipping_address else "")
+        return shipping_address
 
-        response = await self.session.get('https://www.dentalcity.com/widgets-checkout/getheader/html_ordersingleshipping', headers=SHIPPING_ADDRESS_HEADERS)
+    async def save_shipping_address(self):
+        headers = {
+            'authority': 'www.dentalcity.com',
+            'pragma': 'no-cache',
+            'cache-control': 'no-cache',
+            'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
+            'accept': '*/*',
+            'content-type': 'text/html; charset=utf-8',
+            'x-requested-with': 'XMLHttpRequest',
+            'sec-ch-ua-mobile': '?0',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36',
+            'sec-ch-ua-platform': '"Windows"',
+            'sec-fetch-site': 'same-origin',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-dest': 'empty',
+            'referer': 'https://www.dentalcity.com/widgets-checkout/securedcheckout',
+            'accept-language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
+        }
+
+        response = await self.session.get('https://www.dentalcity.com/widgets-checkout/getheader/html_ordersingleshipping', headers=headers)
         dom = Selector(text=await response.text())
+
+        headers = {
+            'authority': 'www.dentalcity.com',
+            'pragma': 'no-cache',
+            'cache-control': 'no-cache',
+            'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
+            'accept': '*/*',
+            'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'x-requested-with': 'XMLHttpRequest',
+            'sec-ch-ua-mobile': '?0',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36',
+            'sec-ch-ua-platform': '"Windows"',
+            'origin': 'https://www.dentalcity.com',
+            'sec-fetch-site': 'same-origin',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-dest': 'empty',
+            'referer': 'https://www.dentalcity.com/widgets-checkout/securedcheckout',
+            'accept-language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
+        }
 
         data = {
             'OrderHeader.ShipToAddressName': '',
@@ -431,10 +505,48 @@ class DentalCityScraper(Scraper):
             val = dom.xpath(f'//input[@name="{key}"]/@value').get()
             data[key] = val if val else ""
 
-        await self.session.post('https://www.dentalcity.com/widgets-checkout/saveheader/html_shippingaddress/saveshippingaddress/', headers=SAVE_SHIPPING_HEADERS, data=data)
+        await self.session.post('https://www.dentalcity.com/widgets-checkout/saveheader/html_shippingaddress/saveshippingaddress/', headers=headers, data=data)
 
-        response = await self.session.get('https://www.dentalcity.com/widgets-checkout/getheader/html_ordersingleshipping')
+    async def shipping_quotation(self):
+        headers = {
+            'authority': 'www.dentalcity.com',
+            'pragma': 'no-cache',
+            'cache-control': 'no-cache',
+            'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
+            'accept': '*/*',
+            'content-type': 'text/html; charset=utf-8',
+            'x-requested-with': 'XMLHttpRequest',
+            'sec-ch-ua-mobile': '?0',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36',
+            'sec-ch-ua-platform': '"Windows"',
+            'sec-fetch-site': 'same-origin',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-dest': 'empty',
+            'referer': 'https://www.dentalcity.com/widgets-checkout/securedcheckout',
+            'accept-language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
+        }
+
+        response = await self.session.get('https://www.dentalcity.com/widgets-checkout/getheader/html_ordersingleshipping', headers=headers)
         response_dom = Selector(text=await response.text())
+
+        headers = {
+            'authority': 'www.dentalcity.com',
+            'pragma': 'no-cache',
+            'cache-control': 'no-cache',
+            'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
+            'accept': '*/*',
+            'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'x-requested-with': 'XMLHttpRequest',
+            'sec-ch-ua-mobile': '?0',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36',
+            'sec-ch-ua-platform': '"Windows"',
+            'origin': 'https://www.dentalcity.com',
+            'sec-fetch-site': 'same-origin',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-dest': 'empty',
+            'referer': 'https://www.dentalcity.com/widgets-checkout/securedcheckout',
+            'accept-language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
+        }
 
         data = {
             'OrderHeader.ShipToAddressID': response_dom.xpath('//select[@name="CurrentAddress"]/option[@selected="selected"]/@value').get().split("~")[0],
@@ -459,7 +571,7 @@ class DentalCityScraper(Scraper):
             'OrderHeader.ShipToMethodID': response_dom.xpath('//input[@name="OrderHeader.ShipToMethodID"]/@value').get()
         }
 
-        response = await self.session.post('https://www.dentalcity.com/checkout/gethtml_shippingquotations/', headers=SECURE_CHECKOUT_HEADERS, data=data)
+        response = await self.session.post('https://www.dentalcity.com/checkout/gethtml_shippingquotations/', headers=headers, data=data)
         response_dom = Selector(text=await response.text())
         
         data = {
@@ -469,10 +581,29 @@ class DentalCityScraper(Scraper):
 
         response = await self.session.post(
             'https://www.dentalcity.com/widgets-checkout/saveheader/html_shippingquotations/saveshippingquotations',
-            headers=SECURE_CHECKOUT_HEADERS, data=data
+            headers=headers, data=data
         )
 
-        response = await self.session.post('https://www.dentalcity.com/widgets-checkout/getheader/html_totalcalculations', headers=CALCULATION_HEADERS)
+    async def total_calculation(self):
+        headers = {
+            'authority': 'www.dentalcity.com',
+            'pragma': 'no-cache',
+            'cache-control': 'no-cache',
+            'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
+            'accept': '*/*',
+            'content-type': 'text/html; charset=utf-8',
+            'x-requested-with': 'XMLHttpRequest',
+            'sec-ch-ua-mobile': '?0',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36',
+            'sec-ch-ua-platform': '"Windows"',
+            'sec-fetch-site': 'same-origin',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-dest': 'empty',
+            'referer': 'https://www.dentalcity.com/widgets-checkout/securedcheckout',
+            'accept-language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
+        }
+
+        response = await self.session.post('https://www.dentalcity.com/widgets-checkout/getheader/html_totalcalculations', headers=headers)
         response_dom = Selector(text=await response.text())
 
         sub_total = response_dom.xpath('//span[@id="ordersubtotal"]//text()').get()
@@ -489,14 +620,84 @@ class DentalCityScraper(Scraper):
 
         order_total = response_dom.xpath('//label[contains(text(), "Order Total")]/following-sibling::span[@class="price"]//text()').get()
         print("--- order_total:\n", order_total.strip() if order_total else "")
+        return saved, sub_total, shipping, tax, order_total
 
-        return shipping_address, sub_total, shipping, tax, saved, order_total
+    async def submit_order(self):
+        headers = {
+            'authority': 'www.dentalcity.com',
+            'pragma': 'no-cache',
+            'cache-control': 'no-cache',
+            'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
+            'accept': '*/*',
+            'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'x-requested-with': 'XMLHttpRequest',
+            'sec-ch-ua-mobile': '?0',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36',
+            'sec-ch-ua-platform': '"Windows"',
+            'origin': 'https://www.dentalcity.com',
+            'sec-fetch-site': 'same-origin',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-dest': 'empty',
+            'referer': 'https://www.dentalcity.com/widgets-checkout/securedcheckout',
+            'accept-language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
+        }
+
+        data = {
+            'OrderHeader.OrderComments1': '',
+        }
+
+        response = await self.session.post('https://www.dentalcity.com/widgets-checkout/saveheader/html_ordercomments/saveordercomments', headers=headers, data=data)
+
+        headers = {
+            'authority': 'www.dentalcity.com',
+            'pragma': 'no-cache',
+            'cache-control': 'no-cache',
+            'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
+            'accept': '*/*',
+            'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'x-requested-with': 'XMLHttpRequest',
+            'sec-ch-ua-mobile': '?0',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36',
+            'sec-ch-ua-platform': '"Windows"',
+            'origin': 'https://www.dentalcity.com',
+            'sec-fetch-site': 'same-origin',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-dest': 'empty',
+            'referer': 'https://www.dentalcity.com/widgets-checkout/securedcheckout',
+            'accept-language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
+        }
+
+        data = 'OrderHeader.creditCardId=6648&OrderHeader.CCCSCCode=&txtccYearMonth=XXXXX-XXXXX&OrderHeader.UDF3=&guestuserregistered=&OrderHeader.LastFourDigit=5020&SaveCreditCard=false&guestuserregistered=&PaymentOptionsGroup=Terms+(PO)&txtcompanyName=Columbine+Creek+Dentistry&txtAccountNumber=222234&OrderHeader.ReferenceNumber1=&guestuserregistered=&OrderHeader.PaymentMethod=Terms+(PO)&guestuserregistered='
+
+        data = [
+            ('OrderHeader.creditCardId', '6648'),
+            ('OrderHeader.CCCSCCode', ''),
+            ('txtccYearMonth', 'XXXXX-XXXXX'),
+            ('OrderHeader.UDF3', ''),
+            ('guestuserregistered', ''),
+            ('guestuserregistered', ''),
+            ('guestuserregistered', ''),
+            ('guestuserregistered', ''),
+            ('OrderHeader.LastFourDigit', '5020'),
+            ('SaveCreditCard', 'false'),
+            ('PaymentOptionsGroup', 'Terms (PO)'),
+            ('txtcompanyName', 'Columbine Creek Dentistry'),
+            ('txtAccountNumber', '222234'),
+            ('OrderHeader.ReferenceNumber1', ''),
+            ('OrderHeader.PaymentMethod', 'Terms (PO)'),
+        ]
+
+        await self.session.post('https://www.dentalcity.com/widgets-checkout/processpayment', headers=headers, data=data)
+
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         await self.login()
         await self.clear_cart()
         await self.add_to_cart(products)
-        shipping_address, sub_total, shipping, tax, saved, order_total = await self.checkout()
+        shipping_address = await self.proceed_checkout()
+        await self.save_shipping_address()
+        await self.shipping_quotation()
+        saved, sub_total, shipping, tax, order_total = await self.total_calculation()
 
         vendor_order_detail = {
             "retail_amount": "",
