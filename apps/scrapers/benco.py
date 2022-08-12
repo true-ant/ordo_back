@@ -706,8 +706,7 @@ class BencoScraper(Scraper):
         await self.session.get(
             "https://shop.benco.com/Cart/RemoveAllItems",
             headers=CLEAR_CART_HEADERS,
-            params=params,
-            ssl=self._ssl_context,
+            params=params
         )
 
     async def checkout(self) -> Tuple[str, str, VendorOrderDetail]:
