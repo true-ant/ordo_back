@@ -793,7 +793,7 @@ class BencoScraper(Scraper):
         headers = CONFIRM_ORDER_HEADERS.copy()
         headers["Referer"] = f"https://shop.benco.com/Checkout/BeginCheckout?cartId={cart_id}"
         async with self.session.post(
-            "https://shop.benco.com/Checkout/Confirm", headers=headers, data=data, ssl=self._ssl_context
+            "https://shop.benco.com/Checkout/Confirm", headers=headers, data=data
         ) as resp:
             response_dom = Selector(text=await resp.text())
             order_id = response_dom.xpath("//h4//span[@class='alt-dark-text']//text()").get()
