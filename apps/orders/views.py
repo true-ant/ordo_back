@@ -295,7 +295,6 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="stats")
     def get_orders_stats(self, request, *args, **kwargs):
-        print("=================== orders/views/get_orders_stats ===================")
         queryset = self.filter_queryset(self.get_queryset())
 
         total_items = 0
