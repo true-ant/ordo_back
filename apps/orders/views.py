@@ -409,7 +409,6 @@ class VendorOrderProductViewSet(ModelViewSet):
 
 
 def get_spending(by, orders, company):
-    print("=================== orders/views/get_spending ===================")
     if by == "month":
         last_year_today = (timezone.now() - relativedelta(months=11)).date()
         last_year_today.replace(day=1)
@@ -644,7 +643,6 @@ def get_office_vendor(office_pk, vendor_pk):
 
 
 def get_cart(office_pk):
-    print("=================== orders/views/get_cart ===================")
     cart_products = (
         m.Cart.objects.filter(office_id=office_pk, save_for_later=False, instant_checkout=True)
         .order_by("-updated_at")
@@ -754,7 +752,6 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
     #         raise VendorSiteError(f"{e}")
 
     async def create(self, request, *args, **kwargs):
-        print("=================== orders/views/create ===================")
         data = request.data
         office_pk = self.kwargs["office_pk"]
         data["office"] = office_pk
@@ -776,7 +773,6 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
     @action(detail=True, url_path="change-product", methods=["post"])
     def change_product(self, request, *args, **kwargs):
-        print("=================== ordres/views/change_product ===================")
         instance = self.get_object()
         product_id = request.data.get("product_id")
         unit_price = request.data.get("unit_price")
@@ -830,7 +826,6 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="clear")
     def clear_cart(self, request, *args, **kwargs):
-        print("=================== orders/views/clear_cart ===================")
         serializer = s.ClearCartSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         cart_products = self.get_queryset()
@@ -842,7 +837,6 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
     @sync_to_async
     def _create_order(self, office_vendors, vendor_order_results, cart_products, approval_needed, data):
-        print("=================== orders/views/_create_order ===================")
         order_date = timezone.now().date()
         office = office_vendors[0].office
         vendor_order_ids = []
@@ -914,7 +908,6 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
     @action(detail=False, url_path="checkout", methods=["get"], permission_classes=[p.OrderCheckoutPermission])
     async def checkout(self, request, *args, **kwargs):
-        print("Click Proceed to Checkout")
         can_use_cart = await sync_to_async(get_cart_status_and_order_status)(
             office=self.kwargs["office_pk"], user=request.user
         )
@@ -932,7 +925,6 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         )
         ret = {}
         try:
-            retacc = apps.get_app_config("accounts")
             session = apps.get_app_config("accounts").session
             tasks = []
             tmp_variables = []
@@ -952,7 +944,6 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                         ]
                     )
                 )
-
                 tasks.append(
                     scraper.create_order(
                         [
@@ -986,7 +977,6 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
     @action(detail=False, url_path="confirm-order", methods=["post"], permission_classes=[p.OrderCheckoutPermission])
     async def confirm_order(self, request, *args, **kwargs):
-        print("Click Confirm Order")
         data = request.data["data"]
         shipping_options = request.data["shipping_options"]
 
@@ -1183,7 +1173,6 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="prices")
     async def get_product_prices(self, request, *args, **kwargs):
-        print("=================== orders/views/get_product_prices ===================")
         serializer = s.ProductPriceRequestSerializer(data=request.data)
         await sync_to_async(serializer.is_valid)(raise_exception=True)
         products = {product.id: product for product in serializer.validated_data["products"]}
@@ -1282,7 +1271,6 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
 
     @sync_to_async
     def get_products_from_db(self, *args, **kwargs):
-        print("=================== orders/views/get_products_from_db ===================")
         queryset = self.get_queryset()
         requested_vendors = kwargs.get("requested_vendors", None)
         if requested_vendors:
@@ -1330,7 +1318,6 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         )
 
     async def fetch_products(self, keyword, min_price, max_price, vendors=None, include_amazon=False):
-        print("=================== orders/views/fetch_products ===================")
         pagination_meta = self.request.data.get("meta", {})
         vendors_meta = {vendor_meta["vendor"]: vendor_meta for vendor_meta in pagination_meta.get("vendors", [])}
         session = apps.get_app_config("accounts").session

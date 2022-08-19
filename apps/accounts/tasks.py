@@ -139,7 +139,6 @@ def fetch_vendor_products_prices(office_vendor_id):
 
 @shared_task
 def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login=False):
-    print("account/tasks/fetch_orders_from_vendor")
     if login_cookies is None and perform_login is False:
         return
 
