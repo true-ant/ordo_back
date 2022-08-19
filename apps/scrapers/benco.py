@@ -706,8 +706,7 @@ class BencoScraper(Scraper):
         await self.session.get(
             "https://shop.benco.com/Cart/RemoveAllItems",
             headers=CLEAR_CART_HEADERS,
-            params=params,
-            ssl=self._ssl_context,
+            params=params
         )
 
     async def checkout(self) -> Tuple[str, str, VendorOrderDetail]:
@@ -794,7 +793,7 @@ class BencoScraper(Scraper):
         headers = CONFIRM_ORDER_HEADERS.copy()
         headers["Referer"] = f"https://shop.benco.com/Checkout/BeginCheckout?cartId={cart_id}"
         async with self.session.post(
-            "https://shop.benco.com/Checkout/Confirm", headers=headers, data=data, ssl=self._ssl_context
+            "https://shop.benco.com/Checkout/Confirm", headers=headers, data=data
         ) as resp:
             response_dom = Selector(text=await resp.text())
             order_id = response_dom.xpath("//h4//span[@class='alt-dark-text']//text()").get()

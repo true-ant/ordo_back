@@ -459,7 +459,7 @@ if __name__ == "__main__":
         "keyword": keyword,
         "vendor_order_product": vendor_order_product,
     }
-    asyncio.run(main(vendors, **kwargs))
+    # asyncio.run(main(vendors, **kwargs))
     # asyncio.run(search_products())
-    # test_search_products()
+    test_search_products()
     print(time.perf_counter() - start_time)

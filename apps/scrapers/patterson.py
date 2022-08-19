@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import json
+import re
 from decimal import Decimal
 from typing import Dict, List, Optional
 
@@ -140,9 +141,99 @@ ORDER_HISTORY_POST_HEADERS = {
     "Accept-Language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
 }
 
+VALIDATE_CART_HEADERS = {
+    'Connection': 'keep-alive',
+    'sec-ch-ua': '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
+    'sec-ch-ua-mobile': '?0',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+    'X-Requested-With': 'XMLHttpRequest',
+    'Content-Type': 'application/json;charset=UTF-8',
+    'sec-ch-ua-platform': '"Windows"',
+    'Origin': 'https://www.pattersondental.com',
+    'Sec-Fetch-Site': 'same-origin',
+    'Sec-Fetch-Mode': 'cors',
+    'Sec-Fetch-Dest': 'empty',
+    'Referer': 'https://www.pattersondental.com/ShoppingCart',
+    'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8',
+}
 
+ADD_CART_HEADERS = {
+    'Connection': 'keep-alive',
+    'sec-ch-ua': '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
+    'sec-ch-ua-mobile': '?0',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
+    'Accept': 'application/json, text/plain, */*',
+    'X-Requested-With': 'XMLHttpRequest',
+    'Content-Type': 'application/json;charset=UTF-8',
+    'sec-ch-ua-platform': '"Windows"',
+    'Origin': 'https://www.pattersondental.com',
+    'Sec-Fetch-Site': 'same-origin',
+    'Sec-Fetch-Mode': 'cors',
+    'Sec-Fetch-Dest': 'empty',
+    'Referer': 'https://www.pattersondental.com/ShoppingCart',
+    'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8',
+}
+
+SHIP_HEADERS = {
+    'Connection': 'keep-alive',
+    'sec-ch-ua': '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'Upgrade-Insecure-Requests': '1',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+    'Sec-Fetch-Site': 'same-origin',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-User': '?1',
+    'Sec-Fetch-Dest': 'document',
+    'Referer': 'https://www.pattersondental.com/ShoppingCart',
+    'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8',
+}
+
+SHIP_PAYMENT_HEADERS = {
+    'Connection': 'keep-alive',
+    'Cache-Control': 'max-age=0',
+    'sec-ch-ua': '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'Upgrade-Insecure-Requests': '1',
+    'Origin': 'https://www.pattersondental.com',
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+    'Sec-Fetch-Site': 'same-origin',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-User': '?1',
+    'Sec-Fetch-Dest': 'document',
+    'Referer': 'https://www.pattersondental.com/Order/ShippingPayment',
+    'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8',
+}
+
+PLACE_ORDER_HEADERS = {
+    'Connection': 'keep-alive',
+    'Pragma': 'no-cache',
+    'Cache-Control': 'no-cache',
+    'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'Upgrade-Insecure-Requests': '1',
+    'Origin': 'https://www.pattersondental.com',
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+    'Sec-Fetch-Site': 'same-origin',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-User': '?1',
+    'Sec-Fetch-Dest': 'document',
+    'Referer': 'https://www.pattersondental.com/Order/ReviewOrder',
+    'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
+}
 class PattersonScraper(Scraper):
     BASE_URL = "https://www.pattersondental.com"
+    async def extract_content(self, ele):
+        text = re.sub(r"\s+", " ", " ".join(ele.xpath('.//text()').extract()))
+        return text.strip() if text else ""
 
     async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
         params = {
@@ -494,16 +585,126 @@ class PattersonScraper(Scraper):
             "last_page": page_size * page >= total_size,
         }
 
+    async def add_to_cart(self, products):
+        for product in products:
+            product_id = product["product_id"]
+            quantity = product["quantity"]
+            data = {"itemNumbers":product_id,"loadItemType":"ShoppingCart"}
+            response = await self.session.post('https://www.pattersondental.com/Item/ValidateItems', headers=VALIDATE_CART_HEADERS, data=json.dumps(data))
+
+            data = [
+                {
+                    "OrderItemId": None,
+                    "ParentItemId": None,
+                    "PublicItemNumber": product_id,
+                    "PersistentItemNumber": None,
+                    "ItemQuantity": quantity,
+                    "BasePrice": None,
+                    "ItemPriceBreaks": None,
+                    "UnitPriceOverride": None,
+                    "IsLabelItem": False,
+                    "IsTagItem": False,
+                    "ItemDescription": None,
+                    "UseMyCatalogQuantity": False,
+                    "UnitPrice": 0,
+                    "ItemSubstitutionReasonModel": None,
+                    "NavInkConfigurationId": None,
+                    "CanBePersonalized": False,
+                    "HasBeenPersonalized": False,
+                    "Manufacturer": False
+                }
+            ]
+
+            response = await self.session.post('https://www.pattersondental.com/ShoppingCart/AddItemsToCart', headers=ADD_CART_HEADERS, data=json.dumps(data))
+
+    async def checkout(self):
+        response = await self.session.get('https://www.pattersondental.com/Order/ShippingPayment', headers=SHIP_HEADERS)
+        response_dom = Selector(text=await response.text())
+        shipping_address = "\n".join([
+            await self.extract_content(it)
+            for it in response_dom.xpath('//div[@class="shippingPayment__address"]/div[@class="columns"]/div')
+        ])
+        print("Shipping Address:\n", shipping_address)
+
+        __RequestVerificationToken = response_dom.xpath("//input[@name='__RequestVerificationToken']/@value").get()
+        shippingMethod = response_dom.xpath("//input[@name='shippingMethod'][@checked='checked']/@value").get()
+        SpecialInstructions = response_dom.xpath("//input[@name='SpecialInstructions']/@value").get()
+        shippingAddressNumber = response_dom.xpath("//input[@name='shippingAddressNumber']/@value").get()
+        paymentMethod = response_dom.xpath("//input[@name='paymentMethod'][@checked='checked']/@value").get()
+        CardTypeId = response_dom.xpath("//select[@name='CardTypeId']/option[@selected='selected']/@value").get()
+        CardNumber = response_dom.xpath("//input[@name='CardNumber']/@value").get()
+        ExpirationMonth = response_dom.xpath("//select[@name='ExpirationMonth']/option[@selected='selected']/@value").get()
+        ExpirationYear = response_dom.xpath("//select[@name='ExpirationYear']/option[@selected='selected']/@value").get()
+        CardHolderName = response_dom.xpath("//input[@name='CardHolderName']/@value").get()
+        StatementPostalCode = response_dom.xpath("//input[@name='StatementPostalCode']/@value").get()
+        Token = response_dom.xpath("//input[@name='Token']/@value").get()
+        poNumber = response_dom.xpath("//input[@name='poNumber']/@value").get()
+        purchaseOrderRequired = response_dom.xpath("//input[@name='purchaseOrderRequired']/@value").get()
+        isZeroOrderTotal = response_dom.xpath("//input[@name='isZeroOrderTotal']/@value").get()
+        cardNumberLastFour = response_dom.xpath("//input[@name='cardNumberLastFour']/@value").get()
+        encryptedCardNumber = response_dom.xpath("//input[@name='encryptedCardNumber']/@value").get()
+        ShippingInfo = response_dom.xpath("//input[@name='ShippingInfo.DefaultCharges']/@value").get()
+        UserIsTerritoryRep = response_dom.xpath("//input[@name='UserIsTerritoryRep']/@value").get()
+        CustomerRefNumber = response_dom.xpath("//input[@name='CustomerRefNumber']/@value").get()
+        shoppingCartButton = response_dom.xpath("//input[@name='shoppingCartButton']/@value").get()
+
+        data = {
+            '__RequestVerificationToken': __RequestVerificationToken,
+            'shippingMethod': shippingMethod,
+            'SpecialInstructions': SpecialInstructions,
+            'shippingAddressNumber': shippingAddressNumber,
+            'paymentMethod': paymentMethod,
+            'CardTypeId': CardTypeId,
+            'CardNumber': CardNumber,
+            'ExpirationMonth': ExpirationMonth,
+            'ExpirationYear': ExpirationYear,
+            'CardHolderName': CardHolderName,
+            'StatementPostalCode': StatementPostalCode,
+            'Token': Token,
+            'poNumber': poNumber,
+            'purchaseOrderRequired': purchaseOrderRequired,
+            'isZeroOrderTotal': isZeroOrderTotal,
+            'cardNumberLastFour': cardNumberLastFour,
+            'encryptedCardNumber': encryptedCardNumber,
+            'ShippingInfo.DefaultCharges': ShippingInfo,
+            'UserIsTerritoryRep': UserIsTerritoryRep,
+            'CustomerRefNumber': CustomerRefNumber,
+            'shoppingCartButton': shoppingCartButton
+        }
+
+        response = await self.session.post('https://www.pattersondental.com/Order/ShippingPayment', headers=SHIP_PAYMENT_HEADERS, data=data)
+        response_dom = Selector(text=await response.text())
+        
+        subtotal = await self.extract_content(response_dom.xpath(
+            '//div[contains(@class, "OrderSummaryBackground")]/div[2]/div[2]'
+        ))
+        print("--- subtotal:\n", subtotal.strip() if subtotal else "")
+
+        shipping = await self.extract_content(response_dom.xpath(
+            '//div[contains(@class, "OrderSummaryBackground")]/div[3]/div[2]'
+        ))
+        print("--- shipping:\n", shipping.strip() if shipping else "")
+
+        order_total = await self.extract_content(response_dom.xpath(
+            '//div[contains(@class, "OrderSummaryBackground")]/following-sibling::div/div[2]'
+        ))
+        print("--- order_total:\n", order_total.strip() if order_total else "")
+        return response_dom, subtotal, shipping, order_total, shipping_address
+
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
+        await self.login()
+        await self.clear_cart()
+        await self.add_to_cart(products)
+        order_dom, subtotal, shipping, order_total, shipping_address = await self.checkout()
         vendor_order_detail = {
             "retail_amount": "",
             "savings_amount": "",
-            "subtotal_amount": "",
-            "shipping_amount": "",
+            "subtotal_amount": subtotal,
+            "shipping_amount": shipping,
             "tax_amount": "",
-            "total_amount": "",
+            "total_amount": order_total,
             "payment_method": "",
-            "shipping_address": "",
+            "shipping_address": shipping_address,
         }
         vendor_slug: str = self.vendor.slug
         return {
@@ -511,4 +712,49 @@ class PattersonScraper(Scraper):
                 **vendor_order_detail,
                 **self.vendor.to_dict(),
             },
+        }
+
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+        await self.login()
+        await self.clear_cart()
+        await self.add_to_cart(products)
+        order_dom, subtotal, shipping, order_total, shipping_address = await self.checkout()
+        
+        if fake:
+            vendor_order_detail = {
+                "retail_amount": "",
+                "savings_amount": "",
+                "subtotal_amount": subtotal,
+                "shipping_amount": shipping,
+                "tax_amount": "",
+                "total_amount": order_total,
+                "payment_method": "",
+                "shipping_address": shipping_address,
+            }
+            return {
+                **vendor_order_detail,
+                **self.vendor.to_dict(),
+            }
+        data = {
+            "__RequestVerificationToken": order_dom.xpath("//input[@name='__RequestVerificationToken']/@value").get(),
+            "SpecialInstructions": "",
+            "CustomerPurchaseOrder": "",
+            "PaymentMethodId": order_dom.xpath("//input[@name='PaymentMethodId']/@value").get(),
+            "PlaceOrderButton": "Place+Order",
+        }
+        
+        response = await self.session.post('https://www.pattersondental.com/Order/ReviewOrder', headers=PLACE_ORDER_HEADERS, data=data)
+        vendor_order_detail = {
+            "retail_amount": "",
+            "savings_amount": "",
+            "subtotal_amount": subtotal,
+            "shipping_amount": shipping,
+            "tax_amount": "",
+            "total_amount": order_total,
+            "payment_method": "",
+            "shipping_address": shipping_address,
+        }
+        return {
+            **vendor_order_detail,
+            **self.vendor.to_dict(),
         }

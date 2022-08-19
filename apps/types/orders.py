@@ -13,6 +13,7 @@ class LinkedVendor(TypedDict):
 class CartProduct(TypedDict):
     product_id: str
     product_unit: str
+    product_url: str
     quantity: int
 
 

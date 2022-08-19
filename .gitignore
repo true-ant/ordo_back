@@ -136,3 +136,4 @@ dmypy.json
 *.csv
 
 init.sql
+install-pyenv-win.ps1
