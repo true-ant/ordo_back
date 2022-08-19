@@ -166,12 +166,12 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
         ).values_list(order_id_field, flat=True)
     )
     asyncio.run(get_orders(office_vendor, cookie, True, completed_order_ids))
-    office_vendor = OfficeVendor.objects.select_related("office", "vendor").get(id=office_vendor_id)
-    asyncio.run(
-        OfficeProductHelper.get_all_product_prices_from_vendors(
-            office_id=office_vendor.office.id, vendor_slugs=[office_vendor.vendor.slug]
-        )
-    )
+    # office_vendor = OfficeVendor.objects.select_related("office", "vendor").get(id=office_vendor_id)
+    # asyncio.run(
+    #     OfficeProductHelper.get_all_product_prices_from_vendors(
+    #         office_id=office_vendor.office.id, vendor_slugs=[office_vendor.vendor.slug]
+    #     )
+    # )
 
     # inventory group products
     # office_vendors = OfficeVendor.objects.select_related("office", "vendor").filter(office=office_vendor.office)

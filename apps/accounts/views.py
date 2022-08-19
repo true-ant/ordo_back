@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
-from turtle import delay
 
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
@@ -417,8 +416,6 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
     def fetch_orders(self, request, *args, **kwargs):
         instance = self.get_object()
         fetch_orders_from_vendor.delay(office_vendor_id=instance.id, login_cookies=None, perform_login=True)
-        # print(result.ready())
-        # result.get(timeout=10)
         # ar: AsyncResult = fetch_orders_from_vendor.delay(
         #     office_vendor_id=instance.id, login_cookies=None, perform_login=True
         # )
