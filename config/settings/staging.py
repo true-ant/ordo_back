@@ -9,10 +9,11 @@ EMAIL_HOST_PASSWORD = EMAIL_HOST_PASSWORD  # noqa
 EMAIL_USE_TLS = True
 
 ALLOWED_HOSTS = [
-    "ordo-backend-dev.us-east-1.elasticbeanstalk.com",
+    "ordo-backend-dev-launch.us-east-1.elasticbeanstalk.com",
     "api.staging.joinordo.com",
     "172.31.29.138",
-    "172.31.17.219",
+    "172.31.8.130",
+    "54.165.80.134",
     "127.0.0.1",
 	"172.31.31.78",
     "localhost"
@@ -24,10 +25,10 @@ ALLOWED_HOSTS = [
 # ]
 CORS_ALLOW_ALL_ORIGINS = True
 
-CELERY_RESULT_BACKEND = None
-BROKER_TRANSPORT_OPTIONS = {
-    "polling_interval": 2,
-    "region": "us-east-1",
-}
-BROKER_URL = f"sqs://{AWS_ACCESS_KEY_ID}:{AWS_SECRET_ACCESS_KEY}@"  # noqa
-CELERY_BROKER_URL = BROKER_URL
+# CELERY_RESULT_BACKEND = None
+# BROKER_TRANSPORT_OPTIONS = {
+#     "polling_interval": 2,
+#     "region": "us-east-1",
+# }
+# BROKER_URL = f"sqs://{AWS_ACCESS_KEY_ID}:{AWS_SECRET_ACCESS_KEY}@"  # noqa
+# CELERY_BROKER_URL = BROKER_URL

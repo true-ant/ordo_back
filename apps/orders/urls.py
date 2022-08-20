@@ -31,7 +31,6 @@ urlpatterns = [
         v.CheckoutAvailabilityAPIView.as_view(),
         name="get-checkout-status",
     ),
-    
     path(
         "companies/<int:company_pk>/offices/<int:office_pk>/checkout/update-status",
         v.CheckoutUpdateStatusAPIView.as_view(),
