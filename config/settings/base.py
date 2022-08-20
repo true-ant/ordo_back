@@ -162,6 +162,17 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.User"
 STAGE = os.environ.get("STAGE")
 
+
+# AWS
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+AWS_SES_REGION_NAME = os.getenv("AWS_SES_REGION_NAME")
+AWS_SES_REGION_ENDPOINT = os.getenv("AWS_SES_REGION_ENDPOINT")
+AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+AWS_DEFAULT_ACL = None
+AWS_S3_CUSTOM_DOMAIN = "cdn.staging.joinordo.com"
+AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+
 # Email Settings
 DEFAULT_FROM_EMAIL = "hello@joinordo.com"
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
@@ -172,8 +183,15 @@ SITE_URL = os.getenv("SITE_URL", "http://localhost:8000")
 
 # Celery Settings
 CELERY_DEFAULT_QUEUE = os.getenv("CELERY_DEFAULT_QUEUE")
-CELERY_BROKER_URL = (os.getenv("REDIS_URL"),)
-CELERY_RESULT_BACKEND = os.getenv("REDIS_URL")
+# CELERY_BROKER_URL = (os.getenv("REDIS_URL"),)
+# CELERY_RESULT_BACKEND = os.getenv("REDIS_URL")
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    "polling_interval": 2,
+    "region": "us-east-1",
+}
+# BROKER_URL = f"sqs://{AWS_ACCESS_KEY_ID}:{AWS_SECRET_ACCESS_KEY}@"  # noqa
+CELERY_BROKER_URL = f"sqs://{AWS_ACCESS_KEY_ID}:{AWS_SECRET_ACCESS_KEY}@"
+CELERY_RESULT_BACKEND = None
 CELERY_ACCEPT_CONTENT = ["application/json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
@@ -218,16 +236,6 @@ JWT_AUTH = {
     "JWT_EXPIRATION_DELTA": datetime.timedelta(days=3),
     "JWT_RESPONSE_PAYLOAD_HANDLER": "apps.accounts.utils.jwt_response_payload_handler",
 }
-
-# AWS
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-AWS_SES_REGION_NAME = os.getenv("AWS_SES_REGION_NAME")
-AWS_SES_REGION_ENDPOINT = os.getenv("AWS_SES_REGION_ENDPOINT")
-AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
-AWS_DEFAULT_ACL = None
-AWS_S3_CUSTOM_DOMAIN = "cdn.staging.joinordo.com"
-AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
 
 STATIC_LOCATION = "/static/"
 STATICFILES_STORAGE = "apps.common.storage_backends.StaticStorage"
