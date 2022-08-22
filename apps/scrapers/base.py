@@ -329,7 +329,7 @@ class Scraper:
         from apps.orders.models import VendorOrder as VendorOrderModel
         from apps.orders.models import VendorOrderProduct as VendorOrderProductModel
 
-        print("===== darby/save_order_to_db 1 =====")
+        print("===== darby/save_order_to_db 1 =====") #why is this log not showing up? there?
         order_data = order.to_dict()
         print("===== darby/save_order_to_db 2 =====")
         order_data.pop("shipping_address")
@@ -367,8 +367,8 @@ class Scraper:
                 print("===== darby/save_order_to_db 8 =====")
                 vendor_order = VendorOrderModel.from_dataclass(vendor=self.vendor, order=order, dict_data=order_data)
                 print("===== darby/save_order_to_db 9 =====")
-
                 month = Month(year=order_date.year, month=order_date.month)
+                print(f"month is {month}")
                 office_budget = office.budgets.filter(month=month).first()
                 if office_budget:
                     print("===== darby/save_order_to_db 21 =====")

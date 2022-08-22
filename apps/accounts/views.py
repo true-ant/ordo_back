@@ -415,7 +415,7 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
     @action(detail=True, methods=["post"], url_path="fetch")
     def fetch_orders(self, request, *args, **kwargs):
         instance = self.get_object()
-        fetch_orders_from_vendor(office_vendor_id=instance.id, login_cookies=None, perform_login=True)
+        fetch_orders_from_vendor.delay(office_vendor_id=instance.id, login_cookies=None, perform_login=True)
         # ar: AsyncResult = fetch_orders_from_vendor.delay(
         #     office_vendor_id=instance.id, login_cookies=None, perform_login=True
         # )
