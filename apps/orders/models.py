@@ -281,6 +281,7 @@ class Order(TimeStampedModel):
     total_items = models.IntegerField(default=1)
     total_amount = models.DecimalField(decimal_places=2, max_digits=10, default=0)
     status = models.CharField(max_length=100, choices=OrderStatus.choices, default=OrderStatus.OPEN)
+    order_type = models.CharField()
 
     objects = models.Manager()
     current_months = OrderMonthManager()

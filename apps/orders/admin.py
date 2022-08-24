@@ -86,7 +86,7 @@ class OrderVendorFilter(SimpleListFilter):
 
 @admin.register(m.Order)
 class OrderAdmin(NestedModelAdmin):
-    list_display = ("id", "company", "office", "vendors", "total_price", "order_date", "status")
+    list_display = ("id", "company", "office", "vendors", "total_price", "order_date", "order_type", "status")
     search_fields = ("vendor_orders__vendor_order_id",)
     list_filter = (
         "status",
@@ -105,6 +105,8 @@ class OrderAdmin(NestedModelAdmin):
     @admin.display(description="Order Total")
     def total_price(self, objs):
         return objs.total_amount
+
+
     
 
 

@@ -214,29 +214,22 @@ class DarbyScraper(Scraper):
 
     async def get_order_products(self, order, link):
         async with self.session.get(f"{self.BASE_URL}/Scripts/{link}", headers=HEADERS) as resp:
-            print("===== darby/get_order_products 1 =====")
             order_detail_response = Selector(text=await resp.text())
             order["products"] = []
-            print("===== darby/get_order_products 2 =====")
             for detail_row in order_detail_response.xpath(
                 "//table[@id='MainContent_gvInvoiceDetail']//tr[@class='pdpHelltPrimary']"  # noqa
             ):
                 # product_id = self.merge_strip_values(detail_row, "./td[1]/a//text()")
-                print("===== darby/get_order_products 3 =====")
                 product_name = self.merge_strip_values(detail_row, "./td[2]//text()")
                 product_url = self.merge_strip_values(detail_row, "./td[1]/a//@href")
-                print("===== darby/get_order_products 4 =====")
                 product_id = product_url.split("/")[-1]
                 if product_url:
                     product_url = f"{self.BASE_URL}{product_url}"
-                print("===== darby/get_order_products 5 =====")
 
                 product_image = self.merge_strip_values(detail_row, "./td[1]/input//@src")
                 product_image = f"{self.BASE_URL}{product_image}" if product_image else None
-                print("===== darby/get_order_products 6 =====")
                 product_price = self.merge_strip_values(detail_row, "./td[4]//text()")
                 quantity = self.merge_strip_values(detail_row, "./td[5]//text()")
-                print("===== darby/get_order_products 7 =====")
                 order["products"].append(
                     {
                         "product": {
@@ -253,9 +246,6 @@ class DarbyScraper(Scraper):
                         "quantity": quantity,
                     }
                 )
-                print("===== darby/get_order_products 8 =====")
-
-        print("===== darby/get_order_products 9 =====")
         await self.get_missing_products_fields(
             order["products"],
             fields=(
@@ -264,19 +254,14 @@ class DarbyScraper(Scraper):
                 "category",
             ),
         )
-        print("===== darby/get_order_products 10 =====")
 
         return order
 
     @semaphore_coroutine
     async def get_order(self, sem, order_dom, order_date: Optional[datetime.date] = None, office=None):
-        print("===== darby/get_order 1 =====")
         link = self.merge_strip_values(order_dom, "./td[1]/a/@href")
-        print("===== darby/get_order 2 =====")
         order_id = self.merge_strip_values(order_dom, "./td[1]//text()")
-        print("===== darby/get_order 3 =====")
         invoice_link = self.merge_strip_values(order_dom, "./td[9]/a/@href")
-        print("===== darby/get_order 4 =====")
         order = {
             "order_id": order_id,
             "total_amount": self.merge_strip_values(order_dom, ".//td[8]//text()"),
@@ -287,7 +272,6 @@ class DarbyScraper(Scraper):
             "invoice_link": f"{self.BASE_URL}{invoice_link}",
         }
         await asyncio.gather(self.get_order_products(order, link), self.get_shipping_track(order, order_id))
-        print("===== darby/get_order 5 =====")
 
         if office:
             print("===== darby/get_order 6 =====")
@@ -311,43 +295,31 @@ class DarbyScraper(Scraper):
 
         if perform_login:
             await self.login()
-        print("===== 1 =====")
         orders = []
         async with self.session.get(url, headers=HEADERS) as resp:
-            print("===== 2 =====")
             text = await resp.text()
             response_dom = Selector(text=text)
             orders_dom = response_dom.xpath(
                 "//table[@id='MainContent_gvInvoiceHistory']//tr[@class='pdpHelltPrimary']"
             )
-            print("===== 3 =====")
-
             tasks = []
             for order_dom in orders_dom:
                 order_date = datetime.datetime.strptime(
                     self.merge_strip_values(order_dom, ".//td[2]//text()"), "%m/%d/%Y"
                 ).date()
-                print("===== 4 =====")
 
                 if from_date and to_date and (order_date < from_date or order_date > to_date):
                     continue
-                print("===== 5 =====")
 
                 order_id = self.merge_strip_values(order_dom, "./td[1]//text()")
                 if completed_order_ids and order_id in completed_order_ids:
                     continue
-                print("===== 6 =====")
 
                 tasks.append(self.get_order(sem, order_dom, order_date, office))
-                print("===== 7 =====")
 
             if tasks:
-                print("===== 8 =====")
                 orders = await asyncio.gather(*tasks, return_exceptions=True)
-                print("===== 9 =====")
                 
-        print("===== 10 =====")
-
         return [Order.from_dict(order) for order in orders]
 
     async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
