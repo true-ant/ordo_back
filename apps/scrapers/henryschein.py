@@ -164,6 +164,7 @@ class HenryScheinScraper(Scraper):
             "products": [],
         }
         async with self.session.get(link) as resp:
+            print("===== henryschein/get_order 1 =====")
             order_detail_response = Selector(text=await resp.text())
             order["vendor_order_reference"] = (
                 order_detail_response.xpath("//span[@id='ctl00_cphMainContent_referenceNbLbl']//text()").get().strip()
@@ -171,6 +172,7 @@ class HenryScheinScraper(Scraper):
             order_id = order_detail_response.xpath("//span[@id='ctl00_cphMainContent_orderNbLbl']//text()").get()
             order["order_id"] = order_id if order_id else order["vendor_order_reference"]
 
+            print("===== henryschein/get_order 2 =====")
             logger.debug(f"Got order which id is {order['order_id']}")
             addresses = order_detail_response.xpath(
                 "//span[@id='ctl00_cphMainContent_ucShippingAddr_lblAddress']//text()"
@@ -182,17 +184,23 @@ class HenryScheinScraper(Scraper):
                 "region_code": region_code,
                 "postal_code": postal_code,
             }
+            print("===== henryschein/get_order 3 =====")
 
             for order_product_dom in order_detail_response.xpath(
                 "//table[contains(@class, 'tblOrderableProducts')]//tr"
                 "//table[@class='SimpleList']//tr[@class='ItemRow' or @class='AlternateItemRow']"
             ):
+                print("===== henryschein/get_order 4 =====")
                 product_name_url_dom = order_product_dom.xpath(
                     "./td[1]//table[@id='tblProduct']//span[@class='ProductDisplayName']"
                 )
+                print("===== henryschein/get_order 5 =====")
                 product_id = self.extract_first(order_product_dom, ".//b/text()")
+                print("===== henryschein/get_order 6 =====")
                 product_name = self.extract_first(product_name_url_dom, ".//a/text()")
+                print("===== henryschein/get_order 7 =====")
                 product_url = self.merge_strip_values(product_name_url_dom, xpath=".//a/@href")
+                print("===== henryschein/get_order 8 =====")
                 quantity_price = self.merge_strip_values(
                     dom=order_product_dom, xpath=".//td[@id='QtyRow']//text()", delimeter=";"
                 )
@@ -229,6 +237,8 @@ class HenryScheinScraper(Scraper):
                 status = self.merge_strip_values(
                     dom=order_product_dom, xpath=".//span[contains(@id, 'itemStatusLbl')]//text()"
                 )
+                print("===== henryschein/get_order 9 =====")
+
                 order["products"].append(
                     {
                         "product": {
@@ -258,6 +268,7 @@ class HenryScheinScraper(Scraper):
             ),
         )
         if office:
+            print("===== henryschein/get_order 10 =====")
             logger.debug(f"storing order {order['order_id']} to db")
             await self.save_order_to_db(office, order=Order.from_dict(order))
             logger.debug(f"stored order {order['order_id']} to db")
@@ -322,7 +333,7 @@ class HenryScheinScraper(Scraper):
 
         if perform_login:
             await self.login()
-
+        print(completed_order_ids)
         sem = asyncio.Semaphore(value=2)
         async with self.session.get(url, params=params) as resp:
             text = await resp.text()

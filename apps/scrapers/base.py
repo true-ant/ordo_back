@@ -335,10 +335,12 @@ class Scraper:
         order_id = order_data["order_id"]
         order_data["vendor_status"] = order_data["status"]
         order_data["status"] = self.normalize_order_status(order_data["vendor_status"])
+        print("===== base/save_order_to_db 5 =====")
         order_date = order_data["order_date"]
         with transaction.atomic():
             try:
                 if self.vendor.slug == "henry_schein":
+                    print("base/save_order_to_db henry_schein")
                     vendor_order = VendorOrderModel.objects.get(
                         vendor=self.vendor, vendor_order_reference=order_data["vendor_order_reference"]
                     )
@@ -346,8 +348,11 @@ class Scraper:
                         vendor_order.vendor_order_id = order_id
                         vendor_order.save()
                 else:
+                    print("===== base/save_order_to_db 6 =====")
                     vendor_order = VendorOrderModel.objects.get(vendor=self.vendor, vendor_order_id=order_id)
             except VendorOrderModel.DoesNotExist:
+                print("===== base/save_order_to_db 7 =====")
+
                 order = OrderModel.objects.create(
                     office=office,
                     status=order_data["status"],
@@ -355,35 +360,53 @@ class Scraper:
                     total_items=order_data["total_items"],
                     total_amount=order_data["total_amount"],
                 )
+                print("===== base/save_order_to_db 8 =====")
                 vendor_order = VendorOrderModel.from_dataclass(vendor=self.vendor, order=order, dict_data=order_data)
-
                 month = Month(year=order_date.year, month=order_date.month)
-                office_budget = office.budgets.filter(month=month).first()
+                office_budget = office.budgets.filter(month__year=order_date.year).filter(month__month=order_date.month).first()
                 if office_budget:
+                    print("===== base/save_order_to_db 21 =====")
                     office_budget.dental_spend = F("dental_spend") + order_data["total_amount"]
                     office_budget.save()
                 else:
-                    office_budget = office.budgets.filter(month__gte=month).order_by("month").first()
-                    office_budget.id = None
-                    office_budget.month = month
-                    office_budget.dental_spend = order_data["total_amount"]
-                    office_budget.office_spend = 0
-                    office_budget.miscellaneous_spend = 0
-                    office_budget.save()
+                    print("===== base/save_order_to_db 24 =====")
+                    # office_budget = office.budgets.filter(month__gte=month).order_by("month").first()
+                    office_budget = office.budgets.filter(month__year = order_date.year).filter(month__month__gte=order_date.month).order_by("month").first()
 
-            for order_product_data in order_products_data:
-                product_data = order_product_data.pop("product")
-                product, _ = self.save_single_product_to_db(
-                    product_data, office, is_inventory=True, order_date=order_date
-                )
-                order_product_data["vendor_status"] = order_product_data["status"]
-                order_product_data["status"] = self.normalize_order_product_status(order_product_data["vendor_status"])
+                    logger.debug("office_budget is {office_budget}")
+                    if office_budget:
+                        office_budget.id = None
+                        print("===== base/save_order_to_db 26 =====")
+                        office_budget.month = month
+                        office_budget.dental_spend = order_data["total_amount"]
+                        office_budget.office_spend = 0
+                        office_budget.miscellaneous_spend = 0
+                        office_budget.save()
+                    else:
+                        print("else case!")
+                        return
 
-                VendorOrderProductModel.objects.update_or_create(
-                    vendor_order=vendor_order,
-                    product=product,
-                    defaults=order_product_data,
-                )
+                print("===== base/save_order_to_db 10 =====")
+                for order_product_data in order_products_data:
+                    print("===== base/save_order_to_db 11 =====")
+
+                    product_data = order_product_data.pop("product")
+                    product, _ = self.save_single_product_to_db(
+                        product_data, office, is_inventory=True, order_date=order_date
+                    )
+                    print("===== base/save_order_to_db 12 =====")
+                    order_product_data["vendor_status"] = order_product_data["status"]
+                    order_product_data["status"] = self.normalize_order_product_status(order_product_data["vendor_status"])
+                    print("===== base/save_order_to_db 13 =====")
+
+                    VendorOrderProductModel.objects.update_or_create(
+                        vendor_order=vendor_order,
+                        product=product,
+                        defaults=order_product_data,
+                    )
+                    print("===== base/save_order_to_db 14 =====")
+            except Exception as e:
+                print(e)
 
     async def get_missing_products_fields(self, order_products, fields=("description",)):
         sem = asyncio.Semaphore(value=2)

@@ -254,6 +254,7 @@ class DarbyScraper(Scraper):
                 "category",
             ),
         )
+
         return order
 
     @semaphore_coroutine
@@ -273,7 +274,10 @@ class DarbyScraper(Scraper):
         await asyncio.gather(self.get_order_products(order, link), self.get_shipping_track(order, order_id))
 
         if office:
+            print("===== darby/get_order 6 =====")
             await self.save_order_to_db(office, order=Order.from_dict(order))
+        print("===== darby/get_order 7 =====")
+
         return order
 
     @catch_network
@@ -291,43 +295,31 @@ class DarbyScraper(Scraper):
 
         if perform_login:
             await self.login()
-        print("===== 1 =====")
         orders = []
         async with self.session.get(url, headers=HEADERS) as resp:
-            print("===== 2 =====")
             text = await resp.text()
             response_dom = Selector(text=text)
             orders_dom = response_dom.xpath(
                 "//table[@id='MainContent_gvInvoiceHistory']//tr[@class='pdpHelltPrimary']"
             )
-            print("===== 3 =====")
-
             tasks = []
             for order_dom in orders_dom:
                 order_date = datetime.datetime.strptime(
                     self.merge_strip_values(order_dom, ".//td[2]//text()"), "%m/%d/%Y"
                 ).date()
-                print("===== 4 =====")
 
                 if from_date and to_date and (order_date < from_date or order_date > to_date):
                     continue
-                print("===== 5 =====")
 
                 order_id = self.merge_strip_values(order_dom, "./td[1]//text()")
                 if completed_order_ids and order_id in completed_order_ids:
                     continue
-                print("===== 6 =====")
 
                 tasks.append(self.get_order(sem, order_dom, order_date, office))
-                print("===== 7 =====")
 
             if tasks:
-                print("===== 8 =====")
                 orders = await asyncio.gather(*tasks, return_exceptions=True)
-                print("===== 9 =====")
                 
-        print("===== 10 =====")
-
         return [Order.from_dict(order) for order in orders]
 
     async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
