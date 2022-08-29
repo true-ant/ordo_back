@@ -1,7 +1,6 @@
 # from django.db import models
 # Create your models here.
 from datetime import timedelta
-from sqlite3 import Timestamp
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
@@ -15,7 +14,6 @@ from phonenumber_field.modelfields import PhoneNumberField
 from apps.accounts import managers
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
 from apps.common.utils import generate_token
-
 
 INVITE_EXPIRES_DAYS = 7
 
@@ -168,6 +166,7 @@ class OfficeBudget(TimeStampedModel):
 
     def __str__(self):
         return f"{self.office}'s {self.month} budget"
+
 
 class OfficeSetting(TimeStampedModel):
     office = models.OneToOneField(Office, related_name="settings", on_delete=models.CASCADE)
