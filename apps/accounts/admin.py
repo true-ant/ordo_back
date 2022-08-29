@@ -8,6 +8,7 @@ from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 from apps.common.admins import ReadOnlyAdminMixin
 
 from . import models as m
+from apps.orders import models as om
 
 
 @admin.register(m.User)
@@ -77,6 +78,37 @@ class OfficeBudgetInline(NestedTabularInline):
         return super().get_queryset(request).filter(month__gte=month).order_by("-month")
 
 
+class OfficeOrdersInline(NestedTabularInline):
+    model = om.Order
+    readonly_fields = (
+        "id", 
+        "company", 
+        "office", 
+        "vendors", 
+        "total_price", 
+        "order_date", 
+        "order_type", 
+        "status"
+    )
+
+    @admin.display(description="Company")
+    def company(self, obj):
+        return obj.office.company
+
+    @admin.display(description="Vendors")
+    def vendors(self, objs):
+        return ", ".join([vendor_order.vendor.name for vendor_order in objs.vendor_orders.all()])
+
+    @admin.display(description="Order Total")
+    def total_price(self, objs):
+        return objs.total_amount
+
+    def get_queryset(self, request):
+        return super().get_queryset(request)
+        
+
+
+
 class SubscriptionInline(NestedTabularInline):
     model = m.Subscription
     # readonly_fields = ("subscription_id",)
@@ -85,7 +117,7 @@ class SubscriptionInline(NestedTabularInline):
 
 class OfficeInline(NestedTabularInline):
     model = m.Office
-    inlines = [SubscriptionInline, OfficeVendorInline, OfficeBudgetInline]
+    inlines = [SubscriptionInline, OfficeVendorInline, OfficeBudgetInline, OfficeOrdersInline]
     can_delete = False
     readonly_fields = (
         "logo_thumb",
@@ -122,9 +154,15 @@ class VendorAdmin(admin.ModelAdmin):
         "logo_thumb",
         "name",
         "slug",
+        "order_count",
         "url",
     )
 
     @admin.display(description="Logo")
     def logo_thumb(self, obj):
         return mark_safe("<img src='{}'  width='30' height='30' />".format(obj.logo))
+
+    @admin.display(description="Order Count")
+    def order_count(self, obj):
+        from apps.orders import models as om
+        return om.VendorOrder.objects.filter(vendor=obj.id).count()
