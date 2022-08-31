@@ -175,7 +175,7 @@ AWS_S3_CUSTOM_DOMAIN = "cdn.staging.joinordo.com"
 AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
 
 # Email Settings
-DEFAULT_FROM_EMAIL = "hello@joinordo.com"
+DEFAULT_FROM_EMAIL = "gordo@joinordo.com"
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
 

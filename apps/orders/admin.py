@@ -33,21 +33,28 @@ class ExportCsvMixin:
 
 class VendorOrderProductInline(ReadOnlyAdminMixin, NestedTabularInline):
     model = m.VendorOrderProduct
-    fields = readonly_fields = (
+    fields = (
         "product",
         "unit_price",
         "quantity",
         "total_price",
         "status",
         "vendor_status",
-        "track",
+        "tracking_link",
+    )
+    readonly_fields = (
+        "product",
+        "unit_price",
+        "quantity",
+        "total_price",
+        "vendor_status",
     )
 
     def total_price(self, obj):
         return obj.quantity * obj.unit_price
 
-    def track(self, obj):
-        return mark_safe(f"<a href='{obj.tracking_link}'> Track </a>")
+    # def track(self, obj):
+    #     return mark_safe(f"<a href='{obj.tracking_link}'> Track </a>")
 
 
 class VendorOrderInline(ReadOnlyAdminMixin, NestedTabularInline):
