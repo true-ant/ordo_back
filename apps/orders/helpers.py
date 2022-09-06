@@ -229,6 +229,9 @@ class OfficeProductHelper:
             products, office_id
         )
 
+        # product_prices_from_db = defaultdict(dict)
+
+
         # fetch prices from vendors
         products_to_be_fetched = {}
         for product_id, product in products.items():
@@ -304,6 +307,7 @@ class OfficeProductHelper:
             product_prices_from_vendors = await VendorHelper.get_products_prices(
                 products=products, vendors_credentials=vendors_credentials, use_async_client=True
             )
+            print("============== update ==============")
             await sync_to_async(OfficeProductHelper.update_products_prices)(product_prices_from_vendors, office_id)
 
         return product_prices_from_vendors
