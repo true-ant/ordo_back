@@ -148,6 +148,7 @@ class OfficeProductHelper:
     @staticmethod
     def update_products_prices(products_prices: Dict[str, ProductPrice], office_id: str):
         """Store product prices to table"""
+        print("update_products_prices")
         last_price_updated = timezone.now()
         product_ids = products_prices.keys()
         products = ProductModel.objects.in_bulk(product_ids)
@@ -228,6 +229,8 @@ class OfficeProductHelper:
         product_prices_from_db = await sync_to_async(OfficeProductHelper.get_products_prices_from_db)(
             products, office_id
         )
+        print("after from_db")
+        # product_prices_from_db = defaultdict(dict)
 
         # product_prices_from_db = defaultdict(dict)
 
@@ -245,7 +248,6 @@ class OfficeProductHelper:
                     # "dental_city",
                 ):
                     products_to_be_fetched[product_id] = product_data
-
         if products_to_be_fetched:
             product_prices_from_vendors = await OfficeProductHelper.get_product_prices_from_vendors(
                 products_to_be_fetched, office_id
@@ -298,8 +300,10 @@ class OfficeProductHelper:
 
     @staticmethod
     async def get_product_prices_from_vendors(products: Dict[str, Product], office_id: str) -> Dict[str, ProductPrice]:
+        print("get_product_prices_from_vendors")
         product_prices_from_vendors = {}
         if products:
+
             vendor_slugs = set([product["vendor"] for product_id, product in products.items()])
             vendors_credentials = await sync_to_async(OfficeProductHelper.get_office_vendors)(
                 vendor_slugs=vendor_slugs, office_id=office_id
@@ -334,12 +338,15 @@ class OfficeProductHelper:
             vendor_product_ids = await sync_to_async(OfficeProductHelper.get_vendor_product_ids)(
                 office_id, vendor_slug
             )
+            print("get_all_product_prices_from_vendors")
+            print(vendor_product_ids)
             for i in range(0, len(vendor_product_ids), 100):
                 product_prices_from_vendors = await OfficeProductHelper.get_product_prices_by_ids(
                     vendor_product_ids[i * 100 : (i + 1) * 100], office_id
                 )
                 await aio.sleep(10)
                 print(product_prices_from_vendors)
+        print("======== DONE fetch =========")
 
     @staticmethod
     async def get_products_from_vendors(
