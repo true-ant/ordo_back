@@ -21,5 +21,8 @@ class ProductStatus(models.TextChoices):
     RETURNED = "returned", "Returned"
     CANCELLED = "cancelled", "Cancelled"
     RECEIVED = "received", "Received"
+    SHIPPED = "shipped", "Shipped"
+    DELIVERED = "delivered", "Delivered"
     CREDITED = "credited", "Credited"
     REPAIR_OR_MAINTENANCE = "maintenance", "Repair/Maintenance"
+

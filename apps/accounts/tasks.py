@@ -129,12 +129,14 @@ async def get_orders(office_vendor, login_cookies, perform_login, completed_orde
 
 @shared_task
 def fetch_vendor_products_prices(office_vendor_id):
+    print("fetch_vendor_products_prices")
     office_vendor = OfficeVendor.objects.select_related("office", "vendor").get(id=office_vendor_id)
     asyncio.run(
         OfficeProductHelper.get_all_product_prices_from_vendors(
             office_id=office_vendor.office.id, vendor_slugs=[office_vendor.vendor.slug]
         )
     )
+    print("fetch_vendor_products_prices DONE")
 
 
 @shared_task

@@ -45,6 +45,18 @@ class DentalCityClient(BaseClient):
     def serialize(self, base_product: types.Product, data: Union[dict, Selector]) -> Optional[types.Product]:
         # TODO: we need to parse all product details in the future if that is required.
         price = convert_string_to_price(data.xpath('//div[@class="yourpricecontainer"]//span/text()').get())
+        # return {
+        #     "vendor": self.VENDOR_SLUG,
+        #     "product_id": "",
+        #     "sku": "",
+        #     "name": data["title"],
+        #     "url": f"https://www.net32.com/{data['url']}",
+        #     "images": [f"https://www.net32.com/media{data['mediaPath']}"],
+        #     "price": Decimal(data["retailPrice"]),
+        #     "product_vendor_status": "",
+        #     "category": "",
+        #     "unit": "",
+        # }
         product = {
             "vendor": self.VENDOR_SLUG,
             "product_id": "",
@@ -58,7 +70,10 @@ class DentalCityClient(BaseClient):
             "unit": "",
         }
         product.update(base_product)
+        product['price'] = price
+        product['vendor'] = self.VENDOR_SLUG
         return product
+        
 
     async def get_cart_page(self) -> Union[Selector, dict]:
         return await self.get_response_as_dom(
