@@ -1,6 +1,7 @@
 import decimal
 import json
 import os
+import re
 import ssl
 from collections import defaultdict
 from decimal import Decimal
@@ -172,7 +173,7 @@ class BencoClient(BaseClient):
             res = await resp.json()
             for product_id, row in res.items():
                 row_dom = Selector(text=row)
-                product_price = row_dom.xpath("//h4[@class='selling-price']").attrib["content"]
+                product_price = row_dom.xpath("//h4[@class='selling-price']").attrib["content"]                
                 try:
                     product_price = Decimal(product_price)
                 except (TypeError, decimal.ConversionSyntax):
@@ -181,6 +182,18 @@ class BencoClient(BaseClient):
                 else:
                     product_prices[product_id]["price"] = product_price
                     product_prices[product_id]["product_vendor_status"] = "Available"
+                
+                promo_price_text = row_dom.xpath("//h3/span[@class='selling-price']").get()                
+                expr = '/?([0-9,]*\.[0-9]*)'
+                match = re.search(expr, promo_price_text)                
+                try:
+                    promo_price = Decimal(match.group(0))
+                except (TypeError, decimal.ConversionSyntax):
+                    product_prices[product_id]["special_price"] = Decimal("0")
+                    product_prices[product_id]["is_special_offer"] = False
+                else:
+                    product_prices[product_id]["special_price"] = promo_price
+                    product_prices[product_id]["is_special_offer"] = True
         return product_prices
 
     async def checkout_and_review_order(self, shipping_method: Optional[str] = None) -> dict:

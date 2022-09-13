@@ -107,13 +107,29 @@ class Net32Client(BaseClient):
             ) as resp:
                 vendor_options = await resp.json()
                 vendor_options = sorted(
-                    vendor_options, key=lambda x: (x["promisedHandlingTime"], x["priceBreaks"][0]["unitPrice"])
+                    # vendor_options, key=lambda x: (x["promisedHandlingTime"], x["priceBreaks"][0]["unitPrice"])
+                    vendor_options, key=lambda x:                         
+                        min(x["priceBreaks"], key = lambda y: y["unitPrice"])["unitPrice"]                    
                 )
                 price = vendor_options[0]["priceBreaks"][0]["unitPrice"]
-        except Exception:
+                is_special_offer = False
+                special_price = 0
+                if len(vendor_options[0]["priceBreaks"]) >=2 :
+                    is_special_offer = True
+                    special_price = vendor_options[0]["priceBreaks"][-1]["unitPrice"]
+
+                
+        except Exception as e:
             return {product_id: {"price": Decimal(0), "product_vendor_status": "Network Error"}}
         else:
-            return {product_id: {"price": Decimal(str(price)), "product_vendor_status": "Active"}}
+            return {
+                product_id: {
+                            "price": Decimal(str(price)), 
+                            "product_vendor_status": "Active",
+                            "is_special_offer":is_special_offer,
+                            "special_price": Decimal(str(special_price)), 
+                        }
+             }
         finally:
             if semaphore:
                 semaphore.release()
@@ -127,7 +143,7 @@ class Net32Client(BaseClient):
             "name": data["title"],
             "url": f"https://www.net32.com/{data['url']}",
             "images": [f"https://www.net32.com/media{data['mediaPath']}"],
-            "price": Decimal(data["retailPrice"]),
+            "price": Decimal(data["retailPrice"]),            
             "product_vendor_status": "",
             "category": "",
             "unit": "",
