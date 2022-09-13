@@ -1,4 +1,5 @@
 import asyncio
+from decimal import Decimal
 from typing import Optional, Union
 
 from aiohttp import ClientResponse
@@ -44,7 +45,9 @@ class DentalCityClient(BaseClient):
 
     def serialize(self, base_product: types.Product, data: Union[dict, Selector]) -> Optional[types.Product]:
         # TODO: we need to parse all product details in the future if that is required.
-        price = convert_string_to_price(data.xpath('//div[@class="yourpricecontainer"]//span/text()').get())
+        # price = convert_string_to_price(data.xpath('//div[@class="yourpricecontainer"]//span/text()').get())
+        price = convert_string_to_price(data.xpath('//div[@class="listpricecontainer"]//span/text()').get())
+        
         # return {
         #     "vendor": self.VENDOR_SLUG,
         #     "product_id": "",

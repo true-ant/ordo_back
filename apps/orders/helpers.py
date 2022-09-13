@@ -164,28 +164,31 @@ class OfficeProductHelper:
                     "product_vendor_status"
                 ]
                 office_product.last_price_updated = last_price_updated
-                updated_product_ids.append(office_product.product.id)
+                updated_product_ids.append(office_product.product.id)            
 
             bulk_update(
                 model_class=OfficeProductModel,
                 objs=office_products,
-                fields=["price", "product_vendor_status", "last_price_updated"],
+                fields=["price", "product_vendor_status", "last_price_updated",],
             )
 
             # update product price
             products_to_be_updated = []
-            for product_id, product in products.items():
-                if product.vendor.slug not in settings.NON_FORMULA_VENDORS:
+            for product_id, product in products.items():                
+                if "is_special_offer" not in products_prices[product_id] and product.vendor.slug not in settings.NON_FORMULA_VENDORS:
                     continue
                 product.price = products_prices[product_id]["price"]
                 product.product_vendor_status = products_prices[product_id]["product_vendor_status"]
                 product.last_price_updated = last_price_updated
+                if "is_special_offer" in products_prices[product_id]:
+                    product.is_special_offer = products_prices[product_id]["is_special_offer"]
+                    product.special_price = products_prices[product_id]["special_price"]
                 products_to_be_updated.append(product)
 
             bulk_update(
                 model_class=ProductModel,
                 objs=products_to_be_updated,
-                fields=["price", "product_vendor_status", "last_price_updated"],
+                fields=["price", "product_vendor_status", "last_price_updated", "is_special_offer", "special_price"],
             )
 
             creating_products = []
@@ -229,8 +232,8 @@ class OfficeProductHelper:
         product_prices_from_db = await sync_to_async(OfficeProductHelper.get_products_prices_from_db)(
             products, office_id
         )
-        print("after from_db")
-        product_prices_from_db = defaultdict(dict)
+        # print("after from_db")
+        product_prices_from_db = defaultdict(dict)       # for full db upate done every 2 weeks
 
         # product_prices_from_db = defaultdict(dict)
 
@@ -239,8 +242,7 @@ class OfficeProductHelper:
         products_to_be_fetched = {}
         for product_id, product in products.items():
             # TODO: should be exclude products that has no vendor
-            if product_id == 850112:
-                print(" wow ")
+
             if product_id not in product_prices_from_db.keys():
                 product_data = await sync_to_async(product.to_dict)()
                 if product_data["vendor"] not in (
@@ -256,7 +258,7 @@ class OfficeProductHelper:
             )
 
             print("==== fetche prices from the online site")
-            print(product_prices_from_vendors)
+            # print(product_prices_from_vendors)
             print(" ================= done fetching ============")
             
             return {**product_prices_from_db, **product_prices_from_vendors}
@@ -335,6 +337,7 @@ class OfficeProductHelper:
                     default=Value(None),
                 )
             )
+            # .filter(vendor__slug=vendor_slug,  product_price__isnull=True)
             .filter(vendor__slug=vendor_slug)
             .values_list("id", flat=True)
         )
@@ -348,7 +351,8 @@ class OfficeProductHelper:
             
             print("get_all_product_prices_from_vendors")
             print(vendor_product_ids)
-            for i in range(0, len(vendor_product_ids), 100):
+            for i in range(0, len(vendor_product_ids), 100):                
+                print(i*100)
                 product_prices_from_vendors = await OfficeProductHelper.get_product_prices_by_ids(
                     vendor_product_ids[i * 100 : (i + 1) * 100], office_id
                 )
@@ -1099,8 +1103,8 @@ class ProductHelper:
             # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
             .annotate(
                 product_price=Case(
-                    When(price__isnull=False, then=F("price")),
                     When(office_product_price__isnull=False, then=F("office_product_price")),
+                    When(price__isnull=False, then=F("price")),
                     default=Value(None),
                 )
             )
@@ -1167,8 +1171,8 @@ class ProductHelper:
             # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
             .annotate(
                 product_price=Case(
-                    When(price__isnull=False, then=F("price")),
                     When(office_product_price__isnull=False, then=F("office_product_price")),
+                    When(price__isnull=False, then=F("price")),                    
                     default=Value(None),
                 )
             )
@@ -1231,8 +1235,8 @@ class ProductHelper:
             # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
             .annotate(
                 product_price=Case(
-                    When(price__isnull=False, then=F("price")),
                     When(office_product_price__isnull=False, then=F("office_product_price")),
+                    When(price__isnull=False, then=F("price")),
                     default=Value(None),
                 )
             )
