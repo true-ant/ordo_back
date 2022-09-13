@@ -230,9 +230,7 @@ class OfficeProductHelper:
             products, office_id
         )
         print("after from_db")
-        # product_prices_from_db = defaultdict(dict)
-
-        # product_prices_from_db = defaultdict(dict)
+        product_prices_from_db = defaultdict(dict)
 
 
         # fetch prices from vendors

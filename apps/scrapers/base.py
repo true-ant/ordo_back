@@ -94,7 +94,9 @@ class Scraper:
             return order_status
 
     @staticmethod
-    def normalize_order_product_status(order_product_status):
+    def normalize_order_product_status(order_product_status) :
+        if(order_product_status == None):
+            return "processing"
         order_product_status = order_product_status.lower()
 
         if any(status in order_product_status for status in ("processing", "pending", "open")):
@@ -396,8 +398,9 @@ class Scraper:
                     )
                     print("===== base/save_order_to_db 12 =====")
                     order_product_data["vendor_status"] = order_product_data["status"]
-                    order_product_data["status"] = self.normalize_order_product_status(order_product_data["vendor_status"])
+                    print(order_product_data["vendor_status"])
                     print("===== base/save_order_to_db 13 =====")
+                    order_product_data["status"] = self.normalize_order_product_status(order_product_data["vendor_status"])
 
                     VendorOrderProductModel.objects.update_or_create(
                         vendor_order=vendor_order,

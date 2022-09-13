@@ -1,5 +1,7 @@
 from dateutil.relativedelta import relativedelta
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
+
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 from month import Month
@@ -12,7 +14,8 @@ from apps.orders import models as om
 
 
 @admin.register(m.User)
-class UserAdmin(admin.ModelAdmin):
+# class UserAdmin(admin.ModelAdmin):
+class UserAdmin(DefaultUserAdmin):
     list_display = (
         "username",
         "first_name",
