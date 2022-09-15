@@ -203,7 +203,7 @@ class Net32Scraper(Scraper):
                         tracking_number = None
                         if line_item["manifests"] and "shippingMethod" in line_item["manifests"][0]:
                             shipping_method = line_item["manifests"][0]["shippingMethod"]
-                            tracking_number = line_item["manifests"][0]["trackingNumber"]
+                            # tracking_number = line_item["manifests"][0]["trackingNumber"]
                             tracking_link = f"{shipping_base_tracking_urls[shipping_method]}{tracking_number}"
 
                         order_products.append(

@@ -164,7 +164,7 @@ class OfficeProductHelper:
                     "product_vendor_status"
                 ]
                 office_product.last_price_updated = last_price_updated
-                updated_product_ids.append(office_product.product.id)
+                updated_product_ids.append(office_product.product.id)            
 
             bulk_update(
                 model_class=OfficeProductModel,
@@ -232,15 +232,12 @@ class OfficeProductHelper:
         print("after from_db")
         product_prices_from_db = defaultdict(dict)
 
-        # product_prices_from_db = defaultdict(dict)
-
 
         # fetch prices from vendors
         products_to_be_fetched = {}
         for product_id, product in products.items():
             # TODO: should be exclude products that has no vendor
-            if product_id == 850112:
-                print(" wow ")
+
             if product_id not in product_prices_from_db.keys():
                 product_data = await sync_to_async(product.to_dict)()
                 if product_data["vendor"] not in (
@@ -256,7 +253,7 @@ class OfficeProductHelper:
             )
 
             print("==== fetche prices from the online site")
-            print(product_prices_from_vendors)
+            # print(product_prices_from_vendors)
             print(" ================= done fetching ============")
             
             return {**product_prices_from_db, **product_prices_from_vendors}
@@ -335,6 +332,7 @@ class OfficeProductHelper:
                     default=Value(None),
                 )
             )
+            # .filter(vendor__slug=vendor_slug,  product_price__isnull=True)
             .filter(vendor__slug=vendor_slug)
             .values_list("id", flat=True)
         )
@@ -348,7 +346,8 @@ class OfficeProductHelper:
             
             print("get_all_product_prices_from_vendors")
             print(vendor_product_ids)
-            for i in range(0, len(vendor_product_ids), 100):
+            for i in range(0, len(vendor_product_ids), 100):                
+                print(i*100)
                 product_prices_from_vendors = await OfficeProductHelper.get_product_prices_by_ids(
                     vendor_product_ids[i * 100 : (i + 1) * 100], office_id
                 )
