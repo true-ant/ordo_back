@@ -169,26 +169,23 @@ class OfficeProductHelper:
             bulk_update(
                 model_class=OfficeProductModel,
                 objs=office_products,
-                fields=["price", "product_vendor_status", "last_price_updated",],
+                fields=["price", "product_vendor_status", "last_price_updated"],
             )
 
             # update product price
             products_to_be_updated = []
-            for product_id, product in products.items():                
-                if "is_special_offer" not in products_prices[product_id] and product.vendor.slug not in settings.NON_FORMULA_VENDORS:
+            for product_id, product in products.items():
+                if product.vendor.slug not in settings.NON_FORMULA_VENDORS:
                     continue
                 product.price = products_prices[product_id]["price"]
                 product.product_vendor_status = products_prices[product_id]["product_vendor_status"]
                 product.last_price_updated = last_price_updated
-                if "is_special_offer" in products_prices[product_id]:
-                    product.is_special_offer = products_prices[product_id]["is_special_offer"]
-                    product.special_price = products_prices[product_id]["special_price"]
                 products_to_be_updated.append(product)
 
             bulk_update(
                 model_class=ProductModel,
                 objs=products_to_be_updated,
-                fields=["price", "product_vendor_status", "last_price_updated", "is_special_offer", "special_price"],
+                fields=["price", "product_vendor_status", "last_price_updated"],
             )
 
             creating_products = []
@@ -1101,8 +1098,8 @@ class ProductHelper:
             # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
             .annotate(
                 product_price=Case(
-                    When(office_product_price__isnull=False, then=F("office_product_price")),
                     When(price__isnull=False, then=F("price")),
+                    When(office_product_price__isnull=False, then=F("office_product_price")),
                     default=Value(None),
                 )
             )
@@ -1169,8 +1166,8 @@ class ProductHelper:
             # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
             .annotate(
                 product_price=Case(
+                    When(price__isnull=False, then=F("price")),
                     When(office_product_price__isnull=False, then=F("office_product_price")),
-                    When(price__isnull=False, then=F("price")),                    
                     default=Value(None),
                 )
             )
@@ -1233,8 +1230,8 @@ class ProductHelper:
             # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
             .annotate(
                 product_price=Case(
-                    When(office_product_price__isnull=False, then=F("office_product_price")),
                     When(price__isnull=False, then=F("price")),
+                    When(office_product_price__isnull=False, then=F("office_product_price")),
                     default=Value(None),
                 )
             )
