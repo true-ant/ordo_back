@@ -345,13 +345,22 @@ class OfficeProductHelper:
             )
             
             print("get_all_product_prices_from_vendors")
-            print(vendor_product_ids)
-            for i in range(0, len(vendor_product_ids), 100):                
-                print(i*100)
+            print( len(vendor_product_ids))
+            print(type(vendor_product_ids))
+            
+            step_size=20
+            offset = step_size
+            for i in range(offset, len(vendor_product_ids)+1, step_size):                
+                print(i, vendor_product_ids[i-step_size : i])
                 product_prices_from_vendors = await OfficeProductHelper.get_product_prices_by_ids(
-                    vendor_product_ids[i * 100 : (i + 1) * 100], office_id
+                    vendor_product_ids[i-step_size : i], office_id
                 )
-                await aio.sleep(10)
+
+                # product_prices_from_vendors = await OfficeProductHelper.get_product_prices_by_ids(
+                #     vendor_product_ids[i : (i + 50)], office_id
+                # )
+                await aio.sleep(1)
+                
                 # print(product_prices_from_vendors)
         print("======== DONE fetch =========")
 
