@@ -4,7 +4,7 @@ import json
 
 def main():
     with open(
-        "/home/levan/Downloads/dental-deals-scrapers-7/henryschein/henryschein.json", "r", encoding="utf-8-sig"
+        "henryschein.json", "r", encoding="utf-8-sig"
     ) as f:
         data = json.load(f)
 

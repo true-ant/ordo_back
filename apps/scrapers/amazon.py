@@ -1,10 +1,12 @@
+import re
 import logging
-
 from scrapy import Selector
-
+from requests import Session
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Product
 from apps.types.scraper import ProductSearch
+session = Session()
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -29,28 +31,29 @@ SEARCH_HEADERS = {
     "accept-language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
 }
 
-
 class AmazonScraper(Scraper):
     BASE_URL = "https://www.amazon.com"
 
-    async def _search_products(
+    def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price", office_id=None
-    ) -> ProductSearch:
+    ):
         url = f"{self.BASE_URL}/s"
         page_size = 16
         params = {"k": query, "page": page, "ref": "nb_sb_noss", "s": "price-asc-rank"}
 
-        async with self.session.get(url, headers=SEARCH_HEADERS, params=params) as resp:
-            text = await resp.text()
-            response_dom = Selector(text=text)
+        resp = session.get(url, headers=SEARCH_HEADERS, params=params)
+        response_dom = Selector(text=resp.text)
 
         total_size_str = response_dom.xpath("//span[@data-component-type='s-result-info-bar']//h1//span/text()").get()
         try:
-            total_size_str = total_size_str.split("of", 1)[1]
-            total_size_str = self.remove_thousands_separator(self.extract_amount(total_size_str))
+            # total_size_str = total_size_str.split("of", 1)[1]
+            # total_size_str = self.remove_thousands_separator(self.extract_amount(total_size_str))
+            total_size_str = total_size_str.replace(",", "")
+            total_size_str = re.search(r'(\d+)\s+results', total_size_str).group(1)
             total_size = int(total_size_str)
         except (ValueError, AttributeError):
             total_size = 0
+
         products = []
         for product_dom in response_dom.xpath(
             '//div[contains(@class, "s-result-list")]/div[contains(@class, "s-result-item")]'
@@ -79,7 +82,7 @@ class AmazonScraper(Scraper):
                         }
                     ],
                     "price": product_price,
-                    "vendor": self.vendor.to_dict(),
+                    "vendor": "amazon",
                 }
             )
 
@@ -87,10 +90,15 @@ class AmazonScraper(Scraper):
         last_page = not bool(next_page_button)
 
         return {
-            "vendor_slug": self.vendor.slug,
+            "vendor_slug": "amazon",
             "total_size": total_size,
             "page": page,
             "page_size": page_size,
-            "products": [Product.from_dict(product) for product in products],
+            "products": products,
             "last_page": last_page,
         }
+
+
+# if __name__=="__main__":
+#     results = AmazonScraper()._search_products("black authors")
+#     print(results)

@@ -629,7 +629,7 @@ class ProductHelper:
                         product.promotion_description = row["promo"]
                     product_objs.append(product)
                 else:
-                    print(f"Missing product {row['product_id']} - {row['name']}")
+                    print(f"Missing product {row['product_id']}")
 
             bulk_update(
                 model_class=ProductModel,

@@ -17,6 +17,7 @@ from django.db.models import Case, Count, F, Q, Sum, Value, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.core.paginator import Paginator
 from django_filters.rest_framework import DjangoFilterBackend
 from month import Month
 from rest_framework.decorators import action
@@ -32,7 +33,7 @@ from rest_framework.status import (
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from apps.accounts.models import Company, Office, OfficeBudget, OfficeVendor
+from apps.accounts.models import Company, Office, OfficeBudget, OfficeVendor, Vendor
 from apps.accounts.services.offices import OfficeService
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncCreateModelMixin, AsyncMixin
@@ -1446,6 +1447,7 @@ class ProductV2ViewSet(ModelViewSet):
             selected_products=selected_products,
         )
         self.available_vendors = available_vendors
+        
         return products
         # products = m.Product.objects.search(query)
         # product_ids = products.values_list("id", flat=True)
@@ -1463,19 +1465,69 @@ class ProductV2ViewSet(ModelViewSet):
         return serializer_context
 
     def list(self, request, *args, **kwargs):
+        query = self.request.GET.get("search", "")
         queryset = self.filter_queryset(self.get_queryset())
+        # Add on the fly results
+        session = apps.get_app_config("accounts").session
+        ama_vendor = Vendor()
+        ama_vendor.slug = "amazon"
+        scraper = ScraperFactory.create_scraper(
+                vendor=ama_vendor,
+                session=session,
+            )
+        products_fly = scraper._search_products(query)
+
+        list1 = list(queryset)
+        # list1.extend(products_fly['products'])
+        # list1 = products_fly['products']
+        count_per_page = int(self.request.query_params.get("per_page", 10))
+        current_page = int(self.request.query_params.get("page", 1))
+        pagination_obj = Paginator(list1, count_per_page)
 
         ret = {
             "vendor_slugs": getattr(self, "available_vendors", None),
             "products": [],
         }
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            ret["products"] = serializer.data
-            return self.get_paginated_response(ret)
 
-        serializer = self.get_serializer(queryset, many=True)
+        if current_page < 1 or pagination_obj.num_pages < current_page:
+            return Response(
+                {
+                    "message": "The page number is incorrect!"
+                },
+                status=HTTP_400_BAD_REQUEST
+            )
+
+        page = pagination_obj.page(current_page)
+
+        if page is not None:
+            product_data = []
+            for page_item in page:
+                if isinstance(page_item, m.Product):
+                    serializer = self.get_serializer(page_item)
+                    serialized_data = serializer.data
+                    serialized_data["searched_data"] = False
+                    product_data.append(serializer.data)
+                else:
+                    page_item["searched_data"] = True
+                    product_data.append(page_item)
+            ret["products"] = product_data
+            bottom = (current_page - 1) * count_per_page
+            top = bottom + count_per_page
+
+            return Response(
+                {
+                    "total": -1,
+                    "from": bottom + 1,
+                    "to": top,
+                    "per_page": count_per_page,
+                    "current_page": page.number,
+                    "next_page": page.next_page_number() if page.has_next() else None,
+                    "prev_page": page.previous_page_number() if page.has_previous() else None,
+                    "data": ret,
+                }
+            )            
+
+        serializer = self.get_serializer(list1, many=True)
         ret["products"] = serializer.data
         return Response(ret)
 
