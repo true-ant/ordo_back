@@ -1467,26 +1467,22 @@ class ProductV2ViewSet(ModelViewSet):
     def list(self, request, *args, **kwargs):
         query = self.request.GET.get("search", "")
         queryset = self.filter_queryset(self.get_queryset())
-        # Add on the fly results
-        session = apps.get_app_config("accounts").session
-        ama_vendor = Vendor()
-        ama_vendor.slug = "amazon"
-        scraper = ScraperFactory.create_scraper(
-                vendor=ama_vendor,
-                session=session,
-            )
-        products_fly = scraper._search_products(query)
 
         list1 = list(queryset)
 
-        for i in range(0, len(list1)-3 if len(list1) > 4 else 0):
-            list1.pop()
+        amazon_inc = self.request.query_params.get("vendors", "").count("amazon") > 0
+        if amazon_inc:
+            # Add on the fly results
+            session = apps.get_app_config("accounts").session
+            ama_vendor = Vendor()
+            ama_vendor.slug = "amazon"
+            scraper = ScraperFactory.create_scraper(
+                    vendor=ama_vendor,
+                    session=session,
+                )
+            products_fly = scraper._search_products(query)
+            list1.extend(products_fly['products'])
 
-        for i in range(0, 3 if len(products_fly['products'])>3 else 0):
-            list1.append(products_fly['products'][i])
-
-        # list1.extend(products_fly['products'])
-        # list1 = products_fly['products']
         count_per_page = int(self.request.query_params.get("per_page", 10))
         current_page = int(self.request.query_params.get("page", 1))
         pagination_obj = Paginator(list1, count_per_page)
