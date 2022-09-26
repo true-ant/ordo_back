@@ -1478,10 +1478,11 @@ class ProductV2ViewSet(ModelViewSet):
         products_fly = scraper._search_products(query)
 
         list1 = list(queryset)
-        for i in range(0, list1.count()-3):
+
+        for i in range(0, len(list1)-3 if len(list1) > 4 else 0):
             list1.pop()
 
-        for i in range(0,2):
+        for i in range(0, 3 if len(products_fly['products'])>3 else 0):
             list1.append(products_fly['products'][i])
 
         # list1.extend(products_fly['products'])
