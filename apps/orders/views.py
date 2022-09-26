@@ -1478,7 +1478,13 @@ class ProductV2ViewSet(ModelViewSet):
         products_fly = scraper._search_products(query)
 
         list1 = list(queryset)
-        list1.extend(products_fly['products'])
+        for i in range(0, list1.count()-3):
+            list1.pop()
+
+        for i in range(0,2):
+            list1.append(products_fly['products'][i])
+
+        # list1.extend(products_fly['products'])
         # list1 = products_fly['products']
         count_per_page = int(self.request.query_params.get("per_page", 10))
         current_page = int(self.request.query_params.get("page", 1))
