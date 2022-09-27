@@ -2,17 +2,22 @@ import asyncio
 from bdb import set_trace
 import datetime
 from typing import Dict, List, Optional
+from urllib import request
 
 from aiohttp import ClientResponse
 from asgiref.sync import sync_to_async
 from scrapy import Selector
-
+from aiohttp import ClientResponse, ClientSession, ClientTimeout
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct
 from apps.types.scraper import InvoiceFile, LoginInformation, ProductSearch
-
+from apps.scrapers.utils import (
+    catch_network,
+    convert_string_to_price,
+    semaphore_coroutine,
+)
 HEADERS = {
     "authority": "www.ultradent.com",
     "cache-control": "max-age=0",
@@ -406,6 +411,7 @@ class UltraDentScraper(Scraper):
     async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
         url = "https://www.ultradent.com/login"
         async with self.session.get(url, headers=HEADERS) as resp:
+            print("get suc")
             login_get_response_dom = Selector(text=await resp.text())
             token = login_get_response_dom.xpath("//input[@name='__RequestVerificationToken']/@value").get()
 
@@ -695,7 +701,7 @@ class UltraDentScraper(Scraper):
         async with self.session.get('https://www.ultradent.com/checkout/clear-cart', headers=CLEAR_HEADERS
         ) as resp:
             response_text = await resp.text()
-            print("Clear Cart:", response_text)
+            print("Clear Cart:")
 
     async def add_to_cart(self, products):
         items = []
@@ -754,25 +760,25 @@ class UltraDentScraper(Scraper):
             billing_address = await self.getBillingAddress()
             print("--- billing address:\n", billing_address.strip() if billing_address else "")
 
-            subtotal = checkout_page_response_dom.xpath(
+            subtotal = convert_string_to_price(checkout_page_response_dom.xpath(
                 '//div[@id="orderTotals"]/div[@class="subtotal"]/span[@class="value"]//text()'
-            ).get()
-            print("--- subtotal:\n", subtotal.strip() if subtotal else "")
+            ).get())
+            print("--- subtotal:\n", subtotal if subtotal else "")
 
             shipping = checkout_page_response_dom.xpath(
                 '//div[@id="orderTotals"]/div[@class="shipping"]/span[@class="value"]//text()'
             ).get()
             print("--- shipping:\n", shipping.strip() if shipping else "")
 
-            tax = checkout_page_response_dom.xpath(
+            tax = convert_string_to_price(checkout_page_response_dom.xpath(
                 '//div[@id="orderTotals"]/div[@class="tax"]/span[@class="value"]//text()'
-            ).get()
-            print("--- tax:\n", tax.strip() if tax else "")
+            ).get())
+            print("--- tax:\n", tax if tax else "")
 
-            order_total = checkout_page_response_dom.xpath(
+            order_total = convert_string_to_price(checkout_page_response_dom.xpath(
                 '//div[@id="orderTotals"]/div[@class="order-total"]/span[@class="value"]//text()'
-            ).get()
-            print("--- order_total:\n", order_total.strip() if order_total else "")
+            ).get())
+            print("--- order_total:\n", order_total if order_total else "")
 
             async with self.session.post('https://www.ultradent.com/Cart/UpdateCart', headers=UPDATECART_HEADERS, data=data) as resp:
                 response_dom = Selector(text=await resp.text())
@@ -789,6 +795,7 @@ class UltraDentScraper(Scraper):
             return order_num
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
+        
         print("Ultradent/create_order")
         await self.login()
         print("111")
@@ -820,6 +827,7 @@ class UltraDentScraper(Scraper):
     
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
         print("ultradent/confirm_order")
+        self.session = ClientSession(timeout=ClientTimeout(30))
         await self.login()
         await self.clear_cart()
         await self.add_to_cart(products)
@@ -837,11 +845,12 @@ class UltraDentScraper(Scraper):
         if fake:
             print("ultradent/confirm_order DONE")
             return {
-                **vendor_order_detail.to_dict(),
+                **vendor_order_detail,
                 **self.vendor.to_dict(),
             }
-        order_num = self.submit_order(checkout_dom)
+        order_num = await self.submit_order(checkout_dom)
+        print("order num is ", order_num)
         return {
-            **vendor_order_detail.to_dict(),
+            **vendor_order_detail,
             **self.vendor.to_dict(),
         }
