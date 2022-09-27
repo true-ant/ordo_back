@@ -1,4 +1,5 @@
 import asyncio
+from bdb import set_trace
 import datetime
 from typing import Dict, List, Optional
 
@@ -62,6 +63,107 @@ SEARCH_HEADERS = {
     "referer": "https://www.ultradent.com/checkout",
     "accept-language": "en-US,en;q=0.9,ko;q=0.8",
 }
+CLEAR_HEADERS = {
+    'authority': 'www.ultradent.com',
+    'sec-ch-ua': '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'upgrade-insecure-requests': '1',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.71 Safari/537.36',
+    'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+    'sec-fetch-site': 'same-origin',
+    'sec-fetch-mode': 'navigate',
+    'sec-fetch-user': '?1',
+    'sec-fetch-dest': 'document',
+    'referer': 'https://www.ultradent.com/checkout',
+    'accept-language': 'en-US,en;q=0.9,ko;q=0.8',
+}
+ADDCART_HEADERS = {
+    'authority': 'www.ultradent.com',
+    'sec-ch-ua': '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
+    'accept': '*/*',
+    'content-type': 'application/json',
+    'authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImluZm9AY29sdW1iaW5lY3JlZWtkZW50aXN0cnkuY29tIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy91c2VyZGF0YSI6IntcIkRhdGFcIjp7XCJVc2VySWRcIjoyMjg3NjUsXCJBY2NvdW50TnVtYmVyXCI6Mzk0NzYwLFwiVXNlckd1aWRcIjpcImZlZWUyYWZhLTM4YmMtNGIwOS1hYmY3LWY5YjcyNjMyNTUyMlwiLFwiRW1haWxcIjpcImluZm9AY29sdW1iaW5lY3JlZWtkZW50aXN0cnkuY29tXCIsXCJGaXJzdE5hbWVcIjpcIkFMRVhBTkRSQVwiLFwiU2FsZXNDaGFubmVsXCI6MX0sXCJVc2VyVHlwZVwiOjAsXCJSb2xlc1wiOltdLFwiUHJldmlld01vZGVcIjpmYWxzZX0iLCJuYmYiOjE2MzI4MTY3NTksImV4cCI6MTYzMjgyMDM1OSwiaWF0IjoxNjMyODE2NzU5LCJpc3MiOiJodHRwczovL3d3dy51bHRyYWRlbnQuY29tIiwiYXVkIjoiaHR0cHM6Ly93d3cudWx0cmFkZW50LmNvbSJ9.jC6AghvW7DWY4fU2qyU0fwUTfCj2iNZhw2QTG65iGd8',
+    'sec-ch-ua-mobile': '?0',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36',
+    'sec-ch-ua-platform': '"Windows"',
+    'origin': 'https://www.ultradent.com',
+    'sec-fetch-site': 'same-origin',
+    'sec-fetch-mode': 'cors',
+    'sec-fetch-dest': 'empty',
+    'referer': 'https://www.ultradent.com/products/categories/bond-etch/etchants/ultra-etch?sku=163-',
+    'accept-language': 'en-US,en;q=0.9,ko;q=0.8',
+}
+CHECKOUT_HEADERS = {
+    'authority': 'www.ultradent.com',
+    'sec-ch-ua': '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'upgrade-insecure-requests': '1',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36',
+    'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+    'sec-fetch-site': 'same-origin',
+    'sec-fetch-mode': 'navigate',
+    'sec-fetch-user': '?1',
+    'sec-fetch-dest': 'document',
+    'referer': 'https://www.ultradent.com/checkout',
+    'accept-language': 'en-US,en;q=0.9,ko;q=0.8',
+}
+UPDATECART_HEADERS = {
+    'authority': 'www.ultradent.com',
+    'cache-control': 'max-age=0',
+    'sec-ch-ua': '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'upgrade-insecure-requests': '1',
+    'origin': 'https://www.ultradent.com',
+    'content-type': 'application/x-www-form-urlencoded',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.61 Safari/537.36',
+    'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+    'sec-fetch-site': 'same-origin',
+    'sec-fetch-mode': 'navigate',
+    'sec-fetch-user': '?1',
+    'sec-fetch-dest': 'document',
+    'referer': 'https://www.ultradent.com/checkout',
+    'accept-language': 'en-US,en;q=0.9,ko;q=0.8',
+}
+BILLING_HEADERS = {
+    'authority': 'www.ultradent.com',
+    'pragma': 'no-cache',
+    'cache-control': 'no-cache',
+    'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
+    'accept': '*/*',
+    'content-type': 'application/json',
+    'authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImluZm9AY29sdW1iaW5lY3JlZWtkZW50aXN0cnkuY29tIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy91c2VyZGF0YSI6IntcIkRhdGFcIjp7XCJVc2VySWRcIjoyMjg3NjUsXCJBY2NvdW50TnVtYmVyXCI6Mzk0NzYwLFwiVXNlckd1aWRcIjpcImZlZWUyYWZhLTM4YmMtNGIwOS1hYmY3LWY5YjcyNjMyNTUyMlwiLFwiRW1haWxcIjpcImluZm9AY29sdW1iaW5lY3JlZWtkZW50aXN0cnkuY29tXCIsXCJGaXJzdE5hbWVcIjpcIkFMRVhBTkRSQVwiLFwiU2FsZXNDaGFubmVsXCI6MX0sXCJVc2VyVHlwZVwiOjAsXCJSb2xlc1wiOltdLFwiUHJldmlld01vZGVcIjpmYWxzZX0iLCJuYmYiOjE2NDc1NDI3MjUsImV4cCI6MTY0NzU0NjMyNSwiaWF0IjoxNjQ3NTQyNzI1LCJpc3MiOiJodHRwczovL3d3dy51bHRyYWRlbnQuY29tIiwiYXVkIjoiaHR0cHM6Ly93d3cudWx0cmFkZW50LmNvbSJ9.9W3tPxFYSBCowZKXZozgarlN_8Xcr4a0J3lFnX0iqjU',
+    'sec-ch-ua-mobile': '?0',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36',
+    'sec-ch-ua-platform': '"Windows"',
+    'origin': 'https://www.ultradent.com',
+    'sec-fetch-site': 'same-origin',
+    'sec-fetch-mode': 'cors',
+    'sec-fetch-dest': 'empty',
+    'referer': 'https://www.ultradent.com/checkout/payment',
+    'accept-language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
+}
+SUBMIT_HEADERS = {
+    'authority': 'www.ultradent.com',
+    'pragma': 'no-cache',
+    'cache-control': 'no-cache',
+    'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'upgrade-insecure-requests': '1',
+    'origin': 'https://www.ultradent.com',
+    'content-type': 'multipart/form-data; boundary=----WebKitFormBoundaryFK2XSoFIILacpl1Z',
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36',
+    'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+    'sec-fetch-site': 'same-origin',
+    'sec-fetch-mode': 'navigate',
+    'sec-fetch-user': '?1',
+    'sec-fetch-dest': 'document',
+    'referer': 'https://www.ultradent.com/checkout/payment',
+    'accept-language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
+}
 ALL_PRODUCTS_VARIABLE = {
     "includeAllSkus": True,
     "withImages": True,
@@ -84,7 +186,6 @@ ALL_PRODUCTS_QUERY = """
     }
   }
 """
-
 PRODUCT_DETAIL_QUERY = """
     query CatalogItem($skuValues: String!, $withPrice: Boolean = false, $withAccessories: Boolean = false) {
         product(sku: $skuValues) {
@@ -166,7 +267,108 @@ GET_ORDER_QUERY = """
         }
     }
 """
+ADD_CART_QUERY = """
+    mutation AddLineItems($input: LineItemsInput!) {
+        addLineItems(input: $input) {
+            changedLineItems {
+            ...CartItemDetail
+            __typename
+            }
+            cart {
+            ...CartDetail
+            __typename
+            }
+            __typename
+        }
+    }
 
+    fragment CartItemDetail on CartLineItem {
+        id
+        quantity
+        linePrice
+        autoAddedItem
+        product {
+            ...baseCatalogDetail
+            quantityBreaks {
+            ...quantityBreakDetail
+            __typename
+            }
+            __typename
+        }
+        __typename
+    }
+
+    fragment CartDetail on Cart {
+        ...CartSummary
+        lineItems {
+            ...CartItemDetail
+            __typename
+        }
+        __typename
+    }
+    
+    fragment baseCatalogDetail on Product {
+        sku
+        brandId
+        url
+        kitName
+        brandName
+        productName
+        productFamily
+        catalogPrice
+        customerPrice
+        inStock
+        isOrderable
+        images {
+            source
+            __typename
+        }
+        __typename
+    }
+
+    fragment quantityBreakDetail on QuantityBreak {
+        price
+        quantity
+        __typename
+    }
+
+    fragment CartSummary on Cart {
+        id
+        poNumber
+        subtotal
+        total
+        __typename
+    }
+"""
+BILLING_QUERY = """
+    query GetCustomer($withAddresses: Boolean = false) {
+        customer {
+            email
+            firstName
+            lastName
+            userGuid
+            isAdmin
+            addresses @include(if: $withAddresses) {
+                ...AddressDetail
+                __typename
+            }
+            __typename
+        }
+    }
+
+    fragment AddressDetail on Address {
+        address1
+        address2
+        addressType
+        city
+        country
+        id
+        postalCode
+        primary
+        state
+        __typename
+    }
+"""
 GET_ORDER_DETAIL_HTML = """
     query GetOrderDetailHtml($orderNumber: Int!) {
         orderHtml(orderNumber: $orderNumber) {
@@ -489,21 +691,157 @@ class UltraDentScraper(Scraper):
             order_detail_html = (await resp.json())["data"]["orderHtml"]["orderDetailHtml"]
             return await self.html2pdf(order_detail_html.encode("utf-8"))
 
+    async def clear_cart(self):
+        async with self.session.get('https://www.ultradent.com/checkout/clear-cart', headers=CLEAR_HEADERS
+        ) as resp:
+            response_text = await resp.text()
+            print("Clear Cart:", response_text)
+
+    async def add_to_cart(self, products):
+        items = []
+        for product in products:
+            items.append(
+                {"sku": product['product_id'], "quantity": product['quantity']}
+            )
+        variables =  {
+            "input": {
+                "lineItems": items
+            }
+        }
+        
+        async with self.session.post(
+            'https://www.ultradent.com/api/ecommerce', headers=ADDCART_HEADERS, json={'query': ADD_CART_QUERY, 'variables': variables}
+        ) as resp:
+            return Selector(text=await resp.text())
+
+    async def getBillingAddress(self):
+        variables =  {
+            "withAddresses": True,
+        }
+        async with self.session.post('https://www.ultradent.com/api/ecommerce', headers=BILLING_HEADERS, json={'query': BILLING_QUERY, 'variables': variables}) as resp:
+            resp_json = await resp.json()
+            for item in resp_json["data"]["customer"]["addresses"]:
+                if item["addressType"] == "Billing":
+                    return f'{item["address1"]} {item["address2"]}\n{item["city"]}, {item["state"]} {item["postalCode"]} {item["country"]}'
+            return ""
+    async def checkout(self):
+        async with self.session.get('https://www.ultradent.com/checkout', headers=CHECKOUT_HEADERS) as resp:
+            checkout_page_response_dom = Selector(text=await resp.text())
+            data = {
+                'PromoCode_TextBox': checkout_page_response_dom.xpath("//input[@name='PromoCode_TextBox']/@value").get(),
+                'ShippingAddress.Value': checkout_page_response_dom.xpath("//input[@name='ShippingAddress.Value']/@value").get(),
+                'ShippingAddress.Original': checkout_page_response_dom.xpath("//input[@name='ShippingAddress.Original']/@value").get(),
+                'shippingMethod.Value': checkout_page_response_dom.xpath("//input[@name='shippingMethod.Value']/@value").get(),
+                'shippingMethod.Original': checkout_page_response_dom.xpath("//input[@name='shippingMethod.Original']/@value").get(),
+                '__RequestVerificationToken': checkout_page_response_dom.xpath("//input[@name='__RequestVerificationToken']/@value").get(),
+                'ContinueCheckout_Button': checkout_page_response_dom.xpath("//input[@name='ContinueCheckout_Button']/@value").get()
+            }
+            for index, line_item in enumerate(checkout_page_response_dom.xpath("//div[@class='paddedBoxContent']/ul[@class='lineItemCollection']/li[@class='lineItem']")):
+                value_key = f"lineItems[{index}].Value"
+                data[value_key] = line_item.xpath(f".//input[@name='{value_key}']/@value").get()
+
+                original_key = f"lineItems[{index}].Original"
+                data[original_key] = line_item.xpath(f".//input[@name='{original_key}']/@value").get()
+
+                key_key = f"lineItems[{index}].Key"
+                data[key_key] = line_item.xpath(f".//input[@name='{key_key}']/@value").get()
+            
+            shipping_address = "\n".join(checkout_page_response_dom.xpath(
+                '//address[@id="shippingAddress"]/span//text()'
+            ).extract())
+            print("--- shipping address:\n", shipping_address.strip() if shipping_address else "")
+            
+            billing_address = await self.getBillingAddress()
+            print("--- billing address:\n", billing_address.strip() if billing_address else "")
+
+            subtotal = checkout_page_response_dom.xpath(
+                '//div[@id="orderTotals"]/div[@class="subtotal"]/span[@class="value"]//text()'
+            ).get()
+            print("--- subtotal:\n", subtotal.strip() if subtotal else "")
+
+            shipping = checkout_page_response_dom.xpath(
+                '//div[@id="orderTotals"]/div[@class="shipping"]/span[@class="value"]//text()'
+            ).get()
+            print("--- shipping:\n", shipping.strip() if shipping else "")
+
+            tax = checkout_page_response_dom.xpath(
+                '//div[@id="orderTotals"]/div[@class="tax"]/span[@class="value"]//text()'
+            ).get()
+            print("--- tax:\n", tax.strip() if tax else "")
+
+            order_total = checkout_page_response_dom.xpath(
+                '//div[@id="orderTotals"]/div[@class="order-total"]/span[@class="value"]//text()'
+            ).get()
+            print("--- order_total:\n", order_total.strip() if order_total else "")
+
+            async with self.session.post('https://www.ultradent.com/Cart/UpdateCart', headers=UPDATECART_HEADERS, data=data) as resp:
+                response_dom = Selector(text=await resp.text())
+                return (
+                    response_dom, subtotal,shipping, tax, order_total, shipping_address
+                )
+
+    async def submit_order(self, response_dom):
+        __RequestVerificationToken = response_dom.xpath("//input[@name='__RequestVerificationToken']/@value").get()
+        data = f'------WebKitFormBoundaryFK2XSoFIILacpl1Z\r\nContent-Disposition: form-data; name="SelectedPaymentMethod"\r\n\r\n4\r\n------WebKitFormBoundaryFK2XSoFIILacpl1Z\r\nContent-Disposition: form-data; name="SelectedBillingAddress"\r\n\r\n1494702\r\n------WebKitFormBoundaryFK2XSoFIILacpl1Z\r\nContent-Disposition: form-data; name="PONumber"\r\n\r\n\r\n------WebKitFormBoundaryFK2XSoFIILacpl1Z\r\nContent-Disposition: form-data; name="__RequestVerificationToken"\r\n\r\n{__RequestVerificationToken}\r\n------WebKitFormBoundaryFK2XSoFIILacpl1Z--\r\n'
+        async with self.session.post('https://www.ultradent.com/checkout/payment', headers=SUBMIT_HEADERS, data=data) as resp:
+            dom = Selector(text=await resp.text())
+            order_num = dom.xpath('//dl[@id="orderDetails"]/dd[1]//text()').get()
+            return order_num
+
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
+        print("Ultradent/create_order")
+        await self.login()
+        print("111")
+        await self.clear_cart()
+        print("222")
+        await self.add_to_cart(products)
+        print("333")
+        resp_dom, subtotal,shipping, tax, order_total, shipping_address = await self.checkout()
+        print("444")
+
         vendor_order_detail = {
             "retail_amount": "",
             "savings_amount": "",
-            "subtotal_amount": "",
-            "shipping_amount": "",
-            "tax_amount": "",
-            "total_amount": "",
+            "subtotal_amount": subtotal,
+            "shipping_amount": shipping,
+            "tax_amount": tax,
+            "total_amount": order_total,
             "payment_method": "",
-            "shipping_address": "",
+            "shipping_address": shipping_address,
         }
         vendor_slug: str = self.vendor.slug
+        print("555")
         return {
             vendor_slug: {
                 **vendor_order_detail,
                 **self.vendor.to_dict(),
             },
+        }
+    
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+        print("ultradent/confirm_order")
+        await self.login()
+        await self.clear_cart()
+        await self.add_to_cart(products)
+        checkout_dom, subtotal,shipping, tax, order_total, shipping_address = await self.checkout()
+        vendor_order_detail = {
+            "retail_amount": "",
+            "savings_amount": "",
+            "subtotal_amount": subtotal,
+            "shipping_amount": shipping,
+            "tax_amount": tax,
+            "total_amount": order_total,
+            "payment_method": "",
+            "shipping_address": shipping_address,
+        }
+        if fake:
+            print("ultradent/confirm_order DONE")
+            return {
+                **vendor_order_detail.to_dict(),
+                **self.vendor.to_dict(),
+            }
+        order_num = self.submit_order(checkout_dom)
+        return {
+            **vendor_order_detail.to_dict(),
+            **self.vendor.to_dict(),
         }

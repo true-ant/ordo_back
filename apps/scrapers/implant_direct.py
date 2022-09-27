@@ -467,14 +467,14 @@ class ImplantDirectScraper(Scraper):
             # await self.session.close()
             # self.session = self.backsession
             vendor_order_detail = {
-            "retail_amount": "",
-            "savings_amount": discount,
-            "subtotal_amount": subtotal,
-            "shipping_amount": shipping,
-            "tax_amount": tax,
-            "total_amount": order_total,
-            "payment_method": "",
-            "shipping_address": shipping_address,
+                "retail_amount": "",
+                "savings_amount": discount,
+                "subtotal_amount": subtotal,
+                "shipping_amount": shipping,
+                "tax_amount": tax,
+                "total_amount": order_total,
+                "payment_method": "",
+                "shipping_address": shipping_address,
             }
             print("Implant Direct/confirm_order DONE")
 
