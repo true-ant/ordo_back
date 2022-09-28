@@ -411,7 +411,6 @@ class UltraDentScraper(Scraper):
     async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
         url = "https://www.ultradent.com/login"
         async with self.session.get(url, headers=HEADERS) as resp:
-            print("get suc")
             login_get_response_dom = Selector(text=await resp.text())
             token = login_get_response_dom.xpath("//input[@name='__RequestVerificationToken']/@value").get()
 
@@ -701,7 +700,7 @@ class UltraDentScraper(Scraper):
         async with self.session.get('https://www.ultradent.com/checkout/clear-cart', headers=CLEAR_HEADERS
         ) as resp:
             response_text = await resp.text()
-            print("Clear Cart:")
+            print("Clear Cart")
 
     async def add_to_cart(self, products):
         items = []
@@ -781,16 +780,19 @@ class UltraDentScraper(Scraper):
             print("--- order_total:\n", order_total if order_total else "")
 
             async with self.session.post('https://www.ultradent.com/Cart/UpdateCart', headers=UPDATECART_HEADERS, data=data) as resp:
-                response_dom = Selector(text=await resp.text())
+                resp_text = await resp.text()
                 return (
-                    response_dom, subtotal,shipping, tax, order_total, shipping_address
+                    resp_text, subtotal,shipping, tax, order_total, shipping_address
                 )
 
     async def submit_order(self, response_dom):
         __RequestVerificationToken = response_dom.xpath("//input[@name='__RequestVerificationToken']/@value").get()
+        print(__RequestVerificationToken)
         data = f'------WebKitFormBoundaryFK2XSoFIILacpl1Z\r\nContent-Disposition: form-data; name="SelectedPaymentMethod"\r\n\r\n4\r\n------WebKitFormBoundaryFK2XSoFIILacpl1Z\r\nContent-Disposition: form-data; name="SelectedBillingAddress"\r\n\r\n1494702\r\n------WebKitFormBoundaryFK2XSoFIILacpl1Z\r\nContent-Disposition: form-data; name="PONumber"\r\n\r\n\r\n------WebKitFormBoundaryFK2XSoFIILacpl1Z\r\nContent-Disposition: form-data; name="__RequestVerificationToken"\r\n\r\n{__RequestVerificationToken}\r\n------WebKitFormBoundaryFK2XSoFIILacpl1Z--\r\n'
         async with self.session.post('https://www.ultradent.com/checkout/payment', headers=SUBMIT_HEADERS, data=data) as resp:
+            print("Place Order Response:", resp.status)
             dom = Selector(text=await resp.text())
+            
             order_num = dom.xpath('//dl[@id="orderDetails"]/dd[1]//text()').get()
             return order_num
 
@@ -798,14 +800,9 @@ class UltraDentScraper(Scraper):
         
         print("Ultradent/create_order")
         await self.login()
-        print("111")
         await self.clear_cart()
-        print("222")
         await self.add_to_cart(products)
-        print("333")
-        resp_dom, subtotal,shipping, tax, order_total, shipping_address = await self.checkout()
-        print("444")
-
+        resp_text, subtotal,shipping, tax, order_total, shipping_address = await self.checkout()
         vendor_order_detail = {
             "retail_amount": "",
             "savings_amount": "",
@@ -827,11 +824,10 @@ class UltraDentScraper(Scraper):
     
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
         print("ultradent/confirm_order")
-        self.session = ClientSession(timeout=ClientTimeout(30))
         await self.login()
         await self.clear_cart()
         await self.add_to_cart(products)
-        checkout_dom, subtotal,shipping, tax, order_total, shipping_address = await self.checkout()
+        resp_text, subtotal,shipping, tax, order_total, shipping_address = await self.checkout()
         vendor_order_detail = {
             "retail_amount": "",
             "savings_amount": "",
@@ -848,6 +844,7 @@ class UltraDentScraper(Scraper):
                 **vendor_order_detail,
                 **self.vendor.to_dict(),
             }
+        checkout_dom = Selector(text=resp_text)
         order_num = await self.submit_order(checkout_dom)
         print("order num is ", order_num)
         return {

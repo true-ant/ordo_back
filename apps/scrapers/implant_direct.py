@@ -425,7 +425,7 @@ class ImplantDirectScraper(Scraper):
         print("implant_direct/create_order DONE")
         return {
             vendor_slug: {
-                **vendor_order_detail.to_dict(),
+                **vendor_order_detail,
                 **self.vendor.to_dict(),
             },
         }
@@ -479,7 +479,7 @@ class ImplantDirectScraper(Scraper):
             print("Implant Direct/confirm_order DONE")
 
             return {
-                **vendor_order_detail.to_dict(),
+                **vendor_order_detail,
                 **self.vendor.to_dict(),
             }
 
@@ -514,6 +514,6 @@ class ImplantDirectScraper(Scraper):
         # await self.session.close()
         # self.session = self.backsession
         return {
-            **vendor_order_detail.to_dict(),
+            **vendor_order_detail,
             **self.vendor.to_dict(),
         }

@@ -1482,7 +1482,9 @@ class ProductV2ViewSet(ModelViewSet):
                     session=session,
                 )
             products_fly = scraper._search_products(query)
-            list1.extend(products_fly['products'])
+            if(len(products_fly['products']) > 0):
+                list1.extend(products_fly['products'])
+                self.available_vendors.append("amazon")
 
         count_per_page = int(self.request.query_params.get("per_page", 10))
         current_page = int(self.request.query_params.get("page", 1))
