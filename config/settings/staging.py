@@ -18,6 +18,7 @@ ALLOWED_HOSTS = [
     "195.110.59.175",
     "127.0.0.1",
 	"172.31.31.78",
+	"172.31.80.186",
     "localhost"
 ]
 # CORS_ALLOWED_ORIGINS = [
