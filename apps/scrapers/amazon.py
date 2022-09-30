@@ -20,7 +20,7 @@ SEARCH_HEADERS = {
     "sec-ch-ua-mobile": "?0",
     "sec-ch-ua-platform": '"Windows"',
     "upgrade-insecure-requests": "1",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "User-Agent": 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:80.0) Gecko/20100101 Firefox/80.0'
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.93 Safari/537.36",
     "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,"
     "image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
@@ -37,24 +37,32 @@ class AmazonScraper(Scraper):
     def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price", office_id=None
     ):
+        log1 = "query = " + query
         url = f"{self.BASE_URL}/s"
         page_size = 16
         params = {"k": query, "page": page, "ref": "nb_sb_noss", "s": "price-asc-rank"}
 
+        log1 += "ama1=="
         resp = session.get(url, headers=SEARCH_HEADERS, params=params)
+        log1 += "ama2 response = " + str(resp.text)
         response_dom = Selector(text=resp.text)
 
         total_size_str = response_dom.xpath("//span[@data-component-type='s-result-info-bar']//h1//span/text()").get()
         try:
             # total_size_str = total_size_str.split("of", 1)[1]
             # total_size_str = self.remove_thousands_separator(self.extract_amount(total_size_str))
+            log1 += "ama3"
             total_size_str = total_size_str.replace(",", "")
+            log1 += "ama4"
             total_size_str = re.search(r'(\d+)\s+results', total_size_str).group(1)
+            log1 += "ama5"
             total_size = int(total_size_str)
         except (ValueError, AttributeError):
+            log1 += "ama6"
             total_size = 0
 
         products = []
+        log1 += "ama7"
         for product_dom in response_dom.xpath(
             '//div[contains(@class, "s-result-list")]/div[contains(@class, "s-result-item")]'
         ):
@@ -69,6 +77,7 @@ class AmazonScraper(Scraper):
                 product_price = product_price.strip("$")
 
             product_image = product_dom.xpath('.//span[@data-component-type="s-product-image"]//img/@src').get()
+            log1 += " " + product_name
             products.append(
                 {
                     "product_id": product_id,
@@ -96,6 +105,7 @@ class AmazonScraper(Scraper):
             "page_size": page_size,
             "products": products,
             "last_page": last_page,
+            "log" : log1
         }
 
 

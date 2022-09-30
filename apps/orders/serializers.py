@@ -383,6 +383,7 @@ class OfficeProductSerializer(serializers.ModelSerializer):
             "office",
             "product_data",
             "price",
+            "nickname",
             "office_product_category",
             "is_favorite",
             "is_inventory",

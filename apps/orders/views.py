@@ -1429,7 +1429,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
         return Response({"meta": pagination_meta, "products": results})
 
 
-class ProductV2ViewSet(ModelViewSet):
+class ProductV2ViewSet(AsyncMixin, ModelViewSet):
     queryset = m.Product.objects.all()
     serializer_class = s.ProductV2Serializer
     pagination_class = SearchProductV2Pagination
@@ -1471,20 +1471,30 @@ class ProductV2ViewSet(ModelViewSet):
 
         list1 = list(queryset)
 
+        log = "111 === "
         amazon_inc = self.request.query_params.get("vendors", "").count("amazon") > 0
         if amazon_inc:
+            log += "222 --"
             # Add on the fly results
             session = apps.get_app_config("accounts").session
             ama_vendor = Vendor()
+            log += "333 --"
             ama_vendor.slug = "amazon"
+            log += "444 --"
             scraper = ScraperFactory.create_scraper(
                     vendor=ama_vendor,
                     session=session,
                 )
+            log += "555 --"
             products_fly = scraper._search_products(query)
+            log += "666 --"
+            log += products_fly['log']
             if(len(products_fly['products']) > 0):
+                log += "777 ==="
                 list1.extend(products_fly['products'])
                 self.available_vendors.append("amazon")
+
+            log += "888--"
 
         count_per_page = int(self.request.query_params.get("per_page", 10))
         current_page = int(self.request.query_params.get("page", 1))
@@ -1530,6 +1540,7 @@ class ProductV2ViewSet(ModelViewSet):
                     "next_page": page.next_page_number() if page.has_next() else None,
                     "prev_page": page.previous_page_number() if page.has_previous() else None,
                     "data": ret,
+                    "log": log,
                 }
             )            
 
