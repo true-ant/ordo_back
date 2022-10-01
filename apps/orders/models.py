@@ -58,7 +58,7 @@ class ProductQuerySet(models.QuerySet):
         return (
             self.annotate(search=RawSQL("search_vector", [], output_field=SearchVectorField()))
             # .annotate(similarity=trigram_similarity)
-            .filter(Q(search=q) | Q(name__icontains=text))
+            .filter(Q(search=q) | Q(name__icontains=text) | Q(nickname__icontains=text))
         )
 
 
@@ -81,6 +81,7 @@ class Product(TimeStampedModel):
     manufacturer_number_origin = models.CharField(max_length=128, null=True, blank=True)
     category = models.ForeignKey(ProductCategory, null=True, blank=True, on_delete=models.SET_NULL, db_index=True)
     name = models.CharField(max_length=512)
+    nickname = models.CharField(max_length=128)
     product_unit = models.CharField(max_length=16, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     url = models.URLField(null=True, blank=True, max_length=300)
@@ -142,6 +143,7 @@ class Product(TimeStampedModel):
             "product_id": self.product_id if self.product_id else "",
             "sku": "",
             "name": self.name,
+            "nickname": self.nickname,
             "url": self.url if self.url else "",
             "images": [image.image for image in self.images.all()],
             "price": self.price,
@@ -153,6 +155,7 @@ class Product(TimeStampedModel):
         return ProductDataClass(
             product_id=self.product_id,
             name=self.name,
+            nickname=self.nickname,
             description=self.description,
             url=self.url,
             images=[ProductImageDataClass(image=image.image) for image in self.images.all()],
@@ -212,7 +215,6 @@ class OfficeProduct(TimeStampedModel):
         Product, on_delete=models.CASCADE, null=True, blank=True, related_name="office_products"
     )
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    nickname = models.CharField(max_length=128, null=True, blank = True)
     product_vendor_status = models.CharField(max_length=512, null=True, blank=True)
     office_category = models.ForeignKey(ProductCategory, null=True, blank=True, on_delete=models.SET_NULL)
     office_product_category = models.ForeignKey(
@@ -244,7 +246,6 @@ class OfficeProduct(TimeStampedModel):
             {
                 "product_id": self.product.product_id,
                 "name": self.product.name,
-                "nickname": self.nickname,
                 "description": self.product.description,
                 "url": self.product.url,
                 "images": [{"image": image.image} for image in self.product.images.all()],

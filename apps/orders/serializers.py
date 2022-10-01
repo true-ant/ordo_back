@@ -88,6 +88,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
             "id",
             "vendor",
             "name",
+            "nickname",
             "product_id",
             "manufacturer_number",
             "category",
@@ -168,6 +169,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "children",
             "product_id",
             "name",
+            "nickname",
             "product_unit",
             "is_special_offer",
             "description",
@@ -383,7 +385,6 @@ class OfficeProductSerializer(serializers.ModelSerializer):
             "office",
             "product_data",
             "price",
-            "nickname",
             "office_product_category",
             "is_favorite",
             "is_inventory",
@@ -413,6 +414,15 @@ class OfficeProductSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         instance = super().update(instance, validated_data)
+        if self.initial_data['nickname']:
+            nick_products = m.Product.objects.filter(
+                id=instance.product.id
+            )
+            for nick_product in nick_products:
+                nick_product.nickname = self.initial_data['nickname']
+            
+            m.Product.objects.bulk_update(nick_products, ['nickname'])
+            
         children_product_ids = [child.id for child in instance.product.children.all()]
         if children_product_ids:
             office_products = m.OfficeProduct.objects.filter(

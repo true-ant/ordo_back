@@ -74,6 +74,7 @@ class ProductCategory(BaseDataClass):
 class Product(BaseDataClass):
     product_id: str
     name: str
+    nickname: str
     description: str
     url: str
     images: List[ProductImage]

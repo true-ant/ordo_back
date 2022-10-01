@@ -23,6 +23,7 @@ class Product(TypedDict):
     product_id: str
     sku: str
     name: str
+    nickname:str
     url: str
     images: List[str]
     price: Decimal
