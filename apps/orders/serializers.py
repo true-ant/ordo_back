@@ -414,7 +414,7 @@ class OfficeProductSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         instance = super().update(instance, validated_data)
-        if self.initial_data['nickname']:
+        if self.initial_data['nickname'] != None:
             nick_products = m.Product.objects.filter(
                 id=instance.product.id
             )
