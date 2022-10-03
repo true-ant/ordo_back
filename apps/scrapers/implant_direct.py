@@ -149,14 +149,19 @@ class ImplantDirectScraper(Scraper):
             response = await self.session.post(action_link, headers=add_to_cart_headers, data=data, cookies=cookies)
 
     async def checkout(self):
+        print("checkout 1")
         response = await self.session.get('https://store.implantdirect.com/us/en/checkout/', headers=site_headers)
+        print("checkout 2")
         response_dom = Selector(text=await response.text())
+        print("checkout 3")
         json_text = response_dom.xpath('//script[contains(text(), "totalsData")]//text()').get().strip()
         json_text = json_text.split("window.checkoutConfig", 1)[1].split("window.customerData", 1)[0].split("window.isCustomerLoggedIn", 1)[0].rsplit("};", 1)[0]
         json_text = json_text.strip("\n\r\t =")
         json_data = json.loads(json_text+"}")
+        print("checkout 4")
 
         cartId = json_data["quoteData"]["entity_id"]
+        print("checkout 5")
         
         shipping_payload = {
             'addressInformation': {
@@ -174,6 +179,8 @@ class ImplantDirectScraper(Scraper):
                 'extension_attributes': {},
             },
         }
+        print("checkout 6")
+
         
         shipping_address_l = json_data["customerData"]["addresses"]
         for item in shipping_address_l.values():
@@ -226,7 +233,10 @@ class ImplantDirectScraper(Scraper):
                 shipping_address = f'{item["inline"]}\n{item["telephone"]}'
                 print("--- shipping_address:\n", shipping_address.strip() if shipping_address else "")
 
+        print("checkout 7")
+
         total_info = await self.shipping_infomation(shipping_payload)
+        print("checkout 8")
         currency = total_info["base_currency_code"]
         subtotal = total_info["subtotal"]
         print("--- subtotal:\n", f'{currency} {subtotal}'.strip() if subtotal else "")
@@ -236,12 +246,14 @@ class ImplantDirectScraper(Scraper):
 
         discount = total_info["discount_amount"]
         print("--- discount:\n", f'{currency} {discount}'.strip() if discount else "")
+        print("checkout 9")
 
         tax = total_info["tax_amount"]
         print("--- tax:\n", f'{currency} {tax}'.strip() if tax else "")
 
         order_total = total_info["grand_total"]
         print("--- order_total:\n", f'{currency} {order_total}'.strip() if order_total else "")
+        print("checkout 10")
 
         return cartId, shipping_payload, shipping_address, subtotal, shipping, discount, tax, order_total
 
