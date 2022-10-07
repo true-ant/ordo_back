@@ -302,7 +302,7 @@ def notify_order_creation(vendor_order_ids, approval_needed):
     notification.recipients.add(*users)
 
     send_mail(
-        subject="Order Approval Needed!" if approval_needed else "Created Order!",
+        subject="Order approval needed" if approval_needed else "Order Confirmation",
         message="message",
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=emails,

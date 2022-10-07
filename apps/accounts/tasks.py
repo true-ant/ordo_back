@@ -41,7 +41,7 @@ def send_forgot_password_mail(user_id, token):
         },
     )
     send_mail(
-        subject="Reset your Ordo password",
+        subject="Password Reset",
         message="message",
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
@@ -88,7 +88,7 @@ def send_company_invite_email(company_email_invites: List[CompanyInvite]):
             },
         )
         send_mail(
-            subject="You've been invited!",
+            subject="You've been invited to Join Ordo!",
             message="message",
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[company_member.email],
@@ -235,7 +235,7 @@ def send_budget_update_notification():
         )
 
         send_mail(
-            subject="Update your budget",
+            subject="It's time to update your budget!",
             message="message",
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=emails,
