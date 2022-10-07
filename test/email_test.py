@@ -1,8 +1,9 @@
 from django.core.mail import send_mail
-from django.conf import settings
 from django.template.loader import render_to_string
 import datetime
 
+SITE_URL = "https://staging.joinordo.com"
+FROM_EMAIL = "noreply@joinordo.com"
 class Company():
     name = ""
 
@@ -27,13 +28,13 @@ def test_approval():
             "total_amount": "$10000",
             "remaining_budget": 1000,
             "office": office,
-            "SITE_URL": settings.SITE_URL,
+            "SITE_URL": SITE_URL,
         },
     )
     send_mail(
         subject="Order approval needed",
         message="message",
-        from_email=settings.DEFAULT_FROM_EMAIL,
+        from_email=FROM_EMAIL,
         recipient_list=list("zachburau@gmail.com"),
         html_message=htm_content,
     )
@@ -53,13 +54,13 @@ def test_confirmation():
             "total_amount": "$10000",
             "remaining_budget": 1000,
             "office": office,
-            "SITE_URL": settings.SITE_URL,
+            "SITE_URL": SITE_URL,
         },
     )
     send_mail(
         subject="Order Confirmation",
         message="message",
-        from_email=settings.DEFAULT_FROM_EMAIL,
+        from_email=FROM_EMAIL,
         recipient_list=list("zachburau@gmail.com"),
         html_message=htm_content,
     )
@@ -69,13 +70,13 @@ def test_reset_password():
         "emails/reset_password.html",
         {
             "TOKEN": "",
-            "SITE_URL": settings.SITE_URL,
+            "SITE_URL": SITE_URL,
         },
     )
     send_mail(
         subject="Password Reset",
         message="message",
-        from_email=settings.DEFAULT_FROM_EMAIL,
+        from_email=FROM_EMAIL,
         recipient_list="zachburau@gmail.com",
         html_message=htm_content,
     )
@@ -85,7 +86,7 @@ def test_welcome_to_ordo():
     send_mail(
         subject="Welcome to Ordo!",
         message="message",
-        from_email=settings.DEFAULT_FROM_EMAIL,
+        from_email=FROM_EMAIL,
         recipient_list="zachburau@gmail.com",
         html_message=htm_content,
     )
@@ -99,13 +100,13 @@ def test_invited():
             "inviter": inviter,
             "company": company,
             "TOKEN": "",
-            "SITE_URL": settings.SITE_URL,
+            "SITE_URL": SITE_URL,
         },
     )
     send_mail(
         subject="You've been invited to Join Ordo!",
         message="message",
-        from_email=settings.DEFAULT_FROM_EMAIL,
+        from_email=FROM_EMAIL,
         recipient_list=["zachburau@gmail.com"],
         html_message=htm_content,
     )
@@ -114,14 +115,14 @@ def test_update_budget():
     htm_content = render_to_string(
         "emails/update_budget.html",
         {
-            "SITE_URL": settings.SITE_URL,
+            "SITE_URL": SITE_URL,
         },
     )
 
     send_mail(
         subject="It's time to update your budget!",
         message="message",
-        from_email=settings.DEFAULT_FROM_EMAIL,
+        from_email=FROM_EMAIL,
         recipient_list=list("zachburau@gmail.com"),
         html_message=htm_content,
     )
