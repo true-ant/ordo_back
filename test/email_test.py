@@ -3,7 +3,15 @@ from django.conf import settings
 from django.template.loader import render_to_string
 import datetime
 
-from apps.accounts.models import Company, Office, User
+class Company():
+    name = ""
+
+class Office():
+    name=""
+    shipping_address = ""
+
+class User():
+    full_name = ""
 def test_approval():
     # Approval Needed
     office = Office(name="Columbine Creek Dentistry")
@@ -83,7 +91,7 @@ def test_welcome_to_ordo():
     )
 
 def test_invited():
-    inviter = User(role=1, first_name="Admin", last_name="Admin")
+    inviter = User(full_name="Test Inviter")
     company = Company(name="Columbine Creek Dentistry")
     htm_content = render_to_string(
         "emails/invite.html",
