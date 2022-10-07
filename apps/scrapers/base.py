@@ -83,10 +83,13 @@ class Scraper:
     @staticmethod
     def normalize_order_status(order_status):
         order_status = order_status.lower()
+        if "shipped" in order_status:
+            return "closed"
+
         if any(
             status in order_status
             for status in ("delivered", "shipped", "complete", "order shipped", "cancelled", "closed")
-        ):
+        ):            
             return "closed"
         elif any([status in order_status for status in ("open", "in progress", "processing", "pending")]):
             return "open"
@@ -130,16 +133,20 @@ class Scraper:
         is_already_login, kwargs = await self._get_check_login_state()
         if not is_already_login:
             login_info = await self._get_login_data(**kwargs)
+            print("hhhere")
+
             async with self.session.post(
                 login_info["url"], headers=login_info["headers"], data=login_info["data"]
             ) as resp:
                 if resp.status != 200:
+                    print("not 200 here")
                     raise VendorAuthenticationFailed()
-
                 is_authenticated = await self._check_authenticated(resp)
                 if not is_authenticated:
+                    print("not 2-- second")
                     raise VendorAuthenticationFailed()
 
+                print("2323")
                 await self._after_login_hook(resp)
 
             return resp.cookies
@@ -332,6 +339,7 @@ class Scraper:
         from apps.orders.models import VendorOrderProduct as VendorOrderProductModel
 
         order_data = order.to_dict()
+        print("===== base/save_order_to_db start1 =====")
         order_data.pop("shipping_address")
         order_products_data = order_data.pop("products")
         order_id = order_data["order_id"]
@@ -353,8 +361,8 @@ class Scraper:
                     print("===== base/save_order_to_db 6 =====")
                     vendor_order = VendorOrderModel.objects.get(vendor=self.vendor, vendor_order_id=order_id)
             except VendorOrderModel.DoesNotExist:
-                print("===== base/save_order_to_db 7 =====")
-
+                print("===== base/save_order_to_db 7 =====", order_data, order_date)
+        
                 order = OrderModel.objects.create(
                     office=office,
                     status=order_data["status"],
@@ -376,6 +384,7 @@ class Scraper:
                     office_budget = office.budgets.filter(month__year = order_date.year).filter(month__month__gte=order_date.month).order_by("month").first()
 
                     logger.debug("office_budget is {office_budget}")
+                    print(f"office_budget is {office_budget}")
                     if office_budget:
                         office_budget.id = None
                         print("===== base/save_order_to_db 26 =====")
@@ -386,11 +395,11 @@ class Scraper:
                         office_budget.save()
                     else:
                         print("else case!")
-                        return
+                        # return
 
-                print("===== base/save_order_to_db 10 =====")
+                print("===== base/save_order_to_db 10 =====", order_products_data)
                 for order_product_data in order_products_data:
-                    print("===== base/save_order_to_db 11 =====")
+                    print("===== base/save_order_to_db 11 =====", order_product_data)
 
                     product_data = order_product_data.pop("product")
                     product, _ = self.save_single_product_to_db(

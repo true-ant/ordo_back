@@ -551,18 +551,23 @@ class UltraDentScraper(Scraper):
             orders_data = (await resp.json())["data"]["orders"]
             tasks = []
             for order_data in orders_data:
+                print("================= #1 ===")
                 order_date = datetime.date.fromisoformat(order_data["orderDate"])
+                print(order_data, from_date, to_date)
                 if from_date and to_date and (order_date < from_date or order_date > to_date):
                     continue
 
                 if completed_order_ids and str(order_data["orderNumber"]) in completed_order_ids:
                     continue
 
-                tasks.append(self.get_order(sem, order_data, office))
-
+                tasks.append(self.get_order(sem, order_data, office))            
+            print("================= #2 ===")
+            print(tasks)
             if tasks:
                 orders = await asyncio.gather(*tasks, return_exceptions=True)
-            return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
+                return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
+            else:
+                return []
 
     async def get_product_detail_as_dict(self, product_id, product_url) -> dict:
         json_data = {

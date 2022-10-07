@@ -166,6 +166,8 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
             vendor=office_vendor.vendor, order__office=office_vendor.office, status=OrderStatus.CLOSED
         ).values_list(order_id_field, flat=True)
     )
+    print("========== completed order ids==========")
+    print(completed_order_ids)
     asyncio.run(get_orders(office_vendor, cookie, True, completed_order_ids))
     # office_vendor = OfficeVendor.objects.select_related("office", "vendor").get(id=office_vendor_id)
     # asyncio.run(
