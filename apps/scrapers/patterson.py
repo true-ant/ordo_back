@@ -4,6 +4,7 @@ import json
 import re
 from decimal import Decimal
 from typing import Dict, List, Optional
+import uuid
 
 from aiohttp import ClientResponse
 from scrapy import Selector
@@ -730,6 +731,7 @@ class PattersonScraper(Scraper):
                 "total_amount": order_total,
                 "payment_method": "",
                 "shipping_address": shipping_address,
+                "order_id": f"{uuid.uuid4()}",
             }
             return {
                 **vendor_order_detail,
@@ -753,6 +755,7 @@ class PattersonScraper(Scraper):
             "total_amount": order_total,
             "payment_method": "",
             "shipping_address": shipping_address,
+            "order_id":"invalid"
         }
         return {
             **vendor_order_detail,

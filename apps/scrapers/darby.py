@@ -4,6 +4,7 @@ from email.errors import HeaderParseError
 import time
 import re
 from typing import Dict, List, Optional
+import uuid
 
 from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
@@ -567,6 +568,7 @@ class DarbyScraper(Scraper):
             return {
                 **vendor_order_detail.to_dict(),
                 **self.vendor.to_dict(),
+                "order_id":f"{uuid.uuid4()}",
             }
 
         link = await self.checkout()
@@ -575,6 +577,7 @@ class DarbyScraper(Scraper):
         return {
             **vendor_order_detail.to_dict(),
             **self.vendor.to_dict(),
+            "order_id":"invalid"
         }
 
     # async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):

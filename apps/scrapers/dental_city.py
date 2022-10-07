@@ -946,6 +946,7 @@ class DentalCityScraper(Scraper):
             "total_amount": order_total.strip("$") if isinstance(order_total, str) else order_total,
             "payment_method": "",
             "shipping_address": shipping_address,
+            "order_id": order_num
         })
         return {
             **vendor_order_detail.to_dict(),

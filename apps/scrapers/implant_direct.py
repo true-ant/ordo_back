@@ -4,6 +4,7 @@ from typing import Dict, List, Tuple
 from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
 
+import uuid
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import VendorOrderDetail
 from apps.types.orders import CartProduct
@@ -329,6 +330,7 @@ class ImplantDirectScraper(Scraper):
                 "total_amount": order_total,
                 "payment_method": "",
                 "shipping_address": shipping_address,
+                "order_id":f"{uuid.uuid4()}",
             }
             print("Implant Direct/confirm_order DONE")
 
@@ -366,6 +368,7 @@ class ImplantDirectScraper(Scraper):
             "total_amount": order_total,
             "payment_method": "",
             "shipping_address": shipping_address,
+            "order_id": order_num
         }
         # await self.session.close()
         # self.session = self.backsession

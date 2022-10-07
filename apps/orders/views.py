@@ -1448,7 +1448,7 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
             selected_products=selected_products,
         )
         self.available_vendors = available_vendors
-        
+        products_testlist = list(products)
         return products
         # products = m.Product.objects.search(query)
         # product_ids = products.values_list("id", flat=True)

@@ -3,6 +3,7 @@ from bdb import set_trace
 import datetime
 from typing import Dict, List, Optional
 from urllib import request
+import uuid
 
 from aiohttp import ClientResponse
 from asgiref.sync import sync_to_async
@@ -833,6 +834,26 @@ class UltraDentScraper(Scraper):
         await self.clear_cart()
         await self.add_to_cart(products)
         resp_text, subtotal,shipping, tax, order_total, shipping_address = await self.checkout()
+        
+        if fake:
+            vendor_order_detail = {
+                "retail_amount": "",
+                "savings_amount": "",
+                "subtotal_amount": subtotal,
+                "shipping_amount": shipping,
+                "tax_amount": tax,
+                "total_amount": order_total,
+                "payment_method": "",
+                "shipping_address": shipping_address,
+                "order_id": f"{uuid.uuid4()}",
+            }
+            print("ultradent/confirm_order DONE")
+            return {
+                **vendor_order_detail,
+                **self.vendor.to_dict(),
+            }
+        checkout_dom = Selector(text=resp_text)
+        order_num = await self.submit_order(checkout_dom)
         vendor_order_detail = {
             "retail_amount": "",
             "savings_amount": "",
@@ -842,15 +863,8 @@ class UltraDentScraper(Scraper):
             "total_amount": order_total,
             "payment_method": "",
             "shipping_address": shipping_address,
+            "order_id": order_num,
         }
-        if fake:
-            print("ultradent/confirm_order DONE")
-            return {
-                **vendor_order_detail,
-                **self.vendor.to_dict(),
-            }
-        checkout_dom = Selector(text=resp_text)
-        order_num = await self.submit_order(checkout_dom)
         print("order num is ", order_num)
         return {
             **vendor_order_detail,
