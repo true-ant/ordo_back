@@ -1212,11 +1212,16 @@ class ProductHelper:
         if selected_products is None:
             selected_products = []
 
+        products_test = list(products)
+
         parent_product_ids = products.filter(parent__isnull=False).values_list("parent_id", flat=True)
         product_ids = products.filter(parent__isnull=True).values_list("id", flat=True)
         products = ProductModel.objects.filter(Q(id__in=parent_product_ids) | Q(id__in=product_ids)).select_related(
             "vendor", "category"
         )
+
+        products_test = list(products)
+
 
         # TODO: this should be optimized
         office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk))
