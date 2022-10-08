@@ -9,6 +9,16 @@ SITE_URL = "https://staging.joinordo.com"
 FROM_EMAIL = "noreply@joinordo.com"
 
 class Command(BaseCommand):
+
+    
+    def handle(self, *args, **options):
+        self.test_invited()
+        self.test_welcome_to_ordo()
+        self.test_approval()
+        self.test_confirmation()
+        self.test_reset_password()
+        self.test_update_budget()
+
     def test_approval(self):
         # Approval Needed
         office = Office("Columbine Creek Dentistry")
@@ -123,8 +133,6 @@ class Command(BaseCommand):
             html_message=htm_content,
         )
 
-    def handle(self, *args, **options):
-        self.test_invited()
 
 class Company():
     def __init__(self, name) -> None:
@@ -139,8 +147,8 @@ class User():
     def __init__(self, name):
         self.full_name = name
 
-if __name__ == "__main__":
-    test_invited()
+# if __name__ == "__main__":
+#     test_invited()
     # test_welcome_to_ordo()
     # test_approval()
     # test_confirmation()
