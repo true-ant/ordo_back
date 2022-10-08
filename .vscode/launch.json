@@ -6,11 +6,10 @@
       "type": "python",
       "request": "launch",
       "module": "uvicorn",
-      "args": [
-        "config.asgi:application --host 0.0.0.0 --port 443"        
-      ],
+      "args": ["config.asgi:application"],
       "justMyCode": false
     },
+
     {
       "name": "Python: Django",
       "type": "python",
