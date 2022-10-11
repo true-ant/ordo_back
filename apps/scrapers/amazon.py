@@ -108,7 +108,3 @@ class AmazonScraper(Scraper):
             "log" : log1
         }
 
-
-# if __name__=="__main__":
-#     results = AmazonScraper()._search_products("black authors")
-#     print(results)

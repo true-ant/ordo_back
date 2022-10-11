@@ -1,12 +1,22 @@
 import asyncio
 import datetime
+from http.cookies import SimpleCookie
+import uuid
 import re
 from math import prod
+import time
 from typing import Dict, List, Optional
 
 import scrapy
 from aiohttp import ClientResponse
 from scrapy import Selector
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.remote.webelement import WebElement
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
@@ -70,10 +80,20 @@ ORDER_HEADERS = {
 def extractContent(dom, xpath):
     return re.sub(r"\s+", " ", " ".join(dom.xpath(xpath).extract())).strip()
 class EdgeEndoScraper(Scraper):
+    
     BASE_URL = "https://www.henryschein.com"
     CATEGORY_URL = "https://www.henryschein.com/us-en/dental/c/browsesupplies"
     TRACKING_BASE_URL = "https://narvar.com/tracking/itemvisibility/v1/henryschein-dental/orders"
     product_skus = dict()
+    
+    def __init__(self):
+        self.driver = None
+        self.sleepAmount = 10
+        
+    async def textParser(self, element):
+        text = await element.get_attribute("textContent")
+        return await text.strip() if text else ""
+
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         text = await response.text()
         return "CustomerID" in text
@@ -309,7 +329,288 @@ class EdgeEndoScraper(Scraper):
     ) -> ProductSearch:
         return await self._search_products_from_table(query, page, min_price, max_price, sort_by, office_id)
 
+    async def setDriver(self):
+        user_agent = (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/80.0.3987.132 Safari/537.36"
+        )
+        caps = DesiredCapabilities.CHROME
+        caps["pageLoadStrategy"] = "eager"
+        chrome_options = await webdriver.ChromeOptions()
+        # chrome_options.add_argument("--headless")
+        await chrome_options.add_argument("--disable-dev-shm-usage")
+        await chrome_options.add_argument(f"user-agent={user_agent}")
+        await chrome_options.add_argument("--log-level=3")
+        driver = await webdriver.Chrome(
+            options=chrome_options,
+            desired_capabilities=caps,
+        )
+        await driver.set_window_size(1920, 1080)
+        return driver
+
+    async def scroll_and_click_element(self, element: WebElement):
+        # self.driver.execute_script("arguments[0].scrollIntoView(false);", element)
+        try:
+            await element.click()
+        except:
+            await self.driver.execute_script("arguments[0].click();", element)
+        
+        await time.sleep(0.5)
+
+    async def clear_cart(self):
+        try:
+            await self.driver.get("https://store.edgeendo.com/storefront.aspx")
+            clear_cart_ele = await WebDriverWait(self.driver, self.sleepAmount).until(
+                await EC.element_to_be_clickable(
+                    (
+                        By.XPATH,
+                        '//a[@id="ctl00_ctl00_ctl00_cphMain_ctl00_ctrShoppingCart_lbRemoveAll"]',
+                    )
+                )
+            )
+            await self.scroll_and_click_element(clear_cart_ele)
+            await WebDriverWait(self.driver, self.sleepAmount).until(EC.alert_is_present())
+            await self.driver.switch_to.alert.accept()
+            await time.sleep(3)
+        except TimeoutException:
+            pass
+
+    async def add_to_cart(self, products):
+        for product in products:
+            await self.driver.get(product["productlink"])
+            sku = product["productid"]
+            await WebDriverWait(self.driver, self.sleepAmount).until(
+                await EC.presence_of_element_located(
+                    (
+                        By.XPATH,
+                        '//td[@id="ctl00_ctl00_ctl00_cphMain_cphMain_tdMain"]',
+                    )
+                )
+            )
+            if "nextExpressOrderDetailContainer" in self.driver.page_source:
+                open_tab_ele = await WebDriverWait(self.driver, self.sleepAmount).until(
+                    await EC.element_to_be_clickable(
+                        (
+                            By.XPATH,
+                            '//a[@id="__tab_ctl00_ctl00_ctl00_cphMain_cphMain_cphMain_pdtProduct_tcTabs_tpReviewsQuestions3"]'
+                        )
+                    )
+                )
+                await self.scroll_and_click_element(open_tab_ele)
+                
+                while True:
+                    quantity_ele = await WebDriverWait(self.driver, self.sleepAmount).until(
+                        await EC.presence_of_element_located(
+                            (
+                                By.XPATH,
+                                f'//table[@class="nextExpressOrderSKUTable"]//tr/td[2][contains(text(), "{sku}")]'
+                                '/following-sibling::td/span/input[@title="Enter Quantity"]'
+                            )
+                        )
+                    )
+                    quantity = await quantity_ele.get_attribute('value')
+
+                    if quantity == product["quantity"]:
+                        add_to_cart_btn = await WebDriverWait(self.driver, self.sleepAmount).until(
+                            await EC.element_to_be_clickable(
+                                (
+                                    By.XPATH,
+                                    '//div[@class="nextExpressOrderATC"]//input[@type="submit"]'
+                                )
+                            )
+                        )
+                        await self.scroll_and_click_element(add_to_cart_btn)
+                        await time.sleep(2)
+                        await self.wait_cart_action()
+                        break
+                    else:
+                        plus_quantity_ele = await WebDriverWait(self.driver, self.sleepAmount).until(
+                            await EC.element_to_be_clickable(
+                                (
+                                    By.XPATH,
+                                    f'//table[@class="nextExpressOrderSKUTable"]//tr/td[2][contains(text(), "{sku}")]'
+                                    '/following-sibling::td/span/a[contains(@id, "Quantity_aIncrementTxt")]'
+                                )
+                            )
+                        )
+                        await self.scroll_and_click_element(plus_quantity_ele)
+            else:
+                while True:
+                    quantity_ele = await WebDriverWait(self.driver, self.sleepAmount).until(
+                        await EC.presence_of_element_located(
+                            (
+                                By.XPATH,
+                                '//input[@name="ctl00$ctl00$ctl00$cphMain$cphMain$cphMain$pdtProduct$atcTabbed$txtQuantity"]',
+                            )
+                        )
+                    )
+                    quantity = await quantity_ele.get_attribute('value')
+
+                    if quantity == product["quantity"]:
+                        add_to_cart_btn = await WebDriverWait(self.driver, self.sleepAmount).until(
+                            await EC.element_to_be_clickable(
+                                (
+                                    By.XPATH,
+                                    '//input[@name="ctl00$ctl00$ctl00$cphMain$cphMain$cphMain$pdtProduct$atcTabbed$btnAddToCart"]',
+                                )
+                            )
+                        )
+                        await self.scroll_and_click_element(add_to_cart_btn)
+                        await time.sleep(2)
+                        await self.wait_cart_action()
+                        break
+                    else:
+                        plus_quantity_ele = await WebDriverWait(self.driver, self.sleepAmount).until(
+                            await EC.element_to_be_clickable(
+                                (
+                                    By.XPATH,
+                                    '//a[@id="ctl00_ctl00_ctl00_cphMain_cphMain_cphMain_pdtProduct_atcTabbed_aIncrementATCTxt"]',
+                                )
+                            )
+                        )
+                        await self.scroll_and_click_element(plus_quantity_ele)
+    
+    async def wait_cart_action(self):
+        while True:
+            progress_ele = await WebDriverWait(self.driver, self.sleepAmount).until(
+                await EC.presence_of_element_located(
+                    (
+                        By.XPATH,
+                        '//div[contains(@id, "upoCartData_uprProgress")]',
+                    )
+                )
+            )
+            progress_style = await progress_ele.get_attribute("style")
+            if "block" in progress_style:
+                break
+    
+    async def checkout(self):
+        checkoutBtn = None
+        try:
+            checkoutBtn = await self.driver.find_element(
+                By.XPATH, '//input[contains(@name, "$cphMain$ctl00$btnCheckOutBottom")]'
+            )
+        except NoSuchElementException:
+            pass
+
+        if not checkoutBtn:
+            await self.driver.get("https://store.edgeendo.com/storefront.aspx")
+            checkoutBtn = await WebDriverWait(self.driver, self.sleepAmount*2).until(
+                await EC.element_to_be_clickable((
+                        By.XPATH,
+                        '//input[contains(@name, "$cphMain$ctl00$btnCheckOutBottom")]'
+                ))
+            )
+        await self.scroll_and_click_element(checkoutBtn)
+        continueBtn = await WebDriverWait(self.driver, self.sleepAmount).until(
+            await EC.element_to_be_clickable((
+                    By.XPATH,
+                    '//input[contains(@name, "$cphMain$uplUpsell$btnClose")]'
+            ))
+        )
+        await self.scroll_and_click_element(continueBtn)
+
+    async def secure_payment(self):
+        securepaymentBtn = await WebDriverWait(self.driver, self.sleepAmount).until(
+            await EC.element_to_be_clickable((
+                    By.XPATH,
+                    '//input[contains(@name, "$cphMain$dbSubmit$btnSubmit")]'
+            ))
+        )
+        await self.scroll_and_click_element(securepaymentBtn)
+
+    async def real_order(self):
+        shipping_address_ele = await WebDriverWait(self.driver, self.sleepAmount).until(
+            await EC.element_to_be_clickable((
+                    By.XPATH,
+                    '//td[@class="nextInvoiceShipToAddress"]'
+            ))
+        )
+        shipping_address = await self.textParser(shipping_address_ele)
+        print("Shpping Address:\n", shipping_address)
+        
+        billing_address_ele = await WebDriverWait(self.driver, self.sleepAmount).until(
+            await EC.element_to_be_clickable((
+                    By.XPATH,
+                    '//span[contains(@id, "adBillTo_spnAddressDisplay")]'
+            ))
+        )
+        billing_address = await  self.textParser(billing_address_ele)
+        print("Billing Address:\n", billing_address)
+        
+        subtotal_ele = await WebDriverWait(self.driver, self.sleepAmount).until(
+            await EC.element_to_be_clickable((
+                    By.XPATH,
+                    '//td[contains(@id, "sctrShipToOrder_tdSubtotalPrice")]'
+            ))
+        )
+        subtotal = await  self.textParser(subtotal_ele)
+        print("Subtotal:\n", subtotal)
+        
+        tax_ele = await WebDriverWait(self.driver, self.sleepAmount).until(
+            await EC.element_to_be_clickable((
+                    By.XPATH,
+                    '//td[contains(@id, "sctrShipToOrder_tdSalesTaxPrice")]'
+            ))
+        )
+        tax = await self.textParser(tax_ele)
+        print("Tax:\n", tax)
+        
+        shipping_ele = await  WebDriverWait(self.driver, self.sleepAmount).until(
+            await EC.element_to_be_clickable((
+                    By.XPATH,
+                    '//td[contains(@id, "sctrShipToOrder_tdShippingPrice")]'
+            ))
+        )
+        shipping = await  self.textParser(shipping_ele)
+        print("Shipping:\n", shipping)
+        
+        order_total_ele = await  WebDriverWait(self.driver, self.sleepAmount).until(
+            await EC.element_to_be_clickable((
+                By.XPATH,
+                '//td[contains(@id, "sctrShipToOrder_tdTotalPrice")]'
+            ))
+        )
+        order_total = await  self.textParser(order_total_ele)
+        print("Order Total:\n", order_total)
+
+        # payment option
+        invoice_ele = await WebDriverWait(self.driver, self.sleepAmount).until(
+            await EC.element_to_be_clickable((
+                By.XPATH,
+                '//tr[@id="ctl00_cphMain_piInformation_trInvoicePay"]//label'
+            ))
+        )
+        await self.scroll_and_click_element(invoice_ele)
+        
+        submitBtn = await  WebDriverWait(self.driver, self.sleepAmount).until(
+            await EC.element_to_be_clickable((
+                    By.XPATH,
+                    '//input[contains(@name, "$cphMain$dbOrderSubmit$btnSubmit")]'
+            ))
+        )
+        await self.scroll_and_click_element(submitBtn)
+
+        # order number
+        ordernum_ele = await  WebDriverWait(self.driver, self.sleepAmount).until(
+            await EC.presence_of_element_located((
+                By.XPATH,
+                '//p[@class="nextOrderConfirmationText"]/b[1]'
+            ))
+        )
+        orderNumber = await ordernum_ele.get_attribute("textContent")
+        print("Order Number:", orderNumber)
+
+        return shipping_address, shipping, tax, subtotal, order_total, orderNumber
+
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
+        print("edge_endo/create_order")
+        self.driver = await self.setDriver()
+        await self.login()
+        await self.clear_cart()
+        await self.add_to_cart(products)
+        await self.checkout()
+
         vendor_order_detail = {
             "retail_amount": "",
             "savings_amount": "",
@@ -326,4 +627,47 @@ class EdgeEndoScraper(Scraper):
                 **vendor_order_detail,
                 **self.vendor.to_dict(),
             },
+        }
+
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+        print("edge_endo/confirm_order")
+        self.driver = await self.setDriver()
+        await self.login()
+        await self.clear_cart()
+        await self.add_to_cart(products)
+        await self.checkout()
+        
+        
+        if fake:
+            vendor_order_detail = {
+                "retail_amount": "",
+                "savings_amount": "",
+                "subtotal_amount": "",
+                "shipping_amount": "",
+                "tax_amount": "",
+                "total_amount": "",
+                "payment_method": "",
+                "shipping_address": "",
+            }
+            return {
+                **vendor_order_detail.to_dict(),
+                "order_id": f"{uuid.uuid4()}",
+            }
+
+        await self.secure_payment()
+        shipping_address, shipping, tax, subtotal, order_total, orderNumber = await self.real_order()
+
+        vendor_order_detail = {
+            "retail_amount": "",
+            "savings_amount": "",
+            "subtotal_amount": subtotal,
+            "shipping_amount": shipping,
+            "tax_amount": tax,
+            "total_amount": order_total,
+            "payment_method": "",
+            "shipping_address": shipping_address,
+        }
+        return {
+            **vendor_order_detail.to_dict(),
+            "order_id": orderNumber,
         }

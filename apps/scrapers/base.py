@@ -133,7 +133,6 @@ class Scraper:
         is_already_login, kwargs = await self._get_check_login_state()
         if not is_already_login:
             login_info = await self._get_login_data(**kwargs)
-            print("hhhere")
 
             async with self.session.post(
                 login_info["url"], headers=login_info["headers"], data=login_info["data"]

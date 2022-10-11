@@ -851,19 +851,12 @@ class DentalCityScraper(Scraper):
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("dentalcity/create_order")
         await self.login()
-        print("1")
         await self.clear_cart()
-        print("2")
         await self.add_to_cart(products)
-        print("3")
         shipping_address = await self.proceed_checkout()
-        print("4")
         await self.save_shipping_address()
-        print("5")
         await self.shipping_quotation()
-        print("6")
         saved, sub_total, shipping, tax, order_total = await self.total_calculation()
-        print("7")
         vendor_order_detail = VendorOrderDetail.from_dict({
             "retail_amount": "",
             "savings_amount": saved.strip("$") if isinstance(saved, str) else saved,
