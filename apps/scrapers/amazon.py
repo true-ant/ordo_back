@@ -2,109 +2,65 @@ import re
 import logging
 from scrapy import Selector
 from requests import Session
+from typing import Dict, List, Optional
+from aiohttp import ClientResponse, ClientSession
+
+import undetected_chromedriver.v2 as uc
+
+
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Product
 from apps.types.scraper import ProductSearch
+from apps.types.orders import CartProduct
+from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
+
 session = Session()
 
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-SEARCH_HEADERS = {
-    "authority": "www.amazon.com",
-    "rtt": "250",
-    "downlink": "10",
-    "ect": "4g",
-    "sec-ch-ua": '" Not A;Brand";v="99", "Chromium";v="96", "Google Chrome";v="96"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "upgrade-insecure-requests": "1",
-    "User-Agent": 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:80.0) Gecko/20100101 Firefox/80.0'
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.93 Safari/537.36",
-    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,"
-    "image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "sec-fetch-site": "none",
-    "sec-fetch-mode": "navigate",
-    "sec-fetch-user": "?1",
-    "sec-fetch-dest": "document",
-    "accept-language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
-}
-
 class AmazonScraper(Scraper):
+
+    def __init__(
+        self,
+        session: ClientSession,
+        vendor,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        ):
+        Scraper.__init__(self,session,vendor, username,password)
+        self.driver = None
+        self.sleepAmount = 10
+        self.results = list()
+        self.testval = 0
+        
+
     BASE_URL = "https://www.amazon.com"
 
-    def _search_products(
-        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price", office_id=None
-    ):
-        log1 = "query = " + query
-        url = f"{self.BASE_URL}/s"
-        page_size = 16
-        params = {"k": query, "page": page, "ref": "nb_sb_noss", "s": "price-asc-rank"}
+    def setDriver(self):
+        user_agent = (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/80.0.3987.132 Safari/537.36"
+        )
 
-        log1 += "ama1=="
-        resp = session.get(url, headers=SEARCH_HEADERS, params=params)
-        log1 += "ama2 response = " + str(resp.text)
-        response_dom = Selector(text=resp.text)
+        chrome_options = uc.ChromeOptions()
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        # chrome_options.add_argument("--headless")
+        chrome_options.add_argument(f"user-agent={user_agent}")
+        chrome_options.add_argument("--start-maximized")
+        chrome_options.add_argument("--log-level=3")
+        driver = uc.Chrome(
+            # ChromeDriverManager().install(),
+            options=chrome_options,
+        )
+        self.testval = 23
+        return driver
 
-        total_size_str = response_dom.xpath("//span[@data-component-type='s-result-info-bar']//h1//span/text()").get()
-        try:
-            # total_size_str = total_size_str.split("of", 1)[1]
-            # total_size_str = self.remove_thousands_separator(self.extract_amount(total_size_str))
-            log1 += "ama3"
-            total_size_str = total_size_str.replace(",", "")
-            log1 += "ama4"
-            total_size_str = re.search(r'(\d+)\s+results', total_size_str).group(1)
-            log1 += "ama5"
-            total_size = int(total_size_str)
-        except (ValueError, AttributeError):
-            log1 += "ama6"
-            total_size = 0
-
-        products = []
-        log1 += "ama7"
-        for product_dom in response_dom.xpath(
-            '//div[contains(@class, "s-result-list")]/div[contains(@class, "s-result-item")]'
-        ):
-            product_id = product_dom.xpath("./@data-asin").get()  # asin
-            if not product_id:
-                continue
-
-            product_name = product_dom.xpath(".//h2//text()").get()
-            product_url = product_dom.xpath(".//h2/a/@href").get()
-            product_price = product_dom.xpath('.//span[@class="a-price"]/span[@class="a-offscreen"]//text()').get()
-            if product_price:
-                product_price = product_price.strip("$")
-
-            product_image = product_dom.xpath('.//span[@data-component-type="s-product-image"]//img/@src').get()
-            log1 += " " + product_name
-            products.append(
-                {
-                    "product_id": product_id,
-                    "product_unit": "",
-                    "name": product_name,
-                    "description": "",
-                    "url": f"{self.BASE_URL}{product_url}",
-                    "images": [
-                        {
-                            "image": product_image,
-                        }
-                    ],
-                    "price": product_price,
-                    "vendor": "amazon",
-                }
-            )
-
-        next_page_button = response_dom.xpath(".//a[contains(@class, 's-pagination-next')]")
-        last_page = not bool(next_page_button)
-
-        return {
-            "vendor_slug": "amazon",
-            "total_size": total_size,
-            "page": page,
-            "page_size": page_size,
-            "products": products,
-            "last_page": last_page,
-            "log" : log1
-        }
-
+    async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
+        print("amazon/create_order")
+        self.driver = self.setDriver()
+        print(self.testval)
+        
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+        print("amazon/confirm_order")

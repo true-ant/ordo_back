@@ -45,6 +45,7 @@ from apps.common.pagination import (
 from apps.common.utils import get_date_range, group_products_from_search_result
 from apps.orders.helpers import OfficeProductHelper, ProductHelper
 from apps.orders.services.order import OrderService
+from apps.scrapers.amazonsearch import AmazonSearchScraper
 from apps.scrapers.errors import VendorNotConnected, VendorNotSupported, VendorSiteError
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import CartProduct
@@ -1477,12 +1478,12 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
             session = apps.get_app_config("accounts").session
             ama_vendor = Vendor()
             ama_vendor.slug = "amazon"
-            scraper = ScraperFactory.create_scraper(
-                    vendor=ama_vendor,
-                    session=session,
-                )
-            products_fly = scraper._search_products(query)
-            log += products_fly['log']
+            # scraper = ScraperFactory.create_scraper(
+            #         vendor=ama_vendor,
+            #         session=session,
+            #     )
+            products_fly = AmazonSearchScraper()._search_products(query)
+            # log += products_fly['log']
             if(len(products_fly['products']) > 0):
                 list1.extend(products_fly['products'])
                 self.available_vendors.append("amazon")
@@ -1531,7 +1532,7 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
                     "next_page": page.next_page_number() if page.has_next() else None,
                     "prev_page": page.previous_page_number() if page.has_previous() else None,
                     "data": ret,
-                    "log": log,
+                    # "log": log,
                 }
             )            
 
