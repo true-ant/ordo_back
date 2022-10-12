@@ -24,7 +24,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
-from apps.scrapers.utils import catch_network, semaphore_coroutine
+from apps.scrapers.utils import catch_network, convert_string_to_price, semaphore_coroutine
 from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation, ProductSearch
 
@@ -312,6 +312,7 @@ class EdgeEndoScraper(Scraper):
         )
         
         driver.set_window_size(1920, 1080)
+        print("edge_endo/set_Driver done")
         return driver
     
     def login(self):
@@ -352,6 +353,7 @@ class EdgeEndoScraper(Scraper):
 
             self.scroll_and_click_element(loginBtn)
             time.sleep(5)
+            print("edge_endo/login done")
         except:
             traceback.print_exc()
     
@@ -464,6 +466,7 @@ class EdgeEndoScraper(Scraper):
                             )
                         )
                         self.scroll_and_click_element(plus_quantity_ele)
+        print("edge_endo/add_to_cart done")
 
     def clear_cart(self):
         try:
@@ -480,6 +483,7 @@ class EdgeEndoScraper(Scraper):
             WebDriverWait(self.driver, self.sleepAmount).until(EC.alert_is_present())
             self.driver.switch_to.alert.accept()
             time.sleep(3)
+            print("edge_endo/clear_cart Done")
         except TimeoutException:
             pass
 
@@ -509,7 +513,7 @@ class EdgeEndoScraper(Scraper):
         )
         self.scroll_and_click_element(continueBtn)
         time.sleep(1.5)
-
+        print("edge_endo/checkout done")
     
     def secure_payment(self):
         securepaymentBtn = WebDriverWait(self.driver, self.sleepAmount).until(
@@ -520,6 +524,7 @@ class EdgeEndoScraper(Scraper):
         )
         self.scroll_and_click_element(securepaymentBtn)
         time.sleep(1)
+        print("edge_endo/secure_payment done")
 
 
     def real_order(self):
@@ -547,7 +552,7 @@ class EdgeEndoScraper(Scraper):
                     '//td[contains(@id, "sctrShipToOrder_tdSubtotalPrice")]'
             ))
         )
-        subtotal = self.textParser(subtotal_ele)
+        subtotal = convert_string_to_price(self.textParser(subtotal_ele))
         print("Subtotal:\n", subtotal)
         
         tax_ele = WebDriverWait(self.driver, self.sleepAmount).until(
@@ -556,7 +561,7 @@ class EdgeEndoScraper(Scraper):
                     '//td[contains(@id, "sctrShipToOrder_tdSalesTaxPrice")]'
             ))
         )
-        tax = self.textParser(tax_ele)
+        tax = convert_string_to_price(self.textParser(tax_ele))
         print("Tax:\n", tax)
         
         shipping_ele = WebDriverWait(self.driver, self.sleepAmount).until(
@@ -565,7 +570,7 @@ class EdgeEndoScraper(Scraper):
                     '//td[contains(@id, "sctrShipToOrder_tdShippingPrice")]'
             ))
         )
-        shipping = self.textParser(shipping_ele)
+        shipping = convert_string_to_price(self.textParser(shipping_ele))
         print("Shipping:\n", shipping)
         
         order_total_ele = WebDriverWait(self.driver, self.sleepAmount).until(
@@ -574,7 +579,7 @@ class EdgeEndoScraper(Scraper):
                 '//td[contains(@id, "sctrShipToOrder_tdTotalPrice")]'
             ))
         )
-        order_total = self.textParser(order_total_ele)
+        order_total = convert_string_to_price(self.textParser(order_total_ele))
         print("Order Total:\n", order_total)
 
         # payment option
@@ -640,12 +645,12 @@ class EdgeEndoScraper(Scraper):
 
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
         print("edge_endo/confirm_order")
-        # loop = asyncio.get_event_loop()
-        # self.driver = await loop.run_in_executor(None,self.setDriver)
-        # await loop.run_in_executor(None,self.login)
-        # await loop.run_in_executor(None,self.clear_cart)
-        # await loop.run_in_executor(None,self.add_to_cart, products)
-        # await loop.run_in_executor(None,self.checkout)    
+        loop = asyncio.get_event_loop()
+        self.driver = await loop.run_in_executor(None,self.setDriver)
+        await loop.run_in_executor(None,self.login)
+        await loop.run_in_executor(None,self.clear_cart)
+        await loop.run_in_executor(None,self.add_to_cart, products)
+        await loop.run_in_executor(None,self.checkout)
 
         # self.driver = self.setDriver()
         # self.login()
@@ -662,17 +667,17 @@ class EdgeEndoScraper(Scraper):
                 "tax_amount": "3.43",
                 "total_amount": "54.27",
                 "payment_method": "",
-                "shipping_address": "Alexandra KantorColumbine Creek Dentistry4760 W Mineral Ave Suite 60Littleton, CO 80128720-222-2345This is a business address",
+                "shipping_address": "Alexandra KantorColumbine Creek Dentistry",
             }
             return {
                 **vendor_order_detail,
                 "order_id": f"{uuid.uuid4()}",
             }
-        # await loop.run_in_executor(None,self.secure_payment)    
-        # shipping_address, shipping, tax, subtotal, order_total, orderNumber = await loop.run_in_executor(None,self.real_order)    
+        await loop.run_in_executor(None,self.secure_payment)
+        shipping_address, shipping, tax, subtotal, order_total, orderNumber = await loop.run_in_executor(None,self.real_order)    
 
         # self.secure_payment()
-        shipping_address, shipping, tax, subtotal, order_total, orderNumber = self.real_order()
+        # shipping_address, shipping, tax, subtotal, order_total, orderNumber = self.real_order()
 
         vendor_order_detail = {
             "retail_amount": "",
