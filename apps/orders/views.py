@@ -8,7 +8,7 @@ from datetime import timedelta
 from decimal import Decimal
 from functools import reduce
 from typing import Union
-
+from aiohttp import ClientSession
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
 from django.apps import apps
@@ -928,7 +928,11 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         )
         ret = {}
         try:
-            session = apps.get_app_config("accounts").session
+            conf = apps.get_app_config("accounts")
+            if hasattr(conf, 'session'):
+                session = conf.session
+            else:
+                session = ClientSession()
             tasks = []
             tmp_variables = []
             for office_vendor in office_vendors:
@@ -972,7 +976,9 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                     result[vendor_slug]["tax_amount"] = Decimal(0)
                     result[vendor_slug]["total_amount"] = tmp_variables[i]
                 ret.update(result)
+            await session.close()
         except Exception as e:
+            await session.close()
             return Response({"message": f"{e}"}, status=HTTP_400_BAD_REQUEST)
 
         products = await sync_to_async(get_serializer_data)(s.CartSerializer, cart_products, many=True)
@@ -988,7 +994,11 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         if not cart_products:
             return Response({"can_checkout": False, "message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
 
-        session = apps.get_app_config("accounts").session
+        conf = apps.get_app_config("accounts")
+        if hasattr(conf, 'session'):
+            session = apps.get_app_config("accounts").session
+        else:
+            session = ClientSession()
         tasks = []
         debug = OrderService.is_debug_mode(request.META["HTTP_HOST"])
 
@@ -1041,6 +1051,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
         order_data = await self._create_order(office_vendors, results, cart_products, order_approval_needed, data)
+        await session.close()
         return Response(order_data)
 
     @action(detail=False, url_path="add-multiple-products", methods=["post"])
@@ -1475,13 +1486,6 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
         amazon_inc = self.request.query_params.get("vendors", "").count("amazon") > 0
         if amazon_inc:
             # Add on the fly results
-            session = apps.get_app_config("accounts").session
-            ama_vendor = Vendor()
-            ama_vendor.slug = "amazon"
-            # scraper = ScraperFactory.create_scraper(
-            #         vendor=ama_vendor,
-            #         session=session,
-            #     )
             products_fly = AmazonSearchScraper()._search_products(query)
             # log += products_fly['log']
             if(len(products_fly['products']) > 0):

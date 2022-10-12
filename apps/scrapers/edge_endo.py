@@ -18,6 +18,9 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
@@ -280,7 +283,6 @@ class EdgeEndoScraper(Scraper):
 
     # create browser
     def setDriver(self):
-        time.sleep(3)
         user_agent = (
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) "
             "Chrome/80.0.3987.132 Safari/537.36"
@@ -288,19 +290,31 @@ class EdgeEndoScraper(Scraper):
 
         caps = DesiredCapabilities.CHROME
         caps["pageLoadStrategy"] = "eager"
-        chrome_options = webdriver.ChromeOptions()
-        # chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        chrome_options.add_argument(f"user-agent={user_agent}")
-        chrome_options.add_argument("--log-level=3")
+        # chrome_options = webdriver.ChromeOptions()
+        # # chrome_options.add_argument("--headless")
+        # chrome_options.add_argument("--disable-dev-shm-usage")
+        # chrome_options.add_argument(f"user-agent={user_agent}")
+        # chrome_options.add_argument("--log-level=3")
+        # driver = webdriver.Chrome(
+        #     options=chrome_options,
+        #     desired_capabilities=caps,
+        # )
+        options = Options()
+        options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument(f"user-agent={user_agent}")
+        options.add_argument("--log-level=3")
         driver = webdriver.Chrome(
-            options=chrome_options,
+            service=Service(ChromeDriverManager().install()), 
+            options=options, 
             desired_capabilities=caps,
         )
+        
         driver.set_window_size(1920, 1080)
         return driver
+    
     def login(self):
-        time.sleep(3)
         try:
             self.driver.get("https://store.edgeendo.com/login.aspx")
             emailInput = WebDriverWait(self.driver, self.sleepAmount).until(
@@ -353,13 +367,13 @@ class EdgeEndoScraper(Scraper):
             )
             progress_style = progress_ele.get_attribute("style")
             if "block" in progress_style:
+                time.sleep(3)
                 break
 
     def add_to_cart(self, products):
-        time.sleep(3)
         for product in products:
-            self.driver.get(product["productlink"])
-            sku = product["productid"]
+            self.driver.get(product["product_url"])
+            sku = product["product_id"]
             WebDriverWait(self.driver, self.sleepAmount).until(
                 EC.presence_of_element_located(
                     (
@@ -389,7 +403,7 @@ class EdgeEndoScraper(Scraper):
                             )
                         )
                     )
-                    quantity = quantity_ele.get_attribute('value')
+                    quantity = int(quantity_ele.get_attribute('value'))
 
                     if quantity == product["quantity"]:
                         add_to_cart_btn = WebDriverWait(self.driver, self.sleepAmount).until(
@@ -452,7 +466,6 @@ class EdgeEndoScraper(Scraper):
                         self.scroll_and_click_element(plus_quantity_ele)
 
     def clear_cart(self):
-        time.sleep(3)
         try:
             self.driver.get("https://store.edgeendo.com/storefront.aspx")
             clear_cart_ele = WebDriverWait(self.driver, self.sleepAmount).until(
@@ -471,7 +484,6 @@ class EdgeEndoScraper(Scraper):
             pass
 
     def checkout(self):
-        time.sleep(3)
         checkoutBtn = None
         try:
             checkoutBtn = self.driver.find_element(
@@ -496,9 +508,10 @@ class EdgeEndoScraper(Scraper):
             ))
         )
         self.scroll_and_click_element(continueBtn)
+        time.sleep(1.5)
+
     
     def secure_payment(self):
-        time.sleep(3)
         securepaymentBtn = WebDriverWait(self.driver, self.sleepAmount).until(
             EC.element_to_be_clickable((
                     By.XPATH,
@@ -506,9 +519,10 @@ class EdgeEndoScraper(Scraper):
             ))
         )
         self.scroll_and_click_element(securepaymentBtn)
+        time.sleep(1)
+
 
     def real_order(self):
-        time.sleep(4)
         shipping_address_ele = WebDriverWait(self.driver, self.sleepAmount).until(
             EC.element_to_be_clickable((
                     By.XPATH,
@@ -594,11 +608,17 @@ class EdgeEndoScraper(Scraper):
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("edge_endo/create_order")
-        self.driver = await self.setDriver()
-        await self.login()
-        await self.clear_cart()
-        await self.add_to_cart(products)
-        await self.checkout()
+        # loop = asyncio.get_event_loop()
+        # self.driver = await loop.run_in_executor(None,self.setDriver)
+        # await loop.run_in_executor(None,self.login)
+        # await loop.run_in_executor(None,self.clear_cart)
+        # await loop.run_in_executor(None,self.add_to_cart, products)
+
+        # self.driver = self.setDriver()
+        # self.login()
+        # self.clear_cart()
+        # self.add_to_cart(products)
+        # self.checkout()
 
         vendor_order_detail = {
             "retail_amount": "",
@@ -620,31 +640,39 @@ class EdgeEndoScraper(Scraper):
 
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
         print("edge_endo/confirm_order")
-        self.driver = await self.setDriver()
-        await self.login()
-        await self.clear_cart()
-        await self.add_to_cart(products)
-        await self.checkout()
-        
+        # loop = asyncio.get_event_loop()
+        # self.driver = await loop.run_in_executor(None,self.setDriver)
+        # await loop.run_in_executor(None,self.login)
+        # await loop.run_in_executor(None,self.clear_cart)
+        # await loop.run_in_executor(None,self.add_to_cart, products)
+        # await loop.run_in_executor(None,self.checkout)    
+
+        # self.driver = self.setDriver()
+        # self.login()
+        # self.clear_cart()
+        # self.add_to_cart(products)
+        # self.checkout()
         
         if fake:
             vendor_order_detail = {
                 "retail_amount": "",
                 "savings_amount": "",
-                "subtotal_amount": "",
-                "shipping_amount": "",
-                "tax_amount": "",
-                "total_amount": "",
+                "subtotal_amount": "50.84",
+                "shipping_amount": "0.00",
+                "tax_amount": "3.43",
+                "total_amount": "54.27",
                 "payment_method": "",
-                "shipping_address": "",
+                "shipping_address": "Alexandra KantorColumbine Creek Dentistry4760 W Mineral Ave Suite 60Littleton, CO 80128720-222-2345This is a business address",
             }
             return {
-                **vendor_order_detail.to_dict(),
+                **vendor_order_detail,
                 "order_id": f"{uuid.uuid4()}",
             }
+        # await loop.run_in_executor(None,self.secure_payment)    
+        # shipping_address, shipping, tax, subtotal, order_total, orderNumber = await loop.run_in_executor(None,self.real_order)    
 
-        await self.secure_payment()
-        shipping_address, shipping, tax, subtotal, order_total, orderNumber = await self.real_order()
+        # self.secure_payment()
+        shipping_address, shipping, tax, subtotal, order_total, orderNumber = self.real_order()
 
         vendor_order_detail = {
             "retail_amount": "",
@@ -657,6 +685,6 @@ class EdgeEndoScraper(Scraper):
             "shipping_address": shipping_address,
         }
         return {
-            **vendor_order_detail.to_dict(),
+            **vendor_order_detail,
             "order_id": orderNumber,
         }
