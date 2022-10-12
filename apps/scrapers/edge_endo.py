@@ -1,16 +1,13 @@
 import asyncio
 import datetime
-from http.cookies import SimpleCookie
 import traceback
 import uuid
 import re
-from math import prod
 import time
 from typing import Dict, List, Optional
 
 import scrapy
-from aiohttp import ClientResponse, ClientSession
-from scrapy import Selector
+from aiohttp import ClientSession
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
@@ -26,7 +23,7 @@ from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network, convert_string_to_price, semaphore_coroutine
 from apps.types.orders import CartProduct
-from apps.types.scraper import LoginInformation, ProductSearch
+from apps.types.scraper import ProductSearch
 
 LOGIN_PAGE_HEADERS = {
     "Connection": "keep-alive",

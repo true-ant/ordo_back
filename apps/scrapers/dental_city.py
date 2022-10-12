@@ -8,6 +8,7 @@ from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
+from apps.scrapers.edge_endo import ORDER_HEADERS, extractContent
 from apps.scrapers.schema import VendorOrderDetail, Order
 from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct
