@@ -42,6 +42,8 @@ class ImplantDirectScraper(Scraper):
         if password:
             self.password = password
 
+        
+
         loop = asyncio.get_event_loop()
         res = await loop.run_in_executor(None,self.login_proc)
         print("login DONE")
@@ -72,6 +74,8 @@ class ImplantDirectScraper(Scraper):
         login_link = home_dom.xpath('//ul/li[contains(@class, "authorization-link")]/a/@href').get()
         login_resp = self.getLoginPage(login_link)
         login_dom = scrapy.Selector(text=login_resp.text)
+        if login_dom.css("title::text").get() != "Customer Login":
+            return True
         form_key = login_dom.xpath('//form[@id="login-form"]/input[@name="form_key"]/@value').get()
         form_action = login_dom.xpath('//form[@id="login-form"]/@action').get()
         data = {
@@ -303,21 +307,27 @@ class ImplantDirectScraper(Scraper):
         print("Order Result Response:", response.status_code)
 
         response_dom = Selector(text=response.text)
-        order_num = response_dom.xpath('//a[@class="order-number"]/strong//text()').get()
+        order_num = response_dom.xpath('//div[@class="checkout-success"]//strong/text()').get()
         order_num = order_num.strip() if order_num else order_num
         return order_num
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("Implant Direct/create_order")
+        loop = asyncio.get_event_loop()
+        await self.login()
+        await loop.run_in_executor(None,self.clear_cart)
+        await loop.run_in_executor(None,self.add_to_cart, products)
+        cartId, shipping_payload, shipping_address, subtotal, shipping, discount, tax, order_total = await loop.run_in_executor(None,self.proceed_checkout)
         vendor_order_detail = {
             "retail_amount": "",
-            "savings_amount": "",
-            "subtotal_amount": "",
-            "shipping_amount": "",
-            "tax_amount": "",
-            "total_amount": "",
+            "savings_amount": discount,
+            "subtotal_amount": subtotal,
+            "shipping_amount": shipping,
+            "tax_amount": tax,
+            "total_amount": order_total,
             "payment_method": "",
-            "shipping_address": "",
+            "shipping_address": shipping_address,
+            "order_id":f"{uuid.uuid4()}",
         }
         vendor_slug: str = self.vendor.slug
         return {
@@ -329,6 +339,7 @@ class ImplantDirectScraper(Scraper):
 
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
         print("Implant Direct/confirm_order")
+        self.reqsession = requests.Session()
         loop = asyncio.get_event_loop()
         await self.login()
         await loop.run_in_executor(None,self.clear_cart)

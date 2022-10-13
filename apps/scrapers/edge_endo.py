@@ -622,6 +622,9 @@ class EdgeEndoScraper(Scraper):
         # self.add_to_cart(products)
         # self.checkout()
 
+        from time import sleep
+        sleep(3)
+
         vendor_order_detail = {
             "retail_amount": "",
             "savings_amount": "",
@@ -648,12 +651,6 @@ class EdgeEndoScraper(Scraper):
         await loop.run_in_executor(None,self.clear_cart)
         await loop.run_in_executor(None,self.add_to_cart, products)
         await loop.run_in_executor(None,self.checkout)
-
-        # self.driver = self.setDriver()
-        # self.login()
-        # self.clear_cart()
-        # self.add_to_cart(products)
-        # self.checkout()
         
         if fake:
             vendor_order_detail = {
@@ -673,8 +670,8 @@ class EdgeEndoScraper(Scraper):
         await loop.run_in_executor(None,self.secure_payment)
         shipping_address, shipping, tax, subtotal, order_total, orderNumber = await loop.run_in_executor(None,self.real_order)    
 
-        # self.secure_payment()
-        # shipping_address, shipping, tax, subtotal, order_total, orderNumber = self.real_order()
+        self.secure_payment()
+        shipping_address, shipping, tax, subtotal, order_total, orderNumber = self.real_order()
 
         vendor_order_detail = {
             "retail_amount": "",
