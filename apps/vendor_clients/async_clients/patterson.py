@@ -153,12 +153,13 @@ class PattersonClient(BaseClient):
                     f"https://content.pattersondental.com/items/LargeSquare/images/{image['AssetFilename']}"
                     for image in product_detail["Images"]
                 ],
-                "price": Decimal(str(product_detail["UnitPrice"])),
+                "price": Decimal(str(product_detail["UnitPrice"]) if product_detail["UnitPrice"] != None else 0),
                 "product_vendor_status": "",
                 "category": "",
                 "unit": "",
             }
         except (TypeError, json.decoder.JSONDecodeError):
+            print("Patterson/TypeError")
             pass
 
     async def checkout_and_review_order(self, shipping_method: Optional[str] = None) -> dict:
