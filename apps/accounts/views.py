@@ -174,6 +174,22 @@ class OfficeViewSet(ModelViewSet):
         serializer.save()
         return Response(serializer.data)
 
+    @action(detail=True, methods=["post"], url_path="dental_api")
+    def set_dental_api(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if "key" in request.data and "pull_option" in request.data:
+            instance.dental_api = request.data["key"]
+            instance.save()
+            return Response(status=HTTP_200_OK)
+        return Response(status = HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=["get"], url_path="update_budget")
+    def update_budget_from_dental(self, request, *args, **kwargs):
+        instance = self.get_object()
+        api_key = instance.dental_api
+        if api_key == None:
+            return Response(HTTP_400_BAD_REQUEST)
+        
 
 class CompanyMemberViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
