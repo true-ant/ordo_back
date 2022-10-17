@@ -188,25 +188,25 @@ class BaseClient:
             headers = getattr(self, "GET_PRODUCT_PAGE_HEADERS")
             product_page_dom = await self.get_response_as_dom(url=product["url"], headers=headers)
             product_detail = self.serialize(product, product_page_dom)
+
         if semaphore:
             semaphore.release()
-        print("get_product DONE")
+
         return product_detail
 
     async def get_products(
         self, products: List[types.Product], login_required: bool = True
     ) -> Dict[str, Optional[types.Product]]:
-        print("get_products")
         """Get the list of product information"""
         semaphore = Semaphore(value=self.MULTI_CONNECTIONS)
         ret: Dict[str, Optional[types.Product]] = {}
 
         if login_required:
             await self.login()
+
         tasks = (self.get_product(product=product, semaphore=semaphore, login_required=False) for product in products)
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for product, result in zip(products, results):
-            print("result is ", result)
             if isinstance(result, dict):
                 ret[product["product_id"]] = result
             else:
@@ -216,7 +216,6 @@ class BaseClient:
     async def get_products_prices(
         self, products: List[types.Product], login_required: bool = True, *args, **kwargs
     ) -> Dict[str, types.ProductPrice]:
-        print("get_products_prices")
         """Get the list of products prices"""
         if login_required:
             await self.login()
