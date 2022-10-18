@@ -229,8 +229,8 @@ class OfficeProductHelper:
         product_prices_from_db = await sync_to_async(OfficeProductHelper.get_products_prices_from_db)(
             products, office_id
         )
-        print("after from_db")
-        product_prices_from_db = defaultdict(dict)
+        # print("after from_db")
+        # product_prices_from_db = defaultdict(dict)
 
 
         # fetch prices from vendors
