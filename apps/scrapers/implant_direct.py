@@ -1,3 +1,5 @@
+import datetime
+import time
 import re
 import json
 import uuid
@@ -11,7 +13,7 @@ from http.cookies import SimpleCookie
 
 from apps.scrapers.base import Scraper
 from apps.scrapers.utils import catch_network, semaphore_coroutine
-from apps.scrapers.schema import VendorOrderDetail
+from apps.scrapers.schema import VendorOrderDetail, Order
 from apps.types.orders import CartProduct
 
 
@@ -34,6 +36,10 @@ headers = {
 class ImplantDirectScraper(Scraper):
 
     reqsession = requests.Session()
+    results = list()
+
+    def extractContent(dom, xpath):
+        return re.sub(r"\s+", " ", " ".join(dom.xpath(xpath).extract())).strip()
 
     @catch_network
     async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> SimpleCookie:
@@ -41,8 +47,6 @@ class ImplantDirectScraper(Scraper):
             self.username = username
         if password:
             self.password = password
-
-        
 
         loop = asyncio.get_event_loop()
         res = await loop.run_in_executor(None,self.login_proc)
@@ -67,7 +71,135 @@ class ImplantDirectScraper(Scraper):
     def getProductPage(self, link):
         response = self.reqsession.get(link, headers=headers)
         return response.text
+
+    def getOrderDetailPage(self, _link):
+        response = self.reqsession.get(_link, headers=headers)
+        print("Order Detail Page:", response.status_code)
+
+    @semaphore_coroutine
+    async def get_order(self, sem, order, office=None) -> dict:
+        print(" === get order ==", office, order)
+        loop = asyncio.get_event_loop()
+        order_dict = await loop.run_in_executor(None,self.orderDetail, order['order_detail_link'])
+        order_dict.update(order)
+        order_dict.udpate({"currency":"USD"})
+        print(order_dict)
+        if office:
+            await self.save_order_to_db(office, order=Order.from_dict(order_dict))
+
+    async def get_orders(
+        self,
+        office=None,
+        perform_login=False,
+        from_date: Optional[datetime.date] = None,
+        to_date: Optional[datetime.date] = None,
+        completed_order_ids: Optional[List[str]] = None,
+    ) -> List[Order]:
+        sem = asyncio.Semaphore(value=2)
+        if perform_login:
+            loop = asyncio.get_event_loop()
+            res = await loop.run_in_executor(None,self.login_proc)
+            
+        await loop.run_in_executor(None, self.orderHistory, 1)
+        tasks=[]
+
+        for order_data in self.results:
+            month, day, year= order_data["order_date"].split("/")                
+            order_date = datetime.date(int(year), int(month), int(day))
+            order_data["order_date"] = order_date
+            if from_date and to_date and (order_date < from_date or order_date > to_date):
+                continue
+
+            if completed_order_ids and str(order_data["order_id"]) in completed_order_ids:
+                continue
+            tasks.append(self.get_order(sem, order_data, office))
+        if tasks:
+            orders = await asyncio.gather(*tasks)
+            return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
+        else:
+            return []
+
+    def orderHistory(self, page):
+        json_headers = {
+            'authority': 'store.implantdirect.com',
+            'accept': 'application/json, text/javascript, */*; q=0.01',
+            'accept-language': 'en-US,en;q=0.9',
+            'referer': 'https://store.implantdirect.com/us/en/customer/order/',
+            'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-fetch-dest': 'empty',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-site': 'same-origin',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36',
+            'x-newrelic-id': 'VQUAU1dTABABVFdVBgYEUFcD',
+            'x-requested-with': 'XMLHttpRequest',
+        }
+
+        params = {
+            'namespace': 'customer_order_listing',
+            'sorting[field]': 'creation_date',
+            'sorting[direction]': 'desc',
+            'filters[placeholder]': 'true',
+            'paging[pageSize]': '50',
+            'paging[current]': f'{page}',
+            '_': f'{int(time.time()*1000)}',
+        }
+
+        response = self.reqsession.get('https://store.implantdirect.com/us/en/customer/order/grid/', params=params, headers=json_headers)
+        data = response.json()
+
+        for order_item in data["items"]:
+            order_history = dict()
+            order_history["order_id"] = order_item["entity_id"]
+            order_history["order_number"] = order_item["increment_id"]
+            order_history["order_date"] = order_item["creation_date"]
+            order_history["order_subtotal"] = order_item["subtotal_amount"]
+            order_history["order_tax"] = order_item["tax_amount"]
+            order_history["order_shipping"] = order_item["shipping_amount"]
+            order_history["order_total"] = order_item["grand_total"]
+            order_history["order_status"] = order_item["state"]
+            order_detail_link = order_item["actions_view"]["view"]["href"]
+            print(order_detail_link)
+            order_history["order_detail_link"] = order_detail_link
+            self.results.append(order_history)
+
+
+        if data["totalRecords"] > 50 * page:
+            self.orderHistory(page+1)
         
+    def orderDetail(self, _link):
+        self.getOrderDetailPage(_link)
+        json_headers = {
+            'authority': 'store.implantdirect.com',
+            'accept': 'application/json, text/javascript, */*; q=0.01',
+            'accept-language': 'en-US,en;q=0.9',
+            'referer': _link,
+            'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-fetch-dest': 'empty',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-site': 'same-origin',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36',
+            'x-newrelic-id': 'VQUAU1dTABABVFdVBgYEUFcD',
+            'x-requested-with': 'XMLHttpRequest',
+        }
+
+        response = self.reqsession.get(
+            f'https://store.implantdirect.com/us/en/mui/index/render/?namespace=customer_order_items&_={int(time.time()*1000)}',
+            headers=json_headers
+        )
+        products = list()
+        for product_item in response.json()["items"]:
+            product = dict()
+            product["name"] = product_item["name"]
+            product["sku"] = product_item["sku"]
+            product["price"] = product_item["price"]
+            product["qty"] = product_item["qty"]
+            product["subtotal"] = product_item["row_total"]
+            products.append(product)
+
+        return products
+    
     def login_proc(self):
         home_resp = self.getHomePage()
         home_dom = scrapy.Selector(text=home_resp.text)
@@ -87,7 +219,7 @@ class ImplantDirectScraper(Scraper):
         response = self.reqsession.post(form_action, data=data, headers=headers)
         print(response.url)
         print("Log In POST:", response.status_code)
-        return response.cookies
+        return response.cookies        
 
     def clear_cart(self):
         cart_page = self.getCartPage()
