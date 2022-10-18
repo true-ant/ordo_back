@@ -82,7 +82,7 @@ class ImplantDirectScraper(Scraper):
         loop = asyncio.get_event_loop()
         order_dict = await loop.run_in_executor(None,self.orderDetail, order['order_detail_link'])
         order_dict.update(order)
-        order_dict.udpate({"currency":"USD"})
+        order_dict.update({"currency":"USD"})
         print(order_dict)
         if office:
             await self.save_order_to_db(office, order=Order.from_dict(order_dict))
@@ -104,8 +104,10 @@ class ImplantDirectScraper(Scraper):
         tasks=[]
 
         for order_data in self.results:
-            month, day, year= order_data["order_date"].split("/")                
-            order_date = datetime.date(int(year), int(month), int(day))
+            print(order_data["order_date"])
+            # month, day, year= order_data["order_date"].split("/")                
+            # order_date = datetime.date(int(year), int(month), int(day))
+            order_date = datetime.datetime.strptime(order_data["order_date"], "%b %d, %Y").date()
             order_data["order_date"] = order_date
             if from_date and to_date and (order_date < from_date or order_date > to_date):
                 continue
@@ -151,16 +153,15 @@ class ImplantDirectScraper(Scraper):
         for order_item in data["items"]:
             order_history = dict()
             order_history["order_id"] = order_item["entity_id"]
-            order_history["order_number"] = order_item["increment_id"]
             order_history["order_date"] = order_item["creation_date"]
-            order_history["order_subtotal"] = order_item["subtotal_amount"]
-            order_history["order_tax"] = order_item["tax_amount"]
-            order_history["order_shipping"] = order_item["shipping_amount"]
-            order_history["order_total"] = order_item["grand_total"]
-            order_history["order_status"] = order_item["state"]
+            order_history["status"] = order_item["state"]
+            order_history["total_amount"] = order_item["grand_total"]
+            # order_history["order_subtotal"] = order_item["subtotal_amount"]
+            # order_history["order_tax"] = order_item["tax_amount"]
+            # order_history["order_shipping"] = order_item["shipping_amount"]
             order_detail_link = order_item["actions_view"]["view"]["href"]
-            print(order_detail_link)
             order_history["order_detail_link"] = order_detail_link
+            # order_history["order_number"] = order_item["increment_id"]
             self.results.append(order_history)
 
 
@@ -188,17 +189,24 @@ class ImplantDirectScraper(Scraper):
             f'https://store.implantdirect.com/us/en/mui/index/render/?namespace=customer_order_items&_={int(time.time()*1000)}',
             headers=json_headers
         )
-        products = list()
+        order = dict()
+        order['products'] = list()
         for product_item in response.json()["items"]:
             product = dict()
-            product["name"] = product_item["name"]
-            product["sku"] = product_item["sku"]
-            product["price"] = product_item["price"]
             product["qty"] = product_item["qty"]
+            product["name"] = product_item["name"]
+            product["price"] = product_item["price"]
+            product["product_url"] = product_item["sku"]
+            product["vendor"] = self.vendor.to_dict()
             product["subtotal"] = product_item["row_total"]
-            products.append(product)
+            product["images"]= []
+            order['products'].append({
+                "product": product,
+                "quantity": product.pop("qty"),
+                "unit_price":product["price"]
+            })
 
-        return products
+        return order
     
     def login_proc(self):
         home_resp = self.getHomePage()

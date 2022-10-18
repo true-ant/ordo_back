@@ -82,6 +82,8 @@ class Scraper:
 
     @staticmethod
     def normalize_order_status(order_status):
+        if order_status is None:
+            return "closed"
         order_status = order_status.lower()
         if "shipped" in order_status:
             return "closed"
