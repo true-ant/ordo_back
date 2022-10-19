@@ -168,7 +168,7 @@ class OfficeViewSet(ModelViewSet):
     @action(detail=True, methods=["post"], url_path="settings")
     def update_settings(self, request, *args, **kwargs):
         instance = self.get_object()
-        office_setting, created = m.OfficeSetting.objects.get_or_create(office=instance)
+        office_setting = m.OfficeSetting.objects.get_or_create(office=instance)
         serializer = s.OfficeSettingSerializer(office_setting, data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -188,7 +188,17 @@ class OfficeViewSet(ModelViewSet):
         instance = self.get_object()
         api_key = instance.dental_api
         if api_key == None:
-            return Response(HTTP_400_BAD_REQUEST)
+            return Response({"message": "no api key"}, HTTP_200_OK)
+        prev_adjusted_production = 100
+        now_date = timezone.now().date()
+        office_budget = m.OfficeBudget.objects.get_or_create(
+            office=instance, 
+            dental_budget_type="collection",
+            dental_total_budget=prev_adjusted_production,
+            month = now_date)
+        serializer = s.OfficeBudgetSerializer(office_budget)
+        return Response(status=HTTP_200_OK)
+
         
 
 class CompanyMemberViewSet(ModelViewSet):
