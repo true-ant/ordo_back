@@ -183,7 +183,7 @@ class OfficeViewSet(ModelViewSet):
             return Response(status=HTTP_200_OK)
         return Response(status = HTTP_400_BAD_REQUEST)
     
-    @action(detail=True, methods=["get"], url_path="update_budget")
+    @action(detail=True, methods=["post"], url_path="update_budget")
     def update_budget_from_dental(self, request, *args, **kwargs):
         instance = self.get_object()
         api_key = instance.dental_api
