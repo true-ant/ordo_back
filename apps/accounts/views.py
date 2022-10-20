@@ -179,7 +179,7 @@ class OfficeViewSet(ModelViewSet):
     @action(detail=True, methods=["post"], url_path="dental_api")
     def set_dental_api(self, request, *args, **kwargs):
         instance = self.get_object()
-        if "key" in request.data and "pull_option" in request.data:
+        if "key" in request.data:
             instance.dental_api = request.data["key"]
             instance.save()
 
