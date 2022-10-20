@@ -322,6 +322,10 @@ def strip_whitespaces(text: str) -> str:
     """Remove spaces, tabs and new lines"""
     return re.sub(r"\s+", " ", text)
 
+def formatStEndDateFromQuery(jsonQuery, st, end):
+    newvalue=jsonQuery['SqlCommand'].format(value1=st,value2=end)
+    newquery='''{"SqlCommand": "''' + newvalue + '''" }'''
+    return newquery
 
 if __name__ == "__main__":
     group_products_by_str()
