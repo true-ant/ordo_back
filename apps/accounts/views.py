@@ -237,7 +237,13 @@ class OfficeViewSet(ModelViewSet):
             office_spend='0.0',
             month=now_date
         )
-        return Response(data=prev_adjusted_production, status=HTTP_200_OK)      
+        return Response(data={
+            "dental_budget_type": "production",
+            "dental_percentage": prev_dental_percentage,
+            "dental_budget": prev_dental_budget,
+            "dental_total_budget": prev_adjusted_production,
+
+        }, status=HTTP_200_OK)      
 
 class CompanyMemberViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
