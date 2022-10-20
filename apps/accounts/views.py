@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from decimal import Decimal
 import json
 import requests
@@ -187,11 +187,11 @@ class OfficeViewSet(ModelViewSet):
             return Response(status=HTTP_200_OK)
         return Response(status = HTTP_400_BAD_REQUEST)
 
-    def load_prev_month_production(self, day, api_key):
+    def load_prev_month_production(self, day1, day2, api_key):
         with open('production.json') as f:
             queryProduction = json.load(f,strict=False)
         query = formatStEndDateFromQuery(
-            queryProduction, day, day)
+            queryProduction, day1, day2)
         response = requests.put('https://api.opendental.com/api/v1/queries/ShortQuery',
                                 headers={'Authorization': api_key}, json=json.loads(query,strict=False))
         json_production = json.loads(response.content)
@@ -212,9 +212,10 @@ class OfficeViewSet(ModelViewSet):
         ):
             return Response({"message":"budget alread exists"}, status=HTTP_200_OK)      
 
-
-        # prev_adjusted_production = self.load_prev_month_production(datetime(now_date.year, now_date.month, 1), api_key)
-        prev_adjusted_production = 12345
+        last_day_of_prev_month = date.today().replace(day=1) - timedelta(days=1)
+        start_day_of_prev_month = date.today().replace(day=1) - timedelta(days=last_day_of_prev_month.day)
+        prev_adjusted_production = self.load_prev_month_production(start_day_of_prev_month, last_day_of_prev_month, api_key)
+        # prev_adjusted_production = 12345
         prev_budget = m.OfficeBudget.objects.get(
             month = datetime(prev_date.year, prev_date.month, 1)
         )
