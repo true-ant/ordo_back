@@ -217,14 +217,21 @@ class OfficeViewSet(ModelViewSet):
         last_day_of_prev_month = date.today().replace(day=1) - timedelta(days=1)
         start_day_of_prev_month = date.today().replace(day=1) - timedelta(days=last_day_of_prev_month.day)
         prev_adjusted_production = self.load_prev_month_production(start_day_of_prev_month, last_day_of_prev_month, api_key)
-        # prev_adjusted_production = 12345
-        prev_budget = m.OfficeBudget.objects.get(
+        prev_dental_percentage = 5.0
+        prev_office_percentage = 0.5
+
+        if m.OfficeBudget.objects.filter(
             office=instance,
             month = datetime(prev_date.year, prev_date.month, 1)
-        )
-        prev_dental_percentage = prev_budget.dental_percentage
+        ):
+            prev_budget = m.OfficeBudget.objects.get(
+                office=instance,
+                month = datetime(prev_date.year, prev_date.month, 1)
+            )
+            prev_dental_percentage = prev_budget.dental_percentage
+            prev_office_percentage = prev_budget.office_percentage
+            
         prev_dental_budget = prev_adjusted_production * float(prev_dental_percentage) / 100.0
-        prev_office_percentage = prev_budget.office_percentage
         prev_office_budget = prev_adjusted_production * float(prev_office_percentage) / 100.0    
         m.OfficeBudget.objects.create(
             office=instance,
