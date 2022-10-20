@@ -189,15 +189,47 @@ class OfficeViewSet(ModelViewSet):
         api_key = instance.dental_api
         if api_key == None:
             return Response({"message": "no api key"}, HTTP_200_OK)
-        prev_adjusted_production = 100
-        now_date = timezone.now().date()
-        office_budget = m.OfficeBudget.objects.get_or_create(
-            office=instance, 
-            dental_budget_type="collection",
-            dental_total_budget=prev_adjusted_production,
-            month = now_date)
-        serializer = s.OfficeBudgetSerializer(office_budget)
-        return Response(status=HTTP_200_OK)
+        if request.data['budget'] is None:
+            now_date = timezone.now().date()
+            prev_date = now_date - relativedelta(months=1)
+            prev_adjusted_production = 40000.0
+
+            prev_budget = m.OfficeBudget.objects.get(
+                month = datetime(prev_date.year, prev_date.month, 1)
+            )
+            prev_dental_percentage = prev_budget.dental_percentage
+            prev_dental_budget = prev_adjusted_production * float(prev_dental_percentage) / 100.0
+            prev_office_percentage = prev_budget.office_percentage
+            prev_office_budget = prev_adjusted_production * float(prev_office_percentage) / 100.0    
+            m.OfficeBudget.objects.create(
+                office=instance,
+                dental_budget_type='production',
+                dental_total_budget=prev_adjusted_production,
+                dental_percentage=prev_dental_percentage,
+                dental_budget=prev_dental_budget,
+                dental_spend='0.0',
+                office_budget_type='production',
+                office_total_budget=prev_adjusted_production,
+                office_percentage=prev_office_percentage,
+                office_budget=prev_office_budget,
+                office_spend='0.0',
+                month=now_date
+            )
+            return Response({"message":"new dental budget created"}, status=HTTP_200_OK)
+
+        return Response({"message":"dental budget already exists"}, status=HTTP_200_OK)
+
+        # else:
+        #     office_budget = m.OfficeBudget.objects.get(
+        #         id=request.data['budget']['id']
+        #     )
+        #     serializer = s.OfficeBudgetSerializer(office_budget, data={
+        #         "dental_total_budget":prev_adjusted_production,
+        #         "dental_percentage":prev_dental_percentage,
+        #         "dental_budget":prev_dental_budget,
+                
+        #     })
+
 
         
 
