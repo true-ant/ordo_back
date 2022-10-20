@@ -208,8 +208,10 @@ class OfficeViewSet(ModelViewSet):
         prev_date = now_date - relativedelta(months=1)
 
         if m.OfficeBudget.objects.filter(
+            office=instance,
             month = datetime(now_date.year, now_date.month, 1)
         ):
+            print(now_date.year, now_date.month)
             return Response({"message":"budget alread exists"}, status=HTTP_200_OK)      
 
         last_day_of_prev_month = date.today().replace(day=1) - timedelta(days=1)
@@ -217,6 +219,7 @@ class OfficeViewSet(ModelViewSet):
         prev_adjusted_production = self.load_prev_month_production(start_day_of_prev_month, last_day_of_prev_month, api_key)
         # prev_adjusted_production = 12345
         prev_budget = m.OfficeBudget.objects.get(
+            office=instance,
             month = datetime(prev_date.year, prev_date.month, 1)
         )
         prev_dental_percentage = prev_budget.dental_percentage
