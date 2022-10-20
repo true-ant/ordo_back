@@ -183,8 +183,8 @@ class OfficeViewSet(ModelViewSet):
             instance.dental_api = request.data["key"]
             instance.save()
 
-            self.update_budget_from_dental(request, *args, **kwargs)
-            return Response(status=HTTP_200_OK)
+            resp = self.update_budget_from_dental(request, *args, **kwargs)
+            return Response(status=HTTP_200_OK, data=resp.data)
         return Response(status = HTTP_400_BAD_REQUEST)
 
     def load_prev_month_production(self, day1, day2, api_key):
@@ -237,7 +237,7 @@ class OfficeViewSet(ModelViewSet):
             office_spend='0.0',
             month=now_date
         )
-        return Response({"message":"new dental budget created"}, status=HTTP_200_OK)      
+        return Response(data=prev_adjusted_production, status=HTTP_200_OK)      
 
 class CompanyMemberViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
