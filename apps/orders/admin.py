@@ -67,10 +67,20 @@ class VendorOrderInline(ReadOnlyAdminMixin, NestedTabularInline):
         "order_date",
         "total_amount",
         "total_items",
+        "nickname",
         "currency",
         "status",
     )
-    readonly_fields = fields
+    readonly_fields = (
+        "vendor",
+        "invoice",
+        "vendor_order_reference",
+        "order_date",
+        "total_amount",
+        "total_items",
+        "currency",
+        "status",
+    )
     inlines = (VendorOrderProductInline,)
 
     def invoice(self, obj):
@@ -174,6 +184,7 @@ class ProductAdmin(admin.ModelAdmin):
         "product_thumb",
         "product_id",
         "name",
+        "nickname",
         "vendor",
         "category",
         "get_url",

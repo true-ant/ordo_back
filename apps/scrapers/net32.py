@@ -4,7 +4,7 @@ import uuid
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
-from aiohttp import ClientResponse
+from aiohttp import ClientResponse, ClientSession
 from django.utils.dateparse import parse_datetime
 from scrapy import Selector
 
@@ -511,15 +511,21 @@ class Net32Scraper(Scraper):
 
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
         print("net32/confirm_order")
+        self.backsession = self.session
+        self.session = ClientSession()
         result = await self.create_order(products)
         if fake:
             print("net32/confirm_order DONE")
+            await self.session.close()
+            self.session = self.backsession
             return {**result[self.vendor.slug], "order_id": f"{uuid.uuid4()}"}
         async with self.session.post(
             "https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS
         ) as resp:
             response_dom = Selector(text=await resp.text())
             order_id = response_dom.xpath("//h2[@class='checkout-confirmation-order-number-header']//a/text()").get()
+        await self.session.close()
+        self.session = self.backsession
         return {**result[self.vendor.slug], "order_id": order_id}
 
     def _get_vendor_categories(self, response) -> List[ProductCategory]:
