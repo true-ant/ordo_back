@@ -446,7 +446,8 @@ class VendorHelper:
             clients = VendorHelper.get_vendor_sync_clients(vendors_credentials)
         for vendor_slug in vendor_slugs:
             vendor_products = list(filter(lambda x: x["vendor"] == vendor_slug, products.values()))
-            tasks.append(clients[vendor_slug].get_products_prices(vendor_products))
+            if vendor_slug in clients:
+                tasks.append(clients[vendor_slug].get_products_prices(vendor_products))
         prices_results = await aio.gather(*tasks, return_exceptions=True)
 
         ret: Dict[str, ProductPrice] = {}

@@ -198,6 +198,7 @@ class ProductAdmin(admin.ModelAdmin):
         "vendor",
         "category",
     )
+    exclude= ('parent', )
     inlines = (ProductImageInline,)
 
     @admin.display(description="url")

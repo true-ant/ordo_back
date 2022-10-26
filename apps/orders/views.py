@@ -1483,14 +1483,14 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
 
         list1 = list(queryset)
 
-        amazon_inc = self.request.query_params.get("vendors", "").count("amazon") > 0
-        if amazon_inc:
-            # Add on the fly results
-            products_fly = AmazonSearchScraper()._search_products(query)
-            # log += products_fly['log']
-            if(len(products_fly['products']) > 0):
-                list1.extend(products_fly['products'])
-                self.available_vendors.append("amazon")
+        # amazon_inc = self.request.query_params.get("vendors", "").count("amazon") > 0
+        # if amazon_inc:
+        #     # Add on the fly results
+        #     products_fly = AmazonSearchScraper()._search_products(query)
+        #     # log += products_fly['log']
+        #     if(len(products_fly['products']) > 0):
+        #         list1.extend(products_fly['products'])
+        #         self.available_vendors.append("amazon")
 
         count_per_page = int(self.request.query_params.get("per_page", 10))
         current_page = int(self.request.query_params.get("page", 1))
