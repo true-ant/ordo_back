@@ -122,7 +122,6 @@ class Net32Client(BaseClient):
         except Exception as e:
             return {product_id: {"price": Decimal(0), "product_vendor_status": "Network Error"}}
         else:
-            print("net32 product_id ", product_id, "price", price)
             return {
                 product_id: {
                             "price": Decimal(str(price)), 

@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
-from aiohttp import ClientResponse
+from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
@@ -816,6 +816,8 @@ class HenryScheinScraper(Scraper):
 
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
         print("henryschein/confirm_order")
+        self.backsession = self.session
+        self.session = ClientSession()
         await self.login()
         await self.clear_cart()
         await self.add_products_to_cart(products)
@@ -825,6 +827,8 @@ class HenryScheinScraper(Scraper):
 
         if fake:
             print("henryschein/confirm_order DONE")
+            await self.session.close()
+            self.session = self.backsession
             return {
                 **vendor_order_detail.to_dict(),
                 "order_id": f"{uuid.uuid4()}",
@@ -853,6 +857,8 @@ class HenryScheinScraper(Scraper):
             res_data = response.split("dataLayer.push(", 1)[1].split(");")[0]
             res_data = res_data.replace("'", '"')
             res_data = json.loads(res_data)
+            await self.session.close()
+            self.session = self.backsession
             return {
                 **vendor_order_detail.to_dict(),
                 "order_id": res_data["ecommerce"]["purchase"]["actionField"]["id"],
