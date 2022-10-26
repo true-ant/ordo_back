@@ -506,3 +506,20 @@ class ImplantDirectScraper(Scraper):
         
         order_num = await loop.run_in_executor(None,self.submit_order, cartId, shipping_payload)
         print("Order Number:", order_num)
+        vendor_order_detail = {
+            "retail_amount": "",
+            "savings_amount": discount,
+            "subtotal_amount": subtotal,
+            "shipping_amount": shipping,
+            "tax_amount": tax,
+            "total_amount": order_total,
+            "payment_method": "",
+            "shipping_address": shipping_address,
+            "order_id":order_num,
+        }
+        print("Implant Direct/confirm_order DONE")
+
+        return {
+            **vendor_order_detail,
+            **self.vendor.to_dict(),
+        }

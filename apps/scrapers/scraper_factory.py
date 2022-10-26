@@ -20,7 +20,8 @@ from apps.scrapers.net32 import Net32Scraper
 from apps.scrapers.patterson import PattersonScraper
 from apps.scrapers.schema import Product
 from apps.scrapers.ultradent import UltraDentScraper
-
+from apps.scrapers.dcdental import DCDentalScraper
+from apps.scrapers.crazy_dental import CrazyDentalScraper
 SCRAPER_SLUG = "patterson"
 SCRAPERS = {
     "henry_schein": HenryScheinScraper,
@@ -33,6 +34,8 @@ SCRAPERS = {
     "implant_direct": ImplantDirectScraper,
     "edge_endo": EdgeEndoScraper,
     "dental_city": DentalCityScraper,
+    "dcdental": DCDentalScraper,
+    "crazy_dental": CrazyDentalScraper,
 }
 
 
