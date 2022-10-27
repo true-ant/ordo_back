@@ -80,9 +80,9 @@ class DCDentalScraper(Scraper):
         for product in products:
             item = {
                 'item': {
-                    'internalid': product["id"],
+                    'internalid': int(product["product_id"]),
                 },
-                'quantity': product["qty"],
+                'quantity': product["quantity"],
                 'options': [],
                 'location': '',
                 'fulfillmentChoice': 'ship',
@@ -188,7 +188,7 @@ class DCDentalScraper(Scraper):
         await loop.run_in_executor(None,self.clear_cart)
         await loop.run_in_executor(None,self.add_to_cart, products)
         checkout_data, ship_addr, subtotal = await loop.run_in_executor(None,self.checkout)
-        
+
         vendor_order_detail = {
             "retail_amount": "",
             "savings_amount": 0,
