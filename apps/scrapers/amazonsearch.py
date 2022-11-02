@@ -13,10 +13,6 @@ from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDet
 
 session = Session()
 
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-
 SEARCH_HEADERS = {
     "authority": "www.amazon.com",
     "rtt": "250",
