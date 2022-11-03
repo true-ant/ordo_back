@@ -444,11 +444,12 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
             raise ValidationError({"message": msgs.VENDOR_IMPOSSIBLE_LINK})
 
         serializer = s.OfficeVendorSerializer(data=data)
-        serializer.is_valid(raise_exception=True)
+        serializer.is_valid()
         return serializer
 
     async def create(self, request, *args, **kwargs):
         serializer = await self._validate({**request.data, "office": kwargs["office_pk"]})
+        # await sync_to_async(serializer.save)()
         session = apps.get_app_config("accounts").session
         session._cookie_jar.clear()
         try:
@@ -459,8 +460,8 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
                     password=serializer.validated_data["password"],
                     session=session,
                 )
-                login_cookies = await scraper.login()
                 office_vendor = await sync_to_async(serializer.save)()
+                login_cookies = await scraper.login()                
                 fetch_orders_from_vendor.delay(
                     office_vendor_id=office_vendor.id,
                     login_cookies=login_cookies.output(),
@@ -483,6 +484,8 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
             return Response({"message": msgs.VENDOR_WRONG_INFORMATION}, status=HTTP_400_BAD_REQUEST)
         except NetworkConnectionException:
             return Response({"message": msgs.VENDOR_BAD_NETWORK_CONNECTION}, status=HTTP_400_BAD_REQUEST)
+        except:
+            return Response({"message": msgs.UNKNOWN_ISSUE, **serializer.data})
 
         return Response({"message": msgs.VENDOR_CONNECTED, **serializer.data})
 

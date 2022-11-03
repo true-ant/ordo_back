@@ -945,7 +945,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 tmp_variables.append(
                     sum(
                         [
-                            cart_product.quantity * cart_product.unit_price
+                            cart_product.quantity * (cart_product.unit_price if isinstance(cart_product.unit_price, (int, float)) else 0)
                             for cart_product in cart_products
                             if cart_product.product.vendor.id == office_vendor.vendor.id
                         ]
