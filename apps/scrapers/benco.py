@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import json
 import os
+import re
 import ssl
 import uuid
 from decimal import Decimal
@@ -93,21 +94,19 @@ PRICE_SEARCH_HEADERS = {
     "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
 }
 ORDER_HISTORY_HEADERS = {
-    "Connection": "keep-alive",
-    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "Upgrade-Insecure-Requests": "1",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
-    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "Referer": "https://shop.benco.com",
-    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
+    'Connection': 'keep-alive',
+    'sec-ch-ua': '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'Upgrade-Insecure-Requests': '1',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+    'Sec-Fetch-Site': 'same-origin',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-User': '?1',
+    'Sec-Fetch-Dest': 'document',
+    'Referer': 'https://shop.benco.com',
+    'Accept-Language': 'en-US,en;q=0.9',
 }
 ORDER_DETAIL_HEADERS = {
     "Connection": "keep-alive",
@@ -220,7 +219,12 @@ CONFIRM_ORDER_HEADERS = {
     "Accept-Language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
 }
 
-
+def textParser(element):
+    if not element:
+        return ''
+    text = re.sub(r"\s+", " ", " ".join(element.xpath('.//text()').extract()))
+    return text.strip() if text else ""
+    
 class CartProductDetail(TypedDict):
     product_id: str
     quantity: str
@@ -315,66 +319,58 @@ class BencoScraper(Scraper):
         pass
 
     @semaphore_coroutine
-    async def get_order(self, sem, order_link, referer, office=None) -> dict:
+    async def get_order(self, sem, order_detail_link, referer, office=None) -> dict:
         headers = ORDER_DETAIL_HEADERS.copy()
         headers["Referer"] = referer
 
         order = {"products": []}
-        async with self.session.get(f"{self.BASE_URL}{order_link}", headers=headers, ssl=self._ssl_context) as resp:
+        async with self.session.get(f"{self.BASE_URL}{order_detail_link}", headers=headers, verify=False) as resp:
             response_dom = Selector(text=await resp.text())
-            order_date = (
-                response_dom.xpath("//p[@class='order-details-summary']/span[1]/text()")
-                .get()
-                .split("on", 1)[1]
-                .strip()
-            )
-            order["order_date"] = datetime.datetime.strptime(order_date, "%B %d, %Y").date()
-            invoice_link = response_dom.xpath("//h3[contains(@class, 'pull-right')]/a/@href").get()
-            if invoice_link:
-                order["invoice_link"] = f"{self.BASE_URL}{invoice_link}"
-            order["order_id"] = (
-                response_dom.xpath("//p[@class='order-details-summary']/span[2]/text()").get().split("#", 1)[1].strip()
-            )
+            order["date"] = textParser(response_dom.xpath("//p[@class='order-details-summary']/span[1]"))
+            order["date"] = order["date"].split("on", 1)[1].strip("| ") if "on" in order["date"] else None
+            # order["purchase_id"] = textParser(response_dom.xpath("//p[@class='order-details-summary']/span[3]"))
+            # order["purchase_id"] = order["purchase_id"].split("#", 1)[1].strip() if "#" in order["purchase_id"] else None
 
-            for row in response_dom.xpath("//div[contains(@class, 'order-container')]"):
-                panel_heading = row.xpath("./div[@class='panel-heading']/h3//text()").get()
-                panel_heading = panel_heading.strip() if panel_heading else None
-                if panel_heading is None:
-                    addresses = row.xpath(
-                        ".//div[contains(@class, 'account-details-panel')]/div[2]/p//text()"
-                    ).extract()
+            # invoice_link = response_dom.xpath("//h3[contains(@class, 'pull-right')]/a/@href").get()
+            # if invoice_link:
+            #     order["invoice_link"] = f"{self.BASE_URL}{invoice_link}"
+            order["order_id"] = textParser(response_dom.xpath("//p[@class='order-details-summary']/span[2]"))
 
-                    _, codes = addresses[-1].replace("\r\n", "").split(",")
-                    codes = codes.replace(" ", "")
-                    order["shipping_address"] = {
-                        "address": " ".join(addresses[:-1]),
-                        "region_code": codes[:2],
-                        "postal_code": codes[2:],
-                    }
-                    order["total_amount"] = self.merge_strip_values(
-                        row, ".//div[contains(@class, 'account-details-panel')]/div[4]/p//text()"
-                    )
-                    order["status"] = self.merge_strip_values(
-                        row, ".//div[contains(@class, 'account-details-panel')]/div[5]/p//text()"
-                    )
+            for order_container in response_dom.xpath("//div[contains(@class, 'order-container')]"):
+                panel_heading = textParser(order_container.xpath("./div[@class='panel-heading']/h3[1]"))
+                
+                if not panel_heading:
+                    
+                    order["shipping_address"] = textParser(order_container.xpath(
+                        ".//div[contains(@class, 'account-details-panel')]/div[2]/p"
+                    ))
+                    order["total_amount"] = textParser(order_container.xpath(
+                        ".//div[contains(@class, 'account-details-panel')]/div[4]/p"
+                    ))
+                    order["status"] = textParser(order_container.xpath(
+                        ".//div[contains(@class, 'account-details-panel')]/div[5]/p"
+                    ))
                     order["currency"] = "USD"
                 else:
-                    for product_row in row.xpath("./ul[@class='list-group']/li[@class='list-group-item']"):
-                        other_details = product_row.xpath(".//p/text()").extract()
-                        if not other_details:
+                    for product_row in order_container.xpath("./ul[@class='list-group']/li[@class='list-group-item']"):
+                        if product_row.xpath('.//h4'):
                             continue
-                        product_id = other_details[0].split("#: ")[1]
-                        product_name = product_row.xpath(
-                            ".//div[contains(@class, 'product-details')]/strong/a//text()"
-                        ).get()
-                        product_url = product_row.xpath(
-                            ".//div[contains(@class, 'product-details')]/strong/a/@href"
-                        ).get()
-                        product_url = f"{self.BASE_URL}{product_url}" if product_url else None
+                        product_id = textParser(product_row.xpath(
+                            ".//div[contains(@class, 'product-details')]/p[contains(text(), 'Product #:')]"
+                        ))
+                        product_id = product_id.split("Product #:")[1].strip() if product_id else None
+                        product_name =textParser(product_row.xpath(".//div[contains(@class, 'product-details')]/strong/a"))
+                        product_url = product_row.xpath(".//div[contains(@class, 'product-details')]/strong/a/@href").get()
                         # product image is one in order history we try to fetch images on product detail
                         # product_images = product_row.xpath(".//img/@src").extract()
-                        product_price = other_details[2].split(":")[1]
-                        quantity = other_details[1].split(":")[1].strip()
+                        product_price = textParser(product_row.xpath(
+                            ".//div[contains(@class, 'product-details')]/p[contains(text(), 'Net Price:')]"
+                        ))
+                        product_price = product_price.split("Net Price:")[1].strip() if product_price else None
+                        quantity = textParser(product_row.xpath(
+                            ".//div[contains(@class, 'product-details')]/p[contains(text(), 'Quantity:')]"
+                        ))
+                        quantity = quantity.split("Quantity:")[1].strip() if quantity else None
                         order["products"].append(
                             {
                                 "product": {
@@ -438,18 +434,9 @@ class BencoScraper(Scraper):
             text = await resp.text()
             response_dom = Selector(text=text)
             tasks = []
-            for order_preview_dom in response_dom.xpath(
-                "//div[@class='order-history']"
-                "//div[contains(@class, 'order-container')]/div[@class='panel-heading']"
-            ):
-                order_link = order_preview_dom.xpath(".//a/@href").extract()[-1]
-                order_id = self.extract_string_only(order_preview_dom.xpath("//h3/span[3]/text()").get())
-                order_id = order_id.split("#", 1)[1].split("-")[0].strip()
-
-                if completed_order_ids and order_id in completed_order_ids:
-                    continue
-
-                tasks.append(self.get_order(sem, order_link, url, office))
+            for order_detail_link in response_dom.xpath("//div[@class='order-history']//div[contains(@class, 'order-container')]/div[@class='panel-heading']//a[contains(@href, 'OrderDetail')]/@href").extract():
+                if not order_detail_link: continue
+                tasks.append(self.get_order(sem, order_detail_link, url, office))
             orders = await asyncio.gather(*tasks, return_exceptions=True)
             return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
 
