@@ -9,6 +9,7 @@ import uuid
 from aiohttp import ClientResponse
 from scrapy import Selector
 
+from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, VendorOrderDetail
 from apps.scrapers.utils import semaphore_coroutine
@@ -693,35 +694,12 @@ class PattersonScraper(Scraper):
         return response_dom, subtotal, shipping, order_total, shipping_address
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
-        await self.login()
-        await self.clear_cart()
-        await self.add_to_cart(products)
-        order_dom, subtotal, shipping, order_total, shipping_address = await self.checkout()
-        vendor_order_detail = {
-            "retail_amount": "",
-            "savings_amount": "",
-            "subtotal_amount": subtotal,
-            "shipping_amount": shipping,
-            "tax_amount": "",
-            "total_amount": order_total,
-            "payment_method": "",
-            "shipping_address": shipping_address,
-        }
-        vendor_slug: str = self.vendor.slug
-        return {
-            vendor_slug: {
-                **vendor_order_detail,
-                **self.vendor.to_dict(),
-            },
-        }
-
-    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
-        await self.login()
-        await self.clear_cart()
-        await self.add_to_cart(products)
-        order_dom, subtotal, shipping, order_total, shipping_address = await self.checkout()
-        
-        if fake:
+        print("patterson/create_order")
+        try:
+            await self.login()
+            await self.clear_cart()
+            await self.add_to_cart(products)
+            order_dom, subtotal, shipping, order_total, shipping_address = await self.checkout()
             vendor_order_detail = {
                 "retail_amount": "",
                 "savings_amount": "",
@@ -731,33 +709,94 @@ class PattersonScraper(Scraper):
                 "total_amount": order_total,
                 "payment_method": "",
                 "shipping_address": shipping_address,
-                "order_id": f"{uuid.uuid4()}",
+            }
+        except:
+            print("patterson/create_order except")
+            subtotal_manual = sum([prod['price'] for prod in products])
+            vendor_order_detail = {
+                "retail_amount": "",
+                "savings_amount": "",
+                "subtotal_amount": Decimal(subtotal_manual),
+                "shipping_amount": 0,
+                "tax_amount": "",
+                "total_amount": Decimal(subtotal_manual),
+                "payment_method": "",
+                "shipping_address": "",
+            }
+        vendor_slug: str = self.vendor.slug
+        return {
+            vendor_slug: {
+                **vendor_order_detail,
+                **self.vendor.to_dict(),
+            },
+        }
+
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+        print("patterson/confirm_order")
+        try:
+            await self.login()
+            await self.clear_cart()
+            await self.add_to_cart(products)
+            order_dom, subtotal, shipping, order_total, shipping_address = await self.checkout()
+            
+            if fake:
+                vendor_order_detail = {
+                    "retail_amount": "",
+                    "savings_amount": "",
+                    "subtotal_amount": subtotal,
+                    "shipping_amount": shipping,
+                    "tax_amount": "",
+                    "total_amount": order_total,
+                    "payment_method": "",
+                    "shipping_address": shipping_address,
+                    "order_id": f"{uuid.uuid4()}",
+                    "order_type": msgs.ORDER_TYPE_ORDO
+                }
+                return {
+                    **vendor_order_detail,
+                    **self.vendor.to_dict(),
+                }
+            data = {
+                "__RequestVerificationToken": order_dom.xpath("//input[@name='__RequestVerificationToken']/@value").get(),
+                "SpecialInstructions": "",
+                "CustomerPurchaseOrder": "",
+                "PaymentMethodId": order_dom.xpath("//input[@name='PaymentMethodId']/@value").get(),
+                "PlaceOrderButton": "Place+Order",
+            }
+            
+            response = await self.session.post('https://www.pattersondental.com/Order/ReviewOrder', headers=PLACE_ORDER_HEADERS, data=data)
+            vendor_order_detail = {
+                "retail_amount": "",
+                "savings_amount": "",
+                "subtotal_amount": subtotal,
+                "shipping_amount": shipping,
+                "tax_amount": "",
+                "total_amount": order_total,
+                "payment_method": "",
+                "shipping_address": shipping_address,
+                "order_id":"invalid",
+                "order_type": msgs.ORDER_TYPE_ORDO
             }
             return {
                 **vendor_order_detail,
                 **self.vendor.to_dict(),
             }
-        data = {
-            "__RequestVerificationToken": order_dom.xpath("//input[@name='__RequestVerificationToken']/@value").get(),
-            "SpecialInstructions": "",
-            "CustomerPurchaseOrder": "",
-            "PaymentMethodId": order_dom.xpath("//input[@name='PaymentMethodId']/@value").get(),
-            "PlaceOrderButton": "Place+Order",
-        }
-        
-        response = await self.session.post('https://www.pattersondental.com/Order/ReviewOrder', headers=PLACE_ORDER_HEADERS, data=data)
-        vendor_order_detail = {
-            "retail_amount": "",
-            "savings_amount": "",
-            "subtotal_amount": subtotal,
-            "shipping_amount": shipping,
-            "tax_amount": "",
-            "total_amount": order_total,
-            "payment_method": "",
-            "shipping_address": shipping_address,
-            "order_id":"invalid"
-        }
-        return {
-            **vendor_order_detail,
-            **self.vendor.to_dict(),
-        }
+        except:
+            print("patterson/confirm_order except")
+            subtotal_manual = sum([prod['price'] for prod in products])
+            vendor_order_detail = {
+                "retail_amount": "",
+                "savings_amount": "",
+                "subtotal_amount": Decimal(subtotal_manual),
+                "shipping_amount": 0,
+                "tax_amount": "",
+                "total_amount": Decimal(subtotal_manual),
+                "payment_method": "",
+                "shipping_address": "",
+                "order_id": f"{uuid.uuid4()}",
+                "order_type": msgs.ORDER_TYPE_REDUNDANCY
+            }
+            return {
+                **vendor_order_detail,
+                **self.vendor.to_dict(),
+            }

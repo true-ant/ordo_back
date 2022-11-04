@@ -2,6 +2,7 @@
 import asyncio
 import datetime
 from decimal import Decimal
+import uuid
 import scrapy
 import re
 from typing import Dict, List, Optional
@@ -9,6 +10,7 @@ from typing import Dict, List, Optional
 from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
 
+from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import VendorOrderDetail, Order
 from apps.scrapers.utils import catch_network, semaphore_coroutine
@@ -912,13 +914,15 @@ class DentalCityScraper(Scraper):
                     "tax_amount": tax.strip("$") if isinstance(tax, str) else tax,
                     "total_amount": order_total.strip("$") if isinstance(order_total, str) else order_total,
                     "payment_method": "",
-                    "shipping_address": shipping_address,
+                    "shipping_address": shipping_address
                 })
                 await self.session.close()
                 self.session = self.backsession
                 return {
                     **vendor_order_detail.to_dict(),
                     **self.vendor.to_dict(),
+                    "order_id":f"{uuid.uuid4()}",
+                    "order_type": msgs.ORDER_TYPE_ORDO
                 }
             data = {
                 'OrderHeader.OrderComments1': '',
@@ -959,7 +963,8 @@ class DentalCityScraper(Scraper):
                 "total_amount": order_total.strip("$") if isinstance(order_total, str) else order_total,
                 "payment_method": "",
                 "shipping_address": shipping_address,
-                "order_id": order_num
+                "order_id": order_num,
+                "order_type": msgs.ORDER_TYPE_ORDO
             })
             await self.session.close()
             self.session = self.backsession
@@ -978,12 +983,14 @@ class DentalCityScraper(Scraper):
                 tax_amount=Decimal(0),
                 total_amount=Decimal(subtotal_manual),
                 payment_method="",
-                shipping_address="",
+                shipping_address=""
             )
             await self.session.close()
             self.session = self.backsession
             return {
                 **vendor_order_detail.to_dict(),
                 **self.vendor.to_dict(),
+                "order_id":f"{uuid.uuid4()}",
+                "order_type": msgs.ORDER_TYPE_REDUNDANCY
             }
 

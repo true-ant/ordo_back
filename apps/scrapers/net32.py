@@ -16,6 +16,7 @@ from apps.scrapers.product_track import (
     UPSProductTrack,
     USPSProductTrack,
 )
+from apps.common import messages as msgs
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct
@@ -497,12 +498,20 @@ class Net32Scraper(Scraper):
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("net32/create_order")
+        vendor_slug: str = self.vendor.slug
         try:
             await self.login()
             await self.clear_cart()
             await self.add_products_to_cart(products)
             vendor_order_detail = await self.review_order()
             print("net32/create_order DONE")
+            return {
+                vendor_slug: {
+                    **vendor_order_detail.to_dict(),
+                    **self.vendor.to_dict(),
+                    "order_type": msgs.ORDER_TYPE_ORDO
+                }
+            }
         except:
             print("net32/create_order except")
             subtotal_manual = sum([prod['price'] for prod in products])
@@ -516,15 +525,13 @@ class Net32Scraper(Scraper):
                 payment_method="",
                 shipping_address="",
             )
-        finally:
-            vendor_slug: str = self.vendor.slug
             return {
                 vendor_slug: {
                     **vendor_order_detail.to_dict(),
-                    **self.vendor.to_dict(),
+                    **self.vendor.to_dict()
                 }
             }
-
+            
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
         print("net32/confirm_order")
         self.backsession = self.session
@@ -534,7 +541,7 @@ class Net32Scraper(Scraper):
             print("net32/confirm_order DONE")
             await self.session.close()
             self.session = self.backsession
-            return {**result[self.vendor.slug], "order_id": f"{uuid.uuid4()}"}
+            return {**result[self.vendor.slug], "order_id": f"{uuid.uuid4()}", "order_type": msgs.ORDER_TYPE_ORDO}
         try:
             async with self.session.post(
                 "https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS
@@ -548,7 +555,7 @@ class Net32Scraper(Scraper):
             print("benco/confirm_order Except")
             await self.session.close()
             self.session = self.backsession
-            return {**result[self.vendor.slug], "order_id": f"{uuid.uuid4()}"}
+            return {**result[self.vendor.slug], "order_type": msgs.ORDER_TYPE_REDUNDANCY, "order_id": f"{uuid.uuid4()}"}
 
     def _get_vendor_categories(self, response) -> List[ProductCategory]:
         return [

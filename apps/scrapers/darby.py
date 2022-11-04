@@ -11,6 +11,7 @@ from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
 
 from apps.common.utils import concatenate_list_as_string
+from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import (
@@ -591,6 +592,7 @@ class DarbyScraper(Scraper):
                     **vendor_order_detail.to_dict(),
                     **self.vendor.to_dict(),
                     "order_id":f"{uuid.uuid4()}",
+                    "order_type": msgs.ORDER_TYPE_ORDO
                 }
 
             link = await self.checkout()
@@ -600,7 +602,8 @@ class DarbyScraper(Scraper):
             return {
                 **vendor_order_detail.to_dict(),
                 **self.vendor.to_dict(),
-                "order_id":"invalid"
+                "order_id":"invalid",
+                "order_type": msgs.ORDER_TYPE_ORDO
             }
         except:
             print("darby/confirm_order except")
@@ -613,13 +616,14 @@ class DarbyScraper(Scraper):
                 tax_amount=(0),
                 total_amount=Decimal(subtotal_manual),
                 payment_method="",
-                shipping_address="",
+                shipping_address=""
             )
             await self.session.close()
             self.session = self.backsession
             return {
                 **vendor_order_detail.to_dict(),
                 **self.vendor.to_dict(),
-                "order_id":"invalid"
+                "order_id":"invalid",
+                "order_type": msgs.ORDER_TYPE_REDUNDANCY
             }
             

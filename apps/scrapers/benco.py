@@ -12,6 +12,7 @@ from typing import Dict, List, Optional, Tuple, TypedDict
 from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
 
+from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network, semaphore_coroutine
@@ -757,7 +758,9 @@ class BencoScraper(Scraper):
         try:
             await self.login()
             await self.clear_cart()
-            await self.add_products_to_cart(products)
+            res = await self.add_products_to_cart(products)
+            if len(res) < 1:
+                raise Exception
             _, _, vendor_order_detail = await self.checkout()
         except:
             print("Benco/create_order except")
@@ -787,14 +790,18 @@ class BencoScraper(Scraper):
         try:
             await self.login()
             await self.clear_cart()
-            await self.add_products_to_cart(products)
+            res = await self.add_products_to_cart(products)
+            if len(res) < 1:
+                raise Exception
             cart_id, request_verification_token, vendor_order_detail = await self.checkout()
             if fake:
                 await self.session.close()
                 self.session = self.backsession
                 return {
                     **vendor_order_detail.to_dict(),
+                    **self.vendor.to_dict(),
                     "order_id": f"{uuid.uuid4()}",
+                    "order_type": msgs.ORDER_TYPE_ORDO
                 }
             data = {"__RequestVerificationToken": request_verification_token}
             headers = CONFIRM_ORDER_HEADERS.copy()
@@ -808,7 +815,9 @@ class BencoScraper(Scraper):
                 self.session = self.backsession
                 return {
                     **vendor_order_detail.to_dict(),
+                    **self.vendor.to_dict(),
                     "order_id": order_id,
+                    "order_type": msgs.ORDER_TYPE_ORDO
                 }
         except:
             print("benco/confirm_order Except")
@@ -821,14 +830,15 @@ class BencoScraper(Scraper):
                 tax_amount=Decimal(0),
                 total_amount=Decimal(subtotal_manual),
                 payment_method="",
-                shipping_address="",
-                order_type="Order Redundancy"
+                shipping_address=""
             )
             await self.session.close()
             self.session = self.backsession
             return {
                 **vendor_order_detail.to_dict(),
+                **self.vendor.to_dict(),
                 "order_id": f"{uuid.uuid4()}",
+                "order_type": msgs.ORDER_TYPE_REDUNDANCY
             }
 
     async def download_invoice(self, invoice_link, order_id) -> InvoiceFile:

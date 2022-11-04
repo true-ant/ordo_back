@@ -848,6 +848,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 created_by=self.request.user,
                 order_date=order_date,
                 status=m.OrderStatus.PENDING_APPROVAL if approval_needed else m.OrderStatus.OPEN,
+                order_type=msgs.ORDER_TYPE_ORDO
             )
             total_amount = 0.0
             total_items = 0.0
@@ -862,6 +863,9 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 total_amount += float(vendor_total_amount)
                 vendor_order_products = cart_products.filter(product__vendor=vendor)
                 total_items += (vendor_total_items := vendor_order_products.count())
+                order_type = vendor_order_result.get("order_type", msgs.ORDER_TYPE_ORDO)
+                if order_type == msgs.ORDER_TYPE_REDUNDANCY:
+                    order.order_type = order_type
                 vendor_order = m.VendorOrder.objects.create(
                     order=order,
                     vendor=office_vendor.vendor,

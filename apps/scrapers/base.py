@@ -140,14 +140,10 @@ class Scraper:
                 login_info["url"], headers=login_info["headers"], data=login_info["data"]
             ) as resp:
                 if resp.status != 200:
-                    print("not 200 here")
                     raise VendorAuthenticationFailed()
                 is_authenticated = await self._check_authenticated(resp)
                 if not is_authenticated:
-                    print("not 2-- second")
                     raise VendorAuthenticationFailed()
-
-                print("2323")
                 await self._after_login_hook(resp)
 
             return resp.cookies

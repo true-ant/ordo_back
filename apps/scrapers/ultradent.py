@@ -1,6 +1,7 @@
 import asyncio
 from bdb import set_trace
 import datetime
+from decimal import Decimal
 from typing import Dict, List, Optional
 from urllib import request
 import uuid
@@ -9,6 +10,8 @@ from aiohttp import ClientResponse
 from asgiref.sync import sync_to_async
 from scrapy import Selector
 from aiohttp import ClientResponse, ClientSession, ClientTimeout
+
+from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network, semaphore_coroutine
@@ -803,39 +806,12 @@ class UltraDentScraper(Scraper):
             return order_num
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
-        
         print("Ultradent/create_order")
-        await self.login()
-        await self.clear_cart()
-        await self.add_to_cart(products)
-        resp_text, subtotal,shipping, tax, order_total, shipping_address = await self.checkout()
-        vendor_order_detail = {
-            "retail_amount": "",
-            "savings_amount": "",
-            "subtotal_amount": subtotal,
-            "shipping_amount": shipping,
-            "tax_amount": tax,
-            "total_amount": order_total,
-            "payment_method": "",
-            "shipping_address": shipping_address,
-        }
-        vendor_slug: str = self.vendor.slug
-        print("555")
-        return {
-            vendor_slug: {
-                **vendor_order_detail,
-                **self.vendor.to_dict(),
-            },
-        }
-    
-    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
-        print("ultradent/confirm_order")
-        await self.login()
-        await self.clear_cart()
-        await self.add_to_cart(products)
-        resp_text, subtotal,shipping, tax, order_total, shipping_address = await self.checkout()
-        
-        if fake:
+        try:
+            await self.login()
+            await self.clear_cart()
+            await self.add_to_cart(products)
+            resp_text, subtotal,shipping, tax, order_total, shipping_address = await self.checkout()
             vendor_order_detail = {
                 "retail_amount": "",
                 "savings_amount": "",
@@ -845,28 +821,89 @@ class UltraDentScraper(Scraper):
                 "total_amount": order_total,
                 "payment_method": "",
                 "shipping_address": shipping_address,
-                "order_id": f"{uuid.uuid4()}",
             }
-            print("ultradent/confirm_order DONE")
+        except:
+            print("ultradent/create_order except")
+            subtotal_manual = sum([prod['price'] for prod in products])
+            vendor_order_detail = {
+                "retail_amount": "",
+                "savings_amount": "",
+                "subtotal_amount": Decimal(subtotal_manual),
+                "shipping_amount": 0,
+                "tax_amount": 0,
+                "total_amount": Decimal(subtotal_manual),
+                "payment_method": "",
+                "shipping_address": "",
+            }
+        vendor_slug: str = self.vendor.slug
+        return {
+            vendor_slug: {
+                **vendor_order_detail,
+                **self.vendor.to_dict(),
+            },
+        }
+    
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+        print("ultradent/confirm_order")
+        try:
+            await self.login()
+            await self.clear_cart()
+            await self.add_to_cart(products)
+            resp_text, subtotal,shipping, tax, order_total, shipping_address = await self.checkout()
+            
+            if fake:
+                vendor_order_detail = {
+                    "retail_amount": "",
+                    "savings_amount": "",
+                    "subtotal_amount": subtotal,
+                    "shipping_amount": shipping,
+                    "tax_amount": tax,
+                    "total_amount": order_total,
+                    "payment_method": "",
+                    "shipping_address": shipping_address,
+                    "order_id": f"{uuid.uuid4()}",
+                    "order_type": msgs.ORDER_TYPE_ORDO
+                }
+                print("ultradent/confirm_order DONE")
+                return {
+                    **vendor_order_detail,
+                    **self.vendor.to_dict(),
+                }
+            checkout_dom = Selector(text=resp_text)
+            order_num = await self.submit_order(checkout_dom)
+            vendor_order_detail = {
+                "retail_amount": "",
+                "savings_amount": "",
+                "subtotal_amount": subtotal,
+                "shipping_amount": shipping,
+                "tax_amount": tax,
+                "total_amount": order_total,
+                "payment_method": "",
+                "shipping_address": shipping_address,
+                "order_id": order_num,
+                "order_type": msgs.ORDER_TYPE_ORDO
+            }
+            print("order num is ", order_num)
             return {
                 **vendor_order_detail,
                 **self.vendor.to_dict(),
             }
-        checkout_dom = Selector(text=resp_text)
-        order_num = await self.submit_order(checkout_dom)
-        vendor_order_detail = {
-            "retail_amount": "",
-            "savings_amount": "",
-            "subtotal_amount": subtotal,
-            "shipping_amount": shipping,
-            "tax_amount": tax,
-            "total_amount": order_total,
-            "payment_method": "",
-            "shipping_address": shipping_address,
-            "order_id": order_num,
-        }
-        print("order num is ", order_num)
-        return {
-            **vendor_order_detail,
-            **self.vendor.to_dict(),
-        }
+        except:
+            subtotal_manual = sum([prod['price'] for prod in products])
+            vendor_order_detail = {
+                "retail_amount": "",
+                "savings_amount": "",
+                "subtotal_amount": Decimal(subtotal_manual),
+                "shipping_amount": 0,
+                "tax_amount": 0,
+                "total_amount": Decimal(subtotal_manual),
+                "payment_method": "",
+                "shipping_address": "",
+                "order_id": f"{uuid.uuid4()}",
+                "order_type": msgs.ORDER_TYPE_REDUNDANCY
+            }
+            return {
+                **vendor_order_detail,
+                **self.vendor.to_dict(),
+            }
+            

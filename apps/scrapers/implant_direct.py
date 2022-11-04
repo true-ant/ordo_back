@@ -1,4 +1,5 @@
 import datetime
+from decimal import Decimal
 import time
 import re
 import json
@@ -11,6 +12,7 @@ from scrapy import Selector
 from typing import Dict, List, Optional, Tuple
 from http.cookies import SimpleCookie
 
+from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
 from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.scrapers.schema import VendorOrderDetail, Order
@@ -454,21 +456,34 @@ class ImplantDirectScraper(Scraper):
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("Implant Direct/create_order")
         loop = asyncio.get_event_loop()
-        await self.login()
-        await loop.run_in_executor(None,self.clear_cart)
-        await loop.run_in_executor(None,self.add_to_cart, products)
-        cartId, shipping_payload, shipping_address, subtotal, shipping, discount, tax, order_total = await loop.run_in_executor(None,self.proceed_checkout)
-        vendor_order_detail = {
-            "retail_amount": "",
-            "savings_amount": discount,
-            "subtotal_amount": subtotal,
-            "shipping_amount": shipping,
-            "tax_amount": tax,
-            "total_amount": order_total,
-            "payment_method": "",
-            "shipping_address": shipping_address,
-            "order_id":f"{uuid.uuid4()}",
-        }
+        try:
+            await self.login()
+            await loop.run_in_executor(None,self.clear_cart)
+            await loop.run_in_executor(None,self.add_to_cart, products)
+            cartId, shipping_payload, shipping_address, subtotal, shipping, discount, tax, order_total = await loop.run_in_executor(None,self.proceed_checkout)
+            vendor_order_detail = {
+                "retail_amount": "",
+                "savings_amount": discount,
+                "subtotal_amount": subtotal,
+                "shipping_amount": shipping,
+                "tax_amount": tax,
+                "total_amount": order_total,
+                "payment_method": "",
+                "shipping_address": shipping_address
+            }
+        except:
+            print("implant_direct create_order except")
+            subtotal_manual = sum([prod['price'] for prod in products])
+            vendor_order_detail = {
+                "retail_amount": "",
+                "savings_amount": "",
+                "subtotal_amount": Decimal(subtotal_manual),
+                "shipping_amount": 0,
+                "tax_amount": "",
+                "total_amount": Decimal(subtotal_manual),
+                "payment_method": "",
+                "shipping_address": "",
+            }
         vendor_slug: str = self.vendor.slug
         return {
             vendor_slug: {
@@ -481,11 +496,33 @@ class ImplantDirectScraper(Scraper):
         print("Implant Direct/confirm_order")
         self.reqsession = requests.Session()
         loop = asyncio.get_event_loop()
-        await self.login()
-        await loop.run_in_executor(None,self.clear_cart)
-        await loop.run_in_executor(None,self.add_to_cart, products)
-        cartId, shipping_payload, shipping_address, subtotal, shipping, discount, tax, order_total = await loop.run_in_executor(None,self.proceed_checkout)
-        if fake:
+        try:
+            await self.login()
+            await loop.run_in_executor(None,self.clear_cart)
+            await loop.run_in_executor(None,self.add_to_cart, products)
+            cartId, shipping_payload, shipping_address, subtotal, shipping, discount, tax, order_total = await loop.run_in_executor(None,self.proceed_checkout)
+            if fake:
+                vendor_order_detail = {
+                    "retail_amount": "",
+                    "savings_amount": discount,
+                    "subtotal_amount": subtotal,
+                    "shipping_amount": shipping,
+                    "tax_amount": tax,
+                    "total_amount": order_total,
+                    "payment_method": "",
+                    "shipping_address": shipping_address,
+                    "order_id":f"{uuid.uuid4()}",
+                    "order_type": msgs.ORDER_TYPE_ORDO
+                }
+                print("Implant Direct/confirm_order DONE")
+
+                return {
+                    **vendor_order_detail,
+                    **self.vendor.to_dict(),
+                }
+            
+            order_num = await loop.run_in_executor(None,self.submit_order, cartId, shipping_payload)
+            print("Order Number:", order_num)
             vendor_order_detail = {
                 "retail_amount": "",
                 "savings_amount": discount,
@@ -495,7 +532,8 @@ class ImplantDirectScraper(Scraper):
                 "total_amount": order_total,
                 "payment_method": "",
                 "shipping_address": shipping_address,
-                "order_id":f"{uuid.uuid4()}",
+                "order_id":order_num,
+                "order_type": msgs.ORDER_TYPE_ORDO
             }
             print("Implant Direct/confirm_order DONE")
 
@@ -503,23 +541,22 @@ class ImplantDirectScraper(Scraper):
                 **vendor_order_detail,
                 **self.vendor.to_dict(),
             }
-        
-        order_num = await loop.run_in_executor(None,self.submit_order, cartId, shipping_payload)
-        print("Order Number:", order_num)
-        vendor_order_detail = {
-            "retail_amount": "",
-            "savings_amount": discount,
-            "subtotal_amount": subtotal,
-            "shipping_amount": shipping,
-            "tax_amount": tax,
-            "total_amount": order_total,
-            "payment_method": "",
-            "shipping_address": shipping_address,
-            "order_id":order_num,
-        }
-        print("Implant Direct/confirm_order DONE")
-
-        return {
-            **vendor_order_detail,
-            **self.vendor.to_dict(),
-        }
+        except:
+            print("implant_direct confirm_order except")
+            subtotal_manual = sum([prod['price'] for prod in products])
+            vendor_order_detail = {
+                "retail_amount": "",
+                "savings_amount": "",
+                "subtotal_amount": Decimal(subtotal_manual),
+                "shipping_amount": 0,
+                "tax_amount": "",
+                "total_amount": Decimal(subtotal_manual),
+                "payment_method": "",
+                "shipping_address": "",
+                "order_id":f"{uuid.uuid4()}",
+                "order_type": msgs.ORDER_TYPE_REDUNDANCY
+            }
+            return {
+                **vendor_order_detail,
+                **self.vendor.to_dict(),
+            }

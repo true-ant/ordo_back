@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
 
+from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network, semaphore_coroutine
@@ -806,7 +807,6 @@ class HenryScheinScraper(Scraper):
             checkout_dom = await self.checkout(products)
             review_checkout_dom = await self.review_checkout(checkout_dom, shipping_method)
             vendor_order_detail = await self.review_order(review_checkout_dom)
-            vendor_slug: str = self.vendor.slug
         except:
             print("henry_schein create_order except")
             subtotal_manual = sum([prod['price'] for prod in products])
@@ -823,6 +823,7 @@ class HenryScheinScraper(Scraper):
             }
         )
         finally:
+            vendor_slug: str = self.vendor.slug
             print("henryschein/create_order DONE")
             return {
                 vendor_slug: {
@@ -849,6 +850,7 @@ class HenryScheinScraper(Scraper):
                 return {
                     **vendor_order_detail.to_dict(),
                     "order_id": f"{uuid.uuid4()}",
+                    "order_type": msgs.ORDER_TYPE_ORDO
                 }
             headers = CHECKOUT_HEADER.copy()
             headers["referer"] = "https://www.henryschein.com/us-en/Checkout/OrderReview.aspx"
@@ -879,6 +881,7 @@ class HenryScheinScraper(Scraper):
                 return {
                     **vendor_order_detail.to_dict(),
                     "order_id": res_data["ecommerce"]["purchase"]["actionField"]["id"],
+                    "order_type": msgs.ORDER_TYPE_ORDO
                 }
         except:
             print("henry_schein/confirm_order Except")
@@ -891,13 +894,14 @@ class HenryScheinScraper(Scraper):
                 tax_amount=Decimal(0),
                 total_amount=Decimal(subtotal_manual),
                 payment_method="",
-                shipping_address="",
+                shipping_address=""
             )
             await self.session.close()
             self.session = self.backsession
             return {
                 **vendor_order_detail.to_dict(),
                 "order_id": f"{uuid.uuid4()}",
+                "order_type": msgs.ORDER_TYPE_REDUNDANCY
             }
 
     async def track_product(self, order_id, product_id, tracking_link, tracking_number, perform_login=False):
