@@ -3,13 +3,13 @@ import asyncio
 import datetime
 from decimal import Decimal
 import scrapy
+import re
 from typing import Dict, List, Optional
 
 from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
-from apps.scrapers.edge_endo import ORDER_HEADERS, extractContent
 from apps.scrapers.schema import VendorOrderDetail, Order
 from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct
@@ -276,7 +276,8 @@ ORDER_HEADERS ={
     'accept-language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
 }
 
-
+def extractContent(dom, xpath):
+    return re.sub(r"\s+", " ", " ".join(dom.xpath(xpath).extract())).strip()
 class DentalCityScraper(Scraper):
     BASE_URL = "https://www.dentalcity.com"
     CATEGORY_URL = "https://www.henryschein.com/us-en/dental/c/browsesupplies"
