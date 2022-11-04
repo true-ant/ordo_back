@@ -1,10 +1,11 @@
 
 import asyncio
 import datetime
+from decimal import Decimal
 import scrapy
 from typing import Dict, List, Optional
 
-from aiohttp import ClientResponse
+from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
@@ -849,23 +850,37 @@ class DentalCityScraper(Scraper):
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("dentalcity/create_order")
-        await self.login()
-        await self.clear_cart()
-        await self.add_to_cart(products)
-        shipping_address = await self.proceed_checkout()
-        await self.save_shipping_address()
-        await self.shipping_quotation()
-        saved, sub_total, shipping, tax, order_total = await self.total_calculation()
-        vendor_order_detail = VendorOrderDetail.from_dict({
-            "retail_amount": "",
-            "savings_amount": saved.strip("$") if isinstance(saved, str) else saved,
-            "subtotal_amount": sub_total.strip("$") if isinstance(sub_total, str) else sub_total,
-            "shipping_amount": shipping.strip("$") if isinstance(shipping, str) else shipping,
-            "tax_amount": tax.strip("$") if isinstance(tax, str) else tax,
-            "total_amount": order_total.strip("$") if isinstance(order_total, str) else order_total,
-            "payment_method": "",
-            "shipping_address": shipping_address,
-        })
+        try:
+            await self.login()
+            await self.clear_cart()
+            await self.add_to_cart(products)
+            shipping_address = await self.proceed_checkout()
+            await self.save_shipping_address()
+            await self.shipping_quotation()
+            saved, sub_total, shipping, tax, order_total = await self.total_calculation()
+            vendor_order_detail = VendorOrderDetail.from_dict({
+                "retail_amount": "",
+                "savings_amount": saved.strip("$") if isinstance(saved, str) else saved,
+                "subtotal_amount": sub_total.strip("$") if isinstance(sub_total, str) else sub_total,
+                "shipping_amount": shipping.strip("$") if isinstance(shipping, str) else shipping,
+                "tax_amount": tax.strip("$") if isinstance(tax, str) else tax,
+                "total_amount": order_total.strip("$") if isinstance(order_total, str) else order_total,
+                "payment_method": "",
+                "shipping_address": shipping_address,
+            })
+        except:
+            subtotal_manual = sum([prod['price'] for prod in products])
+            vendor_order_detail =VendorOrderDetail(
+                retail_amount=0,
+                savings_amount=0,
+                subtotal_amount=Decimal(subtotal_manual),
+                shipping_amount=0,
+                tax_amount=0,
+                total_amount=Decimal(subtotal_manual),
+                payment_method="",
+                shipping_address="",
+            )
+        
         vendor_slug: str = self.vendor.slug
         print("dentalcity/create_order DONE")
         return {
@@ -876,14 +891,64 @@ class DentalCityScraper(Scraper):
         }
 
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
-        await self.login()
-        await self.clear_cart()
-        await self.add_to_cart(products)
-        shipping_address = await self.proceed_checkout()
-        await self.save_shipping_address()
-        await self.shipping_quotation()
-        saved, sub_total, shipping, tax, order_total = await self.total_calculation()
-        if fake:
+        print("dental_city/confirm_order")
+        self.backsession = self.session
+        self.session = ClientSession()
+        try:
+            await self.login()
+            await self.clear_cart()
+            await self.add_to_cart(products)
+            shipping_address = await self.proceed_checkout()
+            await self.save_shipping_address()
+            await self.shipping_quotation()
+            saved, sub_total, shipping, tax, order_total = await self.total_calculation()
+            if fake:
+                vendor_order_detail = VendorOrderDetail.from_dict({
+                    "retail_amount": "0.0",
+                    "savings_amount": saved.strip("$") if isinstance(saved, str) else saved,
+                    "subtotal_amount": sub_total.strip("$") if isinstance(sub_total, str) else sub_total,
+                    "shipping_amount": shipping.strip("$") if isinstance(shipping, str) else shipping,
+                    "tax_amount": tax.strip("$") if isinstance(tax, str) else tax,
+                    "total_amount": order_total.strip("$") if isinstance(order_total, str) else order_total,
+                    "payment_method": "",
+                    "shipping_address": shipping_address,
+                })
+                await self.session.close()
+                self.session = self.backsession
+                return {
+                    **vendor_order_detail.to_dict(),
+                    **self.vendor.to_dict(),
+                }
+            data = {
+                'OrderHeader.OrderComments1': '',
+            }
+
+            response = await self.session.post('https://www.dentalcity.com/widgets-checkout/saveheader/html_ordercomments/saveordercomments', headers=SUBMIT_HEADERS, data=data)
+            data = [
+                ('OrderHeader.creditCardId', '6648'),
+                ('OrderHeader.CCCSCCode', ''),
+                ('txtccYearMonth', 'XXXXX-XXXXX'),
+                ('OrderHeader.UDF3', ''),
+                ('guestuserregistered', ''),
+                ('guestuserregistered', ''),
+                ('guestuserregistered', ''),
+                ('guestuserregistered', ''),
+                ('OrderHeader.LastFourDigit', '5020'),
+                ('SaveCreditCard', 'false'),
+                ('PaymentOptionsGroup', 'Terms (PO)'),
+                ('txtcompanyName', 'Columbine Creek Dentistry'),
+                ('txtAccountNumber', '222234'),
+                ('OrderHeader.ReferenceNumber1', ''),
+                ('OrderHeader.PaymentMethod', 'Terms (PO)'),
+            ]
+
+            await self.session.post('https://www.dentalcity.com/widgets-checkout/processpayment', headers=PROCESS_PAYMENT_HEADERS, data=data)
+            response = await self.session.get('https://www.dentalcity.com/checkout/ordercomplete', headers=ORDER_COMPLETE_HEADERS)
+            
+            dom = Selector(text=await response.text())
+            order_num = dom.xpath('//div[@class="ordercomplete-total"]/ul/li//a[@title]/@title').get()
+            print("Order Num:", order_num)
+            
             vendor_order_detail = VendorOrderDetail.from_dict({
                 "retail_amount": "0.0",
                 "savings_amount": saved.strip("$") if isinstance(saved, str) else saved,
@@ -893,54 +958,31 @@ class DentalCityScraper(Scraper):
                 "total_amount": order_total.strip("$") if isinstance(order_total, str) else order_total,
                 "payment_method": "",
                 "shipping_address": shipping_address,
+                "order_id": order_num
             })
+            await self.session.close()
+            self.session = self.backsession
             return {
                 **vendor_order_detail.to_dict(),
                 **self.vendor.to_dict(),
             }
-        data = {
-            'OrderHeader.OrderComments1': '',
-        }
+        except:
+            print("dental_city/confirm_order Except")
+            subtotal_manual = sum([prod['price'] for prod in products])
+            vendor_order_detail =VendorOrderDetail(
+                retail_amount=Decimal(0),
+                savings_amount=Decimal(0),
+                subtotal_amount=Decimal(subtotal_manual),
+                shipping_amount=Decimal(0),
+                tax_amount=Decimal(0),
+                total_amount=Decimal(subtotal_manual),
+                payment_method="",
+                shipping_address="",
+            )
+            await self.session.close()
+            self.session = self.backsession
+            return {
+                **vendor_order_detail.to_dict(),
+                **self.vendor.to_dict(),
+            }
 
-        response = await self.session.post('https://www.dentalcity.com/widgets-checkout/saveheader/html_ordercomments/saveordercomments', headers=SUBMIT_HEADERS, data=data)
-        data = [
-            ('OrderHeader.creditCardId', '6648'),
-            ('OrderHeader.CCCSCCode', ''),
-            ('txtccYearMonth', 'XXXXX-XXXXX'),
-            ('OrderHeader.UDF3', ''),
-            ('guestuserregistered', ''),
-            ('guestuserregistered', ''),
-            ('guestuserregistered', ''),
-            ('guestuserregistered', ''),
-            ('OrderHeader.LastFourDigit', '5020'),
-            ('SaveCreditCard', 'false'),
-            ('PaymentOptionsGroup', 'Terms (PO)'),
-            ('txtcompanyName', 'Columbine Creek Dentistry'),
-            ('txtAccountNumber', '222234'),
-            ('OrderHeader.ReferenceNumber1', ''),
-            ('OrderHeader.PaymentMethod', 'Terms (PO)'),
-        ]
-
-        await self.session.post('https://www.dentalcity.com/widgets-checkout/processpayment', headers=PROCESS_PAYMENT_HEADERS, data=data)
-        response = await self.session.get('https://www.dentalcity.com/checkout/ordercomplete', headers=ORDER_COMPLETE_HEADERS)
-        
-        dom = Selector(text=await response.text())
-        order_num = dom.xpath('//div[@class="ordercomplete-total"]/ul/li//a[@title]/@title').get()
-        print("Order Num:", order_num)
-        
-        
-        vendor_order_detail = VendorOrderDetail.from_dict({
-            "retail_amount": "0.0",
-            "savings_amount": saved.strip("$") if isinstance(saved, str) else saved,
-            "subtotal_amount": sub_total.strip("$") if isinstance(sub_total, str) else sub_total,
-            "shipping_amount": shipping.strip("$") if isinstance(shipping, str) else shipping,
-            "tax_amount": tax.strip("$") if isinstance(tax, str) else tax,
-            "total_amount": order_total.strip("$") if isinstance(order_total, str) else order_total,
-            "payment_method": "",
-            "shipping_address": shipping_address,
-            "order_id": order_num
-        })
-        return {
-            **vendor_order_detail.to_dict(),
-            **self.vendor.to_dict(),
-        }

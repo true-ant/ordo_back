@@ -945,7 +945,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 tmp_variables.append(
                     sum(
                         [
-                            cart_product.quantity * (cart_product.unit_price if isinstance(cart_product.unit_price, (int, float)) else 0)
+                            cart_product.quantity * (cart_product.unit_price if isinstance(cart_product.unit_price, (int, float,Decimal)) else 0)
                             for cart_product in cart_products
                             if cart_product.product.vendor.id == office_vendor.vendor.id
                         ]
@@ -958,6 +958,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                                 product_id=cart_product.product.product_id,
                                 product_unit=cart_product.product.product_unit,
                                 quantity=cart_product.quantity,
+                                price=cart_product.unit_price if isinstance(cart_product.unit_price, (int, float,Decimal)) else 0,
                                 product_url=cart_product.product.url
                             )
                             for cart_product in cart_products
@@ -1039,6 +1040,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                                 product_id=cart_product.product.product_id,
                                 product_unit=cart_product.product.product_unit,
                                 product_url=cart_product.product.url,
+                                price=cart_product.unit_price if isinstance(cart_product.unit_price, (int, float,Decimal)) else 0,
                                 quantity=cart_product.quantity,
                             )
                             for cart_product in cart_products
@@ -1486,7 +1488,10 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
         amazon_inc = self.request.query_params.get("vendors", "").count("amazon") > 0
         if amazon_inc:
             # Add on the fly results
-            products_fly = AmazonSearchScraper()._search_products(query)
+            try:
+                products_fly = AmazonSearchScraper()._search_products(query)
+            except:
+                products_fly = []
             # log += products_fly['log']
             if(len(products_fly['products']) > 0):
                 list1.extend(products_fly['products'])

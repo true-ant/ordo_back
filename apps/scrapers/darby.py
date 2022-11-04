@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+from decimal import Decimal
 from email.errors import HeaderParseError
 import time
 import re
@@ -544,69 +545,81 @@ class DarbyScraper(Scraper):
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("darby/create_order")
-        await self.login()
-        await self.clear_cart()
-        await self.add_products_to_cart(products)
-        vendor_order_detail = await self.review_order()
-        vendor_slug: str = self.vendor.slug
-        print("darby/create_order DONE")
-        return {
-            vendor_slug: {
-                **vendor_order_detail.to_dict(),
-                **self.vendor.to_dict(),
-            },
-        }
+        try:
+            await self.login()
+            await self.clear_cart()
+            await self.add_products_to_cart(products)
+            vendor_order_detail = await self.review_order()
+        except:
+            print("darby/create_order except")
+            subtotal_manual = sum([prod['price'] for prod in products])
+            vendor_order_detail =VendorOrderDetail(
+                retail_amount=(0),
+                savings_amount=(0),
+                subtotal_amount=Decimal(subtotal_manual),
+                shipping_amount=(0),
+                tax_amount=(0),
+                total_amount=Decimal(subtotal_manual),
+                payment_method="",
+                shipping_address="",
+            )
+        finally:
+            vendor_slug: str = self.vendor.slug
+            print("darby/create_order DONE")
+            return {
+                vendor_slug: {
+                    **vendor_order_detail.to_dict(),
+                    **self.vendor.to_dict(),
+                },
+            }
 
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+        self.backsession = self.session
+        self.session = ClientSession()
+        
         print("darby/confirm_order")
-        await self.login()
-        await self.clear_cart()
-        await self.add_products_to_cart(products)
-        vendor_order_detail = await self.review_order()
-        if fake:
-            print("darby/confirm_order DONE")
+        try:
+            await self.login()
+            await self.clear_cart()
+            await self.add_products_to_cart(products)
+            vendor_order_detail = await self.review_order()
+            if fake:
+                print("darby/confirm_order DONE")
+                await self.session.close()
+                self.session = self.backsession
+                return {
+                    **vendor_order_detail.to_dict(),
+                    **self.vendor.to_dict(),
+                    "order_id":f"{uuid.uuid4()}",
+                }
+
+            link = await self.checkout()
+            await self.session.post(link, headers = REAL_ORDER_HEADER)
+            await self.session.close()
+            self.session = self.backsession
             return {
                 **vendor_order_detail.to_dict(),
                 **self.vendor.to_dict(),
-                "order_id":f"{uuid.uuid4()}",
+                "order_id":"invalid"
             }
-
-        link = await self.checkout()
-        await self.session.post(link, headers = REAL_ORDER_HEADER)
-
-        return {
-            **vendor_order_detail.to_dict(),
-            **self.vendor.to_dict(),
-            "order_id":"invalid"
-        }
-
-    # async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
-    #     vendor_order_detail = await self.create_order(products)
-    #     if fake:
-    #         order_id = f"{uuid.uuid4()}"
-    #     else:
-    #         async with self.session.get(
-    #             "https://www.darbydental.com/scripts/checkout.aspx", headers=CHECKOUT_HEADERS
-    #         ) as resp:
-    #             checkout_dom = Selector(text=await resp.text())
-    #
-    #         data = {
-    #             "ctl00$MainContent$pono": f"Ordo Order ({datetime.date.today().isoformat()})",
-    #             "__ASYNCPOST": "true",
-    #             "ctl00$masterSM": "ctl00$MainContent$UpdatePanel1|ctl00$MainContent$completeOrder",
-    #             "ctl00$ddlPopular": "-1",
-    #         }
-    #         for _input in checkout_dom.xpath('//form[@id="form1"]//input[@name]'):
-    #             _key = _input.xpath("./@name").get()
-    #             _val = _input.xpath("./@value").get()
-    #             data[_key] = _val
-    #         async with self.session.post(
-    #             "https://www.darbydental.com/scripts/checkout.aspx", headers=ORDER_HEADERS, data=data
-    #         ) as resp:
-    #             dom = Selector(text=await resp.text())
-    #             order_id = dom.xpath('//span[@id="MainContent_lblInvoiceNo"]//text()').get()
-    #
-    #     return {
-    #         **vendor_order_detail,
-    #         "order_id": order_id,
-    #     }
+        except:
+            print("darby/confirm_order except")
+            subtotal_manual = sum([prod['price'] for prod in products])
+            vendor_order_detail =VendorOrderDetail(
+                retail_amount=(0),
+                savings_amount=(0),
+                subtotal_amount=Decimal(subtotal_manual),
+                shipping_amount=(0),
+                tax_amount=(0),
+                total_amount=Decimal(subtotal_manual),
+                payment_method="",
+                shipping_address="",
+            )
+            await self.session.close()
+            self.session = self.backsession
+            return {
+                **vendor_order_detail.to_dict(),
+                **self.vendor.to_dict(),
+                "order_id":"invalid"
+            }
+            

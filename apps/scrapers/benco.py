@@ -9,7 +9,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, TypedDict
 
-from aiohttp import ClientResponse
+from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
 
 from apps.scrapers.base import Scraper
@@ -754,39 +754,81 @@ class BencoScraper(Scraper):
             )
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
-        await self.login()
-        await self.clear_cart()
-        await self.add_products_to_cart(products)
-        _, _, vendor_order_detail = await self.checkout()
-        vendor_slug: str = self.vendor.slug
-        return {
-            vendor_slug: {
-                **vendor_order_detail.to_dict(),
-                **self.vendor.to_dict(),
-            },
-        }
+        try:
+            await self.login()
+            await self.clear_cart()
+            await self.add_products_to_cart(products)
+            _, _, vendor_order_detail = await self.checkout()
+        except:
+            print("Benco/create_order except")
+            subtotal_manual = sum([prod['price'] for prod in products])
+            vendor_order_detail =VendorOrderDetail(
+                retail_amount=Decimal(0),
+                savings_amount=Decimal(0),
+                subtotal_amount=Decimal(subtotal_manual),
+                shipping_amount=Decimal(0),
+                tax_amount=Decimal(0),
+                total_amount=Decimal(subtotal_manual),
+                payment_method="",
+                shipping_address="",
+            )
+        finally:
+            vendor_slug: str = self.vendor.slug
+            return {
+                vendor_slug: {
+                    **vendor_order_detail.to_dict(),
+                    **self.vendor.to_dict(),
+                },
+            }
 
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
-        await self.login()
-        await self.clear_cart()
-        await self.add_products_to_cart(products)
-        cart_id, request_verification_token, vendor_order_detail = await self.checkout()
-        if fake:
+        self.backsession = self.session
+        self.session = ClientSession()
+        try:
+            await self.login()
+            await self.clear_cart()
+            await self.add_products_to_cart(products)
+            cart_id, request_verification_token, vendor_order_detail = await self.checkout()
+            if fake:
+                await self.session.close()
+                self.session = self.backsession
+                return {
+                    **vendor_order_detail.to_dict(),
+                    "order_id": f"{uuid.uuid4()}",
+                }
+            data = {"__RequestVerificationToken": request_verification_token}
+            headers = CONFIRM_ORDER_HEADERS.copy()
+            headers["Referer"] = f"https://shop.benco.com/Checkout/BeginCheckout?cartId={cart_id}"
+            async with self.session.post(
+                "https://shop.benco.com/Checkout/Confirm", headers=headers, data=data
+            ) as resp:
+                response_dom = Selector(text=await resp.text())
+                order_id = response_dom.xpath("//h4//span[@class='alt-dark-text']//text()").get()
+                await self.session.close()
+                self.session = self.backsession
+                return {
+                    **vendor_order_detail.to_dict(),
+                    "order_id": order_id,
+                }
+        except:
+            print("benco/confirm_order Except")
+            subtotal_manual = sum([prod['price'] for prod in products])
+            vendor_order_detail =VendorOrderDetail(
+                retail_amount=Decimal(0),
+                savings_amount=Decimal(0),
+                subtotal_amount=Decimal(subtotal_manual),
+                shipping_amount=Decimal(0),
+                tax_amount=Decimal(0),
+                total_amount=Decimal(subtotal_manual),
+                payment_method="",
+                shipping_address="",
+                order_type="Order Redundancy"
+            )
+            await self.session.close()
+            self.session = self.backsession
             return {
                 **vendor_order_detail.to_dict(),
                 "order_id": f"{uuid.uuid4()}",
-            }
-        data = {"__RequestVerificationToken": request_verification_token}
-        headers = CONFIRM_ORDER_HEADERS.copy()
-        headers["Referer"] = f"https://shop.benco.com/Checkout/BeginCheckout?cartId={cart_id}"
-        async with self.session.post(
-            "https://shop.benco.com/Checkout/Confirm", headers=headers, data=data
-        ) as resp:
-            response_dom = Selector(text=await resp.text())
-            order_id = response_dom.xpath("//h4//span[@class='alt-dark-text']//text()").get()
-            return {
-                **vendor_order_detail.to_dict(),
-                "order_id": order_id,
             }
 
     async def download_invoice(self, invoice_link, order_id) -> InvoiceFile:

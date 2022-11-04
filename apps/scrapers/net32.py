@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+from decimal import Decimal
 import uuid
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
@@ -496,18 +497,33 @@ class Net32Scraper(Scraper):
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("net32/create_order")
-        await self.login()
-        await self.clear_cart()
-        await self.add_products_to_cart(products)
-        vendor_order_detail = await self.review_order()
-        vendor_slug: str = self.vendor.slug
-        print("net32/create_order DONE")
-        return {
-            vendor_slug: {
-                **vendor_order_detail.to_dict(),
-                **self.vendor.to_dict(),
+        try:
+            await self.login()
+            await self.clear_cart()
+            await self.add_products_to_cart(products)
+            vendor_order_detail = await self.review_order()
+            print("net32/create_order DONE")
+        except:
+            print("net32/create_order except")
+            subtotal_manual = sum([prod['price'] for prod in products])
+            vendor_order_detail =VendorOrderDetail(
+                retail_amount=Decimal(0),
+                savings_amount=Decimal(0),
+                subtotal_amount=Decimal(subtotal_manual),
+                shipping_amount=Decimal(0),
+                tax_amount=Decimal(0),
+                total_amount=Decimal(subtotal_manual),
+                payment_method="",
+                shipping_address="",
+            )
+        finally:
+            vendor_slug: str = self.vendor.slug
+            return {
+                vendor_slug: {
+                    **vendor_order_detail.to_dict(),
+                    **self.vendor.to_dict(),
+                }
             }
-        }
 
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
         print("net32/confirm_order")
@@ -519,14 +535,20 @@ class Net32Scraper(Scraper):
             await self.session.close()
             self.session = self.backsession
             return {**result[self.vendor.slug], "order_id": f"{uuid.uuid4()}"}
-        async with self.session.post(
-            "https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS
-        ) as resp:
-            response_dom = Selector(text=await resp.text())
-            order_id = response_dom.xpath("//h2[@class='checkout-confirmation-order-number-header']//a/text()").get()
-        await self.session.close()
-        self.session = self.backsession
-        return {**result[self.vendor.slug], "order_id": order_id}
+        try:
+            async with self.session.post(
+                "https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS
+            ) as resp:
+                response_dom = Selector(text=await resp.text())
+                order_id = response_dom.xpath("//h2[@class='checkout-confirmation-order-number-header']//a/text()").get()
+            await self.session.close()
+            self.session = self.backsession
+            return {**result[self.vendor.slug], "order_id": order_id}
+        except:
+            print("benco/confirm_order Except")
+            await self.session.close()
+            self.session = self.backsession
+            return {**result[self.vendor.slug], "order_id": f"{uuid.uuid4()}"}
 
     def _get_vendor_categories(self, response) -> List[ProductCategory]:
         return [
