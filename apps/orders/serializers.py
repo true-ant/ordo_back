@@ -542,3 +542,7 @@ class VendorProductSearchSerializer(serializers.Serializer):
 
 class ProductPriceRequestSerializer(serializers.Serializer):
     products = serializers.PrimaryKeyRelatedField(queryset=m.Product.objects.all(), many=True)
+
+class VendorOrderReturnSerializer(serializers.Serializer):
+    return_items = serializers.ListSerializer(child=serializers.CharField())
+    email_list = serializers.ListSerializer(child=serializers.CharField(), required=False)

@@ -35,6 +35,7 @@ from rest_framework.viewsets import ModelViewSet
 
 from apps.accounts.models import Company, Office, OfficeBudget, OfficeVendor, Vendor
 from apps.accounts.services.offices import OfficeService
+from apps.common.choices import ProductStatus
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncCreateModelMixin, AsyncMixin
 from apps.common.pagination import (
@@ -383,6 +384,24 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
             ],
         }
         return Response(ret)
+
+    @action(detail=True, methods=["post"], url_path="vendororders-return")
+    def update_vendororder_return(self, request, *args, **kwargs):
+        print("Update")
+        serializer = s.VendorOrderReturnSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        vendor_order = self.get_object()
+        
+        if serializer.validated_data['return_items']:
+
+            for i, item in enumerate(serializer.validated_data['return_items']):
+                vendor_product = m.VendorOrderProduct.objects.get(
+                    id=item)
+                vendor_product.status = ProductStatus.RETURNED
+                vendor_product.save()
+        
+        return Response()
+
 
 
 class VendorOrderProductViewSet(ModelViewSet):
@@ -1495,7 +1514,7 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
             try:
                 products_fly = AmazonSearchScraper()._search_products(query)
             except:
-                products_fly = []
+                products_fly = {"products":[]}
             # log += products_fly['log']
             if(len(products_fly['products']) > 0):
                 list1.extend(products_fly['products'])
