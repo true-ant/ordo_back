@@ -33,7 +33,7 @@ NO_INVOICE = "Invoice does not exist"
 PAYLOAD_ISSUE = "There must be a problem in the request payload"
 UPDATE_ORDER_PRODUCT_STATUS_ERROR = "This product cannot be updated until it is arrived"
 ORDER_TYPE_ORDO = "Ordo Order"
-ORDER_TYPE_REDUNDANCY = "Order Redundancy"
+ORDER_TYPE_REDUNDANCY = "Ordo Order - Redundancy"
 
 # Subscription
 OFFICE_HAS_ACTIVE_SUBSCRIPTION = "This office has active subscription"
