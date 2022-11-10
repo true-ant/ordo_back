@@ -23,7 +23,7 @@ class PureLifeScraper(Scraper):
     reqsession = requests.Session()
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
-        print("Crazy Dental/create_order")
+        print("PureLife/create_order")
         
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
-        print("Crazy Dental/confirm_order")
+        print("PureLife/confirm_order")

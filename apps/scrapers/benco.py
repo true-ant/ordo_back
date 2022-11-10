@@ -764,7 +764,7 @@ class BencoScraper(Scraper):
             _, _, vendor_order_detail = await self.checkout()
         except:
             print("Benco/create_order except")
-            subtotal_manual = sum([prod['price'] for prod in products])
+            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
             vendor_order_detail =VendorOrderDetail(
                 retail_amount=Decimal(0),
                 savings_amount=Decimal(0),
@@ -821,7 +821,7 @@ class BencoScraper(Scraper):
                 }
         except:
             print("benco/confirm_order Except")
-            subtotal_manual = sum([prod['price'] for prod in products])
+            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
             vendor_order_detail =VendorOrderDetail(
                 retail_amount=Decimal(0),
                 savings_amount=Decimal(0),

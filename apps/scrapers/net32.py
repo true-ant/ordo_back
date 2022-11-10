@@ -514,7 +514,7 @@ class Net32Scraper(Scraper):
             }
         except:
             print("net32/create_order except")
-            subtotal_manual = sum([prod['price'] for prod in products])
+            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
             vendor_order_detail =VendorOrderDetail(
                 retail_amount=Decimal(0),
                 savings_amount=Decimal(0),

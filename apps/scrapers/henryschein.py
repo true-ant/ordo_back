@@ -575,7 +575,7 @@ class HenryScheinScraper(Scraper):
         }
 
         await self.session.post(
-            "https://www.henryschein.com/webservices/JSONRequestHandler.ashx", headers=CART_HEADERS, data=data
+            "https://www.henryscasdfasdfhein.com/webservices/JSONRequestHandler.ashx", headers=CART_HEADERS, data=data
         )
 
     async def add_product_to_cart(self, product: CartProduct, perform_login=False) -> VendorCartProduct:
@@ -809,7 +809,7 @@ class HenryScheinScraper(Scraper):
             vendor_order_detail = await self.review_order(review_checkout_dom)
         except:
             print("henry_schein create_order except")
-            subtotal_manual = sum([prod['price'] for prod in products])
+            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
             vendor_order_detail = VendorOrderDetail.from_dict(
             {
                 "retail_amount": 0,
@@ -885,7 +885,7 @@ class HenryScheinScraper(Scraper):
                 }
         except:
             print("henry_schein/confirm_order Except")
-            subtotal_manual = sum([prod['price'] for prod in products])
+            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
             vendor_order_detail =VendorOrderDetail(
                 retail_amount=Decimal(0),
                 savings_amount=Decimal(0),

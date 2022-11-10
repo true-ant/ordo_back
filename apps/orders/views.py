@@ -980,7 +980,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                             CartProduct(
                                 product_id=cart_product.product.product_id,
                                 product_unit=cart_product.product.product_unit,
-                                quantity=cart_product.quantity,
+                                quantity=int(cart_product.quantity),
                                 price=cart_product.unit_price if isinstance(cart_product.unit_price, (int, float,Decimal)) else 0,
                                 product_url=cart_product.product.url
                             )
@@ -1064,7 +1064,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                                 product_unit=cart_product.product.product_unit,
                                 product_url=cart_product.product.url,
                                 price=cart_product.unit_price if isinstance(cart_product.unit_price, (int, float,Decimal)) else 0,
-                                quantity=cart_product.quantity,
+                                quantity=int(cart_product.quantity),
                             )
                             for cart_product in cart_products
                             if cart_product.product.vendor.id == office_vendor.vendor.id

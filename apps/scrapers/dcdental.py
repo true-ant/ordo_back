@@ -204,7 +204,7 @@ class DCDentalScraper(Scraper):
             }
         except:
             print("crazy_dental create_order except")
-            subtotal_manual = sum([prod['price'] for prod in products])
+            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
             vendor_order_detail = {
                 "retail_amount": "",
                 "savings_amount": "",
@@ -270,7 +270,7 @@ class DCDentalScraper(Scraper):
             }
         except:
             print("Crazy_dental/confirm order except")
-            subtotal_manual = sum([prod['price'] for prod in products])
+            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
             vendor_order_detail = {
                 "retail_amount": "",
                 "savings_amount": "",

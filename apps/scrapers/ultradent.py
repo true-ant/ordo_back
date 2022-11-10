@@ -824,7 +824,7 @@ class UltraDentScraper(Scraper):
             }
         except:
             print("ultradent/create_order except")
-            subtotal_manual = sum([prod['price'] for prod in products])
+            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
             vendor_order_detail = {
                 "retail_amount": "",
                 "savings_amount": "",
@@ -889,7 +889,7 @@ class UltraDentScraper(Scraper):
                 **self.vendor.to_dict(),
             }
         except:
-            subtotal_manual = sum([prod['price'] for prod in products])
+            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
             vendor_order_detail = {
                 "retail_amount": "",
                 "savings_amount": "",

@@ -553,7 +553,7 @@ class DarbyScraper(Scraper):
             vendor_order_detail = await self.review_order()
         except:
             print("darby/create_order except")
-            subtotal_manual = sum([prod['price'] for prod in products])
+            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
             vendor_order_detail =VendorOrderDetail(
                 retail_amount=(0),
                 savings_amount=(0),
@@ -607,7 +607,7 @@ class DarbyScraper(Scraper):
             }
         except:
             print("darby/confirm_order except")
-            subtotal_manual = sum([prod['price'] for prod in products])
+            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
             vendor_order_detail =VendorOrderDetail(
                 retail_amount=(0),
                 savings_amount=(0),

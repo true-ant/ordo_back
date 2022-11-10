@@ -872,7 +872,7 @@ class DentalCityScraper(Scraper):
                 "shipping_address": shipping_address,
             })
         except:
-            subtotal_manual = sum([prod['price'] for prod in products])
+            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
             vendor_order_detail =VendorOrderDetail(
                 retail_amount=0,
                 savings_amount=0,
@@ -974,7 +974,7 @@ class DentalCityScraper(Scraper):
             }
         except:
             print("dental_city/confirm_order Except")
-            subtotal_manual = sum([prod['price'] for prod in products])
+            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
             vendor_order_detail =VendorOrderDetail(
                 retail_amount=Decimal(0),
                 savings_amount=Decimal(0),

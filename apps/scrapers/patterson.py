@@ -712,7 +712,7 @@ class PattersonScraper(Scraper):
             }
         except:
             print("patterson/create_order except")
-            subtotal_manual = sum([prod['price'] for prod in products])
+            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
             vendor_order_detail = {
                 "retail_amount": "",
                 "savings_amount": "",
@@ -783,7 +783,7 @@ class PattersonScraper(Scraper):
             }
         except:
             print("patterson/confirm_order except")
-            subtotal_manual = sum([prod['price'] for prod in products])
+            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
             vendor_order_detail = {
                 "retail_amount": "",
                 "savings_amount": "",
