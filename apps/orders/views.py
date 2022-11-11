@@ -878,6 +878,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
                 vendor = office_vendor.vendor
                 vendor_order_id = vendor_order_result.get("order_id", "")
+                if vendor_order_id == None: vendor_order_id="invalid"
                 vendor_total_amount = vendor_order_result.get("total_amount", 0.0)
                 total_amount += float(vendor_total_amount)
                 vendor_order_products = cart_products.filter(product__vendor=vendor)
