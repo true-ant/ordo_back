@@ -550,33 +550,13 @@ class HenryScheinScraper(Scraper):
         )
 
     async def add_products_to_cart(self, products: List[CartProduct]) -> List[VendorCartProduct]:
-        item_data_to_add = {"ItemDataToAdd": []}
         for product in products:
-            item_data_to_add["ItemDataToAdd"].append(
-                {
-                    "CheckProductIdForPromoCode": "False",
-                    "CheckExternalMapping": "False",
-                    "CheckBackOrderStatus": "False",
-                    "IsProductInventoryStatusLoaded": "True",
-                    "LineItemId": "",
-                    "ProductId": product["product_id"],
-                    "Qty": product["quantity"],
-                    "Uom": product["product_unit"],
-                }
+            params = (
+                ('addproductid', product["product_id"]),
+                ('addproductqty', product["quantity"]),
+                ('allowRedirect', 'false'),
             )
-
-        data = {
-            "ItemArray": json.dumps(item_data_to_add),
-            "searchType": "5",
-            "did": "dental",
-            "catalogName": "B_DENTAL",
-            "endecaCatalogName": "DENTAL",
-            "culture": "us-en",
-        }
-
-        await self.session.post(
-            "https://www.henryscasdfasdfhein.com/webservices/JSONRequestHandler.ashx", headers=CART_HEADERS, data=data
-        )
+            resp = await self.session.get('https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx', params=params)
 
     async def add_product_to_cart(self, product: CartProduct, perform_login=False) -> VendorCartProduct:
         if perform_login:
