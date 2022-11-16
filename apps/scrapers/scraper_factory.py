@@ -10,7 +10,9 @@ from dotenv import load_dotenv
 from apps.common.utils import group_products, group_products_from_search_result
 from apps.scrapers.amazon import AmazonScraper
 from apps.scrapers.benco import BencoScraper
+from apps.scrapers.crazy_dental import CrazyDentalScraper
 from apps.scrapers.darby import DarbyScraper
+from apps.scrapers.dcdental import DCDentalScraper
 from apps.scrapers.dental_city import DentalCityScraper
 from apps.scrapers.edge_endo import EdgeEndoScraper
 from apps.scrapers.errors import VendorNotSupported
@@ -18,11 +20,11 @@ from apps.scrapers.henryschein import HenryScheinScraper
 from apps.scrapers.implant_direct import ImplantDirectScraper
 from apps.scrapers.net32 import Net32Scraper
 from apps.scrapers.patterson import PattersonScraper
+from apps.scrapers.purelife import PureLifeScraper
 from apps.scrapers.schema import Product
 from apps.scrapers.ultradent import UltraDentScraper
-from apps.scrapers.dcdental import DCDentalScraper
-from apps.scrapers.crazy_dental import CrazyDentalScraper
-from apps.scrapers.purelife import PureLifeScraper
+from apps.scrapers.skydental import SkydentalScraper
+
 SCRAPER_SLUG = "patterson"
 SCRAPERS = {
     "henry_schein": HenryScheinScraper,
@@ -38,6 +40,7 @@ SCRAPERS = {
     "dcdental": DCDentalScraper,
     "crazy_dental": CrazyDentalScraper,
     "purelife": PureLifeScraper,
+    "skydental": SkydentalScraper,
 }
 
 

@@ -12,3 +12,4 @@ from apps.vendor_clients.sync_clients.ultradent import UltradentClient  # noqa
 from apps.vendor_clients.sync_clients.purelife import PurelifeClient  # noqa
 from apps.vendor_clients.sync_clients.crazy_dental import CrazyDentalClient  # noqa
 from apps.vendor_clients.sync_clients.dcdental import DcDentalClient  # noqa
+from apps.vendor_clients.sync_clients.skydental import SkydentalClient  # noqa
