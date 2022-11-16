@@ -9,3 +9,6 @@ from apps.vendor_clients.async_clients.implant_direct import ImplantDirectClient
 from apps.vendor_clients.async_clients.net32 import Net32Client  # noqa
 from apps.vendor_clients.async_clients.patterson import PattersonClient  # noqa
 from apps.vendor_clients.async_clients.ultradent import UltradentClient  # noqa
+from apps.vendor_clients.async_clients.purelife import PurelifeClient  # noqa
+from apps.vendor_clients.async_clients.dcdental import DcDentalClient  # noqa
+from apps.vendor_clients.async_clients.crazy_dental import CrazyDentalClient  # noqa
