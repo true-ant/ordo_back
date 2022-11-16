@@ -29,6 +29,24 @@ class OfficeProductCategorySerializer(serializers.ModelSerializer):
 
         return ret
 
+class OfficeProductVendorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.Vendor
+        fields = "__all__"
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        if self.context.get("with_inventory_count"):
+            office_inventory_products = m.OfficeProduct.objects.all().filter(
+                office_id=self.context["office_id"],
+                is_inventory=True).exclude(
+                product__vendor__isnull=True
+            )
+            ret["category_ids"] = set(office_inventory_products.values_list("office_product_category_id", flat=True))
+            ret["count"] = office_inventory_products.count()
+
+        return ret
+
 
 class ProductCategorySerializer(serializers.ModelSerializer):
     class Meta:

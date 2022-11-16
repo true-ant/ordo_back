@@ -570,6 +570,17 @@ class OfficeProductCategoryViewSet(ModelViewSet):
             office_product_category["vendors"] = [vendors[vendor_id] for vendor_id in vendor_ids]
         return Response(serializer.data)
 
+    @action(detail=False, methods=["get"], url_path="inventory-vendor")
+    def get_inventory_vendor_view(self, request, *args, **kwargs):
+        categories = {category.id: category.to_dict() for category in m.OfficeProductCategory.objects.all()}
+        queryset = m.Vendor.objects.all()
+        serializer = s.OfficeProductVendorSerializer(queryset, many=True, context={"with_inventory_count": True, "office_id":kwargs["office_pk"]})
+        ret = serializer.data
+        for office_product_vendor in ret:
+            category_ids = office_product_vendor.pop("category_ids")
+            office_product_vendor["categories"] = [categories[category_id] for category_id in category_ids if category_id != None]
+        return Response(serializer.data)
+
 
 class ProductViewSet(AsyncMixin, ModelViewSet):
     permission_classes = [IsAuthenticated]

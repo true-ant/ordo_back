@@ -187,6 +187,9 @@ class OfficeProductCategory(TimeStampedModel):
     def __str__(self):
         return f"{self.slug}"
 
+    def to_dict(self):
+        return {k: v for k, v in self.__dict__.items() if "_" not in k}
+
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.name)
