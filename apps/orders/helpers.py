@@ -546,7 +546,7 @@ class ProductHelper:
                 except Exception:
                     product_price = None
 
-                manufacturer_number_origin = row.get("manufacturer_number")
+                manufacturer_number_origin = row.get("mfg_number")
                 manufacturer_number = manufacturer_number_origin.replace("-", "") if manufacturer_number_origin else ""
                 if fields:
                     product = ProductModel.objects.filter(product_id=row["product_id"], vendor=vendor).first()
@@ -650,16 +650,17 @@ class ProductHelper:
             df_index += batch_size
 
     @staticmethod
-    def group_products_by_manufacturer_numbers(since: Optional[datetime.datetime] = None):
+    def group_products_by_manufacturer_numbers(since: Optional[datetime.datetime] = None, vendor_id = -1):
         """group products by using manufacturer_number. this number is identical for products"""
         products = ProductModel.objects.filter(manufacturer_number__isnull=False)
         if since:
             products = products.filter(updated_at__gt=since)
+        if vendor_id != -1:
+            products = products.filter(vendor_id = vendor_id)
         manufacturer_numbers = set(
             products.order_by("manufacturer_number")
             .values("manufacturer_number")
             .annotate(products_count=Count("vendor"))
-            .filter(products_count__gte=2)
             .values_list("manufacturer_number", flat=True)
         )
         products_to_be_updated = []
