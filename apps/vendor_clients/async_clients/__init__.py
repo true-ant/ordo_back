@@ -13,3 +13,4 @@ from apps.vendor_clients.async_clients.purelife import PurelifeClient  # noqa
 from apps.vendor_clients.async_clients.dcdental import DcDentalClient  # noqa
 from apps.vendor_clients.async_clients.crazy_dental import CrazyDentalClient  # noqa
 from apps.vendor_clients.async_clients.skydental import SkydentalClient  # noqa
+from apps.vendor_clients.async_clients.top_glove import TopGloveClient  # noqa
