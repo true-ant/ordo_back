@@ -145,8 +145,8 @@ class CompanyAdmin(NestedModelAdmin):
         "is_active",
     )
     inlines = (
-        OfficeInline,
         CompanyMemberInline,
+        OfficeInline,
     )
 
 

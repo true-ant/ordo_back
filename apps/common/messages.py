@@ -41,3 +41,5 @@ OFFICE_HAS_NO_SUBSCRIPTION = "This office has no subscription"
 
 # Product categories
 PRODUCT_CATEGORY_NOT_PERMITTED = "This is predefined product category, You can't delete this product category"
+
+ALREADY_ADMIN = "Already granted admin role"

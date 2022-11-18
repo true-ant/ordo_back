@@ -16,3 +16,4 @@ from apps.vendor_clients.sync_clients.skydental import SkydentalClient  # noqa
 from apps.vendor_clients.sync_clients.top_glove import TopGloveClient  # noqa
 from apps.vendor_clients.sync_clients.bluesky_bio import BlueskyBioClient  # noqa
 from apps.vendor_clients.sync_clients.practicon import PracticonClient  # noqa
+from apps.vendor_clients.sync_clients.midwest_dental import MidwestDentalClient  # noqa
