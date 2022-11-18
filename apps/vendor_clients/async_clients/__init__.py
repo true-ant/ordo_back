@@ -14,3 +14,5 @@ from apps.vendor_clients.async_clients.dcdental import DcDentalClient  # noqa
 from apps.vendor_clients.async_clients.crazy_dental import CrazyDentalClient  # noqa
 from apps.vendor_clients.async_clients.skydental import SkydentalClient  # noqa
 from apps.vendor_clients.async_clients.top_glove import TopGloveClient  # noqa
+from apps.vendor_clients.async_clients.bluesky_bio import BlueskyBioClient  # noqa
+from apps.vendor_clients.async_clients.practicon import PracticonClient  # noqa

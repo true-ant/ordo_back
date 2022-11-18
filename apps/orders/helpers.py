@@ -589,7 +589,7 @@ class ProductHelper:
                         ProductModel(
                             vendor=vendor,
                             product_id=row["product_id"],
-                            name=row["name"],
+                            name=row["name"][:512],
                             product_unit=row["product_unit"],
                             url=row["url"],
                             category=product_category,

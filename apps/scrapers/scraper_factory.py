@@ -25,6 +25,8 @@ from apps.scrapers.schema import Product
 from apps.scrapers.ultradent import UltraDentScraper
 from apps.scrapers.skydental import SkydentalScraper
 from apps.scrapers.top_glove import TopGloveScraper
+from apps.scrapers.bluesky_bio import BlueSkyBioScraper
+from apps.scrapers.practicon import PracticonScraper
 
 SCRAPER_SLUG = "patterson"
 SCRAPERS = {
@@ -42,7 +44,9 @@ SCRAPERS = {
     "crazy_dental": CrazyDentalScraper,
     "purelife": PureLifeScraper,
     "skydental": SkydentalScraper,
-    "top_glove": TopGloveScraper
+    "top_glove": TopGloveScraper,
+    "bluesky_bio": BlueSkyBioScraper,
+    "praction": PracticonScraper
 }
 
 
