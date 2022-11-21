@@ -432,14 +432,21 @@ class OfficeProductSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         instance = super().update(instance, validated_data)
-        if self.initial_data['nickname'] != None:
+        if "nickname" in self.initial_data:
             nick_products = m.Product.objects.filter(
                 id=instance.product.id
             )
             for nick_product in nick_products:
                 nick_product.nickname = self.initial_data['nickname']
-            
             m.Product.objects.bulk_update(nick_products, ['nickname'])
+
+        if "image_url" in self.initial_data:
+            image_instances = m.ProductImage.objects.filter(
+                id = instance.product.id
+            )
+            for image_instance in image_instances:
+                image_instance.image = self.initial_data["image_url"]
+            m.ProductImage.objects.bulk_update(image_instances, ['image'])
             
         children_product_ids = [child.id for child in instance.product.children.all()]
         if children_product_ids:
