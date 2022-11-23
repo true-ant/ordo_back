@@ -28,6 +28,7 @@ from apps.scrapers.top_glove import TopGloveScraper
 from apps.scrapers.bluesky_bio import BlueSkyBioScraper
 from apps.scrapers.practicon import PracticonScraper
 from apps.scrapers.midwest_dental import MidwestDentalScraper
+from apps.scrapers.pearson import PearsonScraper
 
 SCRAPER_SLUG = "patterson"
 SCRAPERS = {
@@ -48,7 +49,8 @@ SCRAPERS = {
     "top_glove": TopGloveScraper,
     "bluesky_bio": BlueSkyBioScraper,
     "praction": PracticonScraper,
-    "midwest_dental": MidwestDentalScraper
+    "midwest_dental": MidwestDentalScraper,
+    "pearson": PearsonScraper
 }
 
 

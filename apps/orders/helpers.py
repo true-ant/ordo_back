@@ -1197,6 +1197,8 @@ class ProductHelper:
         office: Union[OfficeModel, SmartID],
         fetch_parents: bool = True,
         selected_products: Optional[List[SmartID]] = None,
+        price_from: float = -1,
+        price_to: float = -1
     ):
         if isinstance(office, OfficeModel):
             office_pk = office.id
@@ -1204,9 +1206,13 @@ class ProductHelper:
             office_pk = office
 
         office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk))
-
+        
         connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_pk)
         products = ProductModel.objects.filter(Q(vendor_id__in=connected_vendor_ids))
+        # if price_from is not None and price_from != -1:
+        #     products = products.filter(price__gte=price_from)
+        # if price_to is not None and price_to != -1:
+        #     products = products.filter(price_lte=price_to)
 
         office_product_nickname = OfficeProductModel.objects.filter(
             Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(nickname__isnull=False)

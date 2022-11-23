@@ -17,3 +17,4 @@ from apps.vendor_clients.async_clients.top_glove import TopGloveClient  # noqa
 from apps.vendor_clients.async_clients.bluesky_bio import BlueskyBioClient  # noqa
 from apps.vendor_clients.async_clients.practicon import PracticonClient  # noqa
 from apps.vendor_clients.async_clients.midwest_dental import MidwestDentalClient  # noqa
+from apps.vendor_clients.async_clients.pearson import PearsonClient  # noqa
