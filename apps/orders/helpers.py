@@ -1203,9 +1203,16 @@ class ProductHelper:
         else:
             office_pk = office
 
+        office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk))
+
         connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_pk)
         products = ProductModel.objects.filter(Q(vendor_id__in=connected_vendor_ids))
-        products = products.search(query)
+
+        office_product_nickname = OfficeProductModel.objects.filter(
+            Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(nickname__isnull=False)
+        ).values("nickname")
+
+        products = products.annotate(nickname=Subquery(office_product_nickname[:1])).search(query)
         available_vendors = [
             vendor
             for vendor in products.values_list("vendor__slug", flat=True).order_by("vendor__slug").distinct()
@@ -1221,7 +1228,6 @@ class ProductHelper:
         )
 
         # TODO: this should be optimized
-        office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk))
         price_least_update_date = timezone.now() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
         office_product_price = OfficeProductModel.objects.filter(
             Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(last_price_updated__gte=price_least_update_date)

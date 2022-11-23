@@ -81,7 +81,6 @@ class Product(TimeStampedModel):
     manufacturer_number_origin = models.CharField(max_length=128, null=True, blank=True)
     category = models.ForeignKey(ProductCategory, null=True, blank=True, on_delete=models.SET_NULL, db_index=True)
     name = models.CharField(max_length=512)
-    nickname = models.CharField(max_length=128, null=True)
     product_unit = models.CharField(max_length=16, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     url = models.URLField(null=True, blank=True, max_length=300)
@@ -143,7 +142,6 @@ class Product(TimeStampedModel):
             "product_id": self.product_id if self.product_id else "",
             "sku": "",
             "name": self.name,
-            "nickname": self.nickname,
             "url": self.url if self.url else "",
             "images": [image.image for image in self.images.all()],
             "price": self.price,
@@ -155,7 +153,6 @@ class Product(TimeStampedModel):
         return ProductDataClass(
             product_id=self.product_id,
             name=self.name,
-            nickname=self.nickname,
             description=self.description,
             url=self.url,
             images=[ProductImageDataClass(image=image.image) for image in self.images.all()],
@@ -226,6 +223,8 @@ class OfficeProduct(TimeStampedModel):
     last_order_date = models.DateField(null=True, blank=True)
     last_order_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     last_price_updated = models.DateTimeField(null=True, blank=True, db_index=True)
+    nickname = models.CharField(max_length=128, null=True)
+    image_url = models.CharField(max_length=300,null=True)
     is_favorite = models.BooleanField(default=False)
     is_inventory = models.BooleanField(default=False)
 

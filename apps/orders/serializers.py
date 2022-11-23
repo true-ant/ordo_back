@@ -98,6 +98,8 @@ class ProductV2Serializer(serializers.ModelSerializer):
     is_inventory = serializers.BooleanField(default=False, read_only=True)
     product_vendor_status = serializers.CharField(read_only=True)
     last_order_date = serializers.DateField(read_only=True)
+    nickname = serializers.CharField(max_length=128, allow_null=True)
+    image_url = serializers.CharField(max_length=300,allow_null=True)
     last_order_price = serializers.DecimalField(decimal_places=2, max_digits=10, read_only=True)
 
     class Meta:
@@ -107,6 +109,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
             "vendor",
             "name",
             "nickname",
+            "image_url",
             "product_id",
             "manufacturer_number",
             "category",
@@ -133,6 +136,8 @@ class ProductV2Serializer(serializers.ModelSerializer):
             ret["product_vendor_status"] = instance.office_product[0].product_vendor_status
             ret["last_order_date"] = instance.office_product[0].last_order_date
             ret["last_order_price"] = instance.office_product[0].last_order_price
+            ret["nickname"] = instance.office_product[0].nickname
+            ret["image_url"] = instance.office_product[0].image_url
 
         if instance.vendor and instance.vendor.slug in settings.NON_FORMULA_VENDORS:
             ret["product_price"] = instance.recent_price
@@ -187,7 +192,6 @@ class ProductSerializer(serializers.ModelSerializer):
             "children",
             "product_id",
             "name",
-            "nickname",
             "product_unit",
             "is_special_offer",
             "description",
@@ -406,6 +410,8 @@ class OfficeProductSerializer(serializers.ModelSerializer):
             "office_product_category",
             "is_favorite",
             "is_inventory",
+            "nickname",
+            "image_url",
             "last_order_date",
             "last_order_price",
             "vendor",
@@ -432,22 +438,21 @@ class OfficeProductSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         instance = super().update(instance, validated_data)
+        
         if "nickname" in self.initial_data:
-            nick_products = m.Product.objects.filter(
-                id=instance.product.id
+            office_product = m.OfficeProduct.objects.filter(
+                office=instance.office, product_id=instance.product_id
             )
-            for nick_product in nick_products:
-                nick_product.nickname = self.initial_data['nickname']
-            m.Product.objects.bulk_update(nick_products, ['nickname'])
+            office_product.nickname = self.initial_data["nickname"]
+            m.OfficeProduct.objects.bulk_update(office_product, ["nickname"])
 
         if "image_url" in self.initial_data:
-            image_instances = m.ProductImage.objects.filter(
-                id = instance.product.id
+            office_product = m.OfficeProduct.objects.filter(
+                office=instance.office, product_id=instance.product_id
             )
-            for image_instance in image_instances:
-                image_instance.image = self.initial_data["image_url"]
-            m.ProductImage.objects.bulk_update(image_instances, ['image'])
-            
+            office_product.image_url = self.initial_data['image_url']
+            m.OfficeProduct.objects.bulk_update(office_product, ["image_url"])
+
         children_product_ids = [child.id for child in instance.product.children.all()]
         if children_product_ids:
             office_products = m.OfficeProduct.objects.filter(
