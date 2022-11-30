@@ -8,6 +8,13 @@ import dotenv
 dotenv.load_dotenv()
 
 
+class TestUser():
+    full_name = "TestUser"
+    @property
+    def full_name(self):
+        return self.fullname
+
+
 SITE_URL = "https://staging.joinordo.com"
 FROM_EMAIL = "noreply@joinordo.com"
 TO_EMAILS = ["zachburau@gmail.com"]
@@ -22,14 +29,22 @@ class Command(BaseCommand):
         #     password='acde8441f153be361e3d4008eed13670-45f7aa85-afbe216e')
 
         self.test_invited()
+        print("invited")
         self.test_welcome_to_ordo()
+        print("welcome")
         self.test_approval()
+        print("approval")
         self.test_confirmation()
+        print("confirmation")
         self.test_reset_password()
+        print("reset")
         self.test_update_budget()
+        print("update budget")
 
     def test_approval(self):
         # Approval Needed
+
+        created_by = User("Test User")
         office = Office("Columbine Creek Dentistry")
         email_template = "order_approval_needed.html"
         htm_content = render_to_string(
@@ -155,11 +170,3 @@ class Office():
 class User():
     def __init__(self, name):
         self.full_name = name
-
-# if __name__ == "__main__":
-#     test_invited()
-    # test_welcome_to_ordo()
-    # test_approval()
-    # test_confirmation()
-    # test_reset_password()
-    # test_update_budget()
