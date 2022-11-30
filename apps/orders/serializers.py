@@ -7,6 +7,7 @@ from rest_framework_recursive.fields import RecursiveField
 from apps.accounts.helper import OfficeBudgetHelper
 from apps.accounts.serializers import VendorLiteSerializer
 from apps.common.choices import OrderStatus
+from apps.common.serializers import Base64ImageField
 from apps.orders.helpers import OfficeProductHelper, ProductHelper
 
 from . import models as m
@@ -20,6 +21,7 @@ class OfficeProductCategorySerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
+
         if self.context.get("with_inventory_count"):
             office_inventory_products = instance.products.filter(is_inventory=True).exclude(
                 product__vendor__isnull=True
@@ -37,8 +39,10 @@ class OfficeProductVendorSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         if self.context.get("with_inventory_count"):
+            
             office_inventory_products = m.OfficeProduct.objects.all().filter(
                 office_id=self.context["office_id"],
+                product__vendor_id=instance.id,
                 is_inventory=True).exclude(
                 product__vendor__isnull=True
             )
@@ -99,7 +103,8 @@ class ProductV2Serializer(serializers.ModelSerializer):
     product_vendor_status = serializers.CharField(read_only=True)
     last_order_date = serializers.DateField(read_only=True)
     nickname = serializers.CharField(max_length=128, allow_null=True)
-    image_url = serializers.CharField(max_length=300,allow_null=True)
+    # image_url = Base64ImageField()
+
     last_order_price = serializers.DecimalField(decimal_places=2, max_digits=10, read_only=True)
 
     class Meta:
@@ -109,7 +114,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
             "vendor",
             "name",
             "nickname",
-            "image_url",
+            # "image_url",
             "product_id",
             "manufacturer_number",
             "category",
@@ -137,7 +142,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
             ret["last_order_date"] = instance.office_product[0].last_order_date
             ret["last_order_price"] = instance.office_product[0].last_order_price
             ret["nickname"] = instance.office_product[0].nickname
-            ret["image_url"] = instance.office_product[0].image_url
+            # ret["image_url"] = instance.office_product[0].image_url
 
         if instance.vendor and instance.vendor.slug in settings.NON_FORMULA_VENDORS:
             ret["product_price"] = instance.recent_price
@@ -399,6 +404,7 @@ class OfficeProductSerializer(serializers.ModelSerializer):
     office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), write_only=True)
     office_product_category = serializers.PrimaryKeyRelatedField(queryset=m.OfficeProductCategory.objects.all())
     vendor = serializers.CharField(read_only=True)
+    image_url = Base64ImageField()
 
     class Meta:
         model = m.OfficeProduct
@@ -446,12 +452,12 @@ class OfficeProductSerializer(serializers.ModelSerializer):
             office_product.nickname = self.initial_data["nickname"]
             m.OfficeProduct.objects.bulk_update(office_product, ["nickname"])
 
-        if "image_url" in self.initial_data:
-            office_product = m.OfficeProduct.objects.filter(
-                office=instance.office, product_id=instance.product_id
-            )
-            office_product.image_url = self.initial_data['image_url']
-            m.OfficeProduct.objects.bulk_update(office_product, ["image_url"])
+        # if "image_url" in self.initial_data:
+        #     office_product = m.OfficeProduct.objects.filter(
+        #         office=instance.office, product_id=instance.product_id
+        #     )
+        #     office_product.image_url = self.initial_data['image_url']
+        #     m.OfficeProduct.objects.bulk_update(office_product, ["image_url"])
 
         children_product_ids = [child.id for child in instance.product.children.all()]
         if children_product_ids:

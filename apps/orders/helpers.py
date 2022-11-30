@@ -666,6 +666,8 @@ class ProductHelper:
         products_to_be_updated = []
         # parent_products_to_be_created = []
         for i, manufacturer_number in enumerate(manufacturer_numbers):
+            if len(manufacturer_number)<1:
+                continue
             print(f"Calculating {i}th: {manufacturer_number}")
             similar_products = ProductModel.objects.filter(
                 manufacturer_number=manufacturer_number, vendor__isnull=False
@@ -1209,16 +1211,18 @@ class ProductHelper:
         
         connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_pk)
         products = ProductModel.objects.filter(Q(vendor_id__in=connected_vendor_ids))
-        # if price_from is not None and price_from != -1:
-        #     products = products.filter(price__gte=price_from)
-        # if price_to is not None and price_to != -1:
-        #     products = products.filter(price_lte=price_to)
+        # office_product_nickname = OfficeProductModel.objects.filter(
+        #     Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(nickname__isnull=False)
+        # ).values("nickname")
 
-        office_product_nickname = OfficeProductModel.objects.filter(
-            Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(nickname__isnull=False)
-        ).values("nickname")
+        # products = products.annotate(nickname=Subquery(office_product_nickname[:1])).search(query)
+        products = products.search(query)
 
-        products = products.annotate(nickname=Subquery(office_product_nickname[:1])).search(query)
+        office_nickname_products = OfficeProductModel.objects.filter(Q(office_id=office_pk) & Q(nickname__contains=query)).values_list("product_id", flat=True)
+        office_nickname_products = ProductModel.objects.filter(Q(Q(id__in=office_nickname_products)))
+
+        products = products | office_nickname_products
+       
         available_vendors = [
             vendor
             for vendor in products.values_list("vendor__slug", flat=True).order_by("vendor__slug").distinct()
@@ -1244,13 +1248,9 @@ class ProductHelper:
             Q(office_id=office_pk) & Q(is_inventory=True) & Q(product_id=OuterRef("pk"))
         )
 
-        return (
+        products = (
             products.prefetch_related(Prefetch("office_products", queryset=office_products, to_attr="office_product"))
             .annotate(office_product_price=Subquery(office_product_price[:1]))
-            .annotate(is_inventory=Exists(inventory_office_product))
-            # .annotate(last_order_date=Subquery(inventory_office_products.values("last_order_date")[:1]))
-            # .annotate(last_order_price=Subquery(inventory_office_products.values("price")[:1]))
-            # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
             .annotate(
                 product_price=Case(
                     When(price__isnull=False, then=F("price")),
@@ -1258,6 +1258,17 @@ class ProductHelper:
                     default=Value(None),
                 )
             )
+        )
+        # if price_from is not None and price_from != -1:
+        #     products = products.filter(price__gte=price_from)
+        # if price_to is not None and price_to != -1:
+        #     products = products.filter(price_lte=price_to)
+
+        products = (
+            products.annotate(is_inventory=Exists(inventory_office_product))
+            # .annotate(last_order_date=Subquery(inventory_office_products.values("last_order_date")[:1]))
+            # .annotate(last_order_price=Subquery(inventory_office_products.values("price")[:1]))
+            # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
             .annotate(
                 selected_product=Case(
                     When(id__in=selected_products, then=Value(0)),
@@ -1271,7 +1282,9 @@ class ProductHelper:
                 )
             )
             .order_by("selected_product", "-is_inventory", "group", "product_price")
-        ), available_vendors
+        )
+
+        return products, available_vendors
 
     @staticmethod
     def suggest_products(search: str, office: Union[OfficeModel, SmartID]):

@@ -58,7 +58,7 @@ class ProductQuerySet(models.QuerySet):
         return (
             self.annotate(search=RawSQL("search_vector", [], output_field=SearchVectorField()))
             # .annotate(similarity=trigram_similarity)
-            .filter(Q(search=q) | Q(name__icontains=text) | Q(nickname__icontains=text))
+            .filter(Q(search=q) | Q(name__icontains=text))
         )
 
 
@@ -224,7 +224,7 @@ class OfficeProduct(TimeStampedModel):
     last_order_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     last_price_updated = models.DateTimeField(null=True, blank=True, db_index=True)
     nickname = models.CharField(max_length=128, null=True)
-    image_url = models.CharField(max_length=300,null=True)
+    image_url = models.ImageField(null=True, blank=True, upload_to="offices")
     is_favorite = models.BooleanField(default=False)
     is_inventory = models.BooleanField(default=False)
 

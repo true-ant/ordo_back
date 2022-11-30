@@ -1193,6 +1193,8 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
     def get_queryset(self):
         category_ordering = self.request.query_params.get("category_ordering")
         category_or_price = self.request.query_params.get("category_or_price", "price")
+        price_from = self.request.query_params.get("price_from", -1)
+        price_to = self.request.query_params.get("price_to", -1)
         queryset = (
             super()
             .get_queryset()
@@ -1205,6 +1207,12 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
                 )
             )
         ).distinct()
+
+        if price_from != -1:
+            queryset = queryset.filter(price__gte=price_from)
+        if price_to != -1:
+            queryset = queryset.filter(price__lte=price_to)
+            
         if category_or_price == "category":
             return queryset.order_by("category_order", "office_product_category__slug", "price", "-updated_at")
         else:

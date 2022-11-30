@@ -533,8 +533,6 @@ class UserViewSet(ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         kwargs.setdefault("partial", True)
-        if self.request.user.role == 1:
-            return Response({"message": msgs.ALREADY_ADMIN}, status=HTTP_200_OK)
         return super().update(request, *args, **kwargs)
 
     def perform_destroy(self, instance):

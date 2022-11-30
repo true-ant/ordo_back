@@ -29,6 +29,7 @@ from apps.scrapers.bluesky_bio import BlueSkyBioScraper
 from apps.scrapers.practicon import PracticonScraper
 from apps.scrapers.midwest_dental import MidwestDentalScraper
 from apps.scrapers.pearson import PearsonScraper
+from apps.scrapers.salvin import SalvinScraper
 
 SCRAPER_SLUG = "patterson"
 SCRAPERS = {
@@ -50,7 +51,8 @@ SCRAPERS = {
     "bluesky_bio": BlueSkyBioScraper,
     "praction": PracticonScraper,
     "midwest_dental": MidwestDentalScraper,
-    "pearson": PearsonScraper
+    "pearson": PearsonScraper,
+    "salvin": SalvinScraper
 }
 
 
