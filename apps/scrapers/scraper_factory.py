@@ -30,6 +30,9 @@ from apps.scrapers.practicon import PracticonScraper
 from apps.scrapers.midwest_dental import MidwestDentalScraper
 from apps.scrapers.pearson import PearsonScraper
 from apps.scrapers.salvin import SalvinScraper
+from apps.scrapers.bergmand import BergmandScraper
+from apps.scrapers.biohorizons import BioHorizonsScraper
+
 
 SCRAPER_SLUG = "patterson"
 SCRAPERS = {
@@ -52,7 +55,9 @@ SCRAPERS = {
     "praction": PracticonScraper,
     "midwest_dental": MidwestDentalScraper,
     "pearson": PearsonScraper,
-    "salvin": SalvinScraper
+    "salvin": SalvinScraper,
+    "bergmand": BergmandScraper,
+    "biohorizons": BioHorizonsScraper
 }
 
 

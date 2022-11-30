@@ -19,3 +19,5 @@ from apps.vendor_clients.async_clients.practicon import PracticonClient  # noqa
 from apps.vendor_clients.async_clients.midwest_dental import MidwestDentalClient  # noqa
 from apps.vendor_clients.async_clients.pearson import PearsonClient  # noqa
 from apps.vendor_clients.async_clients.salvin import SalvinClient  # noqa
+from apps.vendor_clients.async_clients.bergmand import BergmandClient  # noqa
+from apps.vendor_clients.async_clients.biohorizons import BioHorizonsClient  # noqa
