@@ -1,26 +1,50 @@
+import smtplib
 from django.core.management import BaseCommand
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 import datetime
+import dotenv
 
+dotenv.load_dotenv()
+
+
+class TestUser():
+    full_name = "TestUser"
+    @property
+    def full_name(self):
+        return self.fullname
 
 
 SITE_URL = "https://staging.joinordo.com"
 FROM_EMAIL = "noreply@joinordo.com"
-
+TO_EMAILS = ["zachburau@gmail.com"]
+AUTH_TOKEN = "591b76919b4d4a53a999032eb9c2ced6165a29784ce341a39bdb6f13aece8e43"
 class Command(BaseCommand):
 
-    
     def handle(self, *args, **options):
+        # smtp = smtplib.SMTP('smtp.mailgun.org', 587)
+
+        # smtp.login(
+        #     user='postmaster@mg.joinordo.com',
+        #     password='acde8441f153be361e3d4008eed13670-45f7aa85-afbe216e')
+
         self.test_invited()
+        print("invited")
         self.test_welcome_to_ordo()
+        print("welcome")
         self.test_approval()
+        print("approval")
         self.test_confirmation()
+        print("confirmation")
         self.test_reset_password()
+        print("reset")
         self.test_update_budget()
+        print("update budget")
 
     def test_approval(self):
         # Approval Needed
+
+        created_by = User("Test User")
         office = Office("Columbine Creek Dentistry")
         email_template = "order_approval_needed.html"
         htm_content = render_to_string(
@@ -41,7 +65,7 @@ class Command(BaseCommand):
             subject="Order approval needed",
             message="message",
             from_email=FROM_EMAIL,
-            recipient_list=list("zachburau@gmail.com"),
+            recipient_list=TO_EMAILS,
             html_message=htm_content,
         )
 
@@ -67,7 +91,7 @@ class Command(BaseCommand):
             subject="Order Confirmation",
             message="message",
             from_email=FROM_EMAIL,
-            recipient_list=list("zachburau@gmail.com"),
+            recipient_list=TO_EMAILS,
             html_message=htm_content,
         )
 
@@ -75,7 +99,7 @@ class Command(BaseCommand):
         htm_content = render_to_string(
             "emails/reset_password.html",
             {
-                "TOKEN": "",
+                "TOKEN": AUTH_TOKEN,
                 "SITE_URL": SITE_URL,
             },
         )
@@ -83,7 +107,7 @@ class Command(BaseCommand):
             subject="Password Reset",
             message="message",
             from_email=FROM_EMAIL,
-            recipient_list="zachburau@gmail.com",
+            recipient_list=TO_EMAILS,
             html_message=htm_content,
         )
 
@@ -93,7 +117,7 @@ class Command(BaseCommand):
             subject="Welcome to Ordo!",
             message="message",
             from_email=FROM_EMAIL,
-            recipient_list="zachburau@gmail.com",
+            recipient_list=TO_EMAILS,
             html_message=htm_content,
         )
 
@@ -105,7 +129,7 @@ class Command(BaseCommand):
             {
                 "inviter": inviter,
                 "company": company,
-                "TOKEN": "",
+                "TOKEN": AUTH_TOKEN,
                 "SITE_URL": SITE_URL,
             },
         )
@@ -113,7 +137,7 @@ class Command(BaseCommand):
             subject="You've been invited to Join Ordo!",
             message="message",
             from_email=FROM_EMAIL,
-            recipient_list=["kisney.dev.11@gmail.com"],
+            recipient_list=TO_EMAILS,
             html_message=htm_content,
         )
         
@@ -129,7 +153,7 @@ class Command(BaseCommand):
             subject="It's time to update your budget!",
             message="message",
             from_email=FROM_EMAIL,
-            recipient_list=list("zachburau@gmail.com"),
+            recipient_list=TO_EMAILS,
             html_message=htm_content,
         )
 
@@ -146,11 +170,3 @@ class Office():
 class User():
     def __init__(self, name):
         self.full_name = name
-
-# if __name__ == "__main__":
-#     test_invited()
-    # test_welcome_to_ordo()
-    # test_approval()
-    # test_confirmation()
-    # test_reset_password()
-    # test_update_budget()
