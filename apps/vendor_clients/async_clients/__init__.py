@@ -21,3 +21,5 @@ from apps.vendor_clients.async_clients.pearson import PearsonClient  # noqa
 from apps.vendor_clients.async_clients.salvin import SalvinClient  # noqa
 from apps.vendor_clients.async_clients.bergmand import BergmandClient  # noqa
 from apps.vendor_clients.async_clients.biohorizons import BioHorizonsClient  # noqa
+from apps.vendor_clients.async_clients.atomo import AtomoClient  # noqa
+from apps.vendor_clients.async_clients.orthoarch import OrthoarchClient  # noqa

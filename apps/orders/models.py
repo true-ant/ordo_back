@@ -83,7 +83,7 @@ class Product(TimeStampedModel):
     name = models.CharField(max_length=512)
     product_unit = models.CharField(max_length=16, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
-    url = models.URLField(null=True, blank=True, max_length=300)
+    url = models.URLField(null=True, blank=True, max_length=1024)
     tags = models.ManyToManyField(Keyword)
     parent = models.ForeignKey(
         "self",
@@ -169,7 +169,7 @@ class Product(TimeStampedModel):
 
 class ProductImage(TimeStampedModel):
     product = FlexibleForeignKey(Product, related_name="images")
-    image = models.URLField(max_length=300)
+    image = models.URLField(max_length=1024)
 
     def __str__(self):
         return f"{self.product}'s Image"

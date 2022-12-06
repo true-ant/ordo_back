@@ -7,7 +7,8 @@
       "request": "launch",
       "module": "uvicorn",
       "args": ["config.asgi:application"],
-      "justMyCode": false
+      "justMyCode": false,
+      "env": {"PYTHONPATH": "E:${pathSeparator}zachburau${pathSeparator}ordo-backend${pathSeparator}eb-virt${pathSeparator}Scripts"}
     },
 
     {
