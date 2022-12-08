@@ -35,7 +35,7 @@ from rest_framework.viewsets import ModelViewSet
 
 from apps.accounts.models import Company, Office, OfficeBudget, OfficeVendor, Vendor
 from apps.accounts.services.offices import OfficeService
-from apps.common.choices import ProductStatus
+from apps.common.choices import BUDGET_SPEND_TYPE, ProductStatus
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncCreateModelMixin, AsyncMixin
 from apps.common.pagination import (
@@ -816,6 +816,21 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         instance.save()
         return Response(self.serializer_class(instance).data)
 
+    @action(detail=False, methods=["post"], url_path="set_promo")
+    def set_cart_promotion(self, request, *args, **kwargs):
+        vendor_id = request.data.get("vendor_id")
+        promo_code = request.data.get("promo_code")
+        if m.Promotion.objects.filter(code=promo_code).exists() == False:
+            return Response({"message": "Invalid promo code. Please check promo code."}, status=HTTP_400_BAD_REQUEST)
+        promotion = m.Promotion.objects.get(code=promo_code)
+        carts = {cart for cart in self.get_queryset() if cart.product.vendor_id == vendor_id}
+        for cart in carts:
+            cart.promo_id = promotion.id
+        m.Cart.objects.bulk_update(carts, fields=["promo_id"])
+        serializer = s.CartSerializer(self.filter_queryset(self.get_queryset()), many=True)
+        return Response(serializer.data)
+
+
     def update(self, request, *args, **kwargs):
         kwargs["partial"] = True
         return super().update(request, *args, **kwargs)
@@ -916,6 +931,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                             product=vendor_order_product.product,
                             quantity=vendor_order_product.quantity,
                             unit_price=vendor_order_product.unit_price,
+                            budget_spend_type=vendor_order_product.budget_spend_type,
                             status=m.ProductStatus.PENDING_APPROVAL if approval_needed else m.ProductStatus.PROCESSING,
                         )
                     )
@@ -1037,6 +1053,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
             session = ClientSession()
         tasks = []
         debug = OrderService.is_debug_mode(request.META["HTTP_HOST"])
+        redundancy = OrderService.is_force_redundancy()
 
         # check order app
         if request.user.role == m.User.Role.ADMIN:
@@ -1083,6 +1100,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                         ],
                         shipping_method=shipping_options.get(office_vendor.vendor.slug),
                         fake=fake_order,
+                        redundancy=redundancy
                     )
                 )
 

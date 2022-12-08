@@ -14,10 +14,12 @@ from apps.types.orders import CartProduct
 class OrderService:
     @staticmethod
     def is_debug_mode(stage):
-        return False
-        # return "staging" in stage or "localhost" in stage
+        return "localhost" in stage or "127.0.0.1" in stage
         # return settings.MAKE_FAKE_ORDER
 
+    @staticmethod
+    def is_force_redundancy():
+        return True
     @sync_to_async
     def get_office_vendor(self, vendor_order) -> OfficeVendor:
         return (

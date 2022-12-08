@@ -25,5 +25,5 @@ class BlueSkyBioScraper(Scraper):
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("BlueSkyBio/create_order")
         
-    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
         print("BlueSkyBio/confirm_order")

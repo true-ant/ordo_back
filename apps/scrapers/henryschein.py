@@ -781,12 +781,14 @@ class HenryScheinScraper(Scraper):
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("henryschein/create_order")
         try:
-            await self.login()
-            await self.clear_cart()
-            await self.add_products_to_cart(products)
-            checkout_dom = await self.checkout(products)
-            review_checkout_dom = await self.review_checkout(checkout_dom, shipping_method)
-            vendor_order_detail = await self.review_order(review_checkout_dom)
+            await asyncio.sleep(0.3)
+            raise Exception()
+            # await self.login()
+            # await self.clear_cart()
+            # await self.add_products_to_cart(products)
+            # checkout_dom = await self.checkout(products)
+            # review_checkout_dom = await self.review_checkout(checkout_dom, shipping_method)
+            # vendor_order_detail = await self.review_order(review_checkout_dom)
         except:
             print("henry_schein create_order except")
             subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
@@ -812,11 +814,13 @@ class HenryScheinScraper(Scraper):
                 },
             }
 
-    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
-        print("henryschein/confirm_order")
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
+        print(f"henryschein/confirm_order {redundancy}")
         self.backsession = self.session
         self.session = ClientSession()
         try:
+            asyncio.sleep(1)
+            raise Exception()
             await self.login()
             await self.clear_cart()
             await self.add_products_to_cart(products)

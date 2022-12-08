@@ -289,16 +289,6 @@ class PattersonScraper(Scraper):
 
         async with self.session.get(f"{self.BASE_URL}{order_link}") as resp:
             order_detail_response = Selector(text=await resp.text())
-            # addresses = order_detail_response.xpath(
-            #     "//span[@id='ctl00_cphMainContent_ucShippingAddr_lblAddress']//text()"
-            # ).extract()
-            # _, codes = addresses[-2].split(",")
-            # region_code, postal_code = codes.strip().split(" ")
-            # order["shipping_address"] = {
-            #     "address": addresses[1],
-            #     "region_code": region_code,
-            #     "postal_code": postal_code,
-            # }
 
             for i, order_product_dom in enumerate(
                 order_detail_response.xpath('//div[contains(@class, "itemRecord")]')
@@ -696,6 +686,8 @@ class PattersonScraper(Scraper):
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("patterson/create_order")
         try:
+            await asyncio.sleep(0.3)
+            raise Exception()
             await self.login()
             await self.clear_cart()
             await self.add_to_cart(products)
@@ -731,9 +723,11 @@ class PattersonScraper(Scraper):
             },
         }
 
-    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
         print("patterson/confirm_order")
         try:
+            await asyncio.sleep(1)
+            raise Exception()
             await self.login()
             await self.clear_cart()
             await self.add_to_cart(products)

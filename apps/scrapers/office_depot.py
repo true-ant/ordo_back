@@ -18,12 +18,12 @@ from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.scrapers.schema import VendorOrderDetail, Order
 from apps.types.orders import CartProduct
 
-class TopGloveScraper(Scraper):
+class OfficeDepotScraper(Scraper):
 
     reqsession = requests.Session()
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
-        print("TopGlove/create_order")
+        print("OfficeDepot/create_order")
         
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
-        print("TopGlove/confirm_order")
+        print("OfficeDepot/confirm_order")

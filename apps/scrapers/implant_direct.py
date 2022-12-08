@@ -457,6 +457,8 @@ class ImplantDirectScraper(Scraper):
         print("Implant Direct/create_order")
         loop = asyncio.get_event_loop()
         try:
+            await asyncio.sleep(0.5)
+            raise Exception()
             await self.login()
             await loop.run_in_executor(None,self.clear_cart)
             await loop.run_in_executor(None,self.add_to_cart, products)
@@ -492,11 +494,13 @@ class ImplantDirectScraper(Scraper):
             },
         }
 
-    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
         print("Implant Direct/confirm_order")
         self.reqsession = requests.Session()
         loop = asyncio.get_event_loop()
         try:
+            await asyncio.sleep(1)
+            raise Exception()
             await self.login()
             await loop.run_in_executor(None,self.clear_cart)
             await loop.run_in_executor(None,self.add_to_cart, products)

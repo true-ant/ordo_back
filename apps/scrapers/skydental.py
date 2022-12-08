@@ -25,5 +25,5 @@ class SkydentalScraper(Scraper):
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("Skydental/create_order")
         
-    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
         print("Skydental/confirm_order")

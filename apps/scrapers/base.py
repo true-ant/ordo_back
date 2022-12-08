@@ -357,6 +357,9 @@ class Scraper:
                 else:
                     print("===== base/save_order_to_db 6 =====")
                     vendor_order = VendorOrderModel.objects.get(vendor=self.vendor, vendor_order_id=order_id)
+                    vendor_order.status = order_data["status"]
+                    vendor_order.save()
+
             except VendorOrderModel.DoesNotExist:
                 print("===== base/save_order_to_db 7 =====", order_data, order_date)
         

@@ -34,6 +34,7 @@ from apps.scrapers.bergmand import BergmandScraper
 from apps.scrapers.biohorizons import BioHorizonsScraper
 from apps.scrapers.atomo import AtomoScraper
 from apps.scrapers.orthoarch import OrthoarchScraper
+from apps.scrapers.office_depot import OfficeDepotScraper
 
 
 SCRAPER_SLUG = "patterson"
@@ -61,7 +62,8 @@ SCRAPERS = {
     "bergmand": BergmandScraper,
     "biohorizons": BioHorizonsScraper,
     "atomo": AtomoScraper,
-    "orthoarch": OrthoarchScraper
+    "orthoarch": OrthoarchScraper,
+    "office_depot": OfficeDepotScraper
 }
 
 

@@ -9,7 +9,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         companies = Company.objects.filter(on_boarding_step=5)
-        products = Product.objects.filter(vendor__slug__in=["implant_direct", "edge_endo", "dental_city"])
+        products = Product.objects.filter(vendor__slug__in=["purelife"])
         for company in companies:
             offices = company.offices.all()
 

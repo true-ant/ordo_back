@@ -181,6 +181,11 @@ class ProductV2Serializer(serializers.ModelSerializer):
         return ret
 
 
+class PromoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.Promotion
+        fields = "__all__"
+
 class ProductSerializer(serializers.ModelSerializer):
     vendor = serializers.PrimaryKeyRelatedField(queryset=m.Vendor.objects.all())
     images = ProductImageSerializer(many=True, required=False)
@@ -342,6 +347,7 @@ class CartCreateSerializer(serializers.ModelSerializer):
 class CartSerializer(serializers.ModelSerializer):
     # office_product = OfficeProductReadSerializer(write_only=True)
     product = ProductSerializer(read_only=True, required=False)
+    promo = PromoSerializer(read_only=True,required=False)
     # same_products = serializers.SerializerMethodField()
     # office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
 
@@ -381,7 +387,7 @@ class CartSerializer(serializers.ModelSerializer):
     #             return m.Cart.objects.create(product=product, **validated_data)
     #         except IntegrityError:
     #             raise serializers.ValidationError({"message": "This product is already in your cart"})
-
+            
     def to_representation(self, instance):
         # TODO: return sibling products from linked vendor
         ret = super().to_representation(instance)

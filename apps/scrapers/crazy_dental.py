@@ -187,6 +187,8 @@ class CrazyDentalScraper(Scraper):
         print("Crazy Dental/create_order")
         loop = asyncio.get_event_loop()
         try:
+            await asyncio.sleep(0.3)
+            raise Exception()
             await self.login()
             await loop.run_in_executor(None,self.clear_cart)
             await loop.run_in_executor(None,self.add_to_cart, products)
@@ -222,11 +224,13 @@ class CrazyDentalScraper(Scraper):
             },
         }
 
-    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
         print("Crazy Dental/confirm_order")
         self.reqsession = requests.Session()
         loop = asyncio.get_event_loop()
         try:
+            await asyncio.sleep(1)
+            raise Exception()
             await self.login()
             await loop.run_in_executor(None,self.clear_cart)
             await loop.run_in_executor(None,self.add_to_cart, products)
@@ -282,6 +286,8 @@ class CrazyDentalScraper(Scraper):
                 "order_id":f"{uuid.uuid4()}",
                 "order_type": msgs.ORDER_TYPE_REDUNDANCY
             }
+            await self.session.close()
+            self.session = self.backsession
             return {
                 **vendor_order_detail,
                 **self.vendor.to_dict(),

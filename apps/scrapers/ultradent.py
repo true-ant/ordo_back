@@ -808,6 +808,8 @@ class UltraDentScraper(Scraper):
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("Ultradent/create_order")
         try:
+            await asyncio.sleep(1)
+            raise Exception()
             await self.login()
             await self.clear_cart()
             await self.add_to_cart(products)
@@ -843,9 +845,11 @@ class UltraDentScraper(Scraper):
             },
         }
     
-    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
         print("ultradent/confirm_order")
         try:
+            await asyncio.sleep(1)
+            raise Exception()
             await self.login()
             await self.clear_cart()
             await self.add_to_cart(products)

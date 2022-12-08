@@ -547,6 +547,8 @@ class DarbyScraper(Scraper):
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("darby/create_order")
         try:
+            await asyncio.sleep(0.3)
+            raise Exception()
             await self.login()
             await self.clear_cart()
             await self.add_products_to_cart(products)
@@ -574,12 +576,14 @@ class DarbyScraper(Scraper):
                 },
             }
 
-    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
         self.backsession = self.session
         self.session = ClientSession()
         
         print("darby/confirm_order")
         try:
+            await asyncio.sleep(1)
+            raise Exception()
             await self.login()
             await self.clear_cart()
             await self.add_products_to_cart(products)

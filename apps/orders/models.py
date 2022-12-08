@@ -68,6 +68,18 @@ class ProductManager(models.Manager):
     def search(self, text):
         return self.get_queryset().search(text)
 
+class Promotion(models.Model):
+    """
+    This model store promotion for one-time apply in cart.
+    """
+
+    code = models.CharField(max_length=128, unique=True)
+    type = models.IntegerField(default=1)
+    reduction_price = models.IntegerField(default=0, null=True)
+    description = models.CharField(max_length=128, null=True)
+
+    def __str__(self):
+        return self.code
 
 class Product(TimeStampedModel):
     """
@@ -392,6 +404,15 @@ class Cart(TimeStampedModel):
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     save_for_later = models.BooleanField(default=False)
     instant_checkout = models.BooleanField(default=True)
+    promo = FlexibleForeignKey(Promotion, null=True)
+    budget_spend_type = models.CharField(
+        max_length=64,
+        choices=BUDGET_SPEND_TYPE.choices,
+        default=BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET,
+        null=True,
+        blank=True,
+        db_index=True,
+    )
 
     class Meta:
         ordering = ("created_at",)

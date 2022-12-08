@@ -500,6 +500,8 @@ class Net32Scraper(Scraper):
         print("net32/create_order")
         vendor_slug: str = self.vendor.slug
         try:
+            await asyncio.sleep(1)
+            raise Exception()
             await self.login()
             await self.clear_cart()
             await self.add_products_to_cart(products)
@@ -532,7 +534,7 @@ class Net32Scraper(Scraper):
                 }
             }
             
-    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
         print("net32/confirm_order")
         self.backsession = self.session
         self.session = ClientSession()
@@ -543,6 +545,8 @@ class Net32Scraper(Scraper):
             self.session = self.backsession
             return {**result[self.vendor.slug], "order_id": f"{uuid.uuid4()}", "order_type": msgs.ORDER_TYPE_ORDO}
         try:
+            await asyncio.sleep(1)
+            raise Exception()
             async with self.session.post(
                 "https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS
             ) as resp:
