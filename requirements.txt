@@ -108,3 +108,4 @@ websockets==9.1; python_full_version >= "3.6.1"
 wrapt==1.13.3; python_version >= "3.7" and python_full_version < "3.0.0" and python_version < "4.0" or python_version >= "3.7" and python_version < "4.0" and python_full_version >= "3.5.0"
 yarl==1.6.3; python_version >= "3.7" and python_version < "4.0"
 zope.interface==5.4.0; python_full_version >= "3.6.7" and python_version >= "3.6"
+ebaysdk==2.2.0

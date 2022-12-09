@@ -47,6 +47,7 @@ from apps.common.utils import get_date_range, group_products_from_search_result
 from apps.orders.helpers import OfficeProductHelper, ProductHelper
 from apps.orders.services.order import OrderService
 from apps.scrapers.amazonsearch import AmazonSearchScraper
+from apps.scrapers.ebay_search import EbaySearch
 from apps.scrapers.errors import VendorNotConnected, VendorNotSupported, VendorSiteError
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import CartProduct
@@ -1574,24 +1575,31 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
     def list(self, request, *args, **kwargs):
         query = self.request.GET.get("search", "")
         queryset = self.filter_queryset(self.get_queryset())
+        vendors = self.request.query_params.get("vendors", "").split(",")
 
-        list1 = list(queryset)
+        product_list = list(queryset)
 
-        amazon_inc = self.request.query_params.get("vendors", "").count("amazon") > 0
-        if amazon_inc:
+        if "ebay" in vendors:
+            ebay_products = EbaySearch().execute(keyword=query)
+
+            if ebay_products:
+                self.available_vendors.append("ebay")
+                product_list.extend(ebay_products)
+
+        if "amazon" in vendors:
             # Add on the fly results
             try:
                 products_fly = AmazonSearchScraper()._search_products(query)
             except:
-                products_fly = {"products":[]}
+                products_fly = {"products": []}
             # log += products_fly['log']
-            if(len(products_fly['products']) > 0):
-                list1.extend(products_fly['products'])
+            if products_fly['products']:
+                product_list.extend(products_fly['products'])
                 self.available_vendors.append("amazon")
 
         count_per_page = int(self.request.query_params.get("per_page", 10))
         current_page = int(self.request.query_params.get("page", 1))
-        pagination_obj = Paginator(list1, count_per_page)
+        pagination_obj = Paginator(product_list, count_per_page)
 
         ret = {
             "vendor_slugs": getattr(self, "available_vendors", None),
@@ -1637,7 +1645,7 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
                 }
             )            
 
-        serializer = self.get_serializer(list1, many=True)
+        serializer = self.get_serializer(product_list, many=True)
         ret["products"] = serializer.data
         return Response(ret)
 
