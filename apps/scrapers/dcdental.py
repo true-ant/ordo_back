@@ -200,6 +200,7 @@ class DCDentalScraper(Scraper):
                 "shipping_amount": "",
                 "tax_amount": "",
                 "total_amount": "",
+                "reduction_amount": subtotal,
                 "payment_method": "",
                 "shipping_address": ship_addr,
                 "order_id":f"{uuid.uuid4()}",
@@ -214,6 +215,7 @@ class DCDentalScraper(Scraper):
                 "shipping_amount": 0,
                 "tax_amount": "",
                 "total_amount": Decimal(subtotal_manual),
+                "reduction_amount": Decimal(subtotal_manual),
                 "payment_method": "",
                 "shipping_address": "",
             }

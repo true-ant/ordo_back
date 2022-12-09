@@ -404,7 +404,7 @@ class Cart(TimeStampedModel):
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     save_for_later = models.BooleanField(default=False)
     instant_checkout = models.BooleanField(default=True)
-    promo = FlexibleForeignKey(Promotion, null=True)
+    promotion = FlexibleForeignKey(Promotion, null=True)
     budget_spend_type = models.CharField(
         max_length=64,
         choices=BUDGET_SPEND_TYPE.choices,

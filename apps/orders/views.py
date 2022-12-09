@@ -679,6 +679,7 @@ def get_cart(office_pk):
         m.Cart.objects.filter(office_id=office_pk, save_for_later=False, instant_checkout=True)
         .order_by("-updated_at")
         .select_related("product__vendor")
+        .select_related("promotion")
     )
     if not cart_products:
         return cart_products, []
@@ -825,8 +826,8 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         promotion = m.Promotion.objects.get(code=promo_code)
         carts = {cart for cart in self.get_queryset() if cart.product.vendor_id == vendor_id}
         for cart in carts:
-            cart.promo_id = promotion.id
-        m.Cart.objects.bulk_update(carts, fields=["promo_id"])
+            cart.promotion_id = promotion.id
+        m.Cart.objects.bulk_update(carts, fields=["promotion_id"])
         serializer = s.CartSerializer(self.filter_queryset(self.get_queryset()), many=True)
         return Response(serializer.data)
 
@@ -999,6 +1000,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 session = ClientSession()
             tasks = []
             tmp_variables = []
+            reduct_variables = []
             for office_vendor in office_vendors:
                 scraper = ScraperFactory.create_scraper(
                     vendor=office_vendor.vendor,
@@ -1015,6 +1017,16 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                         ]
                     )
                 )
+                red_sum = 0
+                for cart_product in cart_products:
+                    if (cart_product.product.vendor.id == office_vendor.vendor.id):
+                        price = 0
+                        if isinstance(cart_product.unit_price, (int, float,Decimal)):
+                            price = cart_product.unit_price
+                            if cart_product.promotion.type == 1:
+                                price -= max(0, cart_product.promotion.reduction_price)
+                            red_sum += cart_product.quantity * price
+                reduct_variables.append(red_sum)
                 tasks.append(
                     scraper.create_order(
                         [
@@ -1033,6 +1045,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for i, result in enumerate(results):
                 vendor_slug = list(result.keys())[0]
+                result[vendor_slug]["reduction_amount"] = reduct_variables[i]
                 if vendor_slug not in ("henry_schein", "implant_direct", "darby", "benco", "net_32", "patterson", "dental_city"):
                     result[vendor_slug]["retail_amount"] = Decimal(0)
                     result[vendor_slug]["savings_amount"] = Decimal(0)

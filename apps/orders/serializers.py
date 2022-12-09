@@ -181,10 +181,17 @@ class ProductV2Serializer(serializers.ModelSerializer):
         return ret
 
 
-class PromoSerializer(serializers.ModelSerializer):
+class PromotionSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = m.Promotion
         fields = "__all__"
+
+    
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        return ret
+
 
 class ProductSerializer(serializers.ModelSerializer):
     vendor = serializers.PrimaryKeyRelatedField(queryset=m.Vendor.objects.all())
@@ -347,7 +354,7 @@ class CartCreateSerializer(serializers.ModelSerializer):
 class CartSerializer(serializers.ModelSerializer):
     # office_product = OfficeProductReadSerializer(write_only=True)
     product = ProductSerializer(read_only=True, required=False)
-    promo = PromoSerializer(read_only=True,required=False)
+    promotion = PromotionSerializer(read_only=True,required=False)
     # same_products = serializers.SerializerMethodField()
     # office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
 

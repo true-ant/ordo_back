@@ -773,6 +773,7 @@ class HenryScheinScraper(Scraper):
                 "shipping_amount": shipping_amount.strip("$") if isinstance(shipping_amount, str) else shipping_amount,
                 "tax_amount": tax_amount.strip("$") if isinstance(tax_amount, str) else tax_amount,
                 "total_amount": total_amount.strip("$") if isinstance(total_amount, str) else total_amount,
+                "reduction_amount": total_amount.strip("$") if isinstance(total_amount, str) else total_amount,
                 "payment_method": payment_method,
                 "shipping_address": shipping_address,
             }
@@ -783,12 +784,12 @@ class HenryScheinScraper(Scraper):
         try:
             await asyncio.sleep(0.3)
             raise Exception()
-            # await self.login()
-            # await self.clear_cart()
-            # await self.add_products_to_cart(products)
-            # checkout_dom = await self.checkout(products)
-            # review_checkout_dom = await self.review_checkout(checkout_dom, shipping_method)
-            # vendor_order_detail = await self.review_order(review_checkout_dom)
+            await self.login()
+            await self.clear_cart()
+            await self.add_products_to_cart(products)
+            checkout_dom = await self.checkout(products)
+            review_checkout_dom = await self.review_checkout(checkout_dom, shipping_method)
+            vendor_order_detail = await self.review_order(review_checkout_dom)
         except:
             print("henry_schein create_order except")
             subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
@@ -802,6 +803,7 @@ class HenryScheinScraper(Scraper):
                 "total_amount": Decimal(subtotal_manual),
                 "payment_method": "",
                 "shipping_address": "",
+                "reduction_amount": Decimal(subtotal_manual),
             }
         )
         finally:

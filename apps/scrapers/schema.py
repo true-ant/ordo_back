@@ -139,5 +139,6 @@ class VendorOrderDetail(BaseDataClass):
     shipping_amount: Decimal
     tax_amount: Decimal
     total_amount: Decimal
+    reduction_amount: Decimal
     payment_method: str
     shipping_address: str

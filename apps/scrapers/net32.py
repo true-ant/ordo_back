@@ -491,6 +491,7 @@ class Net32Scraper(Scraper):
                     "shipping_amount": shipping_amount,
                     "tax_amount": tax_amount,
                     "total_amount": total_amount,
+                    "reduction_amount": total_amount,
                     "payment_method": payment_method,
                     "shipping_address": shipping_address,
                 }
@@ -524,6 +525,7 @@ class Net32Scraper(Scraper):
                 shipping_amount=Decimal(0),
                 tax_amount=Decimal(0),
                 total_amount=Decimal(subtotal_manual),
+                reduction_amount=Decimal(subtotal_manual),
                 payment_method="",
                 shipping_address="",
             )

@@ -495,6 +495,8 @@ class DarbyScraper(Scraper):
                 "tax_amount": tax_amount,
                 "total_amount": total_amount,
                 "shipping_address": shipping_address,
+                "reduction_amount": total_amount,
+
             }
         )
 
@@ -565,6 +567,7 @@ class DarbyScraper(Scraper):
                 total_amount=Decimal(subtotal_manual),
                 payment_method="",
                 shipping_address="",
+                reduction_amount=Decimal(subtotal_manual),
             )
         finally:
             vendor_slug: str = self.vendor.slug

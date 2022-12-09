@@ -470,6 +470,7 @@ class ImplantDirectScraper(Scraper):
                 "shipping_amount": shipping,
                 "tax_amount": tax,
                 "total_amount": order_total,
+                "reduction_amount": order_total,
                 "payment_method": "",
                 "shipping_address": shipping_address
             }
@@ -483,6 +484,7 @@ class ImplantDirectScraper(Scraper):
                 "shipping_amount": 0,
                 "tax_amount": "",
                 "total_amount": Decimal(subtotal_manual),
+                "reduction_amount": Decimal(subtotal_manual),
                 "payment_method": "",
                 "shipping_address": "",
             }

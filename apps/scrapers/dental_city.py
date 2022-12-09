@@ -870,6 +870,7 @@ class DentalCityScraper(Scraper):
                 "shipping_amount": shipping.strip("$") if isinstance(shipping, str) else shipping,
                 "tax_amount": tax.strip("$") if isinstance(tax, str) else tax,
                 "total_amount": order_total.strip("$") if isinstance(order_total, str) else order_total,
+                "reduction_amount": order_total.strip("$") if isinstance(order_total, str) else order_total,
                 "payment_method": "",
                 "shipping_address": shipping_address,
             })
@@ -882,6 +883,7 @@ class DentalCityScraper(Scraper):
                 shipping_amount=0,
                 tax_amount=0,
                 total_amount=Decimal(subtotal_manual),
+                reduction_amount=Decimal(subtotal_manual),
                 payment_method="",
                 shipping_address="",
             )

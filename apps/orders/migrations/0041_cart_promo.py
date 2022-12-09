@@ -15,7 +15,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddField(
             model_name='cart',
-            name='promo',
+            name='promotion',
             field=apps.common.models.FlexibleForeignKey(on_delete=django.db.models.deletion.CASCADE, to='orders.promotion', null=True),
         ),
         migrations.AddField(

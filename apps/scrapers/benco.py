@@ -751,6 +751,7 @@ class BencoScraper(Scraper):
                     total_amount=Decimal(total_amount),
                     payment_method=payment_method,
                     shipping_address=shipping_address,
+                    reduction_amount=Decimal(total_amount),
                 ),
             )
 
@@ -776,6 +777,7 @@ class BencoScraper(Scraper):
                 total_amount=Decimal(subtotal_manual),
                 payment_method="",
                 shipping_address="",
+                reduction_amount=Decimal(subtotal_manual),
             )
         finally:
             vendor_slug: str = self.vendor.slug

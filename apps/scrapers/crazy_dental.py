@@ -202,6 +202,7 @@ class CrazyDentalScraper(Scraper):
                 "total_amount": "",
                 "payment_method": "",
                 "shipping_address": ship_addr,
+                "reduction_amount": subtotal,
             }
         except:
             print("crazy_dental create_order except")
@@ -215,6 +216,7 @@ class CrazyDentalScraper(Scraper):
                 "total_amount": Decimal(subtotal_manual),
                 "payment_method": "",
                 "shipping_address": "",
+                "reduction_amount": Decimal(subtotal_manual),
             }
         vendor_slug: str = self.vendor.slug
         return {
