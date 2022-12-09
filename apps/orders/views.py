@@ -898,6 +898,10 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
             total_amount = 0.0
             total_items = 0.0
 
+            total_dental_amount = 0.0
+            total_office_amount = 0.0
+            total_miscel_amount= 0.0
+
             for office_vendor, vendor_order_result in zip(office_vendors, vendor_order_results):
                 if not isinstance(vendor_order_result, dict):
                     continue
@@ -925,6 +929,12 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 vendor_order_ids.append(vendor_order.id)
                 objs = []
                 for vendor_order_product in vendor_order_products:
+                    if vendor_order_product.budget_spend_type == BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET:
+                        total_dental_amount += float(vendor_order_product.quantity * vendor_order_product.unit_price)
+                    elif vendor_order_product.budget_spend_type == BUDGET_SPEND_TYPE.FRONT_OFFICE_SUPPLY_SPEND_BUDGET:
+                        total_office_amount += float(vendor_order_product.quantity * vendor_order_product.unit_price)
+                    elif vendor_order_product.budget_spend_type == BUDGET_SPEND_TYPE.MISCELLANEOUS_SPEND_BUDGET:
+                        total_miscel_amount += float(vendor_order_product.quantity * vendor_order_product.unit_price)
                     objs.append(
                         m.VendorOrderProduct(
                             vendor_order=vendor_order,
@@ -951,8 +961,11 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
             current_date = timezone.now().date()
             month = Month(year=current_date.year, month=current_date.month)
             office_budget = office.budgets.filter(month=month).first()
+
             if office_budget:
-                office_budget.dental_spend = F("dental_spend") + total_amount
+                office_budget.dental_spend = F("dental_spend") + total_dental_amount
+                office_budget.office_spend = F("office_spend") + total_office_amount
+                office_budget.miscellaneous_spend = F("office_spend") + total_miscel_amount
                 office_budget.save()
 
         cart_products.delete()

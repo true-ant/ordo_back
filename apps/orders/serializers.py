@@ -387,7 +387,7 @@ class CartSerializer(serializers.ModelSerializer):
     #             return m.Cart.objects.create(product=product, **validated_data)
     #         except IntegrityError:
     #             raise serializers.ValidationError({"message": "This product is already in your cart"})
-            
+
     def to_representation(self, instance):
         # TODO: return sibling products from linked vendor
         ret = super().to_representation(instance)
