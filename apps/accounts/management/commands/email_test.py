@@ -15,7 +15,7 @@ class TestUser():
         return self.fullname
 
 
-SITE_URL = "https://staging.joinordo.com"
+SITE_URL = "https://joinordo.com"
 FROM_EMAIL = "Gordo from Ordo <noreply@joinordo.com>"
 TO_EMAILS = ["zachburau@gmail.com"]
 AUTH_TOKEN = "591b76919b4d4a53a999032eb9c2ced6165a29784ce341a39bdb6f13aece8e43"

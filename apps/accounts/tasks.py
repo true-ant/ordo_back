@@ -25,6 +25,10 @@ from apps.orders.models import OfficeProductCategory, OrderStatus, VendorOrder
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import CompanyInvite
 from apps.vendor_clients.async_clients import BaseClient
+import platform
+
+if platform.system() == 'Windows':
+   asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 UserModel = get_user_model()
 logger = logging.getLogger(__name__)

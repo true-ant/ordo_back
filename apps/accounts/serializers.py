@@ -93,6 +93,7 @@ class OfficeSerializer(serializers.ModelSerializer):
     cc_code = serializers.CharField(validators=[CSCValidator()], write_only=True)
     budget = OfficeBudgetSerializer()
     settings = OfficeSettingSerializer(read_only=True)
+    name = serializers.CharField()
 
     class Meta:
         model = m.Office

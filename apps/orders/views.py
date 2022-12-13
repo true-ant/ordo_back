@@ -1024,7 +1024,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                         price = 0
                         if isinstance(cart_product.unit_price, (int, float,Decimal)):
                             price = cart_product.unit_price
-                            if cart_product.promotion.type == 1:
+                            if cart_product.promotion != None and cart_product.promotion.type == 1 and cart_product.unit_price > cart_product.promotion.reduction_price:
                                 price -= max(0, cart_product.promotion.reduction_price)
                             red_sum += cart_product.quantity * price
                 reduct_variables.append(red_sum)
