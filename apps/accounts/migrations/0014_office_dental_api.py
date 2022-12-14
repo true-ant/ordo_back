@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='office',
             name='dental_api',
-            field=models.CharField(default=' ', max_length=128),
+            field=models.CharField(null=True, max_length=128),
             preserve_default=False,
         ),
     ]

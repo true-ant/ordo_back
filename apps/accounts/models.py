@@ -73,7 +73,7 @@ class Office(TimeStampedModel):
     phone_number = PhoneNumberField(null=True, blank=True)
     website = models.URLField(max_length=100, null=True, blank=True)
     logo = models.ImageField(null=True, blank=True, upload_to="offices")
-    dental_api = models.CharField(max_length=128)
+    dental_api = models.CharField(null=True, max_length=128)
     # Budget & Card Information
 
     objects = managers.CompanyMemeberActiveManager()
