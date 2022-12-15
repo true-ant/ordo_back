@@ -988,11 +988,10 @@ class DentalCityScraper(Scraper):
                 shipping_amount=Decimal(0),
                 tax_amount=Decimal(0),
                 total_amount=Decimal(subtotal_manual),
+                reduction_amount=Decimal(subtotal_manual),
                 payment_method="",
                 shipping_address=""
             )
-            await self.session.close()
-            self.session = self.backsession
             return {
                 **vendor_order_detail.to_dict(),
                 **self.vendor.to_dict(),

@@ -879,6 +879,7 @@ class HenryScheinScraper(Scraper):
                 shipping_amount=Decimal(0),
                 tax_amount=Decimal(0),
                 total_amount=Decimal(subtotal_manual),
+                reduction_amount=Decimal(subtotal_manual),
                 payment_method="",
                 shipping_address=""
             )

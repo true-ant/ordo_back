@@ -903,6 +903,7 @@ class UltraDentScraper(Scraper):
                 "shipping_amount": 0,
                 "tax_amount": 0,
                 "total_amount": Decimal(subtotal_manual),
+                "reduction_amount": Decimal(subtotal_manual),
                 "payment_method": "",
                 "shipping_address": "",
                 "order_id": f"{uuid.uuid4()}",
