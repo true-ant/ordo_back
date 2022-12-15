@@ -457,3 +457,13 @@ class OfficeKeyword(TimeStampedModel):
 
     def __str__(self):
         return self.keyword.keyword
+
+class ProcedureCode(models.Model):
+    codenum = models.IntegerField()
+    proccode = models.CharField(max_length=16)
+    descript = models.CharField(max_length=256, null=True, blank=True)
+    abbrdesc = models.CharField(max_length=50, null=True, blank=True)
+    proccat = models.IntegerField()
+
+    def __str__(self):
+        return str(self.codenum)
