@@ -453,7 +453,8 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
         session = apps.get_app_config("accounts").session
         session._cookie_jar.clear()
         try:
-            if serializer.validated_data["vendor"].slug != "amazon":
+            if serializer.validated_data["vendor"].slug != "amazon" and \
+                serializer.validated_data["vendor"].slug != "ebay":
                 scraper = ScraperFactory.create_scraper(
                     vendor=serializer.validated_data["vendor"],
                     username=serializer.validated_data["username"],
@@ -484,7 +485,7 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
             return Response({"message": msgs.VENDOR_WRONG_INFORMATION}, status=HTTP_400_BAD_REQUEST)
         except NetworkConnectionException:
             return Response({"message": msgs.VENDOR_BAD_NETWORK_CONNECTION}, status=HTTP_400_BAD_REQUEST)
-        except:
+        except Exception as e:
             return Response({"message": msgs.UNKNOWN_ISSUE, **serializer.data})
 
         return Response({"message": msgs.VENDOR_CONNECTED, **serializer.data})
