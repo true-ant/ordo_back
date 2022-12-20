@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "ordo-backend"
+name = "ordo-back"
 version = "0.1.0"
 description = ""
 authors = ["Ordo Development Team"]

@@ -1,13 +1,16 @@
 import asyncio as aio
 import csv
 import datetime
+from dateutil import rrule
 import itertools
 from collections import defaultdict
 from decimal import Decimal
 from functools import reduce
 from itertools import chain
+import json
 from operator import or_
 from typing import Dict, List, Optional, TypedDict, Union
+import requests
 
 import pandas as pd
 from aiohttp import ClientSession
@@ -35,6 +38,9 @@ from slugify import slugify
 from apps.accounts.models import Office as OfficeModel
 from apps.accounts.models import OfficeVendor as OfficeVendorModel
 from apps.accounts.models import Vendor as VendorModel
+from apps.common.choices import ProcedureType
+from apps.orders.models import Procedure as ProcedureModel
+from apps.orders.models import ProcedureCode as ProcedureCodeModel
 from apps.common.utils import (
     bulk_create,
     bulk_update,
@@ -43,6 +49,7 @@ from apps.common.utils import (
     convert_string_to_price,
     find_numeric_values_from_string,
     find_words_from_string,
+    formatStEndDateFromQuery,
     get_file_name_and_ext,
     remove_character_between_numerics,
     sort_and_write_to_csv,
@@ -1318,3 +1325,87 @@ class OfficeVendorHelper:
             office = OfficeModel.objects.get(id=office)
 
         return office.connected_vendors.values_list("vendor_id", flat=True)
+
+class ProcedureHelper:
+    @staticmethod
+    def fetch_procedure_period(day_from, office_id, type):
+        if day_from == None or type == None or office_id==None:
+            print("Wrong argument(s)")
+            return
+
+        office = OfficeModel.objects.get(id=office_id)
+        dental_api = office.dental_api
+        print(f"dental_api={dental_api}")
+        if dental_api == None or len(dental_api) < 5:
+            print("Invalid dental api key")
+            return
+
+        date_now = datetime.datetime.now()
+        if type == ProcedureType.PROCEDURE_MONTH:
+            for dt in rrule.rrule(rrule.MONTHLY, dtstart=day_from, until=date_now):
+                ProcedureHelper.fetch_procedures(
+                    dt, 
+                    (dt+datetime.timedelta(days=31)).replace(day=1)-datetime.timedelta(days=1), 
+                    office.id, 
+                    type, 
+                    dental_api,
+                    dt.year == date_now.year and dt.month == date_now.month
+                )
+        
+        elif type == ProcedureType.PROCEDURE_WEEK:
+            week_startday = day_from - datetime.timedelta(days=day_from.weekday())
+            last_week_startday = date_now - datetime.timedelta(days=date_now.weekday())
+            for dt in rrule.rrule(rrule.WEEKLY, dtstart=week_startday, until=date_now):
+                ProcedureHelper.fetch_procedures(dt, dt + datetime.timedelta(days=5), office.id,type,dental_api, dt.date() == last_week_startday.date())
+    @staticmethod
+    def fetch_procedures(day_from, day_to, office_id, type, dental_api, force_update = False):
+        if day_from == None or day_to == None or type == None:
+            print("Wrong argument(s)")
+            return
+
+        old_procs = ProcedureModel.objects.filter(office=office_id,start_date=day_from, type=type)
+        bExists = len(old_procs) > 0
+
+        if force_update == False and bExists:
+            print(f"Already exists with day_from={day_from}, type={type}")
+            return
+
+        with open('query/procedure.json') as f:
+            queryProcedure = json.load(f, strict=False)
+
+        query = formatStEndDateFromQuery(queryProcedure, day_from.date(), day_to.date())
+        print(f"Fetching {day_from} - {day_to}")
+        offset = 0
+        count = 0
+
+        creating_procedures = []
+        while True:
+            response = requests.put(f'https://api.opendental.com/api/v1/queries/ShortQuery?Offset={offset}',
+                                    headers={'Authorization': dental_api}, json=json.loads(query,strict=False))
+            json_procedure = json.loads(response.content)
+            response_len = len(json_procedure)
+
+            print(f"Fetching offset = {offset} length = {response_len}")
+
+            for procedure in json_procedure:
+                creating_procedures.append(
+                    ProcedureModel(
+                        start_date=day_from,
+                        count=int(str(procedure["Count"]).replace(",", "")),
+                        avgfee=str(procedure["AvgFee"]).replace(",", ""),
+                        totfee=str(procedure["TotFee"]).replace(",", ""),
+                        procedurecode=ProcedureCodeModel.objects.get(proccode=procedure["ProcCode"]),
+                        office_id=office_id,
+                        type=type,
+                    )
+                )
+            
+            count+= response_len
+            if response_len == 100:
+                offset += 100
+            else:
+                break
+        if bExists and force_update:
+            old_procs.delete()
+        bulk_create(ProcedureModel, creating_procedures)
+        print(f"Update {day_from} - {day_to} {count} rows")

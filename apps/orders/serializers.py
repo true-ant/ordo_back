@@ -595,3 +595,9 @@ class ProductPriceRequestSerializer(serializers.Serializer):
 class VendorOrderReturnSerializer(serializers.Serializer):
     return_items = serializers.ListSerializer(child=serializers.CharField())
     email_list = serializers.ListSerializer(child=serializers.CharField(), required=False)
+
+class ProcedureSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = m.Procedure
+        fields = "__all__"

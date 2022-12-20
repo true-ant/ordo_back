@@ -191,17 +191,12 @@ class HenryScheinScraper(Scraper):
                 "//table[contains(@class, 'tblOrderableProducts')]//tr"
                 "//table[@class='SimpleList']//tr[@class='ItemRow' or @class='AlternateItemRow']"
             ):
-                print("===== henryschein/get_order 4 =====")
                 product_name_url_dom = order_product_dom.xpath(
                     "./td[1]//table[@id='tblProduct']//span[@class='ProductDisplayName']"
                 )
-                print("===== henryschein/get_order 5 =====")
                 product_id = self.extract_first(order_product_dom, ".//b/text()")
-                print("===== henryschein/get_order 6 =====")
                 product_name = self.extract_first(product_name_url_dom, ".//a/text()")
-                print("===== henryschein/get_order 7 =====")
                 product_url = self.merge_strip_values(product_name_url_dom, xpath=".//a/@href")
-                print("===== henryschein/get_order 8 =====")
                 quantity_price = self.merge_strip_values(
                     dom=order_product_dom, xpath=".//td[@id='QtyRow']//text()", delimeter=";"
                 )
@@ -238,8 +233,6 @@ class HenryScheinScraper(Scraper):
                 status = self.merge_strip_values(
                     dom=order_product_dom, xpath=".//span[contains(@id, 'itemStatusLbl')]//text()"
                 )
-                print("===== henryschein/get_order 9 =====")
-
                 order["products"].append(
                     {
                         "product": {

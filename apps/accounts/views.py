@@ -188,7 +188,7 @@ class OfficeViewSet(ModelViewSet):
         return Response(status = HTTP_400_BAD_REQUEST)
 
     def load_prev_month_production(self, day1, day2, api_key):
-        with open('production.json') as f:
+        with open('query/production.json') as f:
             queryProduction = json.load(f,strict=False)
         query = formatStEndDateFromQuery(
             queryProduction, day1, day2)
@@ -202,7 +202,7 @@ class OfficeViewSet(ModelViewSet):
     def update_budget_from_dental(self, request, *args, **kwargs):
         instance = self.get_object()
         api_key = instance.dental_api
-        if api_key == None:
+        if api_key == None or len(api_key) < 5:
             return Response({"message": "no api key"}, HTTP_200_OK)
         now_date = timezone.now().date()
         prev_date = now_date - relativedelta(months=1)

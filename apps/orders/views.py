@@ -1,10 +1,12 @@
 import asyncio
+import datetime
 import decimal
 import operator
 import os
 import tempfile
 import zipfile
 from datetime import timedelta
+from dateutil import rrule
 from decimal import Decimal
 from functools import reduce
 from typing import Union
@@ -12,7 +14,7 @@ from aiohttp import ClientSession
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
 from django.apps import apps
-from django.db import transaction
+from django.db import transaction, connection
 from django.db.models import Case, Count, F, Q, Sum, Value, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -35,7 +37,7 @@ from rest_framework.viewsets import ModelViewSet
 
 from apps.accounts.models import Company, Office, OfficeBudget, OfficeVendor, Vendor
 from apps.accounts.services.offices import OfficeService
-from apps.common.choices import BUDGET_SPEND_TYPE, ProductStatus
+from apps.common.choices import BUDGET_SPEND_TYPE, ProcedureType, ProductStatus
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncCreateModelMixin, AsyncMixin
 from apps.common.pagination import (
@@ -44,7 +46,7 @@ from apps.common.pagination import (
     StandardResultsSetPagination,
 )
 from apps.common.utils import get_date_range, group_products_from_search_result
-from apps.orders.helpers import OfficeProductHelper, ProductHelper
+from apps.orders.helpers import OfficeProductHelper, ProcedureHelper, ProductHelper
 from apps.orders.services.order import OrderService
 from apps.scrapers.amazonsearch import AmazonSearchScraper
 from apps.scrapers.ebay_search import EbaySearch
@@ -735,6 +737,8 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
     queryset = m.Cart.objects.all()
 
     def get_queryset(self):
+        productlist_online = m.OnlineCart.objects.all()
+        # orders_product table
         queryset = self.queryset.filter(office_id=self.kwargs["office_pk"])
         order_by = self.request.query_params.get("by", "vendor")
         if order_by == "time":
@@ -1043,6 +1047,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                         ]
                     )
                 )
+                
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for i, result in enumerate(results):
                 vendor_slug = list(result.keys())[0]
@@ -1668,3 +1673,47 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
             search=request.query_params.get("search"), office=request.query_params.get("office_pk")
         )[:5]
         return Response(s.SimpleProductSerializer(suggested_products, many=True).data)
+
+class ProcedureViewSet(AsyncMixin, ModelViewSet):
+    queryset = m.Procedure.objects.all()
+    serializer_class = s.ProcedureSerializer
+
+    @action(detail=False, url_path="report")
+    def get_report(self, request, *args, **kwargs):
+        type = self.request.query_params.get("type")
+        limit = int(self.request.query_params.get("limit", 5))
+        office_pk = self.kwargs["office_pk"]
+        date_range = self.request.query_params.get("date_range")
+        start_end_date = get_date_range(date_range)
+        day_from = datetime.date(start_end_date[0].year, start_end_date[0].month, start_end_date[0].day)
+        day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
+        ProcedureHelper.fetch_procedure_period(day_from, office_pk, type)
+
+        with open('query/proc_result.txt', "r") as f:
+            raw_sql = f.read()
+        with open('query/proc_subquery.txt', "r") as f:
+            raw_joins = f.read()
+
+        sub_counts = ""
+        sub_joins = ""
+        nIndex = 1
+        ret_header = ["Code", "Description"]
+        if type == ProcedureType.PROCEDURE_MONTH:
+            for dt in rrule.rrule(rrule.MONTHLY, dtstart=day_from, until=day_to):
+                sub_counts += f"p{nIndex}.count,"
+                sub_joins += raw_joins.format(type=type,office_id=office_pk,day_from=dt.date(),tablename=f"p{nIndex}")
+                sub_joins += " "
+                ret_header.append(f"{dt.date()}")
+                nIndex+=1
+            sub_counts=sub_counts[:-1]
+                
+        newvalue=raw_sql.format(sub_counts=sub_counts, sub_joins=sub_joins,type=type,office_id=office_pk,day_from=day_from,day_to=day_to,limit=limit)
+        ret_list = []
+        with connection.cursor() as cursor:
+            cursor.execute(newvalue)
+            ret_list = cursor.fetchall()
+        ret = {
+            "headers": ret_header, 
+            "procs": ret_list
+        }
+        return Response(data = ret)

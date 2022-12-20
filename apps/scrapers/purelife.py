@@ -22,6 +22,19 @@ class PureLifeScraper(Scraper):
 
     reqsession = requests.Session()
 
+    @catch_network
+    async def get_orders(
+        self,
+        office=None,
+        perform_login=False,
+        from_date: Optional[datetime.date] = None,
+        to_date: Optional[datetime.date] = None,
+        completed_order_ids: Optional[List[str]] = None,
+    ) -> List[Order]:
+        print("purelife/get_orders")
+        
+
+
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
         vendor_order_detail =VendorOrderDetail(
