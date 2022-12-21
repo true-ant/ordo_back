@@ -737,7 +737,6 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
     queryset = m.Cart.objects.all()
 
     def get_queryset(self):
-        productlist_online = m.OnlineCart.objects.all()
         # orders_product table
         queryset = self.queryset.filter(office_id=self.kwargs["office_pk"])
         order_by = self.request.query_params.get("by", "vendor")
@@ -1681,7 +1680,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
     @action(detail=False, url_path="report")
     def get_report(self, request, *args, **kwargs):
         type = self.request.query_params.get("type")
-        limit = int(self.request.query_params.get("limit", 5))
+        limit = self.request.query_params.get("limit", 5)
         office_pk = self.kwargs["office_pk"]
         date_range = self.request.query_params.get("date_range")
         start_end_date = get_date_range(date_range)

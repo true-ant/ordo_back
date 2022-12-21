@@ -500,6 +500,17 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
     def fetch_orders(self, request, *args, **kwargs):
         instance = self.get_object()
         fetch_orders_from_vendor.delay(office_vendor_id=instance.id, login_cookies=None, perform_login=True)
+        # instance = await sync_to_async(self.get_object)()
+        # office = await sync_to_async(m.Office.objects.get)(id=135)
+        # vendor = await sync_to_async(m.Vendor.objects.get)(id=13)
+        # session = apps.get_app_config("accounts").session
+        # scraper = ScraperFactory.create_scraper(
+        #         vendor=vendor,
+        #         username="drpatel@puresmilesmarietta.com",
+        #         password="Puresmiles1!",
+        #         session=session,
+        #     )
+        # ret = await scraper.get_orders()
         # ar: AsyncResult = fetch_orders_from_vendor.delay(
         #     office_vendor_id=instance.id, login_cookies=None, perform_login=True
         # )

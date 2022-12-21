@@ -110,3 +110,5 @@ yarl==1.6.3; python_version >= "3.7" and python_version < "4.0"
 zope.interface==5.4.0; python_full_version >= "3.6.7" and python_version >= "3.6"
 ebaysdk
 gevent
+selenium
+webdriver-manager
