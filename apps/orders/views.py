@@ -1677,42 +1677,73 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
     queryset = m.Procedure.objects.all()
     serializer_class = s.ProcedureSerializer
 
-    @action(detail=False, url_path="report")
-    def get_report(self, request, *args, **kwargs):
+    @action(detail=False, url_path="category")
+    def get_category(self, request, *args, **kwargs):
         type = self.request.query_params.get("type")
-        limit = self.request.query_params.get("limit", 5)
         office_pk = self.kwargs["office_pk"]
         date_range = self.request.query_params.get("date_range")
         start_end_date = get_date_range(date_range)
         day_from = datetime.date(start_end_date[0].year, start_end_date[0].month, start_end_date[0].day)
         day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
         ProcedureHelper.fetch_procedure_period(day_from, office_pk, type)
+        ret = m.Procedure.objects.select_related("procedurecode").filter(type=type,start_date__gte=day_from,start_date__lte=day_to).values_list("procedurecode__proccat", "procedurecode__itemname").annotate(dcount=Count('procedurecode__proccat')).order_by('-dcount')
+        return Response(ret)
 
-        with open('query/proc_result.txt', "r") as f:
-            raw_sql = f.read()
-        with open('query/proc_subquery.txt', "r") as f:
-            raw_joins = f.read()
+    @action(detail=False, url_path="report")
+    def get_report(self, request, *args, **kwargs):
+        type = self.request.query_params.get("type")
+        limit = self.request.query_params.get("limit", 5)
+        category = self.request.query_params.get("category", "all")
+        office_pk = self.kwargs["office_pk"]
+        date_range = self.request.query_params.get("date_range")
+        start_end_date = get_date_range(date_range)
+        day_from = datetime.date(start_end_date[0].year, start_end_date[0].month, start_end_date[0].day)
+        day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
+        # ProcedureHelper.fetch_procedure_period(day_from, office_pk, type)
 
-        sub_counts = ""
-        sub_joins = ""
-        nIndex = 1
-        ret_header = ["Code", "Description"]
-        if type == ProcedureType.PROCEDURE_MONTH:
-            for dt in rrule.rrule(rrule.MONTHLY, dtstart=day_from, until=day_to):
-                sub_counts += f"p{nIndex}.count,"
-                sub_joins += raw_joins.format(type=type,office_id=office_pk,day_from=dt.date(),tablename=f"p{nIndex}")
-                sub_joins += " "
-                ret_header.append(f"{dt.date()}")
-                nIndex+=1
-            sub_counts=sub_counts[:-1]
-                
-        newvalue=raw_sql.format(sub_counts=sub_counts, sub_joins=sub_joins,type=type,office_id=office_pk,day_from=day_from,day_to=day_to,limit=limit)
-        ret_list = []
-        with connection.cursor() as cursor:
-            cursor.execute(newvalue)
-            ret_list = cursor.fetchall()
-        ret = {
-            "headers": ret_header, 
-            "procs": ret_list
-        }
-        return Response(data = ret)
+        try:
+            with open('query/proc_result.txt', "r") as f:
+                raw_sql = f.read()
+            with open('query/proc_subquery.txt', "r") as f:
+                raw_joins = f.read()
+
+            sub_counts = ""
+            sub_joins = ""
+            nIndex = 1
+            ret_header = ["Code", "Description"]
+            if type == ProcedureType.PROCEDURE_MONTH:
+                for dt in rrule.rrule(rrule.MONTHLY, dtstart=day_from, until=day_to):
+                    sub_counts += f"p{nIndex}.count,"
+                    sub_joins += raw_joins.format(type=type,office_id=office_pk,day_from=dt.date(),tablename=f"p{nIndex}")
+                    sub_joins += " "
+                    ret_header.append(f"{dt.date()}")
+                    nIndex+=1
+                sub_counts=sub_counts[:-1]
+
+            if type == ProcedureType.PROCEDURE_WEEK:
+                week_startday = day_from - datetime.timedelta(days=day_from.weekday())
+                for dt in rrule.rrule(rrule.WEEKLY, dtstart=week_startday, until=day_to):
+                    sub_counts += f"p{nIndex}.count,"
+                    sub_joins += raw_joins.format(type=type,office_id=office_pk,day_from=dt.date(),tablename=f"p{nIndex}")
+                    sub_joins += " "
+                    ret_header.append(f"{dt.date()}")
+                    nIndex+=1
+                sub_counts=sub_counts[:-1]
+
+            if len(sub_counts) == 0:
+                return Response({"message": "No values"})
+
+            newvalue=raw_sql.format(sub_counts=sub_counts, sub_joins=sub_joins,type=type,office_id=office_pk,day_from=day_from,day_to=day_to,limit=limit,proc_category=category)
+            ret_list = []
+            with connection.cursor() as cursor:
+                cursor.execute(newvalue)
+                ret_list = cursor.fetchall()
+            ret = {
+                "headers": ret_header, 
+                "procs": ret_list
+            }
+            return Response(data = ret)
+
+        except:
+            return Response(status=HTTP_400_BAD_REQUEST)
+

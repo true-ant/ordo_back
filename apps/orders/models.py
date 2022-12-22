@@ -464,6 +464,7 @@ class ProcedureCode(models.Model):
     descript = models.CharField(max_length=256, null=True, blank=True)
     abbrdesc = models.CharField(max_length=50, null=True, blank=True)
     proccat = models.IntegerField()
+    itemname = models.CharField(max_length=256)
 
     def __str__(self):
         return str(self.codenum)
