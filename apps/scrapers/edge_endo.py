@@ -6,6 +6,7 @@ import uuid
 import re
 import time
 from typing import Dict, List, Optional
+from decimal import Decimal
 
 import scrapy
 from aiohttp import ClientSession
@@ -20,6 +21,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
+from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network, convert_string_to_price, semaphore_coroutine
@@ -623,19 +625,23 @@ class EdgeEndoScraper(Scraper):
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("edge_endo/create_order")
-        from time import sleep
-        sleep(3)
-
-        vendor_order_detail = {
-            "retail_amount": "",
-            "savings_amount": "",
-            "subtotal_amount": "",
-            "shipping_amount": "",
-            "tax_amount": "",
-            "total_amount": "",
-            "payment_method": "",
-            "shipping_address": "",
-        }
+        try:
+            await asyncio.sleep(0.3)
+            raise Exception()
+        except:
+            print("edge_endo/create_order except")
+            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
+            vendor_order_detail = {
+                "retail_amount": "",
+                "savings_amount": "",
+                "subtotal_amount": Decimal(subtotal_manual),
+                "shipping_amount": 0,
+                "tax_amount": "",
+                "total_amount": Decimal(subtotal_manual),
+                "reduction_amount": Decimal(subtotal_manual),
+                "payment_method": "",
+                "shipping_address": "",
+            }
         vendor_slug: str = self.vendor.slug
         return {
             vendor_slug: {
@@ -646,45 +652,69 @@ class EdgeEndoScraper(Scraper):
 
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
         print("edge_endo/confirm_order")
-        loop = asyncio.get_event_loop()
-        self.driver = await loop.run_in_executor(None,self.setDriver)
-        await self.login()
-        await loop.run_in_executor(None,self.clear_cart)
-        await loop.run_in_executor(None,self.add_to_cart, products)
-        await loop.run_in_executor(None,self.checkout)
-        
-        if fake:
+        try:
+            await asyncio.sleep(1)
+            raise Exception()
+
+            loop = asyncio.get_event_loop()
+            self.driver = await loop.run_in_executor(None,self.setDriver)
+            await self.login()
+            await loop.run_in_executor(None,self.clear_cart)
+            await loop.run_in_executor(None,self.add_to_cart, products)
+            await loop.run_in_executor(None,self.checkout)
+            
+            if fake:
+                vendor_order_detail = {
+                    "retail_amount": "",
+                    "savings_amount": "",
+                    "subtotal_amount": "50.84",
+                    "shipping_amount": "0.00",
+                    "tax_amount": "3.43",
+                    "total_amount": "54.27",
+                    "payment_method": "",
+                    "shipping_address": "Alexandra KantorColumbine Creek Dentistry",
+                }
+                return {
+                    **vendor_order_detail,
+                    "order_id": f"{uuid.uuid4()}",
+                }
+            await loop.run_in_executor(None,self.secure_payment)
+            shipping_address, shipping, tax, subtotal, order_total, orderNumber = await loop.run_in_executor(None,self.real_order)    
+
+            self.secure_payment()
+            shipping_address, shipping, tax, subtotal, order_total, orderNumber = self.real_order()
+
             vendor_order_detail = {
                 "retail_amount": "",
                 "savings_amount": "",
-                "subtotal_amount": "50.84",
-                "shipping_amount": "0.00",
-                "tax_amount": "3.43",
-                "total_amount": "54.27",
+                "subtotal_amount": subtotal,
+                "shipping_amount": shipping,
+                "tax_amount": tax,
+                "total_amount": order_total,
                 "payment_method": "",
-                "shipping_address": "Alexandra KantorColumbine Creek Dentistry",
+                "shipping_address": shipping_address,
             }
             return {
                 **vendor_order_detail,
-                "order_id": f"{uuid.uuid4()}",
+                "order_id": orderNumber,
             }
-        await loop.run_in_executor(None,self.secure_payment)
-        shipping_address, shipping, tax, subtotal, order_total, orderNumber = await loop.run_in_executor(None,self.real_order)    
-
-        self.secure_payment()
-        shipping_address, shipping, tax, subtotal, order_total, orderNumber = self.real_order()
-
-        vendor_order_detail = {
-            "retail_amount": "",
-            "savings_amount": "",
-            "subtotal_amount": subtotal,
-            "shipping_amount": shipping,
-            "tax_amount": tax,
-            "total_amount": order_total,
-            "payment_method": "",
-            "shipping_address": shipping_address,
-        }
-        return {
-            **vendor_order_detail,
-            "order_id": orderNumber,
-        }
+        except:
+            print("edge_endo/confirm_order except")
+            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
+            vendor_order_detail = {
+                "retail_amount": "",
+                "savings_amount": "",
+                "subtotal_amount": Decimal(subtotal_manual),
+                "shipping_amount": 0,
+                "tax_amount": "",
+                "total_amount": Decimal(subtotal_manual),
+                "reduction_amount": Decimal(subtotal_manual),
+                "payment_method": "",
+                "shipping_address": "",
+                "order_id": f"{uuid.uuid4()}",
+                "order_type": msgs.ORDER_TYPE_REDUNDANCY
+            }
+            return {
+                **vendor_order_detail,
+                **self.vendor.to_dict(),
+            }

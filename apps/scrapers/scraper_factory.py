@@ -36,6 +36,7 @@ from apps.scrapers.atomo import AtomoScraper
 from apps.scrapers.orthoarch import OrthoarchScraper
 from apps.scrapers.office_depot import OfficeDepotScraper
 from apps.scrapers.ebay_search import EbaySearch
+from apps.scrapers.safco import SafcoScraper
 
 
 SCRAPER_SLUG = "patterson"
@@ -65,7 +66,8 @@ SCRAPERS = {
     "atomo": AtomoScraper,
     "orthoarch": OrthoarchScraper,
     "office_depot": OfficeDepotScraper,
-    "ebay": EbaySearch
+    "ebay": EbaySearch,
+    "safco": SafcoScraper
 }
 
 
