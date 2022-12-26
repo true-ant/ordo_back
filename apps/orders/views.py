@@ -1679,9 +1679,9 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=False, url_path="category")
     def get_category(self, request, *args, **kwargs):
-        type = self.request.query_params.get("type")
+        type = self.request.query_params.get("type", "month")
         office_pk = self.kwargs["office_pk"]
-        date_range = self.request.query_params.get("date_range")
+        date_range = self.request.query_params.get("date_range", "thisQuarter")
         start_end_date = get_date_range(date_range)
         day_from = datetime.date(start_end_date[0].year, start_end_date[0].month, start_end_date[0].day)
         day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
@@ -1691,11 +1691,11 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=False, url_path="report")
     def get_report(self, request, *args, **kwargs):
-        type = self.request.query_params.get("type")
+        type = self.request.query_params.get("type", "month")
         limit = self.request.query_params.get("limit", 5)
         category = self.request.query_params.get("category", "all")
         office_pk = self.kwargs["office_pk"]
-        date_range = self.request.query_params.get("date_range")
+        date_range = self.request.query_params.get("date_range", "thisQuarter")
         start_end_date = get_date_range(date_range)
         day_from = datetime.date(start_end_date[0].year, start_end_date[0].month, start_end_date[0].day)
         day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
