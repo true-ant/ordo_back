@@ -124,7 +124,11 @@ class OfficeProductFilter(filters.FilterSet):
         fields = ["q", "inventory", "favorite"]
 
     def filter_product(self, queryset, name, value):
-        product_ids = Product.objects.search(value).values_list("id", flat=True)
+        products = Product.objects.search(value)
+        office_product_ids = OfficeProduct.objects.filter(Q(nickname__contains=value)).values_list("product_id", flat=True)
+        office_nickname_products = Product.objects.filter(Q(Q(id__in=office_product_ids)))
+        products = products | office_nickname_products
+        product_ids = products.values_list("id", flat=True)
         return queryset.filter(Q(product_id__in=product_ids) | Q(product__child__id__in=product_ids)).distinct()
         # q = (
         #     Q(product__product_id=value)

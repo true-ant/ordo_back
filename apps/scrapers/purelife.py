@@ -40,6 +40,8 @@ class PureLifeScraper(Scraper):
         Scraper.__init__(self, session,vendor, username,password)
         self.driver = None
         self.sleepAmount = 10
+        self.reqsession = requests.Session()
+
     
     def textParser(self, element):
         if not element:
@@ -86,7 +88,19 @@ class PureLifeScraper(Scraper):
 
         return None
 
-    def login(self):
+    @catch_network
+    async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> SimpleCookie:
+        if username:
+            self.username = username
+        if password:
+            self.password = password
+
+        loop = asyncio.get_event_loop()
+        res = await loop.run_in_executor(None,self.login_proc)
+        print("login DONE")
+        return res
+
+    def login_proc(self):
         try:
             self.driver.get("https://www.purelifedental.com/customer/account/login")
             
@@ -179,7 +193,7 @@ class PureLifeScraper(Scraper):
             history_page_link = "https://www.purelifedental.com/orderedproducts/customer/"
             
             while True:
-                order_history_page = self.session.get(history_page_link, headers=headers)
+                order_history_page = self.reqsession.get(history_page_link, headers=headers)
                 print(order_history_page.status_code, order_history_page.url)
                 if order_history_page.status_code == 200:
                     dom = Selector(text=order_history_page.text)
@@ -208,7 +222,7 @@ class PureLifeScraper(Scraper):
 
     
     def parse_order_detail(self, order_history):
-        response = self.session.get(order_history["order_detail_link"])
+        response = self.reqsession.get(order_history["order_detail_link"])
         print(response.status_code, response.url)
         if response.status_code == 200:
             dom = Selector(text=response.text)

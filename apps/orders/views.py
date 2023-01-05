@@ -1584,11 +1584,14 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
         product_list = list(queryset)
 
         if "ebay" in vendors:
-            ebay_products = EbaySearch().execute(keyword=query)
+            try:
+                ebay_products = EbaySearch().execute(keyword=query)
 
-            if ebay_products:
-                self.available_vendors.append("ebay")
-                product_list.extend(ebay_products)
+                if ebay_products:
+                    self.available_vendors.append("ebay")
+                    product_list.extend(ebay_products)
+            except:
+                print("Ebay search exception")
 
         if "amazon" in vendors:
             # Add on the fly results
