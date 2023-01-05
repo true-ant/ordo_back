@@ -418,6 +418,9 @@ class OfficeProductSerializer(serializers.ModelSerializer):
     office_product_category = serializers.PrimaryKeyRelatedField(queryset=m.OfficeProductCategory.objects.all())
     vendor = serializers.CharField(read_only=True)
     image_url = Base64ImageField()
+    last_quantity_ordered = serializers.SerializerMethodField('custom_last_quantity_ordered')
+    quantity_on_hand = serializers.SerializerMethodField('custom_quantity_on_hand')
+    quantity_to_be_ordered = serializers.SerializerMethodField('custom_quantity_to_be_ordered')
 
     class Meta:
         model = m.OfficeProduct
@@ -434,7 +437,33 @@ class OfficeProductSerializer(serializers.ModelSerializer):
             "last_order_date",
             "last_order_price",
             "vendor",
+            "last_quantity_ordered",
+            "quantity_on_hand",
+            "quantity_to_be_ordered",
         )
+
+    def custom_last_quantity_ordered(self, office_product):
+        """
+        Return the empty data temporary...
+        """
+        quantity_ordered = office_product \
+            .product \
+            .vendororderproduct_set \
+            .order_by("-updated_at") \
+            .first()
+        return quantity_ordered.quantity if quantity_ordered else 0
+
+    def custom_quantity_on_hand(self, office_product):
+        """
+        Return the empty data temporary...
+        """
+        return ""
+
+    def custom_quantity_to_be_ordered(self, office_product):
+        """
+        Return the empty data temporary...
+        """
+        return ""
 
     def create(self, validated_data):
         with transaction.atomic():
