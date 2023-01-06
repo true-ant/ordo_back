@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, date
 from decimal import Decimal
 import json
+from aiohttp import ClientSession
 import requests
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
@@ -450,25 +451,25 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
     async def create(self, request, *args, **kwargs):
         serializer = await self._validate({**request.data, "office": kwargs["office_pk"]})
         # await sync_to_async(serializer.save)()
-        session = apps.get_app_config("accounts").session
-        session._cookie_jar.clear()
+        # session = apps.get_app_config("accounts").session
+        # session._cookie_jar.clear()
         try:
             if serializer.validated_data["vendor"].slug != "amazon" and \
                 serializer.validated_data["vendor"].slug != "ebay":
-                scraper = ScraperFactory.create_scraper(
-                    vendor=serializer.validated_data["vendor"],
-                    username=serializer.validated_data["username"],
-                    password=serializer.validated_data["password"],
-                    session=session,
-                )
+                # scraper = ScraperFactory.create_scraper(
+                #     vendor=serializer.validated_data["vendor"],
+                #     username=serializer.validated_data["username"],
+                #     password=serializer.validated_data["password"],
+                #     session=session,
+                # )
                 office_vendor = await sync_to_async(serializer.save)()
-                login_cookies = await scraper.login()                
-                fetch_orders_from_vendor.delay(
-                    office_vendor_id=office_vendor.id,
-                    login_cookies=login_cookies.output(),
-                    # all scrapers work with login_cookies, but henryschein not working with login_cookies
-                    perform_login=serializer.validated_data["vendor"].slug == "henry_schein",
-                )
+                # login_cookies = await scraper.login()                
+                # fetch_orders_from_vendor.delay(
+                #     office_vendor_id=office_vendor.id,
+                #     login_cookies=login_cookies.output(),
+                #     # all scrapers work with login_cookies, but henryschein not working with login_cookies
+                #     perform_login=serializer.validated_data["vendor"].slug == "henry_schein",
+                # )
             else:
                 await sync_to_async(serializer.save)()
                 # office_vendor.task_id = ar.id
