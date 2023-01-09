@@ -5,7 +5,7 @@ from rest_framework import serializers
 from rest_framework_recursive.fields import RecursiveField
 
 from apps.accounts.helper import OfficeBudgetHelper
-from apps.accounts.serializers import VendorLiteSerializer
+from apps.accounts.serializers import VendorLiteSerializer, VendorSerializer
 from apps.common.choices import OrderStatus
 from apps.common.serializers import Base64ImageField
 from apps.orders.helpers import OfficeProductHelper, ProductHelper
@@ -102,6 +102,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
     is_inventory = serializers.BooleanField(default=False, read_only=True)
     product_vendor_status = serializers.CharField(read_only=True)
     last_order_date = serializers.DateField(read_only=True)
+    last_order_vendor = serializers.DecimalField(decimal_places=2, max_digits=10, read_only=True)
     nickname = serializers.CharField(max_length=128, allow_null=True)
     # image_url = Base64ImageField()
 
@@ -129,6 +130,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
             "product_vendor_status",
             "last_order_date",
             "last_order_price",
+            "last_order_vendor",
         )
         ordering = ("name",)
 
@@ -141,6 +143,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
             ret["product_vendor_status"] = instance.office_product[0].product_vendor_status
             ret["last_order_date"] = instance.office_product[0].last_order_date
             ret["last_order_price"] = instance.office_product[0].last_order_price
+            ret["last_order_vendor"] = instance.office_product[0].product.vendor_id
             ret["nickname"] = instance.office_product[0].nickname
             # ret["image_url"] = instance.office_product[0].image_url
 
@@ -163,7 +166,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
             ret["children"] = self.__class__(children_products, many=True, context={"office_pk": office_pk}).data
             last_order_dates = sorted(
                 [
-                    (child["last_order_date"], child["last_order_price"])
+                    (child["last_order_date"], child["last_order_price"], child["last_order_vendor"])
                     for child in ret["children"]
                     if child["is_inventory"]
                 ],
@@ -173,6 +176,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
             if last_order_dates:
                 ret["last_order_date"] = last_order_dates[0][0]
                 ret["last_order_price"] = last_order_dates[0][1]
+                ret["last_order_vendor"] = last_order_dates[0][2]
         else:
             ret["children"] = []
 
@@ -527,11 +531,11 @@ class OfficeProductSerializer(serializers.ModelSerializer):
 
         if ret["is_inventory"]:
             if ret["product"]["vendor"]:
-                ret["vendor"] = ret["product"]["vendor"]["slug"]
+                ret["last_order_vendor"] = ret["product"]["vendor"]["id"]
             else:
                 last_order_products = sorted(
                     [
-                        (child["last_order_date"], child["last_order_price"], child["vendor"]["slug"], child["id"])
+                        (child["last_order_date"], child["last_order_price"], child["vendor"]["id"], child["id"])
                         for child in ret["product"]["children"]
                         if child["is_inventory"] is True
                     ],
@@ -541,13 +545,13 @@ class OfficeProductSerializer(serializers.ModelSerializer):
                 if last_order_products:
                     ret["last_order_date"] = last_order_products[0][0]
                     ret["last_order_price"] = last_order_products[0][1]
-                    ret["vendor"] = last_order_products[0][2]
+                    ret["last_order_vendor"] = last_order_products[0][2]
                     # this is a little complicated
                     ret["product"]["id"] = last_order_products[0][3]
                 else:
                     ret["last_order_date"] = None
                     ret["last_order_price"] = None
-                    ret["vendor"] = None
+                    ret["last_order_vendor"] = None
 
             # children_products = ret["product"].get("children", [])
         # if children_products:
