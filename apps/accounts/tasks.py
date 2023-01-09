@@ -144,6 +144,20 @@ def fetch_vendor_products_prices(office_vendor_id):
 
 
 @shared_task
+def update_net32_vendor_products_prices():
+    print("====update_net32_vendor_products_prices====")
+    office_vendors = OfficeVendor.objects.select_related("office", "vendor").filter(vendor__slug="net_32")
+
+    for office_vendor in office_vendors:
+        asyncio.run(
+            OfficeProductHelper.get_all_product_prices_from_vendors(
+                office_id=office_vendor.office.id, vendor_slugs=[office_vendor.vendor.slug]
+            )
+        )
+    print("update_net32_vendor_products_prices DONE")
+
+
+@shared_task
 def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login=False):
     if login_cookies is None and perform_login is False:
         return
