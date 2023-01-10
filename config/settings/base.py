@@ -55,6 +55,7 @@ THIRD_PARTY_APPS = [
     "phonenumber_field",
     "django_celery_beat",
     "nested_admin",
+    'django_extensions',
 ]
 
 ORDO_APPS = [
@@ -295,3 +296,6 @@ NON_FORMULA_VENDORS = [
     "orthoarch",
     "office_depot",
 ]
+
+
+RUNSERVER_PLUS_PRINT_SQL_TRUNCATE = None
