@@ -1215,21 +1215,33 @@ class ProductHelper:
             office_pk = office
 
         office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk))
-        
+
         connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_pk)
-        products = ProductModel.objects.filter(Q(vendor_id__in=connected_vendor_ids))
+
         # office_product_nickname = OfficeProductModel.objects.filter(
         #     Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(nickname__isnull=False)
         # ).values("nickname")
 
         # products = products.annotate(nickname=Subquery(office_product_nickname[:1])).search(query)
-        products = products.search(query)
+        # Make result set more narrow - filter those products whose name & id is equals to keyword
+        products = ProductModel.objects.search(
+            query
+        ).filter(
+            Q(vendor_id__in=connected_vendor_ids) | Q(vendor_id__isnull=True)
+        ).filter(
+            parent=None
+        )
 
-        office_nickname_products = OfficeProductModel.objects.filter(Q(office_id=office_pk) & Q(nickname__contains=query)).values_list("product_id", flat=True)
-        office_nickname_products = ProductModel.objects.filter(Q(Q(id__in=office_nickname_products)))
+        # Find by nicknames
+        office_nickname_products = OfficeProductModel.objects.filter(
+            Q(office_id=office_pk) & Q(nickname__contains=query)
+        ).values_list("product_id", flat=True)
+        office_nickname_products = ProductModel.objects.filter(id__in=office_nickname_products)
 
+
+        # Unify with the above
         products = products | office_nickname_products
-       
+
         available_vendors = [
             vendor
             for vendor in products.values_list("vendor__slug", flat=True).order_by("vendor__slug").distinct()
@@ -1238,17 +1250,18 @@ class ProductHelper:
         if selected_products is None:
             selected_products = []
 
-        parent_product_ids = products.filter(parent__isnull=False).values_list("parent_id", flat=True)
-        product_ids = products.filter(parent__isnull=True).values_list("id", flat=True)
-        products = ProductModel.objects.filter(Q(id__in=parent_product_ids) | Q(id__in=product_ids)).select_related(
+        products = products.select_related(
             "vendor", "category"
         )
 
         # TODO: this should be optimized
         price_least_update_date = timezone.now() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
+
+        # 14 day age maximum
         office_product_price = OfficeProductModel.objects.filter(
             Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(last_price_updated__gte=price_least_update_date)
         ).values("price")
+
 
         # we treat parent product as inventory product if it has inventory children product
         inventory_office_product = OfficeProductModel.objects.filter(

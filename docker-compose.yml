@@ -8,8 +8,6 @@ services:
     env_file: .env
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-      - ./devops/postgres/postgresql.conf:/etc/postgresql/postgresql.conf
-    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
   redis:
     image: redis:6.0
     ports:
