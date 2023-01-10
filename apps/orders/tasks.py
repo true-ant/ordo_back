@@ -10,6 +10,7 @@ from asgiref.sync import sync_to_async
 from celery import shared_task
 from django.conf import settings
 from django.core.mail import send_mail
+from django.core.management import call_command
 from django.db.models import F, Q
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -403,3 +404,9 @@ def sync_with_vendors():
     office_ids = Subscription.actives.select_related("office").values_list("office", flat=True)
     office_vendors = list(OfficeVendor.objects.select_related("office", "vendor").filter(office_id__in=office_ids))
     asyncio.run(_sync_with_vendors(office_vendors))
+
+
+@shared_task
+def update_promotions():
+    call_command("update_promotion")
+    
