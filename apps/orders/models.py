@@ -237,12 +237,16 @@ class OfficeProduct(TimeStampedModel):
     image_url = models.ImageField(null=True, blank=True, upload_to="offices")
     is_favorite = models.BooleanField(default=False)
     is_inventory = models.BooleanField(default=False)
+    nn_vector = SearchVectorField(null=True, blank=True, help_text="Nickname search vector")
 
     def __str__(self):
         return f"{self.product} for {self.office}"
 
     class Meta:
         unique_together = ["office", "product"]
+        indexes = [
+            GinIndex(fields=["office", "nn_vector"])
+        ]
 
     @property
     def recent_product(self):
