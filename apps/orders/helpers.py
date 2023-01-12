@@ -17,6 +17,7 @@ from aiohttp import ClientSession
 from asgiref.sync import sync_to_async
 from django.apps import apps
 from django.conf import settings
+from django.contrib.postgres.search import SearchQuery
 from django.db import transaction
 from django.db.models import (
     Case,
@@ -171,7 +172,7 @@ class OfficeProductHelper:
                     "product_vendor_status"
                 ]
                 office_product.last_price_updated = last_price_updated
-                updated_product_ids.append(office_product.product.id)            
+                updated_product_ids.append(office_product.product.id)
 
             bulk_update(
                 model_class=OfficeProductModel,
@@ -239,7 +240,6 @@ class OfficeProductHelper:
         # print("after from_db")
         # product_prices_from_db = defaultdict(dict)
 
-
         # fetch prices from vendors
         products_to_be_fetched = {}
         for product_id, product in products.items():
@@ -262,7 +262,7 @@ class OfficeProductHelper:
             print("==== fetche prices from the online site")
             # print(product_prices_from_vendors)
             print(" ================= done fetching ============")
-            
+
             return {**product_prices_from_db, **product_prices_from_vendors}
 
         return product_prices_from_db
@@ -350,24 +350,24 @@ class OfficeProductHelper:
             vendor_product_ids = await sync_to_async(OfficeProductHelper.get_vendor_product_ids)(
                 office_id, vendor_slug
             )
-            
+
             print("get_all_product_prices_from_vendors")
-            print( len(vendor_product_ids))
+            print(len(vendor_product_ids))
             print(type(vendor_product_ids))
-            
-            step_size=20
+
+            step_size = 20
             offset = step_size
-            for i in range(offset, len(vendor_product_ids)+1, step_size):                
-                print(i, vendor_product_ids[i-step_size : i])
+            for i in range(offset, len(vendor_product_ids) + 1, step_size):
+                print(i, vendor_product_ids[i - step_size : i])
                 product_prices_from_vendors = await OfficeProductHelper.get_product_prices_by_ids(
-                    vendor_product_ids[i-step_size : i], office_id
+                    vendor_product_ids[i - step_size : i], office_id
                 )
 
                 # product_prices_from_vendors = await OfficeProductHelper.get_product_prices_by_ids(
                 #     vendor_product_ids[i : (i + 50)], office_id
                 # )
                 await aio.sleep(1)
-                
+
                 # print(product_prices_from_vendors)
         print("======== DONE fetch =========")
 
@@ -657,13 +657,13 @@ class ProductHelper:
             df_index += batch_size
 
     @staticmethod
-    def group_products_by_manufacturer_numbers(since: Optional[datetime.datetime] = None, vendor_id = -1):
+    def group_products_by_manufacturer_numbers(since: Optional[datetime.datetime] = None, vendor_id=-1):
         """group products by using manufacturer_number. this number is identical for products"""
         products = ProductModel.objects.filter(manufacturer_number__isnull=False)
         if since:
             products = products.filter(updated_at__gt=since)
         if vendor_id != -1:
-            products = products.filter(vendor_id = vendor_id)
+            products = products.filter(vendor_id=vendor_id)
         manufacturer_numbers = set(
             products.order_by("manufacturer_number")
             .values("manufacturer_number")
@@ -673,7 +673,7 @@ class ProductHelper:
         products_to_be_updated = []
         # parent_products_to_be_created = []
         for i, manufacturer_number in enumerate(manufacturer_numbers):
-            if len(manufacturer_number)<1:
+            if len(manufacturer_number) < 1:
                 continue
             print(f"Calculating {i}th: {manufacturer_number}")
             similar_products = ProductModel.objects.filter(
@@ -1207,7 +1207,7 @@ class ProductHelper:
         fetch_parents: bool = True,
         selected_products: Optional[List[SmartID]] = None,
         price_from: float = -1,
-        price_to: float = -1
+        price_to: float = -1,
     ):
         if isinstance(office, OfficeModel):
             office_pk = office.id
@@ -1224,20 +1224,18 @@ class ProductHelper:
 
         # products = products.annotate(nickname=Subquery(office_product_nickname[:1])).search(query)
         # Make result set more narrow - filter those products whose name & id is equals to keyword
-        products = ProductModel.objects.search(
-            query
-        ).filter(
-            Q(vendor_id__in=connected_vendor_ids) | Q(vendor_id__isnull=True)
-        ).filter(
-            parent=None
+        products = (
+            ProductModel.objects.search(query)
+            .filter(Q(vendor_id__in=connected_vendor_ids) | Q(vendor_id__isnull=True))
+            .filter(parent=None)
         )
 
         # Find by nicknames
-        office_nickname_products = OfficeProductModel.objects.filter(
-            Q(office_id=office_pk) & Q(nickname__contains=query)
-        ).values_list("product_id", flat=True)
+        q = SearchQuery(query, config="english")
+        office_nickname_products = OfficeProductModel.objects.filter(office_id=office_pk, nn_vector=q).values_list(
+            "product_id", flat=True
+        )
         office_nickname_products = ProductModel.objects.filter(id__in=office_nickname_products)
-
 
         # Unify with the above
         products = products | office_nickname_products
@@ -1250,9 +1248,7 @@ class ProductHelper:
         if selected_products is None:
             selected_products = []
 
-        products = products.select_related(
-            "vendor", "category"
-        )
+        products = products.select_related("vendor", "category")
 
         # TODO: this should be optimized
         price_least_update_date = timezone.now() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
@@ -1261,7 +1257,6 @@ class ProductHelper:
         office_product_price = OfficeProductModel.objects.filter(
             Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(last_price_updated__gte=price_least_update_date)
         ).values("price")
-
 
         # we treat parent product as inventory product if it has inventory children product
         inventory_office_product = OfficeProductModel.objects.filter(
@@ -1339,10 +1334,11 @@ class OfficeVendorHelper:
 
         return office.connected_vendors.values_list("vendor_id", flat=True)
 
+
 class ProcedureHelper:
     @staticmethod
     def fetch_procedure_period(day_from, office_id, type):
-        if day_from == None or type == None or office_id==None:
+        if day_from == None or type == None or office_id == None:
             print("Wrong argument(s)")
             return
 
@@ -1357,33 +1353,41 @@ class ProcedureHelper:
         if type == ProcedureType.PROCEDURE_MONTH:
             for dt in rrule.rrule(rrule.MONTHLY, dtstart=day_from, until=date_now):
                 ProcedureHelper.fetch_procedures(
-                    dt, 
-                    (dt+datetime.timedelta(days=31)).replace(day=1)-datetime.timedelta(days=1), 
-                    office.id, 
-                    type, 
+                    dt,
+                    (dt + datetime.timedelta(days=31)).replace(day=1) - datetime.timedelta(days=1),
+                    office.id,
+                    type,
                     dental_api,
-                    dt.year == date_now.year and dt.month == date_now.month
+                    dt.year == date_now.year and dt.month == date_now.month,
                 )
-        
+
         elif type == ProcedureType.PROCEDURE_WEEK:
             week_startday = day_from - datetime.timedelta(days=day_from.weekday())
             last_week_startday = date_now - datetime.timedelta(days=date_now.weekday())
             for dt in rrule.rrule(rrule.WEEKLY, dtstart=week_startday, until=date_now):
-                ProcedureHelper.fetch_procedures(dt, dt + datetime.timedelta(days=5), office.id,type,dental_api, dt.date() == last_week_startday.date())
+                ProcedureHelper.fetch_procedures(
+                    dt,
+                    dt + datetime.timedelta(days=5),
+                    office.id,
+                    type,
+                    dental_api,
+                    dt.date() == last_week_startday.date(),
+                )
+
     @staticmethod
-    def fetch_procedures(day_from, day_to, office_id, type, dental_api, force_update = False):
+    def fetch_procedures(day_from, day_to, office_id, type, dental_api, force_update=False):
         if day_from == None or day_to == None or type == None:
             print("Wrong argument(s)")
             return
 
-        old_procs = ProcedureModel.objects.filter(office=office_id,start_date=day_from, type=type)
+        old_procs = ProcedureModel.objects.filter(office=office_id, start_date=day_from, type=type)
         bExists = len(old_procs) > 0
 
         if force_update == False and bExists:
             print(f"Already exists with day_from={day_from}, type={type}")
             return
 
-        with open('query/procedure.json') as f:
+        with open("query/procedure.json") as f:
             queryProcedure = json.load(f, strict=False)
 
         query = formatStEndDateFromQuery(queryProcedure, day_from.date(), day_to.date())
@@ -1393,8 +1397,11 @@ class ProcedureHelper:
 
         creating_procedures = []
         while True:
-            response = requests.put(f'https://api.opendental.com/api/v1/queries/ShortQuery?Offset={offset}',
-                                    headers={'Authorization': dental_api}, json=json.loads(query,strict=False))
+            response = requests.put(
+                f"https://api.opendental.com/api/v1/queries/ShortQuery?Offset={offset}",
+                headers={"Authorization": dental_api},
+                json=json.loads(query, strict=False),
+            )
             json_procedure = json.loads(response.content)
             response_len = len(json_procedure)
 
@@ -1412,8 +1419,8 @@ class ProcedureHelper:
                         type=type,
                     )
                 )
-            
-            count+= response_len
+
+            count += response_len
             if response_len == 100:
                 offset += 100
             else:
