@@ -219,6 +219,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.accounts.tasks.update_net32_vendor_products_prices",
         "schedule": crontab(minute=0, hour="2"),
     },
+    "update_promotions": {
+        "task": "apps.orders.tasks.update_promotions",
+        "schedule": crontab(minute='0', hour='0', day_of_week="0") #Every Sunday
+    }
 }
 
 # Django Rest Framework

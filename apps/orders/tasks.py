@@ -1,4 +1,5 @@
 import asyncio
+import os
 import datetime
 import logging
 from asyncio import Semaphore
@@ -19,6 +20,7 @@ from apps.accounts.models import CompanyMember, OfficeVendor, Subscription, User
 from apps.common.choices import OrderStatus
 from apps.common.utils import group_products
 from apps.notifications.models import Notification
+from apps.orders.helpers import ProductHelper
 from apps.orders.models import Keyword as KeyModel
 from apps.orders.models import OfficeCheckoutStatus
 from apps.orders.models import OfficeKeyword as OfficeKeyModel
@@ -31,6 +33,8 @@ from apps.orders.models import VendorOrderProduct as VendorOrderProductModel
 from apps.scrapers.errors import VendorAuthenticationFailed
 from apps.scrapers.schema import Product as ProductDataClass
 from apps.scrapers.scraper_factory import ScraperFactory
+
+from promotions import PROMOTION_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -403,3 +407,18 @@ def sync_with_vendors():
     office_ids = Subscription.actives.select_related("office").values_list("office", flat=True)
     office_vendors = list(OfficeVendor.objects.select_related("office", "vendor").filter(office_id__in=office_ids))
     asyncio.run(_sync_with_vendors(office_vendors))
+
+
+@shared_task
+def update_promotions():
+    print("update_promotions")
+    for vendor_slug in PROMOTION_MAP.keys():
+        print(vendor_slug)
+        try:
+            PROMOTION_MAP[vendor_slug]().run()
+        except:
+            # keep running even though there is an issue coming up in the promotion script.
+            pass
+        print(f"Read product data from {vendor_slug}.csv")
+        if os.path.exists(f"./promotions/{vendor_slug}.csv"):
+            ProductHelper.import_promotion_products_from_csv(file_path=f"promotions/{vendor_slug}.csv", vendor_slug=vendor_slug)
