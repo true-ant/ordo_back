@@ -414,7 +414,11 @@ def update_promotions():
     print("update_promotions")
     for vendor_slug in PROMOTION_MAP.keys():
         print(vendor_slug)
+    try:
         PROMOTION_MAP[vendor_slug]().run()
+    except:
+        # keep running even though there is an issue coming up in the promotion script.
+        pass
         print(f"Read product data from {vendor_slug}.csv")
         if os.path.exists(f"./promotions/{vendor_slug}.csv"):
             ProductHelper.import_promotion_products_from_csv(file_path=f"promotions/{vendor_slug}.csv", vendor_slug=vendor_slug)
