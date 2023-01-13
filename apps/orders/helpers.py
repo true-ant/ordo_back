@@ -17,7 +17,7 @@ from aiohttp import ClientSession
 from asgiref.sync import sync_to_async
 from django.apps import apps
 from django.conf import settings
-from django.contrib.postgres.search import SearchQuery
+from django.contrib.postgres.search import SearchQuery, SearchVectorField
 from django.db import transaction
 from django.db.models import (
     Case,
@@ -33,6 +33,7 @@ from django.db.models import (
     Value,
     When,
 )
+from django.db.models.expressions import RawSQL
 from django.utils import timezone
 from slugify import slugify
 
@@ -1232,7 +1233,13 @@ class ProductHelper:
 
         # Find by nicknames
         q = SearchQuery(query, config="english")
-        office_nickname_products = OfficeProductModel.objects.filter(office_id=office_pk, nn_vector=q).values_list(
+        office_nickname_products = OfficeProductModel.objects.annotate(
+            nn_vector=RawSQL(
+                'nn_vector',
+                params=[],
+                output_field=SearchVectorField()
+            )
+        ).filter(office_id=office_pk, nn_vector=q).values_list(
             "product_id", flat=True
         )
         office_nickname_products = ProductModel.objects.filter(id__in=office_nickname_products)
