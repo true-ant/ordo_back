@@ -1251,7 +1251,7 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
         queryset = (
             super()
             .get_queryset()
-            .filter(Q(office__id=self.kwargs["office_pk"]), Q(product__parent__isnull=False))
+            .filter(Q(office__id=self.kwargs["office_pk"]))
             .annotate(
                 category_order=Case(
                     When(office_product_category__slug=category_ordering, then=Value(0)),
