@@ -54,6 +54,7 @@ from apps.scrapers.errors import VendorNotConnected, VendorNotSupported, VendorS
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import CartProduct
 from apps.types.scraper import SmartID
+from apps.accounts.tasks import fetch_orders_from_vendor
 
 from . import filters as f
 from . import models as m
@@ -952,6 +953,9 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                     )
                 m.VendorOrderProduct.objects.bulk_create(objs)
 
+                send_date = datetime.datetime.utcnow() + timedelta(days=1)
+                fetch_orders_from_vendor.apply_async([office_vendor.id, None, True], eta=send_date)
+
             order.total_amount = total_amount
             order.total_items = total_items
             order.save()
@@ -1247,7 +1251,7 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
         queryset = (
             super()
             .get_queryset()
-            .filter(Q(office__id=self.kwargs["office_pk"]), Q(product__parent__isnull=True))
+            .filter(Q(office__id=self.kwargs["office_pk"]), Q(product__parent__isnull=False))
             .annotate(
                 category_order=Case(
                     When(office_product_category__slug=category_ordering, then=Value(0)),
@@ -1261,7 +1265,7 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
             queryset = queryset.filter(price__gte=price_from)
         if price_to != -1:
             queryset = queryset.filter(price__lte=price_to)
-            
+
         if category_or_price == "category":
             return queryset.order_by("category_order", "office_product_category__slug", "price", "-updated_at")
         else:

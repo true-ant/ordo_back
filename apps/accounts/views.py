@@ -463,13 +463,16 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
                 #     session=session,
                 # )
                 office_vendor = await sync_to_async(serializer.save)()
-                # login_cookies = await scraper.login()                
-                # fetch_orders_from_vendor.delay(
-                #     office_vendor_id=office_vendor.id,
-                #     login_cookies=login_cookies.output(),
-                #     # all scrapers work with login_cookies, but henryschein not working with login_cookies
-                #     perform_login=serializer.validated_data["vendor"].slug == "henry_schein",
-                # )
+                # login_cookies = await scraper.login()
+
+                # All scrapers work with login_cookies,
+                # but henryschein doesn't work with login_cookies...
+                fetch_orders_from_vendor.delay(
+                    office_vendor_id=office_vendor.id,
+                    login_cookies=None,
+                    perform_login=True,
+                )
+
             else:
                 await sync_to_async(serializer.save)()
                 # office_vendor.task_id = ar.id
