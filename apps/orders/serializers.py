@@ -634,3 +634,20 @@ class ProcedureSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.Procedure
         fields = "__all__"
+
+class ProcedureCategoryLinkSerializer(serializers.ModelSerializer):
+    # proccat = serializers.IntegerField()
+    linked_slugs = serializers.ListSerializer(child=serializers.CharField())
+
+    class Meta:
+        model = m.ProcedureCategoryLink
+        fields = ('linked_slugs',)
+
+    def update(self, instance, validated_data):
+        slugs = validated_data['linked_slugs']
+        if instance.linked_slugs is None:
+            instance.linked_slugs = slugs
+        else:
+            instance.linked_slugs.extend(slugs)
+        instance.save()
+        return instance

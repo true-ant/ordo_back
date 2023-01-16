@@ -1750,3 +1750,19 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         except:
             return Response(status=HTTP_400_BAD_REQUEST)
 
+
+class ProcedureCategoryLink(ModelViewSet):
+    queryset = m.ProcedureCategoryLink.objects.all()
+    serializer_class = s.ProcedureCategoryLinkSerializer
+
+    def update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return super().update(request, *args, **kwargs)
+
+    @action(detail=False, url_path="add-slugs", methods=["post"])
+    def add_slugs(self, request, *args, **kwargs):
+        instance = self.get_object()
+        slugs = self.request.query_params.get("slugs").split(",")
+        instance.linked_slugs.append(slugs)
+        instance.save()
+

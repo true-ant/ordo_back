@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.search import (  # TrigramSimilarity,
     SearchQuery,
     SearchVectorField,
@@ -489,3 +490,7 @@ class Procedure(models.Model):
     class Meta:
         unique_together = ["office", "procedurecode", "start_date", "type"]
         ordering = ["start_date"]
+
+class ProcedureCategoryLink(models.Model):
+    proccat = models.IntegerField(null=False)
+    linked_slugs = ArrayField(models.CharField(max_length=100), null=True, blank=True)
