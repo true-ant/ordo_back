@@ -636,7 +636,6 @@ class ProcedureSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 class ProcedureCategoryLinkSerializer(serializers.ModelSerializer):
-    # proccat = serializers.IntegerField()
     linked_slugs = serializers.ListSerializer(child=serializers.CharField())
 
     class Meta:

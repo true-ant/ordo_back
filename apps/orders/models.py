@@ -464,16 +464,13 @@ class OfficeKeyword(TimeStampedModel):
 
 
 class ProcedureCode(models.Model):
-    codenum = models.IntegerField()
     proccode = models.CharField(max_length=16)
     descript = models.CharField(max_length=256, null=True, blank=True)
-    abbrdesc = models.CharField(max_length=50, null=True, blank=True)
-    proccat = models.IntegerField()
-    itemname = models.CharField(max_length=256)
+    category = models.CharField(max_length=256, null=True, blank=True)
+    summary_category = models.CharField(max_length=256,null=True, blank=True)
 
     def __str__(self):
         return str(self.codenum)
-
 
 class Procedure(models.Model):
     start_date = models.DateField()
@@ -492,5 +489,5 @@ class Procedure(models.Model):
         ordering = ["start_date"]
 
 class ProcedureCategoryLink(models.Model):
-    proccat = models.IntegerField(null=False)
+    summary_category = models.CharField(max_length=256,null=False,blank=False,default="Empty")
     linked_slugs = ArrayField(models.CharField(max_length=100), null=True, blank=True)

@@ -1689,8 +1689,29 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         day_from = datetime.date(start_end_date[0].year, start_end_date[0].month, start_end_date[0].day)
         day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
         ProcedureHelper.fetch_procedure_period(day_from, office_pk, type)
-        ret = m.Procedure.objects.select_related("procedurecode").filter(type=type,start_date__gte=day_from,start_date__lte=day_to).values_list("procedurecode__proccat", "procedurecode__itemname").annotate(dcount=Count('procedurecode__proccat')).order_by('-dcount')
+        ret = m.Procedure.objects.select_related("procedurecode") \
+            .filter(type=type,start_date__gte=day_from,start_date__lte=day_to) \
+            .values_list("procedurecode__category", "procedurecode__summary_category") \
+            .annotate(dcount=Count('procedurecode__category')).order_by('-dcount') \
+            .filter(dcount__gt=0)
         return Response(ret)
+
+    @action(detail=False, url_path="summary-category")
+    def get_summary_category(self, request, *args, **kwargs):
+        type = self.request.query_params.get("type", "month")
+        office_pk = self.kwargs["office_pk"]
+        date_range = self.request.query_params.get("date_range", "thisQuarter")
+        start_end_date = get_date_range(date_range)
+        day_from = datetime.date(start_end_date[0].year, start_end_date[0].month, start_end_date[0].day)
+        day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
+        ProcedureHelper.fetch_procedure_period(day_from, office_pk, type)
+        ret = m.Procedure.objects.select_related("procedurecode") \
+            .filter(type=type,start_date__gte=day_from,start_date__lte=day_to) \
+            .values_list("procedurecode__category", "procedurecode__summary_category") \
+            .annotate(dcount=Count('procedurecode__summary_category')).order_by('-dcount') \
+            .filter(dcount__gt=0)
+        return Response(ret)
+
 
     @action(detail=False, url_path="report")
     def get_report(self, request, *args, **kwargs):
@@ -1759,10 +1780,18 @@ class ProcedureCategoryLink(ModelViewSet):
         kwargs["partial"] = True
         return super().update(request, *args, **kwargs)
 
-    @action(detail=False, url_path="add-slugs", methods=["post"])
-    def add_slugs(self, request, *args, **kwargs):
-        instance = self.get_object()
-        slugs = self.request.query_params.get("slugs").split(",")
-        instance.linked_slugs.append(slugs)
-        instance.save()
+    # @action(detail=False, url_path="add-slugs", methods=["post"])
+    # def add_slugs(self, request, *args, **kwargs):
+    #     instance = self.get_object()
+    #     slugs = self.request.query_params.get("slugs").split(",")
+    #     instance.linked_slugs.append(slugs)
+    #     instance.save()
 
+    @action(detail=False, url_path="linked-products")
+    def get_linked_inventory_products(self, request, *args, **kwargs):
+        summary_category = self.request.query_params.get("summary_category", "all")
+        slugs = self.queryset.get(summary_category=summary_category).linked_slugs
+        queryset = m.OfficeProduct.objects.filter(
+            Q(office__id=self.kwargs["office_pk"], is_inventory=True, office_product_category__slug__in=slugs)
+        )
+        return Response(s.OfficeProductSerializer(queryset, many=True, context={"include_children": True}).data)
