@@ -1,14 +1,13 @@
 import asyncio
-import os
 import datetime
 import logging
+import os
 from asyncio import Semaphore
 from decimal import Decimal
 from typing import List, Optional
 
 from aiohttp import ClientSession, ClientTimeout
 from asgiref.sync import sync_to_async
-from celery import shared_task
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db.models import F, Q
@@ -33,13 +32,13 @@ from apps.orders.models import VendorOrderProduct as VendorOrderProductModel
 from apps.scrapers.errors import VendorAuthenticationFailed
 from apps.scrapers.schema import Product as ProductDataClass
 from apps.scrapers.scraper_factory import ScraperFactory
-
+from config.celery import app
 from promotions import PROMOTION_MAP
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task
+@app.task
 def update_office_cart_status():
     ten_minutes_ago = timezone.now() - datetime.timedelta(minutes=10)
     objs = OfficeCheckoutStatus.objects.filter(
@@ -67,7 +66,7 @@ async def get_product_detail(product_id, product_url, office_vendor, vendor) -> 
         return await scraper.get_product(product_id, product_url, perform_login=True)
 
 
-@shared_task
+@app.task
 def update_product_detail(product_id, product_url, office_id, vendor_id):
     try:
         office_vendor = OfficeVendor.objects.get(office_id=office_id, vendor_id=vendor_id)
@@ -143,7 +142,7 @@ async def _search_products(keyword, office_vendors):
         return await asyncio.gather(*tasks, return_exceptions=True)
 
 
-@shared_task
+@app.task
 def search_and_group_products(keyword, office_id, vendor_ids):
     office_vendors_to_be_searched = list(
         OfficeVendor.objects.select_related("office")
@@ -192,7 +191,7 @@ def search_and_group_products(keyword, office_id, vendor_ids):
         OfficeKeyModel.objects.bulk_update(keyword_objs, ["task_status"])
 
 
-@shared_task
+@app.task
 def notify_order_creation(vendor_order_ids, approval_needed):
     vendor_orders = VendorOrderModel.objects.filter(id__in=vendor_order_ids)
     total_items = 0
@@ -397,7 +396,7 @@ async def _sync_with_vendors(office_vendors):
         pass
 
 
-@shared_task
+@app.task
 def sync_with_vendors():
     """
     This task is running every day, checking following items
@@ -409,16 +408,19 @@ def sync_with_vendors():
     asyncio.run(_sync_with_vendors(office_vendors))
 
 
-@shared_task
+@app.task
 def update_promotions():
     print("update_promotions")
     for vendor_slug in PROMOTION_MAP.keys():
         print(vendor_slug)
         try:
             PROMOTION_MAP[vendor_slug]().run()
-        except:
+        except:  # noqa: E722
+            # TODO: avoid bare except
             # keep running even though there is an issue coming up in the promotion script.
             pass
         print(f"Read product data from {vendor_slug}.csv")
         if os.path.exists(f"./promotions/{vendor_slug}.csv"):
-            ProductHelper.import_promotion_products_from_csv(file_path=f"promotions/{vendor_slug}.csv", vendor_slug=vendor_slug)
+            ProductHelper.import_promotion_products_from_csv(
+                file_path=f"promotions/{vendor_slug}.csv", vendor_slug=vendor_slug
+            )

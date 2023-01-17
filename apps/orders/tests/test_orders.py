@@ -14,8 +14,14 @@ from apps.accounts.factories import (
     UserFactory,
     VendorFactory,
 )
-from apps.accounts.models import User
-from apps.orders.factories import OrderFactory, OrderProductFactory, ProductFactory
+from apps.accounts.models import Office, User, Vendor
+from apps.orders.factories import (
+    OrderFactory,
+    OrderProductFactory,
+    ProductFactory,
+    VendorOrderFactory,
+)
+from apps.orders.models import Product
 
 
 class DashboardAPIPermissionTests(APITestCase):
@@ -71,30 +77,30 @@ class DashboardAPIPermissionTests(APITestCase):
         self.assertEqual(response.status_code, expected_status)
 
     def test_get_spend_company(self):
-        link = reverse("company-spending", kwargs={"company_id": self.company.id})
+        link = reverse("company-spending", kwargs={"company_pk": self.company.id})
         self._check_get_spend_permission(method="get", link=f"{link}?by=vendor")
         self._check_get_spend_permission(method="get", link=f"{link}?by=month")
 
     def test_get_spend_office(self):
-        link = reverse("office-spending", kwargs={"office_id": self.company_office_1.id})
+        link = reverse("office-spending", kwargs={"office_pk": self.company_office_1.id})
         self._check_get_spend_permission(method="get", link=f"{link}?by=vendor")
         self._check_get_spend_permission(method="get", link=f"{link}?by=month")
 
 
 class CompanyOfficeSpendTests(APITestCase):
-    def _create_orders(self, product: ProductFactory, office: OfficeFactory, vendor: VendorFactory):
+    def _create_orders(self, product: Product, office: Office, vendor: Vendor):
         for i in range(12):
             order_date = datetime.date.today() - relativedelta(months=i)
             order = OrderFactory(
                 office=office,
-                vendor=vendor,
                 total_amount=product.price,
-                currency="USD",
+                # currency="USD",
                 order_date=order_date,
                 status="complete",
             )
+            vendor_order = VendorOrderFactory(vendor=vendor, order=order, total_amount=product.price)
             OrderProductFactory(
-                order=order,
+                vendor_order=vendor_order,
                 product=product,
                 quantity=1,
                 unit_price=product.price,
@@ -122,8 +128,8 @@ class CompanyOfficeSpendTests(APITestCase):
             vendor=self.vendor2,
             price=self.product2_price,
         )
-        self.office1_vendor1 = OfficeVendorFactory(company=self.office1, vendor=self.vendor1)
-        self.office1_vendor2 = OfficeVendorFactory(company=self.office1, vendor=self.vendor2)
+        self.office1_vendor1 = OfficeVendorFactory(office=self.office1, vendor=self.vendor1)
+        self.office1_vendor2 = OfficeVendorFactory(office=self.office1, vendor=self.vendor2)
 
         # office1 vendors
         self._create_orders(self.product1, self.office1, self.vendor1)
@@ -132,7 +138,7 @@ class CompanyOfficeSpendTests(APITestCase):
         self._create_orders(self.product2, self.office2, self.vendor2)
 
     def test_company_get_spending_by_vendor(self):
-        link = reverse("company-spending", kwargs={"company_id": self.company.id})
+        link = reverse("company-spending", kwargs={"company_pk": self.company.id})
         link = f"{link}?by=vendor"
         self.client.force_authenticate(self.admin)
         response = self.client.get(link)
@@ -144,7 +150,7 @@ class CompanyOfficeSpendTests(APITestCase):
             self.assertEqual(res["vendor"]["name"], name)
 
     def test_company_get_spending_by_month(self):
-        link = reverse("company-spending", kwargs={"company_id": self.company.id})
+        link = reverse("company-spending", kwargs={"company_pk": self.company.id})
         link = f"{link}?by=month"
         self.client.force_authenticate(self.admin)
         response = self.client.get(link)
@@ -154,14 +160,14 @@ class CompanyOfficeSpendTests(APITestCase):
 
     def test_office_get_spending_by_vendor(self):
         self.client.force_authenticate(self.admin)
-        link = reverse("office-spending", kwargs={"office_id": self.office1.id})
+        link = reverse("office-spending", kwargs={"office_pk": self.office1.id})
         link = f"{link}?by=vendor"
         response = self.client.get(link)
         response_data = response.data[0]
         self.assertEqual(Decimal(response_data["total_amount"]), self.product1_price * 12)
         self.assertEqual(response_data["vendor"]["name"], self.vendor1_name)
 
-        link = reverse("office-spending", kwargs={"office_id": self.office2.id})
+        link = reverse("office-spending", kwargs={"office_pk": self.office2.id})
         link = f"{link}?by=vendor"
         response = self.client.get(link)
         response_data = response.data[0]
@@ -170,13 +176,13 @@ class CompanyOfficeSpendTests(APITestCase):
 
     def test_office_get_spending_by_month(self):
         self.client.force_authenticate(self.admin)
-        link = reverse("office-spending", kwargs={"office_id": self.office1.id})
+        link = reverse("office-spending", kwargs={"office_pk": self.office1.id})
         link = f"{link}?by=month"
         response = self.client.get(link)
         for res in response.data:
             self.assertEqual(Decimal(res["total_amount"]), self.product1_price)
 
-        link = reverse("office-spending", kwargs={"office_id": self.office2.id})
+        link = reverse("office-spending", kwargs={"office_pk": self.office2.id})
         link = f"{link}?by=month"
         response = self.client.get(link)
         for res in response.data:

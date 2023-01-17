@@ -11,6 +11,7 @@ git clone git@gitlab.com:zburau/ordo-backend.git
 cd ordo-backend
 poetry install
 poetry shell
+pre-commit install
 python manage.py migrate
 ```
 You can dump database from staging server. I strongly suggest that you can use this data to populate your local database.

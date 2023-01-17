@@ -1,4 +1,4 @@
-from factory import Sequence
+import factory
 from factory.django import DjangoModelFactory
 
 from . import models as m
@@ -8,8 +8,8 @@ class UserFactory(DjangoModelFactory):
     class Meta:
         model = m.User
 
-    username = Sequence(lambda n: f"test{n}")
-    email = Sequence(lambda n: f"{n}@example.com")
+    username = factory.Sequence(lambda n: f"test{n}")
+    email = factory.Sequence(lambda n: f"{n}@example.com")
 
 
 class CompanyFactory(DjangoModelFactory):
@@ -26,21 +26,21 @@ class OfficeFactory(DjangoModelFactory):
     class Meta:
         model = m.Office
 
-    company = CompanyFactory()
+    company = factory.SubFactory(CompanyFactory)
 
 
 class OfficeVendorFactory(DjangoModelFactory):
     class Meta:
         model = m.OfficeVendor
 
-    vendor = VendorFactory()
-    office = OfficeFactory()
+    vendor = factory.SubFactory(VendorFactory)
+    office = factory.SubFactory(OfficeFactory)
 
 
 class CompanyMemberFactory(DjangoModelFactory):
     class Meta:
         model = m.CompanyMember
 
-    # company = SubFactory(CompanyFactory)
-    # user = SubFactory(UserFactory)
-    # office = SubFactory(OfficeFactory)
+    company = factory.SubFactory(CompanyFactory)
+    user = factory.SubFactory(UserFactory)
+    office = factory.SubFactory(OfficeFactory)
