@@ -11,7 +11,6 @@ class UserSignupTests(APITestCase):
             "last_name": "Last",
             "email": "test@test.com",
             "password": "test",
-            "role": 1,
         }
         self.url = reverse("signup")
 
@@ -25,8 +24,3 @@ class UserSignupTests(APITestCase):
             data.pop(k)
             response = self.client.post(self.url, data=data)
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, data)
-
-    def test_create_account_wrong_role(self):
-        self.data["role"] = 2  # user
-        response = self.client.post(self.url, data=self.data)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, self.data)
