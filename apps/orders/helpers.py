@@ -34,6 +34,7 @@ from django.db.models import (
     When,
 )
 from django.db.models.expressions import RawSQL
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from slugify import slugify
 
@@ -1239,9 +1240,11 @@ class ProductHelper:
             .values_list("product_id", flat=True)
         )
 
-        office_nickname_product_parents = ProductModel.objects.filter(
-            id__in=office_nickname_products, parent_id__isnull=False
-        ).values_list("parent_id")
+        office_nickname_product_parents = (
+            ProductModel.objects.filter(id__in=office_nickname_products)
+            .annotate(pid=Coalesce(F("parent_id"), F("id")))
+            .values_list("pid", flat=True)
+        )
         office_nickname_products = ProductModel.objects.filter(id__in=office_nickname_product_parents)
 
         # Unify with the above
