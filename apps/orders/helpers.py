@@ -1269,20 +1269,20 @@ class ProductHelper:
         ).values("price")
 
         # we treat parent product as inventory product if it has inventory children product
-        inventory_office_product = OfficeProductModel.objects.filter(
-            Q(office_id=office_pk) & Q(is_inventory=True) & Q(product_id=OuterRef("pk"))
+        inventory_office_product = (
+            OfficeProductModel.objects.filter(Q(office_id=office_pk) & Q(is_inventory=True))
+            .annotate(pid=Coalesce(F("product__parent_id"), F("product_id")))
+            .values("pid")
+            .filter(pid=OuterRef("pk"))
         )
+        # inventory_office_product = OfficeProductModel.objects.filter(
+        #     Q(office_id=office_pk) & Q(is_inventory=True) & Q(product_id=OuterRef("pk"))
+        # )
 
         products = (
             products.prefetch_related(Prefetch("office_products", queryset=office_products, to_attr="office_product"))
             .annotate(office_product_price=Subquery(office_product_price[:1]))
-            .annotate(
-                product_price=Case(
-                    When(price__isnull=False, then=F("price")),
-                    When(office_product_price__isnull=False, then=F("office_product_price")),
-                    default=Value(None),
-                )
-            )
+            .annotate(product_price=Coalesce(F("price"), F("office_product_price")))
         )
         # if price_from is not None and price_from != -1:
         #     products = products.filter(price__gte=price_from)
