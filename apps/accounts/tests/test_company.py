@@ -7,22 +7,23 @@ from apps.accounts.models import User
 
 
 class CompanyTests(APITestCase):
-    def setUp(self) -> None:
-        self.company = f.CompanyFactory()
-        self.company_office_1 = f.OfficeFactory(company=self.company)
-        self.company_office_2 = f.OfficeFactory(company=self.company)
-        self.company_admin = f.UserFactory(role=User.Role.ADMIN)
-        self.company_user = f.UserFactory(role=User.Role.USER)
+    @classmethod
+    def setUpTestData(cls):
+        cls.company = f.CompanyFactory()
+        cls.company_office_1 = f.OfficeFactory(company=cls.company)
+        cls.company_office_2 = f.OfficeFactory(company=cls.company)
+        cls.company_admin = f.UserFactory(role=User.Role.ADMIN)
+        cls.company_user = f.UserFactory(role=User.Role.USER)
 
-        self.firm = f.CompanyFactory()
-        self.firm_office = f.OfficeFactory(company=self.firm)
-        self.firm_admin = f.UserFactory(role=User.Role.ADMIN)
-        self.firm_user = f.UserFactory(role=User.Role.USER)
+        cls.firm = f.CompanyFactory()
+        cls.firm_office = f.OfficeFactory(company=cls.firm)
+        cls.firm_admin = f.UserFactory(role=User.Role.ADMIN)
+        cls.firm_user = f.UserFactory(role=User.Role.USER)
 
-        f.CompanyMemberFactory(company=self.company, user=self.company_admin, email=self.company_admin.email)
-        f.CompanyMemberFactory(company=self.company, user=self.company_user, email=self.company_user.email)
-        f.CompanyMemberFactory(company=self.firm, user=self.firm_admin, email=self.firm_admin.email)
-        f.CompanyMemberFactory(company=self.firm, user=self.firm_user, email=self.firm_user.email)
+        f.CompanyMemberFactory(company=cls.company, user=cls.company_admin, email=cls.company_admin.email)
+        f.CompanyMemberFactory(company=cls.company, user=cls.company_user, email=cls.company_user.email)
+        f.CompanyMemberFactory(company=cls.firm, user=cls.firm_admin, email=cls.firm_admin.email)
+        f.CompanyMemberFactory(company=cls.firm, user=cls.firm_user, email=cls.firm_user.email)
 
     def _check_edit_permission(self, *, method, link, data=None):
         """check create, update, delete permission"""

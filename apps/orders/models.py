@@ -1,8 +1,8 @@
 from datetime import timedelta
 
 from django.conf import settings
-from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import (  # TrigramSimilarity,
     SearchQuery,
     SearchVectorField,
@@ -14,7 +14,12 @@ from django_extensions.db.fields import AutoSlugField
 from slugify import slugify
 
 from apps.accounts.models import Office, User, Vendor
-from apps.common.choices import BUDGET_SPEND_TYPE, OrderStatus, ProductStatus, ProcedureType
+from apps.common.choices import (
+    BUDGET_SPEND_TYPE,
+    OrderStatus,
+    ProcedureType,
+    ProductStatus,
+)
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
 from apps.common.utils import remove_character_between_numerics
 from apps.scrapers.schema import Product as ProductDataClass
@@ -46,7 +51,6 @@ class Keyword(TimeStampedModel):
 
 class ProductQuerySet(models.QuerySet):
     def search(self, text):
-        original_text = text
         # this is for search for henry schein product id
         text = remove_character_between_numerics(text, character="-")
         # trigram_similarity = TrigramSimilarity("name", text)
@@ -238,16 +242,22 @@ class OfficeProduct(TimeStampedModel):
     image_url = models.ImageField(null=True, blank=True, upload_to="offices")
     is_favorite = models.BooleanField(default=False)
     is_inventory = models.BooleanField(default=False)
-    nn_vector = SearchVectorField(null=True, blank=True, help_text="Nickname search vector")
+    # The following field will exist in database,
+    # but we can't have it explicitly in model until the following PR
+    # is merged in Django codebase and released:
+    # https://github.com/django/django/pull/16417
+    # nn_vector = SearchVectorField(null=True, blank=True, help_text="Nickname search vector")
 
     def __str__(self):
         return f"{self.product} for {self.office}"
 
     class Meta:
         unique_together = ["office", "product"]
-        indexes = [
-            GinIndex(fields=["office", "nn_vector"])
-        ]
+        # These indexes will exist in DB, but they won't be
+        # available from model, due to the reasons above
+        # indexes = [
+        #     GinIndex(fields=["office", "nn_vector"])
+        # ]
 
     @property
     def recent_product(self):
@@ -467,10 +477,11 @@ class ProcedureCode(models.Model):
     proccode = models.CharField(max_length=16)
     descript = models.CharField(max_length=256, null=True, blank=True)
     category = models.CharField(max_length=256, null=True, blank=True)
-    summary_category = models.CharField(max_length=256,null=True, blank=True)
+    summary_category = models.CharField(max_length=256, null=True, blank=True)
 
     def __str__(self):
         return str(self.codenum)
+
 
 class Procedure(models.Model):
     start_date = models.DateField()
@@ -488,6 +499,7 @@ class Procedure(models.Model):
         unique_together = ["office", "procedurecode", "start_date", "type"]
         ordering = ["start_date"]
 
+
 class ProcedureCategoryLink(models.Model):
-    summary_category = models.CharField(max_length=256,null=False,blank=False,default="Empty")
+    summary_category = models.CharField(max_length=256, null=False, blank=False, default="Empty")
     linked_slugs = ArrayField(models.CharField(max_length=100), null=True, blank=True)

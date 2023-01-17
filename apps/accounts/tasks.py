@@ -1,14 +1,13 @@
 import asyncio
-import datetime
 import logging
 import operator
+import platform
 from calendar import monthrange
 from functools import reduce
 from http.cookies import SimpleCookie
 from typing import List
 
 from aiohttp import ClientSession, ClientTimeout
-from celery import shared_task
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -25,16 +24,16 @@ from apps.orders.models import OfficeProductCategory, OrderStatus, VendorOrder
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import CompanyInvite
 from apps.vendor_clients.async_clients import BaseClient
-import platform
+from config.celery import app
 
-if platform.system() == 'Windows':
-   asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+if platform.system() == "Windows":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 UserModel = get_user_model()
 logger = logging.getLogger(__name__)
 
 
-@shared_task
+@app.task
 def send_forgot_password_mail(user_id, token):
     user = UserModel.objects.get(pk=user_id)
     htm_content = render_to_string(
@@ -53,7 +52,7 @@ def send_forgot_password_mail(user_id, token):
     )
 
 
-@shared_task
+@app.task
 def send_welcome_email(user_id):
     try:
         user = UserModel.objects.get(id=user_id)
@@ -70,7 +69,7 @@ def send_welcome_email(user_id):
     )
 
 
-@shared_task
+@app.task
 def send_company_invite_email(company_email_invites: List[CompanyInvite]):
     q = reduce(
         operator.or_,
@@ -131,7 +130,7 @@ async def get_orders(office_vendor, login_cookies, perform_login, completed_orde
         #     await scraper.get_all_products_v2(office_vendor.office)
 
 
-@shared_task
+@app.task
 def fetch_vendor_products_prices(office_vendor_id):
     print("fetch_vendor_products_prices")
     office_vendor = OfficeVendor.objects.select_related("office", "vendor").get(id=office_vendor_id)
@@ -143,7 +142,7 @@ def fetch_vendor_products_prices(office_vendor_id):
     print("fetch_vendor_products_prices DONE")
 
 
-@shared_task
+@app.task
 def update_net32_vendor_products_prices():
     print("====update_net32_vendor_products_prices====")
     office_vendors = OfficeVendor.objects.select_related("office", "vendor").filter(vendor__slug="net_32")
@@ -157,7 +156,7 @@ def update_net32_vendor_products_prices():
     print("update_net32_vendor_products_prices DONE")
 
 
-@shared_task
+@app.task
 def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login=False):
     if login_cookies is None and perform_login is False:
         return
@@ -208,7 +207,7 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
     #                     vendor=office_vendor.vendor, parent__isnull=True, product_id__in=product_ids
     #                 )
     #             )
-    
+
     #     if len(vendors_products) > 1:
     #         group_products(vendors_products, model=True)
 
@@ -232,7 +231,7 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
     #         office_vendor.save()
 
 
-@shared_task
+@app.task
 def send_budget_update_notification():
     today = timezone.now().date()
     last_day = monthrange(today.year, today.month)[1]
@@ -261,7 +260,7 @@ def send_budget_update_notification():
         )
 
 
-@shared_task
+@app.task
 def update_office_budget():
     OfficeBudgetHelper.update_budget_with_previous_month()
 
@@ -283,10 +282,10 @@ async def get_orders_v2(office_vendor, completed_order_ids):
         )
         from_date = timezone.now().date()
         to_date = from_date - relativedelta(year=1)
-        orders = await client.get_orders(from_date=from_date, to_date=to_date, exclude_order_ids=completed_order_ids)
+        await client.get_orders(from_date=from_date, to_date=to_date, exclude_order_ids=completed_order_ids)
 
 
-@shared_task
+@app.task
 def fetch_orders_v2(office_vendor_id):
     """
     this is used for fetching implant orders only, but in the future, we should fetch orders using this
