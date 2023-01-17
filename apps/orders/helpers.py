@@ -1,20 +1,20 @@
 import asyncio as aio
 import csv
 import datetime
-from dateutil import rrule
 import itertools
+import json
 from collections import defaultdict
 from decimal import Decimal
 from functools import reduce
 from itertools import chain
-import json
 from operator import or_
 from typing import Dict, List, Optional, TypedDict, Union
-import requests
 
 import pandas as pd
+import requests
 from aiohttp import ClientSession
 from asgiref.sync import sync_to_async
+from dateutil import rrule
 from django.apps import apps
 from django.conf import settings
 from django.contrib.postgres.search import SearchQuery, SearchVectorField
@@ -41,8 +41,6 @@ from apps.accounts.models import Office as OfficeModel
 from apps.accounts.models import OfficeVendor as OfficeVendorModel
 from apps.accounts.models import Vendor as VendorModel
 from apps.common.choices import ProcedureType
-from apps.orders.models import Procedure as ProcedureModel
-from apps.orders.models import ProcedureCode as ProcedureCodeModel
 from apps.common.utils import (
     bulk_create,
     bulk_update,
@@ -57,6 +55,8 @@ from apps.common.utils import (
     sort_and_write_to_csv,
 )
 from apps.orders.models import OfficeProduct as OfficeProductModel
+from apps.orders.models import Procedure as ProcedureModel
+from apps.orders.models import ProcedureCode as ProcedureCodeModel
 from apps.orders.models import Product as ProductModel
 from apps.orders.models import ProductCategory as ProductCategoryModel
 from apps.orders.models import ProductImage as ProductImageModel
@@ -360,9 +360,7 @@ class OfficeProductHelper:
             offset = step_size
             for i in range(offset, len(vendor_product_ids) + 1, step_size):
                 print(i, vendor_product_ids[i - step_size : i])
-                product_prices_from_vendors = await OfficeProductHelper.get_product_prices_by_ids(
-                    vendor_product_ids[i - step_size : i], office_id
-                )
+                await OfficeProductHelper.get_product_prices_by_ids(vendor_product_ids[i - step_size : i], office_id)
 
                 # product_prices_from_vendors = await OfficeProductHelper.get_product_prices_by_ids(
                 #     vendor_product_ids[i : (i + 50)], office_id
@@ -1233,16 +1231,18 @@ class ProductHelper:
 
         # Find by nicknames
         q = SearchQuery(query, config="english")
-        office_nickname_products = OfficeProductModel.objects.annotate(
-            nn_vector=RawSQL(
-                'nn_vector',
-                params=[],
-                output_field=SearchVectorField()
+        office_nickname_products = (
+            OfficeProductModel.objects.annotate(
+                nn_vector=RawSQL("nn_vector", params=[], output_field=SearchVectorField())
             )
-        ).filter(office_id=office_pk, nn_vector=q).values_list(
-            "product_id", flat=True
+            .filter(office_id=office_pk, nn_vector=q)
+            .values_list("product_id", flat=True)
         )
-        office_nickname_products = ProductModel.objects.filter(id__in=office_nickname_products)
+
+        office_nickname_product_parents = ProductModel.objects.filter(
+            id__in=office_nickname_products, parent_id__isnull=False
+        ).values_list("parent_id")
+        office_nickname_products = ProductModel.objects.filter(id__in=office_nickname_product_parents)
 
         # Unify with the above
         products = products | office_nickname_products
@@ -1345,14 +1345,14 @@ class OfficeVendorHelper:
 class ProcedureHelper:
     @staticmethod
     def fetch_procedure_period(day_from, office_id, type):
-        if day_from == None or type == None or office_id == None:
+        if day_from is None or type is None or office_id is None:
             print("Wrong argument(s)")
             return
 
         office = OfficeModel.objects.get(id=office_id)
         dental_api = office.dental_api
         print(f"dental_api={dental_api}")
-        if dental_api == None or len(dental_api) < 5:
+        if dental_api is None or len(dental_api) < 5:
             print("Invalid dental api key")
             return
 
@@ -1383,14 +1383,14 @@ class ProcedureHelper:
 
     @staticmethod
     def fetch_procedures(day_from, day_to, office_id, type, dental_api, force_update=False):
-        if day_from == None or day_to == None or type == None:
+        if day_from is None or day_to is None or type is None:
             print("Wrong argument(s)")
             return
 
         old_procs = ProcedureModel.objects.filter(office=office_id, start_date=day_from, type=type)
         bExists = len(old_procs) > 0
 
-        if force_update == False and bExists:
+        if not force_update and bExists:
             print(f"Already exists with day_from={day_from}, type={type}")
             return
 
