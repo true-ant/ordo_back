@@ -1129,7 +1129,7 @@ class ProductHelper:
                     default=Value(1),
                 )
             )
-            .order_by("selected_product", "-is_inventory", "product_price")
+            .order_by("product_price")
         )
 
     @staticmethod
