@@ -6,20 +6,21 @@ import os
 import tempfile
 import zipfile
 from datetime import timedelta
-from dateutil import rrule
 from decimal import Decimal
 from functools import reduce
 from typing import Union
+
 from aiohttp import ClientSession
 from asgiref.sync import sync_to_async
+from dateutil import rrule
 from dateutil.relativedelta import relativedelta
 from django.apps import apps
-from django.db import transaction, connection
+from django.core.paginator import Paginator
+from django.db import connection, transaction
 from django.db.models import Case, Count, F, Q, Sum, Value, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.core.paginator import Paginator
 from django_filters.rest_framework import DjangoFilterBackend
 from month import Month
 from rest_framework.decorators import action
@@ -35,11 +36,12 @@ from rest_framework.status import (
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from apps.accounts.models import Company, Office, OfficeBudget, OfficeVendor, Vendor
+from apps.accounts.models import Company, Office, OfficeBudget, OfficeVendor
 from apps.accounts.services.offices import OfficeService
-from apps.common.choices import BUDGET_SPEND_TYPE, ProcedureType, ProductStatus
+from apps.accounts.tasks import fetch_orders_from_vendor
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncCreateModelMixin, AsyncMixin
+from apps.common.choices import BUDGET_SPEND_TYPE, ProcedureType, ProductStatus
 from apps.common.pagination import (
     SearchProductPagination,
     SearchProductV2Pagination,
@@ -50,11 +52,10 @@ from apps.orders.helpers import OfficeProductHelper, ProcedureHelper, ProductHel
 from apps.orders.services.order import OrderService
 from apps.scrapers.amazonsearch import AmazonSearchScraper
 from apps.scrapers.ebay_search import EbaySearch
-from apps.scrapers.errors import VendorNotConnected, VendorNotSupported, VendorSiteError
+from apps.scrapers.errors import VendorNotSupported
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import CartProduct
 from apps.types.scraper import SmartID
-from apps.accounts.tasks import fetch_orders_from_vendor
 
 from . import filters as f
 from . import models as m
@@ -394,18 +395,15 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
         print("Update")
         serializer = s.VendorOrderReturnSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        vendor_order = self.get_object()
-        
-        if serializer.validated_data['return_items']:
 
-            for i, item in enumerate(serializer.validated_data['return_items']):
-                vendor_product = m.VendorOrderProduct.objects.get(
-                    id=item)
+        if serializer.validated_data["return_items"]:
+
+            for i, item in enumerate(serializer.validated_data["return_items"]):
+                vendor_product = m.VendorOrderProduct.objects.get(id=item)
                 vendor_product.status = ProductStatus.RETURNED
                 vendor_product.save()
-        
-        return Response()
 
+        return Response()
 
 
 class VendorOrderProductViewSet(ModelViewSet):
@@ -577,12 +575,16 @@ class OfficeProductCategoryViewSet(ModelViewSet):
     @action(detail=False, methods=["get"], url_path="inventory-vendor")
     def get_inventory_vendor_view(self, request, *args, **kwargs):
         categories = {category.id: category.to_dict() for category in m.OfficeProductCategory.objects.all()}
-        queryset = m.Vendor.objects.all()
-        serializer = s.OfficeProductVendorSerializer(queryset, many=True, context={"with_inventory_count": True, "office_id":kwargs["office_pk"]})
+        queryset = m.Vendor.objects.all().order_by("name")
+        serializer = s.OfficeProductVendorSerializer(
+            queryset, many=True, context={"with_inventory_count": True, "office_id": kwargs["office_pk"]}
+        )
         ret = serializer.data
         for office_product_vendor in ret:
             category_ids = office_product_vendor.pop("category_ids")
-            office_product_vendor["categories"] = [categories[category_id] for category_id in category_ids if category_id != None]
+            office_product_vendor["categories"] = [
+                categories[category_id] for category_id in category_ids if category_id is not None
+            ]
         return Response(serializer.data)
 
 
@@ -752,7 +754,9 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         return s.CartCreateSerializer
 
     # async def update_vendor_cart(self, product_id, vendor, serializer=None):
-    #     office_vendor = await sync_to_async(get_office_vendor)(office_pk=self.kwargs["office_pk"], vendor_pk=vendor.id)
+    #     office_vendor = await sync_to_async(get_office_vendor)(
+    #         office_pk=self.kwargs["office_pk"], vendor_pk=vendor.id
+    #     )
     #     if office_vendor is None:
     #         raise VendorNotConnected()
     #     session = apps.get_app_config("accounts").session
@@ -826,7 +830,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
     def set_cart_promotion(self, request, *args, **kwargs):
         vendor_id = request.data.get("vendor_id")
         promo_code = request.data.get("promo_code")
-        if m.Promotion.objects.filter(code=promo_code).exists() == False:
+        if not m.Promotion.objects.filter(code=promo_code).exists():
             return Response({"message": "Invalid promo code. Please check promo code."}, status=HTTP_400_BAD_REQUEST)
         promotion = m.Promotion.objects.get(code=promo_code)
         carts = {cart for cart in self.get_queryset() if cart.product.vendor_id == vendor_id}
@@ -835,7 +839,6 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         m.Cart.objects.bulk_update(carts, fields=["promotion_id"])
         serializer = s.CartSerializer(self.filter_queryset(self.get_queryset()), many=True)
         return Response(serializer.data)
-
 
     def update(self, request, *args, **kwargs):
         kwargs["partial"] = True
@@ -899,14 +902,14 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 created_by=self.request.user,
                 order_date=order_date,
                 status=m.OrderStatus.PENDING_APPROVAL if approval_needed else m.OrderStatus.OPEN,
-                order_type=msgs.ORDER_TYPE_ORDO
+                order_type=msgs.ORDER_TYPE_ORDO,
             )
             total_amount = 0.0
             total_items = 0.0
 
             total_dental_amount = 0.0
             total_office_amount = 0.0
-            total_miscel_amount= 0.0
+            total_miscel_amount = 0.0
 
             for office_vendor, vendor_order_result in zip(office_vendors, vendor_order_results):
                 if not isinstance(vendor_order_result, dict):
@@ -914,7 +917,8 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
                 vendor = office_vendor.vendor
                 vendor_order_id = vendor_order_result.get("order_id", "")
-                if vendor_order_id == None: vendor_order_id="invalid"
+                if vendor_order_id is None:
+                    vendor_order_id = "invalid"
                 vendor_total_amount = vendor_order_result.get("total_amount", 0.0)
                 total_amount += float(vendor_total_amount)
                 vendor_order_products = cart_products.filter(product__vendor=vendor)
@@ -1002,7 +1006,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         ret = {}
         try:
             conf = apps.get_app_config("accounts")
-            if hasattr(conf, 'session'):
+            if hasattr(conf, "session"):
                 session = conf.session
             else:
                 session = ClientSession()
@@ -1019,7 +1023,12 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 tmp_variables.append(
                     sum(
                         [
-                            cart_product.quantity * (cart_product.unit_price if isinstance(cart_product.unit_price, (int, float,Decimal)) else 0)
+                            cart_product.quantity
+                            * (
+                                cart_product.unit_price
+                                if isinstance(cart_product.unit_price, (int, float, Decimal))
+                                else 0
+                            )
                             for cart_product in cart_products
                             if cart_product.product.vendor.id == office_vendor.vendor.id
                         ]
@@ -1027,11 +1036,15 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 )
                 red_sum = 0
                 for cart_product in cart_products:
-                    if (cart_product.product.vendor.id == office_vendor.vendor.id):
+                    if cart_product.product.vendor.id == office_vendor.vendor.id:
                         price = 0
-                        if isinstance(cart_product.unit_price, (int, float,Decimal)):
+                        if isinstance(cart_product.unit_price, (int, float, Decimal)):
                             price = cart_product.unit_price
-                            if cart_product.promotion != None and cart_product.promotion.type == 1 and cart_product.unit_price > cart_product.promotion.reduction_price:
+                            if (
+                                cart_product.promotion is None
+                                and cart_product.promotion.type == 1
+                                and cart_product.unit_price > cart_product.promotion.reduction_price
+                            ):
                                 price -= max(0, cart_product.promotion.reduction_price)
                             red_sum += cart_product.quantity * price
                 reduct_variables.append(red_sum)
@@ -1042,20 +1055,30 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                                 product_id=cart_product.product.product_id,
                                 product_unit=cart_product.product.product_unit,
                                 quantity=int(cart_product.quantity),
-                                price=cart_product.unit_price if isinstance(cart_product.unit_price, (int, float,Decimal)) else 0,
-                                product_url=cart_product.product.url
+                                price=cart_product.unit_price
+                                if isinstance(cart_product.unit_price, (int, float, Decimal))
+                                else 0,
+                                product_url=cart_product.product.url,
                             )
                             for cart_product in cart_products
                             if cart_product.product.vendor.id == office_vendor.vendor.id
                         ]
                     )
                 )
-                
+
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for i, result in enumerate(results):
                 vendor_slug = list(result.keys())[0]
                 result[vendor_slug]["reduction_amount"] = reduct_variables[i]
-                if vendor_slug not in ("henry_schein", "implant_direct", "darby", "benco", "net_32", "patterson", "dental_city"):
+                if vendor_slug not in (
+                    "henry_schein",
+                    "implant_direct",
+                    "darby",
+                    "benco",
+                    "net_32",
+                    "patterson",
+                    "dental_city",
+                ):
                     result[vendor_slug]["retail_amount"] = Decimal(0)
                     result[vendor_slug]["savings_amount"] = Decimal(0)
                     result[vendor_slug]["subtotal_amount"] = tmp_variables[i]
@@ -1082,7 +1105,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
             return Response({"can_checkout": False, "message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
 
         conf = apps.get_app_config("accounts")
-        if hasattr(conf, 'session'):
+        if hasattr(conf, "session"):
             session = apps.get_app_config("accounts").session
         else:
             session = ClientSession()
@@ -1127,7 +1150,9 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                                 product_id=cart_product.product.product_id,
                                 product_unit=cart_product.product.product_unit,
                                 product_url=cart_product.product.url,
-                                price=cart_product.unit_price if isinstance(cart_product.unit_price, (int, float,Decimal)) else 0,
+                                price=cart_product.unit_price
+                                if isinstance(cart_product.unit_price, (int, float, Decimal))
+                                else 0,
                                 quantity=int(cart_product.quantity),
                             )
                             for cart_product in cart_products
@@ -1135,7 +1160,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                         ],
                         shipping_method=shipping_options.get(office_vendor.vendor.slug),
                         fake=fake_order,
-                        redundancy=redundancy
+                        redundancy=redundancy,
                     )
                 )
 
@@ -1552,7 +1577,7 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
         selected_products = self.request.query_params.get("selected_products")
         selected_products = selected_products.split(",") if selected_products else []
         price_from = self.request.query_params.get("price_from")
-        price_to= self.request.query_params.get("price_to")
+        price_to = self.request.query_params.get("price_to")
 
         products, available_vendors = ProductHelper.get_products_v3(
             query=query,
@@ -1560,10 +1585,10 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
             fetch_parents=True,
             selected_products=selected_products,
             price_from=price_from,
-            price_to=price_to
+            price_to=price_to,
         )
         self.available_vendors = available_vendors
-        
+
         return products
         # products = m.Product.objects.search(query)
         # product_ids = products.values_list("id", flat=True)
@@ -1594,18 +1619,18 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
                 if ebay_products:
                     self.available_vendors.append("ebay")
                     product_list.extend(ebay_products)
-            except:
+            except:  # noqa
                 print("Ebay search exception")
 
         if "amazon" in vendors:
             # Add on the fly results
             try:
                 products_fly = AmazonSearchScraper()._search_products(query)
-            except:
+            except:  # noqa
                 products_fly = {"products": []}
             # log += products_fly['log']
-            if products_fly['products']:
-                product_list.extend(products_fly['products'])
+            if products_fly["products"]:
+                product_list.extend(products_fly["products"])
                 self.available_vendors.append("amazon")
 
         count_per_page = int(self.request.query_params.get("per_page", 10))
@@ -1618,12 +1643,7 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
         }
 
         if current_page < 1 or pagination_obj.num_pages < current_page:
-            return Response(
-                {
-                    "message": "The page number is incorrect!"
-                },
-                status=HTTP_400_BAD_REQUEST
-            )
+            return Response({"message": "The page number is incorrect!"}, status=HTTP_400_BAD_REQUEST)
 
         page = pagination_obj.page(current_page)
 
@@ -1654,7 +1674,7 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
                     "data": ret,
                     # "log": log,
                 }
-            )            
+            )
 
         serializer = self.get_serializer(product_list, many=True)
         ret["products"] = serializer.data
@@ -1680,6 +1700,7 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
         )[:5]
         return Response(s.SimpleProductSerializer(suggested_products, many=True).data)
 
+
 class ProcedureViewSet(AsyncMixin, ModelViewSet):
     queryset = m.Procedure.objects.all()
     serializer_class = s.ProcedureSerializer
@@ -1693,7 +1714,13 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         day_from = datetime.date(start_end_date[0].year, start_end_date[0].month, start_end_date[0].day)
         day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
         ProcedureHelper.fetch_procedure_period(day_from, office_pk, type)
-        ret = m.Procedure.objects.select_related("procedurecode").filter(type=type,start_date__gte=day_from,start_date__lte=day_to).values_list("procedurecode__proccat", "procedurecode__itemname").annotate(dcount=Count('procedurecode__proccat')).order_by('-dcount')
+        ret = (
+            m.Procedure.objects.select_related("procedurecode")
+            .filter(type=type, start_date__gte=day_from, start_date__lte=day_to)
+            .values_list("procedurecode__proccat", "procedurecode__itemname")
+            .annotate(dcount=Count("procedurecode__proccat"))
+            .order_by("-dcount")
+        )
         return Response(ret)
 
     @action(detail=False, url_path="report")
@@ -1709,9 +1736,9 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         # ProcedureHelper.fetch_procedure_period(day_from, office_pk, type)
 
         try:
-            with open('query/proc_result.txt', "r") as f:
+            with open("query/proc_result.txt", "r") as f:
                 raw_sql = f.read()
-            with open('query/proc_subquery.txt', "r") as f:
+            with open("query/proc_subquery.txt", "r") as f:
                 raw_joins = f.read()
 
             sub_counts = ""
@@ -1721,36 +1748,45 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             if type == ProcedureType.PROCEDURE_MONTH:
                 for dt in rrule.rrule(rrule.MONTHLY, dtstart=day_from, until=day_to):
                     sub_counts += f"p{nIndex}.count,"
-                    sub_joins += raw_joins.format(type=type,office_id=office_pk,day_from=dt.date(),tablename=f"p{nIndex}")
+                    sub_joins += raw_joins.format(
+                        type=type, office_id=office_pk, day_from=dt.date(), tablename=f"p{nIndex}"
+                    )
                     sub_joins += " "
                     ret_header.append(f"{dt.date()}")
-                    nIndex+=1
-                sub_counts=sub_counts[:-1]
+                    nIndex += 1
+                sub_counts = sub_counts[:-1]
 
             if type == ProcedureType.PROCEDURE_WEEK:
                 week_startday = day_from - datetime.timedelta(days=day_from.weekday())
                 for dt in rrule.rrule(rrule.WEEKLY, dtstart=week_startday, until=day_to):
                     sub_counts += f"p{nIndex}.count,"
-                    sub_joins += raw_joins.format(type=type,office_id=office_pk,day_from=dt.date(),tablename=f"p{nIndex}")
+                    sub_joins += raw_joins.format(
+                        type=type, office_id=office_pk, day_from=dt.date(), tablename=f"p{nIndex}"
+                    )
                     sub_joins += " "
                     ret_header.append(f"{dt.date()}")
-                    nIndex+=1
-                sub_counts=sub_counts[:-1]
+                    nIndex += 1
+                sub_counts = sub_counts[:-1]
 
             if len(sub_counts) == 0:
                 return Response({"message": "No values"})
 
-            newvalue=raw_sql.format(sub_counts=sub_counts, sub_joins=sub_joins,type=type,office_id=office_pk,day_from=day_from,day_to=day_to,limit=limit,proc_category=category)
+            newvalue = raw_sql.format(
+                sub_counts=sub_counts,
+                sub_joins=sub_joins,
+                type=type,
+                office_id=office_pk,
+                day_from=day_from,
+                day_to=day_to,
+                limit=limit,
+                proc_category=category,
+            )
             ret_list = []
             with connection.cursor() as cursor:
                 cursor.execute(newvalue)
                 ret_list = cursor.fetchall()
-            ret = {
-                "headers": ret_header, 
-                "procs": ret_list
-            }
-            return Response(data = ret)
+            ret = {"headers": ret_header, "procs": ret_list}
+            return Response(data=ret)
 
-        except:
+        except:  # noqa
             return Response(status=HTTP_400_BAD_REQUEST)
-
