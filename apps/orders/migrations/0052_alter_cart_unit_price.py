@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('orders', '0049_officeproduct_nn_vector'),
+        ('orders', '0051_add_linked_categories'),
     ]
 
     operations = [
