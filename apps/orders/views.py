@@ -61,6 +61,7 @@ from . import filters as f
 from . import models as m
 from . import permissions as p
 from . import serializers as s
+from .models import OfficeProduct, Product
 from .tasks import notify_order_creation, search_and_group_products
 
 
@@ -945,15 +946,20 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                         total_office_amount += float(vendor_order_product.quantity * vendor_order_product.unit_price)
                     elif vendor_order_product.budget_spend_type == BUDGET_SPEND_TYPE.MISCELLANEOUS_SPEND_BUDGET:
                         total_miscel_amount += float(vendor_order_product.quantity * vendor_order_product.unit_price)
+                    product: Product = vendor_order_product.product
                     objs.append(
                         m.VendorOrderProduct(
                             vendor_order=vendor_order,
-                            product=vendor_order_product.product,
+                            product=product,
                             quantity=vendor_order_product.quantity,
                             unit_price=vendor_order_product.unit_price,
                             budget_spend_type=vendor_order_product.budget_spend_type,
                             status=m.ProductStatus.PENDING_APPROVAL if approval_needed else m.ProductStatus.PROCESSING,
                         )
+                    )
+                    OfficeProduct.objects.filter(office=office, product=product).update(
+                        last_order_date=vendor_order.order_date,
+                        last_order_price=vendor_order_product.unit_price,
                     )
                 m.VendorOrderProduct.objects.bulk_create(objs)
 
@@ -1041,7 +1047,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                         if isinstance(cart_product.unit_price, (int, float, Decimal)):
                             price = cart_product.unit_price
                             if (
-                                cart_product.promotion is None
+                                cart_product.promotion is not None
                                 and cart_product.promotion.type == 1
                                 and cart_product.unit_price > cart_product.promotion.reduction_price
                             ):
