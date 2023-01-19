@@ -575,7 +575,7 @@ class OfficeProductCategoryViewSet(ModelViewSet):
     @action(detail=False, methods=["get"], url_path="inventory-vendor")
     def get_inventory_vendor_view(self, request, *args, **kwargs):
         categories = {category.id: category.to_dict() for category in m.OfficeProductCategory.objects.all()}
-        queryset = m.Vendor.objects.all()
+        queryset = m.Vendor.objects.all().order_by("name")
         serializer = s.OfficeProductVendorSerializer(
             queryset, many=True, context={"with_inventory_count": True, "office_id": kwargs["office_pk"]}
         )
@@ -753,6 +753,46 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
             return s.CartSerializer
         return s.CartCreateSerializer
 
+    # async def update_vendor_cart(self, product_id, vendor, serializer=None):
+    #     office_vendor = await sync_to_async(get_office_vendor)(
+    #         office_pk=self.kwargs["office_pk"], vendor_pk=vendor.id
+    #     )
+    #     if office_vendor is None:
+    #         raise VendorNotConnected()
+    #     session = apps.get_app_config("accounts").session
+    #     scraper = ScraperFactory.create_scraper(
+    #         vendor=vendor,
+    #         session=session,
+    #         username=office_vendor.username,
+    #         password=office_vendor.password,
+    #     )
+    #     try:
+    #         await scraper.remove_product_from_cart(product_id=product_id, use_bulk=False, perform_login=True)
+    #     except Exception as e:
+    #         raise VendorSiteError(f"{e}")
+
+    #     if not serializer:
+    #         return True
+
+    #     updated_save_for_later = serializer.instance and "save_for_later" in serializer.validated_data
+
+    #     if updated_save_for_later and serializer.validated_data["save_for_later"]:
+    #         return True
+
+    #     if updated_save_for_later and not serializer.validated_data["save_for_later"]:
+    #         quantity = serializer.instance.quantity
+    #     else:
+    #         quantity = serializer.validated_data["quantity"]
+
+    #     try:
+    #         vendor_cart_product = await scraper.add_product_to_cart(
+    #             CartProduct(product_id=product_id, product_unit=serializer, quantity=quantity),
+    #             perform_login=True,
+    #         )
+    #         serializer.validated_data["unit_price"] = vendor_cart_product["unit_price"]
+    #     except Exception as e:
+    #         raise VendorSiteError(f"{e}")
+
     async def create(self, request, *args, **kwargs):
         data = request.data
         office_pk = self.kwargs["office_pk"]
@@ -790,7 +830,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
     def set_cart_promotion(self, request, *args, **kwargs):
         vendor_id = request.data.get("vendor_id")
         promo_code = request.data.get("promo_code")
-        if m.Promotion.objects.filter(code=promo_code).exists() is False:
+        if not m.Promotion.objects.filter(code=promo_code).exists():
             return Response({"message": "Invalid promo code. Please check promo code."}, status=HTTP_400_BAD_REQUEST)
         promotion = m.Promotion.objects.get(code=promo_code)
         carts = {cart for cart in self.get_queryset() if cart.product.vendor_id == vendor_id}
@@ -1579,14 +1619,14 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
                 if ebay_products:
                     self.available_vendors.append("ebay")
                     product_list.extend(ebay_products)
-            except Exception:
+            except Exception:  # noqa
                 print("Ebay search exception")
 
         if "amazon" in vendors:
             # Add on the fly results
             try:
                 products_fly = AmazonSearchScraper()._search_products(query)
-            except Exception:
+            except Exception:  # noqa
                 products_fly = {"products": []}
             # log += products_fly['log']
             if products_fly["products"]:
@@ -1768,7 +1808,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             ret = {"headers": ret_header, "procs": ret_list}
             return Response(data=ret)
 
-        except Exception:
+        except Exception:  # noqa
             return Response(status=HTTP_400_BAD_REQUEST)
 
 
