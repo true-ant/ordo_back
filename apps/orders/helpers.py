@@ -1418,14 +1418,15 @@ class ProcedureHelper:
             print(f"Fetching offset = {offset} length = {response_len}")
 
             for procedure in json_procedure:
-                if ProcedureCodeModel.objects.filter(proccode=procedure["ProcCode"]).exists():
+                procedure_code = ProcedureCodeModel.objects.filter(proccode=procedure["ProcCode"]).first()
+                if procedure_code:
                     creating_procedures.append(
                         ProcedureModel(
                             start_date=day_from,
                             count=int(str(procedure["Count"]).replace(",", "")),
                             avgfee=str(procedure["AvgFee"]).replace(",", ""),
                             totfee=str(procedure["TotFee"]).replace(",", ""),
-                            procedurecode=ProcedureCodeModel.objects.get(proccode=procedure["ProcCode"]),
+                            procedurecode=procedure_code,
                             office_id=office_id,
                             type=type,
                         )

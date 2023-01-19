@@ -1684,8 +1684,8 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         )
         return Response(ret)
 
-    @action(detail=False, url_path="summary-category")
-    def get_summary_category(self, request, *args, **kwargs):
+    @action(detail=False)
+    def summary_category(self, request, *args, **kwargs):
         date_type = self.request.query_params.get("type", "month")
         office_pk = self.kwargs["office_pk"]
         date_range = self.request.query_params.get("date_range", "thisQuarter")
@@ -1779,13 +1779,6 @@ class ProcedureCategoryLink(ModelViewSet):
     def update(self, request, *args, **kwargs):
         kwargs["partial"] = True
         return super().update(request, *args, **kwargs)
-
-    # @action(detail=False, url_path="add-slugs", methods=["post"])
-    # def add_slugs(self, request, *args, **kwargs):
-    #     instance = self.get_object()
-    #     slugs = self.request.query_params.get("slugs").split(",")
-    #     instance.linked_slugs.append(slugs)
-    #     instance.save()
 
     @action(detail=False, url_path="linked-products")
     def get_linked_inventory_products(self, request, *args, **kwargs):
