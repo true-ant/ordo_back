@@ -13,7 +13,12 @@ from django_extensions.db.fields import AutoSlugField
 from slugify import slugify
 
 from apps.accounts.models import Office, User, Vendor
-from apps.common.choices import BUDGET_SPEND_TYPE, OrderStatus, ProductStatus, ProcedureType
+from apps.common.choices import (
+    BUDGET_SPEND_TYPE,
+    OrderStatus,
+    ProcedureType,
+    ProductStatus,
+)
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
 from apps.common.utils import remove_character_between_numerics
 from apps.scrapers.schema import Product as ProductDataClass
@@ -45,7 +50,6 @@ class Keyword(TimeStampedModel):
 
 class ProductQuerySet(models.QuerySet):
     def search(self, text):
-        original_text = text
         # this is for search for henry schein product id
         text = remove_character_between_numerics(text, character="-")
         # trigram_similarity = TrigramSimilarity("name", text)
@@ -410,7 +414,7 @@ class Cart(TimeStampedModel):
     office = FlexibleForeignKey(Office)
     product = FlexibleForeignKey(Product)
     quantity = models.IntegerField(default=1)
-    unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     save_for_later = models.BooleanField(default=False)
     instant_checkout = models.BooleanField(default=True)
     promotion = FlexibleForeignKey(Promotion, null=True)

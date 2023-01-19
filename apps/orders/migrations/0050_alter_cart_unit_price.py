@@ -10,6 +10,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunSQL("DELETE FROM orders_cart WHERE unit_price IS NULL", migrations.RunSQL.noop),
         migrations.AlterField(
             model_name='cart',
             name='unit_price',
