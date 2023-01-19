@@ -47,6 +47,7 @@ ebaysdk = "^2.2.0"
 Werkzeug = "^2.2.2"
 pytest = "^7.2.1"
 pytest-django = "^4.5.2"
+flashtext = "^2.7"
 
 [tool.poetry.dev-dependencies]
 pre-commit = "^2.21.0"

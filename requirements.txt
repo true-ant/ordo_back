@@ -112,3 +112,4 @@ ebaysdk
 gevent
 selenium
 webdriver-manager
+flashtext~=2.7
