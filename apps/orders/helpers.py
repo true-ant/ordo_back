@@ -9,9 +9,9 @@ from functools import reduce
 from itertools import chain
 from operator import or_
 from typing import Dict, List, Optional, TypedDict, Union
+import requests
 
 import pandas as pd
-import requests
 from aiohttp import ClientSession
 from asgiref.sync import sync_to_async
 from dateutil import rrule
@@ -316,7 +316,6 @@ class OfficeProductHelper:
         print("get_product_prices_from_vendors")
         product_prices_from_vendors = {}
         if products:
-
             vendor_slugs = set([product["vendor"] for product_id, product in products.items()])
             vendors_credentials = await sync_to_async(OfficeProductHelper.get_office_vendors)(
                 vendor_slugs=vendor_slugs, office_id=office_id
@@ -538,7 +537,7 @@ class ProductHelper:
         category_mapping = ProductHelper.get_vendor_category_mapping()
 
         while df_len > df_index:
-            sub_df = df[df_index : df_index + batch_size]
+            sub_df = df[df_index: df_index + batch_size]
             product_objs_to_be_created = []
             product_objs_to_be_updated = []
             for index, row in sub_df.iterrows():
@@ -550,48 +549,34 @@ class ProductHelper:
 
                 try:
                     product_price = convert_string_to_price(row["price"])
-                except Exception:
+                except:
+                    # Ignore the price parsing error and continue...
                     product_price = None
 
                 manufacturer_number_origin = row.get("mfg_number")
                 manufacturer_number = manufacturer_number_origin.replace("-", "") if manufacturer_number_origin else ""
-                if fields:
-                    product = ProductModel.objects.filter(product_id=row["product_id"], vendor=vendor).first()
-                    if product:
-                        for field in fields:
-                            if field == "price":
-                                value = product_price
-                            elif field == "manufacturer_number":
-                                value = manufacturer_number
-                            elif field == "manufacturer_number_origin":
-                                value = manufacturer_number_origin
-                            else:
-                                value = row[field]
+                product = ProductModel.objects.filter(product_id=row["product_id"], vendor=vendor).first()
 
-                            if getattr(product, field) != value:
-                                setattr(product, field, value)
-                                product_objs_to_be_updated.append(product)
-                    else:
-                        print(f"Cannot find out {row['product_id']}")
-                        # product_name = row.get("name")
-                        # product_unit = row.get("product_unit")
-                        # url = row.get("url")
-                        # if product_name is None:
-                        #     continue
-                        # product_objs_to_be_created.append(
-                        #     ProductModel(
-                        #         vendor=vendor,
-                        #         product_id=row["product_id"],
-                        #         name=product_name,
-                        #         product_unit=product_unit,
-                        #         url=url,
-                        #         category=product_category,
-                        #         price=product_price,
-                        #         manufacturer_number=manufacturer_number,
-                        #         manufacturer_number_origin=manufacturer_number_origin,
-                        #     )
-                        # )
+                if product:
+                    if not fields:
+                        # Product exists but nothing to update, then skip the product...
+                        continue
+
+                    for field in fields:
+                        if field == "price":
+                            value = product_price
+                        elif field == "manufacturer_number":
+                            value = manufacturer_number
+                        elif field == "manufacturer_number_origin":
+                            value = manufacturer_number_origin
+                        else:
+                            value = row[field]
+
+                        if getattr(product, field) != value:
+                            setattr(product, field, value)
+                    product_objs_to_be_updated.append(product)
                 else:
+                    print(f"Cannot find out {row['product_id']}, so creating the product")
                     product_objs_to_be_created.append(
                         ProductModel(
                             vendor=vendor,
@@ -606,7 +591,7 @@ class ProductHelper:
                         )
                     )
 
-            if fields:
+            if product_objs_to_be_updated:
                 bulk_update(model_class=ProductModel, objs=product_objs_to_be_updated, fields=fields)
                 print(f"{vendor}: {len(product_objs_to_be_updated)} products updated")
 
@@ -631,7 +616,7 @@ class ProductHelper:
 
         vendor = VendorModel.objects.get(slug=vendor_slug)
         while df_len > df_index:
-            sub_df = df[df_index : df_index + batch_size]
+            sub_df = df[df_index: df_index + batch_size]
             product_objs = []
             for index, row in sub_df.iterrows():
                 product = ProductModel.objects.filter(product_id=row["product_id"], vendor=vendor).first()
@@ -1239,7 +1224,6 @@ class ProductHelper:
             .filter(office_id=office_pk, nn_vector=q)
             .values_list("product_id", flat=True)
         )
-
         office_nickname_product_parents = (
             ProductModel.objects.filter(id__in=office_nickname_products)
             .annotate(pid=Coalesce(F("parent_id"), F("id")))
@@ -1275,9 +1259,6 @@ class ProductHelper:
             .values("pid")
             .filter(pid=OuterRef("pk"))
         )
-        # inventory_office_product = OfficeProductModel.objects.filter(
-        #     Q(office_id=office_pk) & Q(is_inventory=True) & Q(product_id=OuterRef("pk"))
-        # )
 
         products = (
             products.prefetch_related(Prefetch("office_products", queryset=office_products, to_attr="office_product"))
