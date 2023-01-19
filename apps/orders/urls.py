@@ -22,6 +22,8 @@ offices_router.register(r"products", v.OfficeProductViewSet, basename="products"
 offices_router.register(r"product-categories", v.OfficeProductCategoryViewSet, basename="product-categories")
 
 offices_router.register(r"procedures", v.ProcedureViewSet, basename="procedures")
+offices_router.register(r"procedure-links", v.ProcedureCategoryLink, basename="procedure-links")
+
 
 urlpatterns = [
     path("", include(router.urls)),

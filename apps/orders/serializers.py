@@ -5,7 +5,7 @@ from rest_framework import serializers
 from rest_framework_recursive.fields import RecursiveField
 
 from apps.accounts.helper import OfficeBudgetHelper
-from apps.accounts.serializers import VendorLiteSerializer, VendorSerializer
+from apps.accounts.serializers import VendorLiteSerializer
 from apps.common.choices import OrderStatus
 from apps.common.serializers import Base64ImageField
 from apps.orders.helpers import OfficeProductHelper, ProductHelper
@@ -31,6 +31,7 @@ class OfficeProductCategorySerializer(serializers.ModelSerializer):
 
         return ret
 
+
 class OfficeProductVendorSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.Vendor
@@ -39,12 +40,11 @@ class OfficeProductVendorSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         if self.context.get("with_inventory_count"):
-            
-            office_inventory_products = m.OfficeProduct.objects.all().filter(
-                office_id=self.context["office_id"],
-                product__vendor_id=instance.id,
-                is_inventory=True).exclude(
-                product__vendor__isnull=True
+
+            office_inventory_products = (
+                m.OfficeProduct.objects.all()
+                .filter(office_id=self.context["office_id"], product__vendor_id=instance.id, is_inventory=True)
+                .exclude(product__vendor__isnull=True)
             )
             ret["category_ids"] = set(office_inventory_products.values_list("office_product_category_id", flat=True))
             ret["count"] = office_inventory_products.count()
@@ -186,12 +186,10 @@ class ProductV2Serializer(serializers.ModelSerializer):
 
 
 class PromotionSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = m.Promotion
         fields = "__all__"
 
-    
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         return ret
@@ -358,7 +356,7 @@ class CartCreateSerializer(serializers.ModelSerializer):
 class CartSerializer(serializers.ModelSerializer):
     # office_product = OfficeProductReadSerializer(write_only=True)
     product = ProductSerializer(read_only=True, required=False)
-    promotion = PromotionSerializer(read_only=True,required=False)
+    promotion = PromotionSerializer(read_only=True, required=False)
     # same_products = serializers.SerializerMethodField()
     # office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
 
@@ -422,9 +420,9 @@ class OfficeProductSerializer(serializers.ModelSerializer):
     office_product_category = serializers.PrimaryKeyRelatedField(queryset=m.OfficeProductCategory.objects.all())
     vendor = serializers.CharField(read_only=True)
     image_url = Base64ImageField()
-    last_quantity_ordered = serializers.SerializerMethodField('custom_last_quantity_ordered')
-    quantity_on_hand = serializers.SerializerMethodField('custom_quantity_on_hand')
-    quantity_to_be_ordered = serializers.SerializerMethodField('custom_quantity_to_be_ordered')
+    last_quantity_ordered = serializers.SerializerMethodField("custom_last_quantity_ordered")
+    quantity_on_hand = serializers.SerializerMethodField("custom_quantity_on_hand")
+    quantity_to_be_ordered = serializers.SerializerMethodField("custom_quantity_to_be_ordered")
 
     class Meta:
         model = m.OfficeProduct
@@ -450,11 +448,7 @@ class OfficeProductSerializer(serializers.ModelSerializer):
         """
         Return the empty data temporary...
         """
-        quantity_ordered = office_product \
-            .product \
-            .vendororderproduct_set \
-            .order_by("-updated_at") \
-            .first()
+        quantity_ordered = office_product.product.vendororderproduct_set.order_by("-updated_at").first()
         return quantity_ordered.quantity if quantity_ordered else 0
 
     def custom_quantity_on_hand(self, office_product):
@@ -490,11 +484,9 @@ class OfficeProductSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         instance = super().update(instance, validated_data)
-        
+
         if "nickname" in self.initial_data:
-            office_product = m.OfficeProduct.objects.filter(
-                office=instance.office, product_id=instance.product_id
-            )
+            office_product = m.OfficeProduct.objects.filter(office=instance.office, product_id=instance.product_id)
             office_product.nickname = self.initial_data["nickname"]
             m.OfficeProduct.objects.bulk_update(office_product, ["nickname"])
 
@@ -625,12 +617,25 @@ class VendorProductSearchSerializer(serializers.Serializer):
 class ProductPriceRequestSerializer(serializers.Serializer):
     products = serializers.PrimaryKeyRelatedField(queryset=m.Product.objects.all(), many=True)
 
+
 class VendorOrderReturnSerializer(serializers.Serializer):
     return_items = serializers.ListSerializer(child=serializers.CharField())
     email_list = serializers.ListSerializer(child=serializers.CharField(), required=False)
 
-class ProcedureSerializer(serializers.ModelSerializer):
 
+class ProcedureSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.Procedure
         fields = "__all__"
+
+
+class ProcedureCategoryLinkSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.ProcedureCategoryLink
+        fields = ("linked_slugs",)
+
+    def update(self, instance, validated_data):
+        slugs = validated_data["linked_slugs"]
+        instance.linked_slugs = slugs
+        instance.save()
+        return instance

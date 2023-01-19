@@ -1625,14 +1625,14 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
                 if ebay_products:
                     self.available_vendors.append("ebay")
                     product_list.extend(ebay_products)
-            except:  # noqa
+            except Exception:  # noqa
                 print("Ebay search exception")
 
         if "amazon" in vendors:
             # Add on the fly results
             try:
                 products_fly = AmazonSearchScraper()._search_products(query)
-            except:  # noqa
+            except Exception:  # noqa
                 products_fly = {"products": []}
             # log += products_fly['log']
             if products_fly["products"]:
@@ -1713,25 +1713,45 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=False, url_path="category")
     def get_category(self, request, *args, **kwargs):
-        type = self.request.query_params.get("type", "month")
+        date_type = self.request.query_params.get("type", "month")
         office_pk = self.kwargs["office_pk"]
         date_range = self.request.query_params.get("date_range", "thisQuarter")
         start_end_date = get_date_range(date_range)
         day_from = datetime.date(start_end_date[0].year, start_end_date[0].month, start_end_date[0].day)
         day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
-        ProcedureHelper.fetch_procedure_period(day_from, office_pk, type)
+        ProcedureHelper.fetch_procedure_period(day_from, office_pk, date_type)
         ret = (
             m.Procedure.objects.select_related("procedurecode")
-            .filter(type=type, start_date__gte=day_from, start_date__lte=day_to)
-            .values_list("procedurecode__proccat", "procedurecode__itemname")
-            .annotate(dcount=Count("procedurecode__proccat"))
+            .filter(type=date_type, start_date__gte=day_from, start_date__lte=day_to)
+            .values_list("procedurecode__category", "procedurecode__summary_category")
+            .annotate(dcount=Count("procedurecode__category"))
             .order_by("-dcount")
+            .filter(dcount__gt=0)
+        )
+        return Response(ret)
+
+    @action(detail=False)
+    def summary_category(self, request, *args, **kwargs):
+        date_type = self.request.query_params.get("type", "month")
+        office_pk = self.kwargs["office_pk"]
+        date_range = self.request.query_params.get("date_range", "thisQuarter")
+        start_end_date = get_date_range(date_range)
+        day_from = datetime.date(start_end_date[0].year, start_end_date[0].month, start_end_date[0].day)
+        day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
+        ProcedureHelper.fetch_procedure_period(day_from, office_pk, date_type)
+        ret = (
+            m.Procedure.objects.select_related("procedurecode")
+            .filter(type=date_type, start_date__gte=day_from, start_date__lte=day_to)
+            .values_list("procedurecode__category", "procedurecode__summary_category")
+            .annotate(dcount=Count("procedurecode__summary_category"))
+            .order_by("-dcount")
+            .filter(dcount__gt=0)
         )
         return Response(ret)
 
     @action(detail=False, url_path="report")
     def get_report(self, request, *args, **kwargs):
-        type = self.request.query_params.get("type", "month")
+        date_type = self.request.query_params.get("type", "month")
         limit = self.request.query_params.get("limit", 5)
         category = self.request.query_params.get("category", "all")
         office_pk = self.kwargs["office_pk"]
@@ -1751,23 +1771,23 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             sub_joins = ""
             nIndex = 1
             ret_header = ["Code", "Description"]
-            if type == ProcedureType.PROCEDURE_MONTH:
+            if date_type == ProcedureType.PROCEDURE_MONTH:
                 for dt in rrule.rrule(rrule.MONTHLY, dtstart=day_from, until=day_to):
                     sub_counts += f"p{nIndex}.count,"
                     sub_joins += raw_joins.format(
-                        type=type, office_id=office_pk, day_from=dt.date(), tablename=f"p{nIndex}"
+                        type=date_type, office_id=office_pk, day_from=dt.date(), tablename=f"p{nIndex}"
                     )
                     sub_joins += " "
                     ret_header.append(f"{dt.date()}")
                     nIndex += 1
                 sub_counts = sub_counts[:-1]
 
-            if type == ProcedureType.PROCEDURE_WEEK:
+            if date_type == ProcedureType.PROCEDURE_WEEK:
                 week_startday = day_from - datetime.timedelta(days=day_from.weekday())
                 for dt in rrule.rrule(rrule.WEEKLY, dtstart=week_startday, until=day_to):
                     sub_counts += f"p{nIndex}.count,"
                     sub_joins += raw_joins.format(
-                        type=type, office_id=office_pk, day_from=dt.date(), tablename=f"p{nIndex}"
+                        type=date_type, office_id=office_pk, day_from=dt.date(), tablename=f"p{nIndex}"
                     )
                     sub_joins += " "
                     ret_header.append(f"{dt.date()}")
@@ -1780,7 +1800,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             newvalue = raw_sql.format(
                 sub_counts=sub_counts,
                 sub_joins=sub_joins,
-                type=type,
+                type=date_type,
                 office_id=office_pk,
                 day_from=day_from,
                 day_to=day_to,
@@ -1794,5 +1814,24 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             ret = {"headers": ret_header, "procs": ret_list}
             return Response(data=ret)
 
-        except:  # noqa
+        except Exception:  # noqa
             return Response(status=HTTP_400_BAD_REQUEST)
+
+
+class ProcedureCategoryLink(ModelViewSet):
+    queryset = m.ProcedureCategoryLink.objects.all()
+    serializer_class = s.ProcedureCategoryLinkSerializer
+
+    def update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return super().update(request, *args, **kwargs)
+
+    @action(detail=False, url_path="linked-products")
+    def get_linked_inventory_products(self, request, *args, **kwargs):
+        summary_category = self.request.query_params.get("summary_category", "all")
+        slugs = self.queryset.get(summary_category=summary_category).linked_slugs
+        queryset = m.OfficeProduct.objects.filter(
+            office__id=self.kwargs["office_pk"], is_inventory=True, office_product_category__slug__in=slugs
+        )
+
+        return Response(s.OfficeProductSerializer(queryset, many=True, context={"include_children": True}).data)

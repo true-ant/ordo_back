@@ -9,9 +9,9 @@ from functools import reduce
 from itertools import chain
 from operator import or_
 from typing import Dict, List, Optional, TypedDict, Union
-import requests
 
 import pandas as pd
+import requests
 from aiohttp import ClientSession
 from asgiref.sync import sync_to_async
 from dateutil import rrule
@@ -537,7 +537,7 @@ class ProductHelper:
         category_mapping = ProductHelper.get_vendor_category_mapping()
 
         while df_len > df_index:
-            sub_df = df[df_index: df_index + batch_size]
+            sub_df = df[df_index : df_index + batch_size]
             product_objs_to_be_created = []
             product_objs_to_be_updated = []
             for index, row in sub_df.iterrows():
@@ -549,7 +549,7 @@ class ProductHelper:
 
                 try:
                     product_price = convert_string_to_price(row["price"])
-                except:
+                except:  # noqa
                     # Ignore the price parsing error and continue...
                     product_price = None
 
@@ -616,7 +616,7 @@ class ProductHelper:
 
         vendor = VendorModel.objects.get(slug=vendor_slug)
         while df_len > df_index:
-            sub_df = df[df_index: df_index + batch_size]
+            sub_df = df[df_index : df_index + batch_size]
             product_objs = []
             for index, row in sub_df.iterrows():
                 product = ProductModel.objects.filter(product_id=row["product_id"], vendor=vendor).first()
@@ -1399,17 +1399,19 @@ class ProcedureHelper:
             print(f"Fetching offset = {offset} length = {response_len}")
 
             for procedure in json_procedure:
-                creating_procedures.append(
-                    ProcedureModel(
-                        start_date=day_from,
-                        count=int(str(procedure["Count"]).replace(",", "")),
-                        avgfee=str(procedure["AvgFee"]).replace(",", ""),
-                        totfee=str(procedure["TotFee"]).replace(",", ""),
-                        procedurecode=ProcedureCodeModel.objects.get(proccode=procedure["ProcCode"]),
-                        office_id=office_id,
-                        type=type,
+                procedure_code = ProcedureCodeModel.objects.filter(proccode=procedure["ProcCode"]).first()
+                if procedure_code:
+                    creating_procedures.append(
+                        ProcedureModel(
+                            start_date=day_from,
+                            count=int(str(procedure["Count"]).replace(",", "")),
+                            avgfee=str(procedure["AvgFee"]).replace(",", ""),
+                            totfee=str(procedure["TotFee"]).replace(",", ""),
+                            procedurecode=procedure_code,
+                            office_id=office_id,
+                            type=type,
+                        )
                     )
-                )
 
             count += response_len
             if response_len == 100:

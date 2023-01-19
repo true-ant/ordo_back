@@ -1,6 +1,7 @@
 import csv
 import os
 import re
+import json
 import requests
 from scrapy import Selector
 
@@ -16,6 +17,89 @@ class BencoSpider():
         "promo": "",
         "category": "",
     }
+
+    def login(self):
+        headers = {
+            'Connection': 'keep-alive',
+            'sec-ch-ua': '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+            'Upgrade-Insecure-Requests': '1',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-User': '?1',
+            'Sec-Fetch-Dest': 'document',
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
+
+        response = requests.get('https://shop.benco.com/Login/Login', headers=headers, verify=False)
+        print(response.url)
+        modelJson = response.text.split("id='modelJson'")[1].split("</script>", 1)[0].split(">", 1)[1].replace("&quot;", '"').strip()
+        idsrv_xsrf = json.loads(modelJson)["antiForgery"]["value"]
+        print(idsrv_xsrf)
+    
+        headers = {
+            'Connection': 'keep-alive',
+            'Cache-Control': 'max-age=0',
+            'sec-ch-ua': '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+            'Upgrade-Insecure-Requests': '1',
+            'Origin': 'https://identity.benco.com',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'Sec-Fetch-Site': 'same-origin',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-User': '?1',
+            'Sec-Fetch-Dest': 'document',
+            'Referer': response.url,
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
+
+        data = {
+            'idsrv.xsrf': idsrv_xsrf,
+            'username': 'info@columbinecreekdentistry.com',
+            'password': 'Happy16!'
+        }
+
+        response = requests.post(response.url, headers=headers, data=data, verify=False)
+        response_dom = Selector(text=response.text)
+        id_token = response_dom.xpath("//input[@name='id_token']/@value").get()
+        scope = response_dom.xpath("//input[@name='scope']/@value").get()
+        state = response_dom.xpath("//input[@name='state']/@value").get()
+        session_state = response_dom.xpath("//input[@name='session_state']/@value").get()
+
+        headers = {
+            'Connection': 'keep-alive',
+            'Cache-Control': 'max-age=0',
+            'sec-ch-ua': '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
+            'Upgrade-Insecure-Requests': '1',
+            'Origin': 'https://identity.benco.com',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'Sec-Fetch-Site': 'same-site',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Dest': 'document',
+            'Referer': 'https://identity.benco.com/',
+            'Accept-Language': 'en-US,en;q=0.9',
+        }
+
+        data = {
+            'id_token': id_token,
+            'scope': scope,
+            'state': state,
+            'session_state': session_state
+        }
+
+        response = requests.post('https://shop.benco.com/signin-oidc', headers=headers, data=data, verify=False)
+        print(response.url)
+        print(response.status_code)
     
     def textParser(self, element):
         if element:
@@ -26,6 +110,8 @@ class BencoSpider():
     def run(self):
         if os.path.exists(f"./promotions/{self.vendor_slug}.csv"):
             os.remove(f"./promotions/{self.vendor_slug}.csv")
+
+        self.login()
         
         headers = {
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
@@ -50,18 +136,16 @@ class BencoSpider():
     def parse_products(self, response):
         product_ids = list()
         products = dict()
-        for product in response.xpath('//div[contains(@class, "product-grid")]/div[@class="product-tile"]'):
+        for product in response.xpath('//div[contains(@class, "product-grid")]/div[@class="product-tile"]/div[contains(@class,"product-tile-content")]'):
             item = self.baseItem.copy()
-            item["images"] = product.xpath("./div[contains(@class, 'product-image-area')]/img/@src").get()
+            item["images"] = product.xpath("./a/div[contains(@class, 'image-div')]/img/@src").get()
             item["name"] = self.textParser(product.xpath(
-                "./div[contains(@class, 'product-data-area')]//h4[@itemprop='name']"
+                "./a/div[contains(@class, 'description')]"
             ))
-            item_url = product.xpath(
-                    "./div[contains(@class, 'product-data-area')]/div[contains(@class, 'title')]//a/@href"
-                ).get()
+            item_url = product.xpath("./a/@href").get()
             if item_url: item["url"] = "https://shop.benco.com"+item_url.strip()
             item["product_id"] = self.textParser(product.xpath(
-                "./div[contains(@class, 'product-data-area')]//span[@itemprop='sku']"
+                "./a/p"
             ))
             product_ids.append(item["product_id"])
             products[item["product_id"]] = item
