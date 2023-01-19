@@ -372,7 +372,9 @@ class CompanyMemberInvitationCheckAPIView(APIView):
             return Response({"message": msgs.INVITE_TOKEN_WRONG}, status=HTTP_400_BAD_REQUEST)
 
         company = invite.company
-        if company.on_boarding_step < 5:
+
+        # 4 is the minimum last step.
+        if company.on_boarding_step < 4:
             return Response({"message": msgs.INVITE_NOT_ACCEPTABLE}, status=HTTP_400_BAD_REQUEST)
 
         now = timezone.now()
