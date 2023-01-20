@@ -632,10 +632,4 @@ class ProcedureSerializer(serializers.ModelSerializer):
 class ProcedureCategoryLinkSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.ProcedureCategoryLink
-        fields = ("linked_slugs",)
-
-    def update(self, instance, validated_data):
-        slugs = validated_data["linked_slugs"]
-        instance.linked_slugs = slugs
-        instance.save()
-        return instance
+        fields = ("linked_slugs", "category_order", "is_favorite")

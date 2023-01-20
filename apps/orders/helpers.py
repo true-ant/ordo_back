@@ -42,6 +42,7 @@ from apps.accounts.models import Office as OfficeModel
 from apps.accounts.models import OfficeVendor as OfficeVendorModel
 from apps.accounts.models import Vendor as VendorModel
 from apps.common.choices import ProcedureType
+from apps.common.query import Replacer
 from apps.common.utils import (
     bulk_create,
     bulk_update,
@@ -1181,6 +1182,8 @@ class ProductHelper:
         price_from: float = -1,
         price_to: float = -1,
     ):
+        replacer = Replacer()
+        query = replacer.replace(query)
         if isinstance(office, OfficeModel):
             office_pk = office.id
         else:
@@ -1373,39 +1376,44 @@ class ProcedureHelper:
         offset = 0
         count = 0
 
-        creating_procedures = []
-        while True:
-            response = requests.put(
-                f"https://api.opendental.com/api/v1/queries/ShortQuery?Offset={offset}",
-                headers={"Authorization": dental_api},
-                json=json.loads(query, strict=False),
-            )
-            json_procedure = json.loads(response.content)
-            response_len = len(json_procedure)
+        try:
+            creating_procedures = []
+            while True:
+                response = requests.put(
+                    f"https://api.opendental.com/api/v1/queries/ShortQuery?Offset={offset}",
+                    headers={"Authorization": dental_api},
+                    json=json.loads(query, strict=False),
+                )
+                json_procedure = json.loads(response.content)
+                response_len = len(json_procedure)
 
-            print(f"Fetching offset = {offset} length = {response_len}")
+                print(f"Fetching offset = {offset} length = {response_len}")
 
-            for procedure in json_procedure:
-                procedure_code = ProcedureCodeModel.objects.filter(proccode=procedure["ProcCode"]).first()
-                if procedure_code:
-                    creating_procedures.append(
-                        ProcedureModel(
-                            start_date=day_from,
-                            count=int(str(procedure["Count"]).replace(",", "")),
-                            avgfee=str(procedure["AvgFee"]).replace(",", ""),
-                            totfee=str(procedure["TotFee"]).replace(",", ""),
-                            procedurecode=procedure_code,
-                            office_id=office_id,
-                            type=type,
+                for procedure in json_procedure:
+                    procedure_code = ProcedureCodeModel.objects.filter(proccode=procedure["ProcCode"]).first()
+                    if procedure_code:
+                        creating_procedures.append(
+                            ProcedureModel(
+                                start_date=day_from,
+                                count=int(str(procedure["Count"]).replace(",", "")),
+                                avgfee=str(procedure["AvgFee"]).replace(",", ""),
+                                totfee=str(procedure["TotFee"]).replace(",", ""),
+                                procedurecode=procedure_code,
+                                office_id=office_id,
+                                type=type,
+                            )
                         )
-                    )
 
-            count += response_len
-            if response_len == 100:
-                offset += 100
-            else:
-                break
-        if bExists and force_update:
-            old_procs.delete()
-        bulk_create(ProcedureModel, creating_procedures)
+                count += response_len
+                if response_len == 100:
+                    offset += 100
+                else:
+                    break
+            if bExists and force_update:
+                old_procs.delete()
+            bulk_create(ProcedureModel, creating_procedures)
+        except Exception:
+            # Skip in case we have a failure from Open Dental or parse issue.
+            pass
+
         print(f"Update {day_from} - {day_to} {count} rows")
