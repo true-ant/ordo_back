@@ -1740,11 +1740,15 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
         ProcedureHelper.fetch_procedure_period(day_from, office_pk, date_type)
         ret = (
-            m.Procedure.objects.select_related("procedurecode")
+            m.Procedure.objects.select_related("procedurecode", "procedurecode__sumary_cate")
             .filter(type=date_type, start_date__gte=day_from, start_date__lte=day_to)
-            .values_list("procedurecode__category", "procedurecode__summary_category")
+            .values_list(
+                "procedurecode__summary_category",
+                "procedurecode__summary_cate__category_order",
+                "procedurecode__summary_cate__is_favorite",
+            )
             .annotate(dcount=Count("procedurecode__summary_category"))
-            .order_by("-dcount")
+            .order_by("-procedurecode__summary_cate__is_favorite", "-procedurecode__summary_cate__category_order")
             .filter(dcount__gt=0)
         )
         return Response(ret)
