@@ -1319,7 +1319,9 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
         serializer = s.ProductPriceRequestSerializer(data=request.data)
         await sync_to_async(serializer.is_valid)(raise_exception=True)
         products = {product.id: product for product in serializer.validated_data["products"]}
-        response = await OfficeProductHelper.get_product_prices(products=products, office=self.kwargs["office_pk"])
+        response = await OfficeProductHelper.get_product_prices(products=products,
+                                                                office=self.kwargs["office_pk"],
+                                                                from_api=True)
         return Response(response)
 
 
