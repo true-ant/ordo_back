@@ -42,6 +42,7 @@ from apps.accounts.models import Office as OfficeModel
 from apps.accounts.models import OfficeVendor as OfficeVendorModel
 from apps.accounts.models import Vendor as VendorModel
 from apps.common.choices import ProcedureType
+from apps.common.query import Replacer
 from apps.common.utils import (
     bulk_create,
     bulk_update,
@@ -1194,6 +1195,8 @@ class ProductHelper:
         price_from: float = -1,
         price_to: float = -1,
     ):
+        replacer = Replacer()
+        query = replacer.replace(query)
         if isinstance(office, OfficeModel):
             office_pk = office.id
         else:

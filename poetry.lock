@@ -687,6 +687,14 @@ pycodestyle = ">=2.6.0a1,<2.7.0"
 pyflakes = ">=2.2.0,<2.3.0"
 
 [[package]]
+name = "flashtext"
+version = "2.7"
+description = "Extract/Replaces keywords in sentences."
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "frozenlist"
 version = "1.3.0"
 description = "A list-like structure which implements collections.abc.MutableSequence"
@@ -1754,7 +1762,7 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "78a06ea4291a74d0629f19d02cd5b6156e006f4d8fd17ade4a6fffc407bb88c6"
+content-hash = "a8fcb20f68804aa99fb7fcd0ac5e83384bf698a3e622c730fe925ffd10fcdde6"
 
 [metadata.files]
 aioboto3 = []
@@ -1810,6 +1818,7 @@ factory-boy = []
 faker = []
 filelock = []
 flake9 = []
+flashtext = []
 frozenlist = []
 gunicorn = []
 h11 = []
