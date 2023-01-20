@@ -473,14 +473,21 @@ class OfficeKeyword(TimeStampedModel):
         return self.keyword.keyword
 
 
+class ProcedureCategoryLink(models.Model):
+    summary_slug = models.CharField(max_length=256, null=False, blank=False, default="Empty")
+    linked_slugs = ArrayField(models.CharField(max_length=100), null=True, blank=True)
+    category_order = models.IntegerField(default=0)
+    is_favorite = models.BooleanField(default=False)
+
+
 class ProcedureCode(models.Model):
     proccode = models.CharField(max_length=16)
     descript = models.CharField(max_length=256, null=True, blank=True)
     category = models.CharField(max_length=256, null=True, blank=True)
-    summary_category = models.CharField(max_length=256, null=True, blank=True)
+    summary_category = models.ForeignKey(ProcedureCategoryLink, on_delete=models.CASCADE, null=True)
 
     def __str__(self):
-        return str(self.codenum)
+        return str(self.proccode)
 
 
 class Procedure(models.Model):
@@ -498,8 +505,3 @@ class Procedure(models.Model):
     class Meta:
         unique_together = ["office", "procedurecode", "start_date", "type"]
         ordering = ["start_date"]
-
-
-class ProcedureCategoryLink(models.Model):
-    summary_category = models.CharField(max_length=256, null=False, blank=False, default="Empty")
-    linked_slugs = ArrayField(models.CharField(max_length=100), null=True, blank=True)

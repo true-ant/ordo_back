@@ -1721,9 +1721,9 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
         ProcedureHelper.fetch_procedure_period(day_from, office_pk, date_type)
         ret = (
-            m.Procedure.objects.select_related("procedurecode")
+            m.Procedure.objects.select_related("procedurecode", "procedurecode__sumary_category")
             .filter(type=date_type, start_date__gte=day_from, start_date__lte=day_to)
-            .values_list("procedurecode__category", "procedurecode__summary_category")
+            .values_list("procedurecode__category", "procedurecode__summary_category__summary_slug")
             .annotate(dcount=Count("procedurecode__category"))
             .order_by("-dcount")
             .filter(dcount__gt=0)
@@ -1740,11 +1740,17 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
         ProcedureHelper.fetch_procedure_period(day_from, office_pk, date_type)
         ret = (
-            m.Procedure.objects.select_related("procedurecode")
+            m.Procedure.objects.select_related("procedurecode", "procedurecode__sumary_category")
             .filter(type=date_type, start_date__gte=day_from, start_date__lte=day_to)
-            .values_list("procedurecode__category", "procedurecode__summary_category")
-            .annotate(dcount=Count("procedurecode__summary_category"))
-            .order_by("-dcount")
+            .values_list(
+                "procedurecode__summary_category__summary_slug",
+                "procedurecode__summary_category__category_order",
+                "procedurecode__summary_category__is_favorite",
+            )
+            .annotate(dcount=Count("procedurecode__summary_category__summary_slug"))
+            .order_by(
+                "-procedurecode__summary_category__is_favorite", "-procedurecode__summary_category__category_order"
+            )
             .filter(dcount__gt=0)
         )
         return Response(ret)
@@ -1829,7 +1835,7 @@ class ProcedureCategoryLink(ModelViewSet):
     @action(detail=False, url_path="linked-products")
     def get_linked_inventory_products(self, request, *args, **kwargs):
         summary_category = self.request.query_params.get("summary_category", "all")
-        slugs = self.queryset.get(summary_category=summary_category).linked_slugs
+        slugs = self.queryset.get(summary_slug=summary_category).linked_slugs
         queryset = m.OfficeProduct.objects.filter(
             office__id=self.kwargs["office_pk"], is_inventory=True, office_product_category__slug__in=slugs
         )
