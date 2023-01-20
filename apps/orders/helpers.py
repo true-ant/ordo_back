@@ -1423,6 +1423,7 @@ class ProcedureHelper:
                 old_procs.delete()
             bulk_create(ProcedureModel, creating_procedures)
         except Exception:
+            # Skip in case we have a failure from Open Dental or parse issue.
             pass
 
         print(f"Update {day_from} - {day_to} {count} rows")
