@@ -1423,6 +1423,6 @@ class ProcedureHelper:
                 old_procs.delete()
             bulk_create(ProcedureModel, creating_procedures)
         except Exception:
-            print("Except")
+            pass
 
         print(f"Update {day_from} - {day_to} {count} rows")
