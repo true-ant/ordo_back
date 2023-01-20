@@ -224,7 +224,9 @@ class OfficeProductHelper:
 
     @staticmethod
     async def get_product_prices(
-        products: Dict[SmartID, ProductModel], office: Union[SmartID, OfficeModel]
+        products: Dict[SmartID, ProductModel],
+        office: Union[SmartID, OfficeModel],
+        from_api: bool = False
     ) -> Dict[str, ProductPrice]:
         """
         This return prices for products
@@ -240,30 +242,21 @@ class OfficeProductHelper:
         product_prices_from_db = await sync_to_async(OfficeProductHelper.get_products_prices_from_db)(
             products, office_id
         )
-        # print("after from_db")
-        # product_prices_from_db = defaultdict(dict)
-
-        # fetch prices from vendors
         products_to_be_fetched = {}
-        for product_id, product in products.items():
-            # TODO: should be exclude products that has no vendor
 
-            if product_id not in product_prices_from_db.keys():
+        for product_id, product in products.items():
+            if product_id in product_prices_from_db.keys():
                 product_data = await sync_to_async(product.to_dict)()
-                if product_data["vendor"] not in (
-                    "implant_direct",
-                    "edge_endo",
-                    # "net_32",
-                    # "dental_city",
-                ):
-                    products_to_be_fetched[product_id] = product_data
-        if products_to_be_fetched:
+                products_to_be_fetched[product_id] = product_data
+
+        print(f"==== Number of products to fetch from their sites: {len(products_to_be_fetched.keys())} ====")
+        if not from_api and products_to_be_fetched:
             product_prices_from_vendors = await OfficeProductHelper.get_product_prices_from_vendors(
                 products_to_be_fetched, office_id
             )
 
-            print("==== fetche prices from the online site")
-            # print(product_prices_from_vendors)
+            print("==== fetching prices from the online site ====")
+            print(product_prices_from_vendors)
             print(" ================= done fetching ============")
 
             return {**product_prices_from_db, **product_prices_from_vendors}
@@ -283,27 +276,21 @@ class OfficeProductHelper:
         product_prices = defaultdict(dict)
 
         # get prices of products from formula vendors
-        price_least_update_date = timezone.now() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
-        office_products = (
-            OfficeProductModel.objects.annotate(
-                outdated=Case(
-                    When(
-                        Q(last_price_updated__lt=price_least_update_date) | Q(last_price_updated__isnull=True),
-                        then=True,
-                    ),
-                    default=False,
-                )
-            )
-            .filter(product_id__in=product_ids_from_formula_vendors, office_id=office_id, outdated=True)
-            .values("product_id", "price", "product_vendor_status")
-        )
+        office_products = OfficeProductModel\
+            .objects\
+            .filter(product_id__in=product_ids_from_formula_vendors,
+                    office_id=office_id)\
+            .values("product_id",
+                    "price",
+                    "product_vendor_status")
+
         for office_product in office_products:
             product_prices[office_product["product_id"]]["price"] = office_product["price"]
             product_prices[office_product["product_id"]]["product_vendor_status"] = office_product[
                 "product_vendor_status"
             ]
 
-        # get prices of products from non-informula vendors
+        # get prices of products from non-formula vendors
         for product_id in product_ids_from_non_formula_vendors:
             recent_price = products[product_id].recent_price
             if recent_price:
@@ -353,22 +340,22 @@ class OfficeProductHelper:
                 office_id, vendor_slug
             )
 
-            print("get_all_product_prices_from_vendors")
-            print(len(vendor_product_ids))
-            print(type(vendor_product_ids))
+            print(f"Number of products to update price: {len(vendor_product_ids)}")
 
             step_size = 20
-            offset = step_size
-            for i in range(offset, len(vendor_product_ids) + 1, step_size):
-                print(i, vendor_product_ids[i - step_size : i])
-                await OfficeProductHelper.get_product_prices_by_ids(vendor_product_ids[i - step_size : i], office_id)
+            offset = 0
 
-                # product_prices_from_vendors = await OfficeProductHelper.get_product_prices_by_ids(
-                #     vendor_product_ids[i : (i + 50)], office_id
-                # )
+            while True:
+                if offset > len(vendor_product_ids):
+                    break
+                v_ids = vendor_product_ids[offset: offset + step_size]
+
+                print(offset, v_ids)
+                await OfficeProductHelper.get_product_prices_by_ids(v_ids, office_id)
                 await aio.sleep(1)
 
-                # print(product_prices_from_vendors)
+                offset += step_size
+
         print("======== DONE fetch =========")
 
     @staticmethod
