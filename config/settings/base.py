@@ -55,7 +55,7 @@ THIRD_PARTY_APPS = [
     "phonenumber_field",
     "django_celery_beat",
     "nested_admin",
-    'django_extensions',
+    "django_extensions",
 ]
 
 ORDO_APPS = [
@@ -63,6 +63,7 @@ ORDO_APPS = [
     "apps.common.apps.CommonConfig",
     "apps.orders.apps.OrdersConfig",
     "apps.notifications.apps.NotificationsConfig",
+    "apps.audit.apps.AuditConfig",
 ]
 
 INSTALLED_APPS = DANGO_APPS + THIRD_PARTY_APPS + ORDO_APPS
@@ -113,7 +114,7 @@ DATABASES = {
         "TEST": {
             "NAME": "ordo_db_test",
         },
-        "CONN_MAX_AGE": 1500
+        "CONN_MAX_AGE": 1500,
     }
 }
 
@@ -221,8 +222,8 @@ CELERY_BEAT_SCHEDULE = {
     },
     "update_promotions": {
         "task": "apps.orders.tasks.update_promotions",
-        "schedule": crontab(minute='0', hour='0', day_of_week="0") #Every Sunday
-    }
+        "schedule": crontab(minute="0", hour="0", day_of_week="0"),  # Every Sunday
+    },
 }
 
 # Django Rest Framework

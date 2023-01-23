@@ -23,10 +23,11 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from month import Month
+from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
 from rest_framework.filters import OrderingFilter
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.status import (
     HTTP_201_CREATED,
@@ -61,6 +62,7 @@ from . import filters as f
 from . import models as m
 from . import permissions as p
 from . import serializers as s
+from .actions.product_management import attach_to_parent, unlink_from_parent
 from .models import OfficeProduct, Product
 from .tasks import notify_order_creation, search_and_group_products
 
@@ -594,6 +596,22 @@ class ProductViewSet(AsyncMixin, ModelViewSet):
     serializer_class = s.ProductSerializer
     filterset_class = f.ProductFilter
     queryset = m.Product.objects.all()
+
+    @action(
+        detail=False,
+        methods=["post"],
+        permission_classes=[IsAdminUser],
+        serializer_class=s.ProductManagementSerializer,
+    )
+    def manage(self, request):
+        serializer = s.ProductManagementSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        product = serializer.validated_data["product"]
+        new_parent = serializer.validated_data.get("new_parent")
+        unlink_from_parent(product, request.user)
+        if new_parent:
+            attach_to_parent(product, new_parent, request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=["get"], url_path="suggestion")
     def product_suggestion(self, request, *args, **kwargs):
@@ -1319,9 +1337,9 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
         serializer = s.ProductPriceRequestSerializer(data=request.data)
         await sync_to_async(serializer.is_valid)(raise_exception=True)
         products = {product.id: product for product in serializer.validated_data["products"]}
-        response = await OfficeProductHelper.get_product_prices(products=products,
-                                                                office=self.kwargs["office_pk"],
-                                                                from_api=True)
+        response = await OfficeProductHelper.get_product_prices(
+            products=products, office=self.kwargs["office_pk"], from_api=True
+        )
         return Response(response)
 
 
