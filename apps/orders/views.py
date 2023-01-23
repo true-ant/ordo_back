@@ -1319,9 +1319,9 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
         serializer = s.ProductPriceRequestSerializer(data=request.data)
         await sync_to_async(serializer.is_valid)(raise_exception=True)
         products = {product.id: product for product in serializer.validated_data["products"]}
-        response = await OfficeProductHelper.get_product_prices(products=products,
-                                                                office=self.kwargs["office_pk"],
-                                                                from_api=True)
+        response = await OfficeProductHelper.get_product_prices(
+            products=products, office=self.kwargs["office_pk"], from_api=True
+        )
         return Response(response)
 
 
@@ -1745,6 +1745,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             m.Procedure.objects.select_related("procedurecode", "procedurecode__sumary_category")
             .filter(type=date_type, start_date__gte=day_from, start_date__lte=day_to)
             .values_list(
+                "procedurecode__summary_category",
                 "procedurecode__summary_category__summary_slug",
                 "procedurecode__summary_category__category_order",
                 "procedurecode__summary_category__is_favorite",
