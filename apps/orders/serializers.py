@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 from rest_framework_recursive.fields import RecursiveField
 
 from apps.accounts.helper import OfficeBudgetHelper
@@ -633,3 +634,25 @@ class ProcedureCategoryLinkSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.ProcedureCategoryLink
         fields = ("linked_slugs", "category_order", "is_favorite")
+
+
+class ProductManagementSerializer(serializers.Serializer):
+    product = serializers.PrimaryKeyRelatedField(
+        queryset=m.Product.objects.all(),
+    )
+    new_parent = serializers.PrimaryKeyRelatedField(queryset=m.Product.objects.all(), required=False)
+
+    def validate_product(self, value):
+        if value.parent_id is None:
+            raise ValidationError("Product is orphan", code="product-is-orphan")
+        return value
+
+    def validate(self, attrs):
+        new_parent = attrs.get("new_parent")
+        product = attrs["product"]
+        if new_parent:
+            if new_parent.parent_id is not None:
+                raise ValidationError("New parent cannot be child item", code="new-parent-can-not-be-child")
+            if new_parent.id == product.parent_id:
+                raise ValidationError("Moving to same parent has no effect", code="parent-is-same")
+        return attrs
