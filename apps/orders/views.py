@@ -1763,6 +1763,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             m.Procedure.objects.select_related("procedurecode", "procedurecode__sumary_category")
             .filter(type=date_type, start_date__gte=day_from, start_date__lte=day_to)
             .values_list(
+                "procedurecode__summary_category",
                 "procedurecode__summary_category__summary_slug",
                 "procedurecode__summary_category__category_order",
                 "procedurecode__summary_category__is_favorite",
