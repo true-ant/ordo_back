@@ -260,6 +260,8 @@ class Scraper:
         product_data["category"] = product_category or other_category
         product_price = product_data.pop("price")
         with transaction.atomic():
+            if 'nickname' in product_data:
+                product_data.pop('nickname')
             product, created = ProductModel.objects.get_or_create(
                 vendor=self.vendor,
                 product_id=product_id,
