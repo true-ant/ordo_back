@@ -86,6 +86,7 @@ class ImplantDirectScraper(Scraper):
         order_dict.update(order)
         order_dict.update({"currency":"USD"})
         print(order_dict)
+
         if office:
             await self.save_order_to_db(office, order=Order.from_dict(order_dict))
 
@@ -98,10 +99,11 @@ class ImplantDirectScraper(Scraper):
         completed_order_ids: Optional[List[str]] = None,
     ) -> List[Order]:
         sem = asyncio.Semaphore(value=2)
+        loop = asyncio.get_event_loop()
+
         if perform_login:
-            loop = asyncio.get_event_loop()
-            res = await loop.run_in_executor(None,self.login_proc)
-            
+            await loop.run_in_executor(None,self.login_proc)
+
         await loop.run_in_executor(None, self.orderHistory, 1)
         tasks=[]
 
@@ -109,7 +111,10 @@ class ImplantDirectScraper(Scraper):
             print(order_data["order_date"])
             # month, day, year= order_data["order_date"].split("/")                
             # order_date = datetime.date(int(year), int(month), int(day))
-            order_date = datetime.datetime.strptime(order_data["order_date"], "%b %d, %Y").date()
+            if isinstance(order_data["order_date"], datetime.date):
+                order_date = order_data["order_date"]
+            else:
+                order_date = datetime.datetime.strptime(order_data["order_date"], "%b %d, %Y").date()
             order_data["order_date"] = order_date
             if from_date and to_date and (order_date < from_date or order_date > to_date):
                 continue
@@ -198,7 +203,8 @@ class ImplantDirectScraper(Scraper):
             product["qty"] = product_item["qty"]
             product["name"] = product_item["name"]
             product["price"] = product_item["price"]
-            product["product_url"] = product_item["sku"]
+            product["sku"] = product_item["sku"]
+            product["product_id"] = product_item["sku"]
             product["vendor"] = self.vendor.to_dict()
             product["subtotal"] = product_item["row_total"]
             product["images"]= []
