@@ -283,6 +283,13 @@ class VendorOrderSerializer(serializers.ModelSerializer):
         model = m.VendorOrder
         exclude = ("order",)
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+
+        if data["status_display_text"]:
+            data["status_display_text"] = str(data["status_display_text"]).capitalize()
+        return data
+
 
 class OrderSerializer(serializers.ModelSerializer):
     vendor_orders = VendorOrderSerializer(many=True)
