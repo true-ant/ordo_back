@@ -245,9 +245,8 @@ class OfficeProductHelper:
         products_to_be_fetched = {}
 
         for product_id, product in products.items():
-            if product_id in product_prices_from_db.keys():
-                product_data = await sync_to_async(product.to_dict)()
-                products_to_be_fetched[product_id] = product_data
+            product_data = await sync_to_async(product.to_dict)()
+            products_to_be_fetched[product_id] = product_data
 
         print(f"==== Number of products to fetch from their sites: {len(products_to_be_fetched.keys())} ====")
         if not from_api and products_to_be_fetched:
