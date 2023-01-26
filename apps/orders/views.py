@@ -1770,7 +1770,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             )
             .annotate(dcount=Count("procedurecode__summary_category__summary_slug"))
             .order_by(
-                "-procedurecode__summary_category__category_order", "-procedurecode__summary_category__is_favorite"
+                "procedurecode__summary_category__category_order", "-procedurecode__summary_category__is_favorite"
             )
             .filter(dcount__gt=0)
         )
