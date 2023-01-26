@@ -1770,7 +1770,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             )
             .annotate(dcount=Count("procedurecode__summary_category__summary_slug"))
             .order_by(
-                "-procedurecode__summary_category__is_favorite", "-procedurecode__summary_category__category_order"
+                "-procedurecode__summary_category__category_order", "-procedurecode__summary_category__is_favorite"
             )
             .filter(dcount__gt=0)
         )
@@ -1855,10 +1855,15 @@ class ProcedureCategoryLink(ModelViewSet):
 
     @action(detail=False, url_path="linked-products")
     def get_linked_inventory_products(self, request, *args, **kwargs):
-        summary_category = self.request.query_params.get("summary_category", "all")
-        slugs = self.queryset.get(summary_slug=summary_category).linked_slugs
-        queryset = m.OfficeProduct.objects.filter(
-            office__id=self.kwargs["office_pk"], is_inventory=True, office_product_category__slug__in=slugs
-        )
+        try:
+            summary_category = self.request.query_params.get("summary_category", "all")
+            slugs = self.queryset.get(summary_slug=summary_category).linked_slugs
+            queryset = m.OfficeProduct.objects.filter(
+                office__id=self.kwargs["office_pk"], is_inventory=True, office_product_category__slug__in=slugs
+            )
 
-        return Response(s.OfficeProductSerializer(queryset, many=True, context={"include_children": True}).data)
+            return Response(s.OfficeProductSerializer(queryset, many=True, context={"include_children": True}).data)
+        except m.OfficeProduct.DoesNotExist:
+            return Response({"message": "No result"})
+        except Exception:
+            return Response(status=HTTP_400_BAD_REQUEST)
