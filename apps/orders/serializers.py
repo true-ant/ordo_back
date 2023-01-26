@@ -663,8 +663,6 @@ class ProcedureCategoryLinkSerializer(serializers.ModelSerializer):
                     item.category_order = item.category_order - 1
                 m.ProcedureCategoryLink.objects.bulk_update(items, ["category_order"])
 
-            m.ProcedureCategoryLink.objects.bulk_update(items, ["category_order"])
-
             instance = super().update(instance, validated_data)
         return instance
 
