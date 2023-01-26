@@ -646,24 +646,27 @@ class ProcedureCategoryLinkSerializer(serializers.ModelSerializer):
         if "category_prev_order" in self.initial_data:
             prev_pos = self.initial_data["category_prev_order"]
             new_pos = validated_data["category_order"]
+            items = []
 
             if prev_pos > new_pos:
                 items = m.ProcedureCategoryLink.objects.filter(
                     category_order__gte=new_pos, category_order__lt=prev_pos
                 ).order_by("category_order")
+                items = items if items else []
                 for item in items:
                     item.category_order = item.category_order + 1
-                m.ProcedureCategoryLink.objects.bulk_update(items, ["category_order"])
-
             elif prev_pos < new_pos:
                 items = m.ProcedureCategoryLink.objects.filter(
                     category_order__gt=prev_pos, category_order__lte=new_pos
                 ).order_by("category_order")
+                items = items if items else []
                 for item in items:
                     item.category_order = item.category_order - 1
+
+            if items:
                 m.ProcedureCategoryLink.objects.bulk_update(items, ["category_order"])
 
-            instance = super().update(instance, validated_data)
+        instance = super().update(instance, validated_data)
         return instance
 
 
