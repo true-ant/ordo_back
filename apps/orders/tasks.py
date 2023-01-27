@@ -32,6 +32,7 @@ from apps.orders.models import VendorOrderProduct as VendorOrderProductModel
 from apps.scrapers.errors import VendorAuthenticationFailed
 from apps.scrapers.schema import Product as ProductDataClass
 from apps.scrapers.scraper_factory import ScraperFactory
+from apps.scrapers.semaphore import fake_semaphore
 from config.celery import app
 from promotions import PROMOTION_MAP
 
@@ -331,19 +332,17 @@ async def _sync_with_vendor(
     if not hasattr(scraper, "get_orders"):
         return
 
-    if sem:
-        await sem.acquire()
+    if not sem:
+        sem = fake_semaphore
 
-    results = await scraper.get_orders(
-        office=office_vendor.office,
-        perform_login=True,
-        from_date=from_date,
-        to_date=to_date,
-        completed_order_ids=completed_vendor_order_ids,
-    )
-
-    if sem:
-        sem.release()
+    async with sem:
+        results = await scraper.get_orders(
+            office=office_vendor.office,
+            perform_login=True,
+            from_date=from_date,
+            to_date=to_date,
+            completed_order_ids=completed_vendor_order_ids,
+        )
 
     return results
 

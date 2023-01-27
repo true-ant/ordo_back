@@ -8,6 +8,7 @@ from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.common.utils import concatenate_strings, convert_string_to_price
+from apps.scrapers.semaphore import fake_semaphore
 from apps.vendor_clients import types
 from apps.vendor_clients.async_clients.base import BaseClient
 from apps.vendor_clients.headers.darby import (
@@ -75,32 +76,32 @@ class DarbyClient(BaseClient):
     async def get_product_price(
         self, product: types.Product, semaphore: Optional[Semaphore] = None, login_required: bool = False
     ) -> Dict[str, types.ProductPrice]:
-        if semaphore:
-            await semaphore.acquire()
-        if login_required:
-            await self.login()
-        product_id = product["product_id"]
-        try:
-            page_response_dom = await self.get_response_as_dom(url=product["url"], headers=GET_PRODUCT_PAGE_HEADERS)
-            price_text = page_response_dom.xpath(
-                f'//tr[@class="pdpHelltPrimary"]/td//input[@data-sku="{product_id}"]'
-                '/../following-sibling::td//span[contains(@id, "_lblPrice")]//text()'
-            ).get()
+        if not semaphore:
+            semaphore = fake_semaphore
+        async with semaphore:
+            if login_required:
+                await self.login()
+            product_id = product["product_id"]
+            try:
+                page_response_dom = await self.get_response_as_dom(
+                    url=product["url"], headers=GET_PRODUCT_PAGE_HEADERS
+                )
+                price_text = page_response_dom.xpath(
+                    f'//tr[@class="pdpHelltPrimary"]/td//input[@data-sku="{product_id}"]'
+                    '/../following-sibling::td//span[contains(@id, "_lblPrice")]//text()'
+                ).get()
 
-            if not price_text:
-                price_text = page_response_dom.xpath('//span[@id="MainContent_lblPrice"]//text()').get()
+                if not price_text:
+                    price_text = page_response_dom.xpath('//span[@id="MainContent_lblPrice"]//text()').get()
 
-            product_unit = Decimal(price_text[:1])
-            price = convert_string_to_price(price_text[1:])
-            price = price / product_unit
-            product_vendor_status = ""
-        except Exception:
-            return {product_id: {"price": 0, "product_vendor_status": "Network Error"}}
-        else:
-            return {product_id: {"price": price, "product_vendor_status": product_vendor_status}}
-        finally:
-            if semaphore:
-                semaphore.release()
+                product_unit = Decimal(price_text[:1])
+                price = convert_string_to_price(price_text[1:])
+                price = price / product_unit
+                product_vendor_status = ""
+            except Exception:
+                return {product_id: {"price": 0, "product_vendor_status": "Network Error"}}
+            else:
+                return {product_id: {"price": price, "product_vendor_status": product_vendor_status}}
 
     def serialize(self, base_product: types.Product, data: Union[dict, Selector]) -> Optional[types.Product]:
         product_id = data.xpath(".//span[@id='MainContent_lblItemNo']/text()").get()

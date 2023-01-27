@@ -3,6 +3,7 @@ from typing import Dict
 
 from apps.scrapers.product_track.base import BaseTrack
 from apps.scrapers.product_track.headers import UPS_HEADERS, UPS_TRACKING_HEADERS
+from apps.scrapers.semaphore import fake_semaphore
 
 
 class UPSProductTrack(BaseTrack):
@@ -17,24 +18,22 @@ class UPSProductTrack(BaseTrack):
 
     async def track_product(self, tracking_number, *args, **kwargs) -> Dict[str, str]:
         sem = kwargs.get("sem")
-        if sem:
-            await sem.acquire()
+        if not sem:
+            sem = fake_semaphore
 
-        async with self.session.get(self.TRACKING_BASE_URL, headers=UPS_HEADERS) as resp:
-            headers = UPS_TRACKING_HEADERS.copy()
-            headers["x-xsrf-token"] = resp.cookies["X-XSRF-TOKEN-ST"].value
-            headers["referer"] = f"{resp.url}"
+        async with sem:
+            async with self.session.get(self.TRACKING_BASE_URL, headers=UPS_HEADERS) as resp:
+                headers = UPS_TRACKING_HEADERS.copy()
+                headers["x-xsrf-token"] = resp.cookies["X-XSRF-TOKEN-ST"].value
+                headers["referer"] = f"{resp.url}"
 
-        data = {
-            "Locale": "en_US",
-            "TrackingNumber": [tracking_number],
-            "isMultiTrack": True,
-        }
-        async with self.session.post(self.TRACKING_BASE_URL, json=data, headers=headers) as resp:
-            res = await resp.json()
-
-        if sem:
-            sem.release()
+            data = {
+                "Locale": "en_US",
+                "TrackingNumber": [tracking_number],
+                "isMultiTrack": True,
+            }
+            async with self.session.post(self.TRACKING_BASE_URL, json=data, headers=headers) as resp:
+                res = await resp.json()
 
         if "trackDetails" in res and res["trackDetails"]:
             package_status = [

@@ -15,6 +15,7 @@ from slugify import slugify
 
 from apps.scrapers.errors import VendorAuthenticationFailed
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
+from apps.scrapers.semaphore import fake_semaphore
 from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct, VendorCartProduct
 from apps.types.scraper import (
@@ -41,6 +42,7 @@ class Scraper:
         self.password = password
         self.orders = {}
         self.objs = {"product_categories": defaultdict(dict)}
+        self.logged_in = False
 
     @staticmethod
     def extract_first(dom, xpath):
@@ -91,7 +93,7 @@ class Scraper:
         if any(
             status in order_status
             for status in ("delivered", "shipped", "complete", "order shipped", "cancelled", "closed")
-        ):            
+        ):
             return "closed"
         elif any([status in order_status for status in ("open", "in progress", "processing", "pending")]):
             return "open"
@@ -99,8 +101,8 @@ class Scraper:
             return order_status
 
     @staticmethod
-    def normalize_order_product_status(order_product_status) :
-        if(order_product_status == None):
+    def normalize_order_product_status(order_product_status):
+        if order_product_status is None:
             return "processing"
         order_product_status = order_product_status.lower()
 
@@ -127,6 +129,7 @@ class Scraper:
 
     @catch_network
     async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> SimpleCookie:
+        logger.debug("Logging in...")
         if username:
             self.username = username
         if password:
@@ -135,14 +138,17 @@ class Scraper:
         is_already_login, kwargs = await self._get_check_login_state()
         if not is_already_login:
             login_info = await self._get_login_data(**kwargs)
-
+            logger.debug("Got login data: %s", login_info)
             async with self.session.post(
                 login_info["url"], headers=login_info["headers"], data=login_info["data"]
             ) as resp:
                 if resp.status != 200:
+                    resp_body = await resp.read()
+                    logger.warning("Got %s status when trying to login: %s", resp.status, resp_body)
                     raise VendorAuthenticationFailed()
                 is_authenticated = await self._check_authenticated(resp)
                 if not is_authenticated:
+                    logger.warning("Not authenticated after an attempt")
                     raise VendorAuthenticationFailed()
                 await self._after_login_hook(resp)
 
@@ -180,17 +186,14 @@ class Scraper:
     async def get_product_v2(
         self, product_id, product_url, perform_login=False, semaphore=None, queue: asyncio.Queue = None
     ) -> Optional[Product]:
-        if semaphore:
-            await semaphore.acquire()
-
-        product = await self.get_product_as_dict(product_id, product_url, perform_login)
-        product = Product.from_dict(product)
-        if queue:
-            await queue.put(product)
-
-        await asyncio.sleep(3)
-        if semaphore:
-            semaphore.release()
+        if not semaphore:
+            semaphore = fake_semaphore
+        async with semaphore:
+            product = await self.get_product_as_dict(product_id, product_url, perform_login)
+            product = Product.from_dict(product)
+            if queue:
+                await queue.put(product)
+            await asyncio.sleep(3)
 
         return product
 
@@ -260,8 +263,8 @@ class Scraper:
         product_data["category"] = product_category or other_category
         product_price = product_data.pop("price")
         with transaction.atomic():
-            if 'nickname' in product_data:
-                product_data.pop('nickname')
+            if "nickname" in product_data:
+                product_data.pop("nickname")
             product, created = ProductModel.objects.get_or_create(
                 vendor=self.vendor,
                 product_id=product_id,
@@ -364,7 +367,7 @@ class Scraper:
 
             except VendorOrderModel.DoesNotExist:
                 print("===== base/save_order_to_db 7 =====", order_data, order_date)
-        
+
                 order = OrderModel.objects.create(
                     office=office,
                     status=order_data["status"],
@@ -375,7 +378,9 @@ class Scraper:
                 print("===== base/save_order_to_db 8 =====")
                 vendor_order = VendorOrderModel.from_dataclass(vendor=self.vendor, order=order, dict_data=order_data)
                 month = Month(year=order_date.year, month=order_date.month)
-                office_budget = office.budgets.filter(month__year=order_date.year).filter(month__month=order_date.month).first()
+                office_budget = (
+                    office.budgets.filter(month__year=order_date.year).filter(month__month=order_date.month).first()
+                )
                 if office_budget:
                     print("===== base/save_order_to_db 21 =====")
                     office_budget.dental_spend = F("dental_spend") + order_data["total_amount"]
@@ -383,7 +388,12 @@ class Scraper:
                 else:
                     print("===== base/save_order_to_db 24 =====")
                     # office_budget = office.budgets.filter(month__gte=month).order_by("month").first()
-                    office_budget = office.budgets.filter(month__year = order_date.year).filter(month__month__gte=order_date.month).order_by("month").first()
+                    office_budget = (
+                        office.budgets.filter(month__year=order_date.year)
+                        .filter(month__month__gte=order_date.month)
+                        .order_by("month")
+                        .first()
+                    )
 
                     logger.debug("office_budget is {office_budget}")
                     print(f"office_budget is {office_budget}")
@@ -411,7 +421,9 @@ class Scraper:
                     order_product_data["vendor_status"] = order_product_data["status"]
                     print(order_product_data["vendor_status"])
                     print("===== base/save_order_to_db 13 =====")
-                    order_product_data["status"] = self.normalize_order_product_status(order_product_data["vendor_status"])
+                    order_product_data["status"] = self.normalize_order_product_status(
+                        order_product_data["vendor_status"]
+                    )
 
                     VendorOrderProductModel.objects.update_or_create(
                         vendor_order=vendor_order,

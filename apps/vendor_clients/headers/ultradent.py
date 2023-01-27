@@ -101,7 +101,7 @@ PRODUCT_DETAIL_QUERY = textwrap.dedent(
         }
     }
 
-    fragment baseCatalogDetail on types.Product {
+    fragment baseCatalogDetail on Product {
         sku
         brandId
         url
@@ -126,7 +126,7 @@ PRODUCT_DETAIL_QUERY = textwrap.dedent(
         __typename
     }
 
-    fragment accessoryDetail on types.Product {
+    fragment accessoryDetail on Product {
         sku
         productFamily
         productName

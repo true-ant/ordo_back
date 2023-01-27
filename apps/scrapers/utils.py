@@ -15,8 +15,6 @@ def catch_network(func):
             res = await func(*args, **kwargs)
         except ClientConnectorError:
             raise NetworkConnectionException()
-        except Exception as e:
-            raise e
         else:
             return res
 
