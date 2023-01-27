@@ -304,3 +304,18 @@ NON_FORMULA_VENDORS = [
 
 
 RUNSERVER_PLUS_PRINT_SQL_TRUNCATE = None
+
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": os.getenv("LOG_LEVEL", "WARNING"),
+    },
+}

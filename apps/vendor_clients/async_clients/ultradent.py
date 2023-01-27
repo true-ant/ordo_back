@@ -1,4 +1,5 @@
 import datetime
+import logging
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Union
 
@@ -18,6 +19,8 @@ from apps.vendor_clients.headers.ultradent import (
     PRE_LOGIN_HEADERS,
     PRODUCT_DETAIL_QUERY,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class UltradentClient(BaseClient):
@@ -165,6 +168,9 @@ class UltradentClient(BaseClient):
         pass
 
     def serialize(self, base_product: types.Product, data: dict) -> Optional[types.Product]:
+        if data is None:
+            logger.warning("Empty data for %s", base_product)
+            return None
         product_url = data["url"]
         if product_url:
             category = product_url.split("/")[3]
@@ -217,5 +223,9 @@ class UltradentClient(BaseClient):
                 "query": PRODUCT_DETAIL_QUERY,
             },
         ) as resp:
-            res = await resp.json()
-            return self.serialize(res["data"]["product"])
+            if resp.content_type == "application/json":
+                res = await resp.json()
+                return self.serialize(product, res["data"]["product"])
+            else:
+                text = await resp.text()
+                raise ValueError(text)
