@@ -1254,10 +1254,11 @@ class ProductHelper:
             .annotate(office_product_price=Subquery(office_product_price[:1]))
             .annotate(product_price=Coalesce(F("price"), F("office_product_price")))
         )
-        # if price_from is not None and price_from != -1:
-        #     products = products.filter(price__gte=price_from)
-        # if price_to is not None and price_to != -1:
-        #     products = products.filter(price_lte=price_to)
+
+        if price_from:
+            products = products.filter(price__gte=price_from)
+        if price_to:
+            products = products.filter(price_lte=price_to)
 
         products = (
             products.annotate(is_inventory=Exists(inventory_office_product))
