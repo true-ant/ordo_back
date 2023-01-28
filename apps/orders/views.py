@@ -1602,16 +1602,12 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
         office_pk = self.request.query_params.get("office_pk")
         selected_products = self.request.query_params.get("selected_products")
         selected_products = selected_products.split(",") if selected_products else []
-        price_from = self.request.query_params.get("price_from")
-        price_to = self.request.query_params.get("price_to")
 
         products, available_vendors = ProductHelper.get_products_v3(
             query=query,
             office=office_pk,
             fetch_parents=True,
             selected_products=selected_products,
-            price_from=price_from,
-            price_to=price_to,
         )
         self.available_vendors = available_vendors
 
@@ -1635,12 +1631,16 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
         query = self.request.GET.get("search", "")
         queryset = self.filter_queryset(self.get_queryset())
         vendors = self.request.query_params.get("vendors", "").split(",")
+        price_from = self.request.query_params.get("price_from")
+        price_to = self.request.query_params.get("price_to")
 
         product_list = list(queryset)
 
         if "ebay" in vendors:
             try:
-                ebay_products = EbaySearch().execute(keyword=query)
+                ebay_products = EbaySearch().execute(keyword=query,
+                                                     from_price=price_from,
+                                                     to_price=price_to)
 
                 if ebay_products:
                     self.available_vendors.append("ebay")
@@ -1651,7 +1651,9 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
         if "amazon" in vendors:
             # Add on the fly results
             try:
-                products_fly = AmazonSearchScraper()._search_products(query)
+                products_fly = AmazonSearchScraper()._search_products(query=query,
+                                                                      from_price=price_from,
+                                                                      to_price=price_to)
             except Exception:  # noqa
                 products_fly = {"products": []}
             # log += products_fly['log']

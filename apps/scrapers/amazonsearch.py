@@ -36,9 +36,7 @@ SEARCH_HEADERS = {
 class AmazonSearchScraper():
     BASE_URL = "https://www.amazon.com"
 
-    def _search_products(
-        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price", office_id=None
-    ):
+    def _search_products(self, query, page=1, from_price=None, to_price=None):
         log1 = "query = " + query
         url = f"{self.BASE_URL}/s"
         page_size = 16
@@ -65,6 +63,7 @@ class AmazonSearchScraper():
 
         products = []
         log1 += "ama7"
+
         for product_dom in response_dom.xpath(
             '//div[contains(@class, "s-result-list")]/div[contains(@class, "s-result-item")]'
         ):
@@ -77,6 +76,10 @@ class AmazonSearchScraper():
             product_price = product_dom.xpath('.//span[@class="a-price"]/span[@class="a-offscreen"]//text()').get()
             if product_price:
                 product_price = product_price.strip("$")
+                if from_price and float(product_price) < float(from_price):
+                    continue
+                if to_price and float(product_price) > float(to_price):
+                    continue
 
             product_image = product_dom.xpath('.//span[@data-component-type="s-product-image"]//img/@src').get()
             log1 += " " + product_name
