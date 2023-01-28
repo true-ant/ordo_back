@@ -1255,11 +1255,6 @@ class ProductHelper:
             .annotate(product_price=Coalesce(F("price"), F("office_product_price")))
         )
 
-        if price_from:
-            products = products.filter(price__gte=price_from)
-        if price_to:
-            products = products.filter(price_lte=price_to)
-
         products = (
             products.annotate(is_inventory=Exists(inventory_office_product))
             # .annotate(last_order_date=Subquery(inventory_office_products.values("last_order_date")[:1]))

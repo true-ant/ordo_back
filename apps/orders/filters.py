@@ -92,6 +92,8 @@ class ProductFilter(filters.FilterSet):
 
 class ProductV2Filter(filters.FilterSet):
     vendors = filters.CharFilter(method="filter_by_vendors")
+    price_from = filters.NumberFilter(field_name="product_price", lookup_expr='gte')
+    price_to = filters.NumberFilter(field_name="product_price", lookup_expr='lte')
     # search = filters.CharFilter(field_name="name", lookup_expr="search")
     # search = filters.CharFilter(method="filter_by_name")
 
