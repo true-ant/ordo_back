@@ -8,7 +8,7 @@ class UserFactory(DjangoModelFactory):
     class Meta:
         model = m.User
 
-    username = factory.Sequence(lambda n: f"test{n}")
+    username = factory.LazyAttribute(lambda o: o.email)
     email = factory.Sequence(lambda n: f"{n}@example.com")
 
 
@@ -43,4 +43,4 @@ class CompanyMemberFactory(DjangoModelFactory):
 
     company = factory.SubFactory(CompanyFactory)
     user = factory.SubFactory(UserFactory)
-    office = factory.SubFactory(OfficeFactory)
+    office = factory.LazyAttribute(lambda o: OfficeFactory(company=o.company))
