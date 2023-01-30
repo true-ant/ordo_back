@@ -1622,10 +1622,16 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
         serializer_context = super().get_serializer_context()
         office_pk = self.request.query_params.get("office_pk")
         vendors = self.request.query_params.get("vendors")
-        if vendors:
-            vendors = vendors.split(",")
-        serializer_context = {**serializer_context, "office_pk": office_pk, "vendors": vendors}
-        return serializer_context
+        price_from = self.request.query_params.get("price_from")
+        price_to = self.request.query_params.get("price_to")
+
+        return {
+            **serializer_context,
+            "office_pk": office_pk,
+            "vendors": vendors.split(",") if vendors else None,
+            "price_from": price_from,
+            "price_to": price_to
+        }
 
     def list(self, request, *args, **kwargs):
         query = self.request.GET.get("search", "")
@@ -1682,7 +1688,7 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
                     serializer = self.get_serializer(page_item)
                     serialized_data = serializer.data
                     serialized_data["searched_data"] = False
-                    product_data.append(serializer.data)
+                    product_data.append(serialized_data)
                 else:
                     page_item["searched_data"] = True
                     product_data.append(page_item)
