@@ -15,6 +15,7 @@ from rest_framework.serializers import ValidationError
 from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_REQUEST
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
@@ -79,13 +80,13 @@ class UserSignupAPIView(APIView):
                     date_joined=timezone.now(),
                 )
 
-        # payload = jwt_payload_handler(user)
-        # TODO: jwt_payload_handler
         send_welcome_email.delay(user_id=user.id)
+        token = RefreshToken.for_user(user).access_token
+        token["username"] = user.username
+        token["email"] = user.username
         return Response(
             {
-                # "token": jwt_encode_handler(payload),
-                # TODO: generate token
+                "token": str(token),
                 "company": s.CompanySerializer(company).data,
             }
         )

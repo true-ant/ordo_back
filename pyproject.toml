@@ -47,6 +47,7 @@ pytest = "^7.2.1"
 pytest-django = "^4.5.2"
 flashtext = "^2.7"
 djangorestframework-simplejwt = "^5.2.2"
+coverage = "^7.1.0"
 
 [tool.poetry.dev-dependencies]
 pre-commit = "^2.21.0"

@@ -372,6 +372,17 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "coverage"
+version = "7.1.0"
+description = "Code coverage measurement for Python"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.extras]
+toml = ["tomli"]
+
+[[package]]
 name = "cryptography"
 version = "36.0.2"
 description = "cryptography is a package which provides cryptographic recipes and primitives to Python developers."
@@ -1784,7 +1795,7 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "2d390766d8d41dbf36974512e8a2623750b30e303fc2e0e6b07e8b168367f491"
+content-hash = "597c6c6398423d28b5364a6ca1f83727bb8e1762e032b1d90bfeee61ae87743c"
 
 [metadata.files]
 aioboto3 = []
@@ -1815,6 +1826,7 @@ click-plugins = []
 click-repl = []
 colorama = []
 constantly = []
+coverage = []
 cryptography = []
 cssselect = []
 distlib = []

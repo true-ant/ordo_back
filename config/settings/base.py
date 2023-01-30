@@ -244,8 +244,7 @@ REST_FRAMEWORK = {
 
 # DRF-JWT
 SIMPLE_JWT = {
-    "JWT_EXPIRATION_DELTA": datetime.timedelta(days=3),
-    "JWT_RESPONSE_PAYLOAD_HANDLER": "apps.accounts.utils.jwt_response_payload_handler",
+    "ACCESS_TOKEN_LIFETIME": datetime.timedelta(days=3),
 }
 
 STATIC_LOCATION = "/static/"
