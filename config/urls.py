@@ -15,7 +15,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import include, path
-from rest_framework_jwt.views import obtain_jwt_token, verify_jwt_token
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenVerifyView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -23,8 +23,8 @@ urlpatterns = [
     path("api/", include("apps.orders.urls")),
     path("api/", include("apps.notifications.urls")),
     path("_nested_admin/", include("nested_admin.urls")),
-    path("api/auth/login/", obtain_jwt_token, name="login"),
-    path("api/token-verify/", verify_jwt_token, name="verify-token"),
+    path("api/auth/login/", TokenObtainPairView.as_view(), name="login"),
+    path("api/token-verify/", TokenVerifyView.as_view(), name="verify-token"),
     path(
         "api/password_reset/",
         include("django_rest_passwordreset.urls", namespace="password_reset"),

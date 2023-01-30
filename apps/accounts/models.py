@@ -7,12 +7,12 @@ from django.db import models
 from django.db.models import Manager
 from django.utils import timezone
 from django_extensions.db.fields import AutoSlugField
-from month import Month
-from month.models import MonthField
 from phonenumber_field.modelfields import PhoneNumberField
 
 from apps.accounts import managers
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
+from apps.common.month import Month
+from apps.common.month.models import MonthField
 from apps.common.utils import generate_token
 
 INVITE_EXPIRES_DAYS = 7

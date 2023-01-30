@@ -5,13 +5,13 @@ import django.contrib.auth.models
 import django.contrib.auth.validators
 import django.db.models.deletion
 import django.utils.timezone
-import month.models
 import phonenumber_field.modelfields
 from django.conf import settings
 from django.db import migrations, models
 
 import apps.accounts.models
 import apps.common.models
+import apps.common.month.models
 import apps.common.utils
 
 
@@ -149,7 +149,7 @@ class Migration(migrations.Migration):
                 ('office_percentage', models.DecimalField(decimal_places=2, default=0, max_digits=5)),
                 ('office_budget', models.DecimalField(decimal_places=2, default=0, max_digits=10)),
                 ('office_spend', models.DecimalField(decimal_places=2, default=0, max_digits=10)),
-                ('month', month.models.MonthField()),
+                ('month', apps.common.month.models.MonthField()),
                 ('office', apps.common.models.FlexibleForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='budgets', to='accounts.office')),
             ],
             options={

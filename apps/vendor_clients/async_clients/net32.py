@@ -92,7 +92,7 @@ class Net32Client(BaseClient):
         """ """
         async with self.session.get(f"https://www.net32.com/rest/neo/pdp/{product['product_id']}") as resp:
             res = await resp.json()
-            return self.serialize(res)
+            return self.serialize(product, res)
 
     async def get_product_price(
         self, product: types.Product, semaphore: Optional[Semaphore] = None, login_required: bool = False

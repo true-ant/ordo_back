@@ -7,7 +7,6 @@ from dateutil.relativedelta import relativedelta
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from month import Month
 from rest_framework import mixins
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -16,10 +15,10 @@ from rest_framework.serializers import ValidationError
 from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_REQUEST
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
-from rest_framework_jwt.serializers import jwt_encode_handler, jwt_payload_handler
 
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
+from apps.common.month import Month
 from apps.common.utils import formatStEndDateFromQuery
 from apps.scrapers.errors import (
     NetworkConnectionException,
@@ -80,11 +79,13 @@ class UserSignupAPIView(APIView):
                     date_joined=timezone.now(),
                 )
 
-        payload = jwt_payload_handler(user)
+        # payload = jwt_payload_handler(user)
+        # TODO: jwt_payload_handler
         send_welcome_email.delay(user_id=user.id)
         return Response(
             {
-                "token": jwt_encode_handler(payload),
+                # "token": jwt_encode_handler(payload),
+                # TODO: generate token
                 "company": s.CompanySerializer(company).data,
             }
         )
