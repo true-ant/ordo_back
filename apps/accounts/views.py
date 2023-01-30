@@ -1,13 +1,9 @@
-from datetime import datetime, timedelta, date
-from decimal import Decimal
 import json
-from aiohttp import ClientSession
-import requests
+from datetime import date, datetime, timedelta
+from decimal import Decimal
+
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
-
-# from celery.result import AsyncResult
-from django.apps import apps
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -24,13 +20,13 @@ from rest_framework_jwt.serializers import jwt_encode_handler, jwt_payload_handl
 
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
+from apps.common.utils import formatStEndDateFromQuery
 from apps.scrapers.errors import (
     NetworkConnectionException,
     VendorAuthenticationFailed,
     VendorNotSupported,
 )
-from apps.scrapers.scraper_factory import ScraperFactory
-from apps.common.utils import formatStEndDateFromQuery
+from services.opendental import OpenDentalClient
 
 from . import filters as f
 from . import models as m
@@ -65,6 +61,8 @@ class UserSignupAPIView(APIView):
                 company_member = m.CompanyMember.objects.filter(
                     token=token, email=serializer.validated_data["email"]
                 ).first()
+                if not company_member:
+                    raise ValidationError("Your invite not found")
                 company_member.user = user
                 company_member.invite_status = m.CompanyMember.InviteStatus.INVITE_APPROVED
                 company_member.date_joined = timezone.now()
@@ -186,75 +184,70 @@ class OfficeViewSet(ModelViewSet):
 
             resp = self.update_budget_from_dental(request, *args, **kwargs)
             return Response(status=HTTP_200_OK, data=resp.data)
-        return Response(status = HTTP_400_BAD_REQUEST)
+        return Response(status=HTTP_400_BAD_REQUEST)
 
     def load_prev_month_production(self, day1, day2, api_key):
-        with open('query/production.json') as f:
-            queryProduction = json.load(f,strict=False)
-        query = formatStEndDateFromQuery(
-            queryProduction, day1, day2)
-        response = requests.put('https://api.opendental.com/api/v1/queries/ShortQuery',
-                                headers={'Authorization': api_key}, json=json.loads(query,strict=False))
-        json_production = json.loads(response.content)
-        return json_production[0]['DayProductionResult']
-        
-    
+        with open("query/production.json") as f:
+            queryProduction = json.load(f, strict=False)
+        query = formatStEndDateFromQuery(queryProduction, day1, day2)
+        od_client = OpenDentalClient(api_key)
+        json_production = od_client.query(query)
+        return json_production[0]["DayProductionResult"]
+
     @action(detail=True, methods=["post"], url_path="update_budget")
     def update_budget_from_dental(self, request, *args, **kwargs):
         instance = self.get_object()
         api_key = instance.dental_api
-        if api_key == None or len(api_key) < 5:
+        if api_key is None or len(api_key) < 5:
             return Response({"message": "no api key"}, HTTP_200_OK)
         now_date = timezone.now().date()
         prev_date = now_date - relativedelta(months=1)
 
-        if m.OfficeBudget.objects.filter(
-            office=instance,
-            month = datetime(now_date.year, now_date.month, 1)
-        ):
+        if m.OfficeBudget.objects.filter(office=instance, month=datetime(now_date.year, now_date.month, 1)):
             print(now_date.year, now_date.month)
-            return Response({"message":"budget alread exists"}, status=HTTP_200_OK)      
+            return Response({"message": "budget alread exists"}, status=HTTP_200_OK)
 
         last_day_of_prev_month = date.today().replace(day=1) - timedelta(days=1)
         start_day_of_prev_month = date.today().replace(day=1) - timedelta(days=last_day_of_prev_month.day)
-        prev_adjusted_production = self.load_prev_month_production(start_day_of_prev_month, last_day_of_prev_month, api_key)
+        prev_adjusted_production = self.load_prev_month_production(
+            start_day_of_prev_month, last_day_of_prev_month, api_key
+        )
         prev_dental_percentage = 5.0
         prev_office_percentage = 0.5
 
-        if m.OfficeBudget.objects.filter(
-            office=instance,
-            month = datetime(prev_date.year, prev_date.month, 1)
-        ):
+        if m.OfficeBudget.objects.filter(office=instance, month=datetime(prev_date.year, prev_date.month, 1)):
             prev_budget = m.OfficeBudget.objects.get(
-                office=instance,
-                month = datetime(prev_date.year, prev_date.month, 1)
+                office=instance, month=datetime(prev_date.year, prev_date.month, 1)
             )
             prev_dental_percentage = prev_budget.dental_percentage
             prev_office_percentage = prev_budget.office_percentage
-            
+
         prev_dental_budget = prev_adjusted_production * float(prev_dental_percentage) / 100.0
-        prev_office_budget = prev_adjusted_production * float(prev_office_percentage) / 100.0    
+        prev_office_budget = prev_adjusted_production * float(prev_office_percentage) / 100.0
         m.OfficeBudget.objects.create(
             office=instance,
-            dental_budget_type='production',
+            dental_budget_type="production",
             dental_total_budget=prev_adjusted_production,
             dental_percentage=prev_dental_percentage,
             dental_budget=prev_dental_budget,
-            dental_spend='0.0',
-            office_budget_type='production',
+            dental_spend="0.0",
+            office_budget_type="production",
             office_total_budget=prev_adjusted_production,
             office_percentage=prev_office_percentage,
             office_budget=prev_office_budget,
-            office_spend='0.0',
-            month=now_date
+            office_spend="0.0",
+            month=now_date,
         )
-        return Response(data={
-            "dental_budget_type": "production",
-            "dental_percentage": prev_dental_percentage,
-            "dental_budget": prev_dental_budget,
-            "dental_total_budget": prev_adjusted_production,
+        return Response(
+            data={
+                "dental_budget_type": "production",
+                "dental_percentage": prev_dental_percentage,
+                "dental_budget": prev_dental_budget,
+                "dental_total_budget": prev_adjusted_production,
+            },
+            status=HTTP_200_OK,
+        )
 
-        }, status=HTTP_200_OK)      
 
 class CompanyMemberViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -456,8 +449,10 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
         # session = apps.get_app_config("accounts").session
         # session._cookie_jar.clear()
         try:
-            if serializer.validated_data["vendor"].slug != "amazon" and \
-                serializer.validated_data["vendor"].slug != "ebay":
+            if (
+                serializer.validated_data["vendor"].slug != "amazon"
+                and serializer.validated_data["vendor"].slug != "ebay"
+            ):
                 # scraper = ScraperFactory.create_scraper(
                 #     vendor=serializer.validated_data["vendor"],
                 #     username=serializer.validated_data["username"],
@@ -491,7 +486,7 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
             return Response({"message": msgs.VENDOR_WRONG_INFORMATION}, status=HTTP_400_BAD_REQUEST)
         except NetworkConnectionException:
             return Response({"message": msgs.VENDOR_BAD_NETWORK_CONNECTION}, status=HTTP_400_BAD_REQUEST)
-        except Exception as e:
+        except Exception:
             return Response({"message": msgs.UNKNOWN_ISSUE, **serializer.data})
 
         return Response({"message": msgs.VENDOR_CONNECTED, **serializer.data})

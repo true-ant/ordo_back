@@ -11,7 +11,6 @@ from operator import or_
 from typing import Dict, List, Optional, TypedDict, Union
 
 import pandas as pd
-import requests
 from aiohttp import ClientSession
 from asgiref.sync import sync_to_async
 from dateutil import rrule
@@ -66,6 +65,7 @@ from apps.vendor_clients.async_clients import BaseClient as BaseAsyncClient
 from apps.vendor_clients.errors import VendorAuthenticationFailed
 from apps.vendor_clients.sync_clients import BaseClient as BaseSyncClient
 from apps.vendor_clients.types import Product, ProductPrice, VendorCredential
+from services.opendental import OpenDentalClient
 
 SmartID = Union[int, str]
 ProductID = SmartID
@@ -224,9 +224,7 @@ class OfficeProductHelper:
 
     @staticmethod
     async def get_product_prices(
-        products: Dict[SmartID, ProductModel],
-        office: Union[SmartID, OfficeModel],
-        from_api: bool = False
+        products: Dict[SmartID, ProductModel], office: Union[SmartID, OfficeModel], from_api: bool = False
     ) -> Dict[str, ProductPrice]:
         """
         This return prices for products
@@ -275,13 +273,9 @@ class OfficeProductHelper:
         product_prices = defaultdict(dict)
 
         # get prices of products from formula vendors
-        office_products = OfficeProductModel\
-            .objects\
-            .filter(product_id__in=product_ids_from_formula_vendors,
-                    office_id=office_id)\
-            .values("product_id",
-                    "price",
-                    "product_vendor_status")
+        office_products = OfficeProductModel.objects.filter(
+            product_id__in=product_ids_from_formula_vendors, office_id=office_id
+        ).values("product_id", "price", "product_vendor_status")
 
         for office_product in office_products:
             product_prices[office_product["product_id"]]["price"] = office_product["price"]
@@ -347,7 +341,7 @@ class OfficeProductHelper:
             while True:
                 if offset > len(vendor_product_ids):
                     break
-                v_ids = vendor_product_ids[offset: offset + step_size]
+                v_ids = vendor_product_ids[offset : offset + step_size]
 
                 print(offset, v_ids)
                 await OfficeProductHelper.get_product_prices_by_ids(v_ids, office_id)
@@ -1374,12 +1368,8 @@ class ProcedureHelper:
         try:
             creating_procedures = []
             while True:
-                response = requests.put(
-                    f"https://api.opendental.com/api/v1/queries/ShortQuery?Offset={offset}",
-                    headers={"Authorization": dental_api},
-                    json=json.loads(query, strict=False),
-                )
-                json_procedure = json.loads(response.content)
+                od_client = OpenDentalClient(dental_api)
+                json_procedure = od_client.query(query, offset)
                 response_len = len(json_procedure)
 
                 print(f"Fetching offset = {offset} length = {response_len}")
