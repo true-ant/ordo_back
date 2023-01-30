@@ -487,7 +487,7 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
             return Response({"message": msgs.VENDOR_WRONG_INFORMATION}, status=HTTP_400_BAD_REQUEST)
         except NetworkConnectionException:
             return Response({"message": msgs.VENDOR_BAD_NETWORK_CONNECTION}, status=HTTP_400_BAD_REQUEST)
-        except Exception:
+        except Exception:  # noqa
             return Response({"message": msgs.UNKNOWN_ISSUE, **serializer.data})
 
         return Response({"message": msgs.VENDOR_CONNECTED, **serializer.data})
