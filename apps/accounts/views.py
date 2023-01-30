@@ -2,7 +2,6 @@ import json
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
-import requests
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
 from django.db import transaction
@@ -27,6 +26,7 @@ from apps.scrapers.errors import (
     VendorAuthenticationFailed,
     VendorNotSupported,
 )
+from services.opendental import OpenDentalClient
 
 from . import filters as f
 from . import models as m
@@ -190,12 +190,8 @@ class OfficeViewSet(ModelViewSet):
         with open("query/production.json") as f:
             queryProduction = json.load(f, strict=False)
         query = formatStEndDateFromQuery(queryProduction, day1, day2)
-        response = requests.put(
-            "https://api.opendental.com/api/v1/queries/ShortQuery",
-            headers={"Authorization": api_key},
-            json=json.loads(query, strict=False),
-        )
-        json_production = json.loads(response.content)
+        od_client = OpenDentalClient(api_key)
+        json_production = od_client.query(query)
         return json_production[0]["DayProductionResult"]
 
     @action(detail=True, methods=["post"], url_path="update_budget")
