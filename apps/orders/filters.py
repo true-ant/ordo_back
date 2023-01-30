@@ -92,10 +92,19 @@ class ProductFilter(filters.FilterSet):
 
 class ProductV2Filter(filters.FilterSet):
     vendors = filters.CharFilter(method="filter_by_vendors")
-    price_from = filters.NumberFilter(field_name="product_price", lookup_expr='gte')
-    price_to = filters.NumberFilter(field_name="product_price", lookup_expr='lte')
-    # search = filters.CharFilter(field_name="name", lookup_expr="search")
-    # search = filters.CharFilter(method="filter_by_name")
+    price_from = filters.NumberFilter(method="filter_by_price_range", lookup_expr='gte')
+    price_to = filters.NumberFilter(method="filter_by_price_range", lookup_expr='lte')
+
+    def filter_by_price_range(self, queryset, name, value):
+        query = Q(child__isnull=False)
+
+        if name == 'price_from':
+            query |= Q(child__isnull=True) & Q(product_price__gte=value)
+        else:
+            query |= Q(child__isnull=True) & Q(product_price__lte=value)
+        queryset = queryset.filter(query)
+
+        return queryset
 
     def filter_by_vendors(self, queryset, name, value):
         vendor_slugs = value.split(",")

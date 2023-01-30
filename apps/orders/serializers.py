@@ -109,6 +109,8 @@ class ProductV2Serializer(serializers.ModelSerializer):
 
     last_order_price = serializers.DecimalField(decimal_places=2, max_digits=10, read_only=True)
 
+    children = serializers.SerializerMethodField('get_childen')
+
     class Meta:
         model = m.Product
         fields = (
@@ -132,14 +134,31 @@ class ProductV2Serializer(serializers.ModelSerializer):
             "last_order_date",
             "last_order_price",
             "last_order_vendor",
+            "children"
         )
         ordering = ("name",)
 
+    def get_childen(self, product):
+        children_ids = product.children.values_list("id", flat=True)
+        office_id = self.context.get("office_pk")
+        price_from = self.context.get("price_from")
+        price_to = self.context.get("price_to")
+
+        if children_ids:
+            children_products = ProductHelper.get_products(
+                office=office_id, fetch_parents=False, product_ids=children_ids
+            )
+
+            if price_from:
+                children_products = children_products.filter(product_price__gte=price_from)
+            if price_to:
+                children_products = children_products.filter(product_price__lte=price_to)
+            return self.__class__(children_products, many=True, context={"office_pk": office_id}).data
+        return []
+
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        office_pk = self.context.get("office_pk")
-        # if you want to filter out pricing comparision products, uncomment it
-        # vendors = self.context.get("vendors")
+
         if hasattr(instance, "office_product") and instance.office_product:
             ret["product_vendor_status"] = instance.office_product[0].product_vendor_status
             ret["last_order_date"] = instance.office_product[0].last_order_date
@@ -150,25 +169,16 @@ class ProductV2Serializer(serializers.ModelSerializer):
 
         if instance.vendor and instance.vendor.slug in settings.NON_FORMULA_VENDORS:
             ret["product_price"] = instance.recent_price
+        if instance.parent is None:
+            ret["description"] = instance.description
 
-        # if hasattr(instance, "office_product") and instance.office_product:
-        #     if "product_price" not in ret:
-        #         ret["product_price"] = instance.office_product[0].recent_price
+        childrens = ret["children"]
 
-        children_ids = instance.children.values_list("id", flat=True)
-        # if you want to filter out pricing comparision products, uncomment it
-        # if vendors:
-        #     children_ids = children_ids.filter(vendor__slug__in=vendors)
-
-        if children_ids:
-            children_products = ProductHelper.get_products(
-                office=office_pk, fetch_parents=False, product_ids=children_ids
-            )
-            ret["children"] = self.__class__(children_products, many=True, context={"office_pk": office_pk}).data
+        if childrens:
             last_order_dates = sorted(
                 [
                     (child["last_order_date"], child["last_order_price"], child["last_order_vendor"])
-                    for child in ret["children"]
+                    for child in childrens
                     if child["is_inventory"]
                 ],
                 key=lambda x: x[0],
@@ -178,11 +188,6 @@ class ProductV2Serializer(serializers.ModelSerializer):
                 ret["last_order_date"] = last_order_dates[0][0]
                 ret["last_order_price"] = last_order_dates[0][1]
                 ret["last_order_vendor"] = last_order_dates[0][2]
-        else:
-            ret["children"] = []
-
-        if instance.parent is None:
-            ret["description"] = instance.description
         return ret
 
 
