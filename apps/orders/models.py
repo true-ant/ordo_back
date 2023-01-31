@@ -166,6 +166,19 @@ class Product(TimeStampedModel):
             "unit": self.product_unit,
         }
 
+    async def ato_dict(self) -> ProductDict:
+        return {
+            "vendor": self.vendor.slug,
+            "product_id": self.product_id if self.product_id else "",
+            "sku": "",
+            "name": self.name,
+            "url": self.url if self.url else "",
+            "images": [image.image async for image in self.images.all()],
+            "price": self.price,
+            "category": self.category.slug,
+            "unit": self.product_unit,
+        }
+
     def to_dataclass(self):
         return ProductDataClass(
             product_id=self.product_id,

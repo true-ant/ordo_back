@@ -1,3 +1,5 @@
+import logging
+import traceback
 from asyncio import Semaphore
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Union
@@ -6,9 +8,14 @@ from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.common.utils import convert_string_to_price
+from apps.orders.models import Product
 from apps.scrapers.semaphore import fake_semaphore
 from apps.vendor_clients import types
-from apps.vendor_clients.async_clients.base import BaseClient
+from apps.vendor_clients.async_clients.base import (
+    BaseClient,
+    PriceInfo,
+    TooManyRequests,
+)
 from apps.vendor_clients.headers.net_32 import (
     ADD_PRODUCT_TO_CART_HEADERS,
     CART_HEADERS,
@@ -17,6 +24,8 @@ from apps.vendor_clients.headers.net_32 import (
     REMOVE_PRODUCT_FROM_CART_HEADERS,
     REVIEW_ORDER_HEADERS,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class Net32Client(BaseClient):
@@ -100,13 +109,12 @@ class Net32Client(BaseClient):
         if not semaphore:
             semaphore = fake_semaphore
         async with semaphore:
-            if login_required:
-                await self.login()
             product_id = product["product_id"]
             try:
-                async with self.session.get(
-                    f"https://www.net32.com/rest/neo/pdp/{product['product_id']}/vendor-options"
-                ) as resp:
+                async with self.session.get(f"https://www.net32.com/rest/neo/pdp/{product_id}/vendor-options") as resp:
+                    logger.debug(f"Status code for {product_id} is {resp.status}")
+                    if resp.status == 429:
+                        raise TooManyRequests()
                     vendor_options = await resp.json()
                     vendor_options = sorted(
                         # vendor_options, key=lambda x: (x["promisedHandlingTime"], x["priceBreaks"][0]["unitPrice"])
@@ -120,16 +128,45 @@ class Net32Client(BaseClient):
                         is_special_offer = True
                         special_price = vendor_options[0]["priceBreaks"][-1]["unitPrice"]
             except Exception as e:  # noqa
-                return {product_id: {"price": Decimal(0), "product_vendor_status": "Network Error"}}
-            else:
-                return {
-                    product_id: {
-                        "price": Decimal(str(price)),
-                        "product_vendor_status": "Active",
-                        "is_special_offer": is_special_offer,
-                        "special_price": Decimal(str(special_price)),
-                    }
+                logger.warning("Got exception: %s", "".join(traceback.TracebackException.from_exception(e).format()))
+                raise
+            return {
+                product_id: {
+                    "price": Decimal(str(price)),
+                    "product_vendor_status": "Active",
+                    "is_special_offer": is_special_offer,
+                    "special_price": Decimal(str(special_price)),
                 }
+            }
+
+    async def get_product_price_v2(self, product: Product) -> PriceInfo:
+        product_id = product.product_id
+        try:
+            async with self.session.get(f"https://www.net32.com/rest/neo/pdp/{product_id}/vendor-options") as resp:
+                logger.debug(f"Status code for {product_id} is {resp.status}")
+                if resp.status == 429:
+                    raise TooManyRequests()
+                vendor_options = await resp.json()
+                vendor_options = sorted(
+                    # vendor_options, key=lambda x: (x["promisedHandlingTime"], x["priceBreaks"][0]["unitPrice"])
+                    vendor_options,
+                    key=lambda x: min(x["priceBreaks"], key=lambda y: y["unitPrice"])["unitPrice"],
+                )
+                price = vendor_options[0]["priceBreaks"][0]["unitPrice"]
+                is_special_offer = False
+                special_price = 0
+                if len(vendor_options[0]["priceBreaks"]) >= 2:
+                    is_special_offer = True
+                    special_price = vendor_options[0]["priceBreaks"][-1]["unitPrice"]
+        except Exception as e:  # noqa
+            logger.warning("Got exception: %s", "".join(traceback.TracebackException.from_exception(e).format()))
+            raise
+        return PriceInfo(
+            price=Decimal(str(price)),
+            product_vendor_status="Active",
+            is_special_offer=is_special_offer,
+            special_price=Decimal(str(special_price)),
+        )
 
     def serialize(self, base_product: types.Product, data: Union[dict, Selector]) -> Optional[types.Product]:
         """Serialize vendor-specific product detail to our data"""
