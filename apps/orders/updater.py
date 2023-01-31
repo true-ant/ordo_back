@@ -12,9 +12,16 @@ from django.utils import timezone
 from apps.accounts.models import OfficeVendor, Vendor
 from apps.orders.models import OfficeProduct, Product
 from apps.vendor_clients.async_clients import BaseClient
-from apps.vendor_clients.async_clients.base import PriceInfo, TooManyRequests
+from apps.vendor_clients.async_clients.base import (
+    EmptyResults,
+    PriceInfo,
+    TooManyRequests,
+)
 
 logger = logging.getLogger(__name__)
+
+
+STATUS_UNAVAILABLE = "Unavailable"
 
 
 class ProcessTask(NamedTuple):
@@ -98,7 +105,7 @@ class Updater:
     async def producer(self):
         async for product in Product.objects.filter(
             vendor=self.vendor, last_price_updated__lt=timezone.now() - self.record_age
-        ):
+        ).exclude(product_vendor_status=STATUS_UNAVAILABLE):
             await self.put(ProcessTask(product))
 
     async def put(self, item):
@@ -112,6 +119,10 @@ class Updater:
             logger.debug("Retrying fetching product price for %s. Attempt #%s", pt.product.id, pt.attempt + 1)
             self.statbuffer.add_item(False)
             await self.put(ProcessTask(pt.product, pt.attempt + 1))
+        except EmptyResults:
+            logger.debug("Marking product %s as empty", pt.product.id)
+            self.statbuffer.add_item(True)
+            await self.mark_as_unavailable(pt.product)
         except:  # noqa
             logger.debug("Retrying fetching product price for %s. Attempt #%s", pt.product.id, pt.attempt + 1)
             self.statbuffer.add_item(True)
@@ -119,6 +130,10 @@ class Updater:
         else:
             self.statbuffer.add_item(True)
             await self.update_price(pt.product, product_price)
+
+    async def mark_as_unavailable(self, product: Product):
+        await Product.objects.filter(pk=product.pk).aupdate(product_vendor_status=STATUS_UNAVAILABLE)
+        await OfficeProduct.objects.filter(product_id=product.pk).aupdate(product_vendor_status=STATUS_UNAVAILABLE)
 
     async def update_price(self, product: Product, price_info: PriceInfo):
         update_time = timezone.now()

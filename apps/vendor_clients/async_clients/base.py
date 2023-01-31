@@ -33,6 +33,10 @@ class TooManyRequests(Exception):
     pass
 
 
+class EmptyResults(Exception):
+    pass
+
+
 class PriceInfo(NamedTuple):
     price: decimal.Decimal
     product_vendor_status: str
