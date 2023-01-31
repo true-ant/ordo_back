@@ -1,9 +1,14 @@
 import datetime
 
-from django.db.models import Q
+from django.db.models import (
+    Q,
+    Exists,
+    OuterRef
+)
 from django_filters import rest_framework as filters
 
 from apps.common.utils import get_date_range
+from apps.common.choices import ProductStatus
 
 from .models import OfficeProduct, Order, Product, VendorOrder, VendorOrderProduct
 
@@ -24,12 +29,23 @@ class VendorOrderFilter(filters.FilterSet):
     end_date = filters.DateFilter(field_name="order_date", lookup_expr="lte")
     budget_type = filters.CharFilter(method="filter_by_budget_type")
     date_range = filters.CharFilter(method="filter_by_range")
-    status = filters.CharFilter(field_name="status")
+    status = filters.CharFilter(method="filter_by_status")
     q = filters.CharFilter(method="filter_orders")
 
     class Meta:
         model = VendorOrder
         fields = ["status", "start_date", "end_date"]
+
+    def filter_by_status(self, queryset, name, value):
+        if value == ProductStatus.BACK_ORDERED.value:
+            return queryset.filter(
+                Exists(
+                    VendorOrderProduct.objects.filter(
+                        vendor_order=OuterRef("pk"), status=value
+                    )
+                )
+            )
+        return queryset.filter(**{name: value})
 
     def filter_by_ids(self, queryset, name, value):
         ids = value.split(",")

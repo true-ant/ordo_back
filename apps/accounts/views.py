@@ -169,7 +169,7 @@ class OfficeViewSet(ModelViewSet):
     @action(detail=True, methods=["post"], url_path="settings")
     def update_settings(self, request, *args, **kwargs):
         instance = self.get_object()
-        office_setting = m.OfficeSetting.objects.get_or_create(office=instance)
+        office_setting, _ = m.OfficeSetting.objects.get_or_create(office=instance)
         serializer = s.OfficeSettingSerializer(office_setting, data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
