@@ -21,6 +21,7 @@ from apps.accounts.helper import OfficeBudgetHelper
 from apps.accounts.models import CompanyMember, Office, OfficeVendor, User
 from apps.orders.helpers import OfficeProductHelper
 from apps.orders.models import OfficeProductCategory, OrderStatus, VendorOrder
+from apps.orders.updater import fetch_for_vendor
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import CompanyInvite
 from apps.vendor_clients.async_clients import BaseClient
@@ -144,16 +145,7 @@ def fetch_vendor_products_prices(office_vendor_id):
 
 @app.task
 def update_net32_vendor_products_prices():
-    print("====update_net32_vendor_products_prices====")
-    office_vendors = OfficeVendor.objects.select_related("office", "vendor").filter(vendor__slug="net_32")
-
-    for office_vendor in office_vendors:
-        asyncio.run(
-            OfficeProductHelper.get_all_product_prices_from_vendors(
-                office_id=office_vendor.office.id, vendor_slugs=[office_vendor.vendor.slug]
-            )
-        )
-    print("update_net32_vendor_products_prices DONE")
+    asyncio.run(fetch_for_vendor("net_32"))
 
 
 @app.task

@@ -1,12 +1,13 @@
 import asyncio
 import datetime
+import decimal
 import logging
 import traceback
 import uuid
 from asyncio import Semaphore
 from collections import ChainMap
 from http.cookies import SimpleCookie
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, NamedTuple, Optional, Union
 
 from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
@@ -26,6 +27,17 @@ BASE_HEADERS = {
     "sec-ch-ua-mobile": "?0",
     "sec-ch-ua-platform": '"Windows"',
 }
+
+
+class TooManyRequests(Exception):
+    pass
+
+
+class PriceInfo(NamedTuple):
+    price: decimal.Decimal
+    product_vendor_status: str
+    is_special_offer: bool
+    special_price: decimal.Decimal
 
 
 class BaseClient:
