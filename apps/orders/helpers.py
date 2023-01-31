@@ -596,6 +596,10 @@ class ProductHelper:
         df_len = len(df)
 
         vendor = VendorModel.objects.get(slug=vendor_slug)
+
+        # Remove old promotion fields
+        ProductModel.objects.filter(vendor=vendor).update(is_special_offer=False)
+
         while df_len > df_index:
             sub_df = df[df_index : df_index + batch_size]
             product_objs = []
