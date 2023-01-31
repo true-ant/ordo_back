@@ -13,6 +13,7 @@ from apps.scrapers.semaphore import fake_semaphore
 from apps.vendor_clients import types
 from apps.vendor_clients.async_clients.base import (
     BaseClient,
+    EmptyResults,
     PriceInfo,
     TooManyRequests,
 )
@@ -147,6 +148,8 @@ class Net32Client(BaseClient):
                 if resp.status == 429:
                     raise TooManyRequests()
                 vendor_options = await resp.json()
+                if len(vendor_options) == 0:
+                    raise EmptyResults()
                 logger.debug("Got response for %s: %s", product_id, vendor_options)
                 vendor_options = sorted(
                     # vendor_options, key=lambda x: (x["promisedHandlingTime"], x["priceBreaks"][0]["unitPrice"])
