@@ -147,17 +147,22 @@ class Net32Client(BaseClient):
                 if resp.status == 429:
                     raise TooManyRequests()
                 vendor_options = await resp.json()
+                logger.debug("Got response for %s: %s", product_id, vendor_options)
                 vendor_options = sorted(
                     # vendor_options, key=lambda x: (x["promisedHandlingTime"], x["priceBreaks"][0]["unitPrice"])
                     vendor_options,
                     key=lambda x: min(x["priceBreaks"], key=lambda y: y["unitPrice"])["unitPrice"],
                 )
-                price = vendor_options[0]["priceBreaks"][0]["unitPrice"]
+
+                vendor_option = vendor_options[0]
+                price_breaks = vendor_option["priceBreaks"]
+                first_price = price_breaks[0]
+                price = first_price["unitPrice"]
                 is_special_offer = False
                 special_price = 0
-                if len(vendor_options[0]["priceBreaks"]) >= 2:
+                if len(price_breaks) >= 2:
                     is_special_offer = True
-                    special_price = vendor_options[0]["priceBreaks"][-1]["unitPrice"]
+                    special_price = price_breaks[-1]["unitPrice"]
         except Exception as e:  # noqa
             logger.warning("Got exception: %s", "".join(traceback.TracebackException.from_exception(e).format()))
             raise

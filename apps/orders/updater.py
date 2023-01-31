@@ -76,6 +76,7 @@ class StatBuffer:
 
 class Updater:
     attempt_threshold = 3
+    record_age = datetime.timedelta(days=2)
 
     def __init__(self, vendor: Vendor):
         self.to_process: Queue[ProcessTask] = Queue(maxsize=20)
@@ -95,9 +96,14 @@ class Updater:
         return self._crendentials
 
     async def producer(self):
-        async for product in Product.objects.filter(vendor=self.vendor):
-            await self.to_process.put(ProcessTask(product))
-            await asyncio.sleep(1 / self.target_rate)
+        async for product in Product.objects.filter(
+            vendor=self.vendor, last_price_updated__lt=timezone.now() - self.record_age
+        ):
+            await self.put(ProcessTask(product))
+
+    async def put(self, item):
+        await asyncio.sleep(1 / self.target_rate)
+        await self.to_process.put(item)
 
     async def process(self, client, pt: ProcessTask):
         try:
@@ -105,11 +111,11 @@ class Updater:
         except TooManyRequests:
             logger.debug("Retrying fetching product price for %s. Attempt #%s", pt.product.id, pt.attempt + 1)
             self.statbuffer.add_item(False)
-            await self.to_process.put(ProcessTask(pt.product, pt.attempt + 1))
+            await self.put(ProcessTask(pt.product, pt.attempt + 1))
         except:  # noqa
             logger.debug("Retrying fetching product price for %s. Attempt #%s", pt.product.id, pt.attempt + 1)
             self.statbuffer.add_item(True)
-            await self.to_process.put(ProcessTask(pt.product, pt.attempt + 1))
+            await self.put(ProcessTask(pt.product, pt.attempt + 1))
         else:
             self.statbuffer.add_item(True)
             await self.update_price(pt.product, product_price)
