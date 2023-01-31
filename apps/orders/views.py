@@ -9,7 +9,6 @@ from datetime import timedelta
 from decimal import Decimal
 from functools import reduce
 from typing import Union
-from urllib.parse import parse_qs, urlencode
 
 from aiohttp import ClientSession
 from asgiref.sync import sync_to_async
@@ -1856,9 +1855,7 @@ class ProcedureCategoryLink(ModelViewSet):
 
     @action(detail=False, url_path="linked-products")
     def get_linked_inventory_products(self, request, *args, **kwargs):
-        summary_category = (
-            parse_qs(urlencode(self.request.query_params), separator="~").get("summary_category")[0].replace("=", "")
-        )
+        summary_category = self.request.query_params.get("summary_category", "all")
         slugs = self.queryset.get(summary_slug=summary_category).linked_slugs
         queryset = m.OfficeProduct.objects.filter(
             office__id=self.kwargs["office_pk"], is_inventory=True, office_product_category__slug__in=slugs
