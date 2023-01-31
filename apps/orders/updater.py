@@ -135,7 +135,7 @@ class Updater:
             username=credentials["username"],
             password=credentials["password"],
         )
-        while not self.to_process.empty():
+        while True:
             pt = await self.to_process.get()
             if pt.attempt > self.attempt_threshold:
                 logger.warning("Too many attempts updating product %s. Giving up", pt.product.id)
