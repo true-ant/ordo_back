@@ -224,9 +224,7 @@ class OfficeProductHelper:
 
     @staticmethod
     async def get_product_prices(
-        products: Dict[SmartID, ProductModel],
-        office: Union[SmartID, OfficeModel],
-        from_api: bool = False
+        products: Dict[SmartID, ProductModel], office: Union[SmartID, OfficeModel], from_api: bool = False
     ) -> Dict[str, ProductPrice]:
         """
         This return prices for products
@@ -275,13 +273,9 @@ class OfficeProductHelper:
         product_prices = defaultdict(dict)
 
         # get prices of products from formula vendors
-        office_products = OfficeProductModel\
-            .objects\
-            .filter(product_id__in=product_ids_from_formula_vendors,
-                    office_id=office_id)\
-            .values("product_id",
-                    "price",
-                    "product_vendor_status")
+        office_products = OfficeProductModel.objects.filter(
+            product_id__in=product_ids_from_formula_vendors, office_id=office_id
+        ).values("product_id", "price", "product_vendor_status")
 
         for office_product in office_products:
             product_prices[office_product["product_id"]]["price"] = office_product["price"]
@@ -347,7 +341,7 @@ class OfficeProductHelper:
             while True:
                 if offset > len(vendor_product_ids):
                     break
-                v_ids = vendor_product_ids[offset: offset + step_size]
+                v_ids = vendor_product_ids[offset : offset + step_size]
 
                 print(offset, v_ids)
                 await OfficeProductHelper.get_product_prices_by_ids(v_ids, office_id)
@@ -602,6 +596,10 @@ class ProductHelper:
         df_len = len(df)
 
         vendor = VendorModel.objects.get(slug=vendor_slug)
+
+        # Remove old promotion fields
+        ProductModel.objects.filter(vendor=vendor).update(is_special_offer=False)
+
         while df_len > df_index:
             sub_df = df[df_index : df_index + batch_size]
             product_objs = []

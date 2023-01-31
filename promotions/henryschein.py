@@ -116,7 +116,7 @@ class HenrySpider:
             csvwriter.writerow(["product_id", "promo"])
             for store_promotions in data:
                 for product_id in store_promotions["ids"]:
-                    csvwriter.writerow([product_id, store_promotions["promocode"]])
+                    csvwriter.writerow([product_id, store_promotions["promo"]])
 
 
 if __name__ == "__main__":
