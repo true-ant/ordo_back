@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 
 
 STATUS_UNAVAILABLE = "Unavailable"
+STATUS_EXHAUSTED = "Exhausted"
+STATUS_ACTIVE = "Active"
 
 
 class ProcessTask(NamedTuple):
@@ -122,7 +124,7 @@ class Updater:
         except EmptyResults:
             logger.debug("Marking product %s as empty", pt.product.id)
             self.statbuffer.add_item(True)
-            await self.mark_as_unavailable(pt.product)
+            await self.mark_status(pt.product, STATUS_UNAVAILABLE)
         except:  # noqa
             logger.debug("Retrying fetching product price for %s. Attempt #%s", pt.product.id, pt.attempt + 1)
             self.statbuffer.add_item(True)
@@ -131,9 +133,9 @@ class Updater:
             self.statbuffer.add_item(True)
             await self.update_price(pt.product, product_price)
 
-    async def mark_as_unavailable(self, product: Product):
-        await Product.objects.filter(pk=product.pk).aupdate(product_vendor_status=STATUS_UNAVAILABLE)
-        await OfficeProduct.objects.filter(product_id=product.pk).aupdate(product_vendor_status=STATUS_UNAVAILABLE)
+    async def mark_status(self, product: Product, status: str):
+        await Product.objects.filter(pk=product.pk).aupdate(product_vendor_status=status)
+        await OfficeProduct.objects.filter(product_id=product.pk).aupdate(product_vendor_status=status)
 
     async def update_price(self, product: Product, price_info: PriceInfo):
         update_time = timezone.now()
@@ -143,9 +145,10 @@ class Updater:
             is_special_offer=price_info.is_special_offer,
             price=price_info.price,
             last_price_updated=update_time,
+            product_vendor_status=STATUS_ACTIVE,
         )
         await OfficeProduct.objects.filter(product_id=product.pk).aupdate(
-            price=price_info.price, last_price_updated=update_time
+            price=price_info.price, last_price_updated=update_time, product_vendor_status=STATUS_ACTIVE
         )
 
     async def consumer(self):
@@ -160,6 +163,7 @@ class Updater:
             pt = await self.to_process.get()
             if pt.attempt > self.attempt_threshold:
                 logger.warning("Too many attempts updating product %s. Giving up", pt.product.id)
+                await self.mark_status(pt.product, STATUS_EXHAUSTED)
                 continue
             asyncio.create_task(self.process(client, pt))
             stats = self.statbuffer.stats()
