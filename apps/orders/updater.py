@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import logging
+import random
 import time
 from asyncio import Queue
 from collections import deque
@@ -24,6 +25,9 @@ logger = logging.getLogger(__name__)
 STATUS_UNAVAILABLE = "Unavailable"
 STATUS_EXHAUSTED = "Exhausted"
 STATUS_ACTIVE = "Active"
+
+SESSION_COUNT = 1
+BULK_SIZE = 500
 
 
 class ProcessTask(NamedTuple):
@@ -89,11 +93,10 @@ class Updater:
 
     def __init__(self, vendor: Vendor):
         self.to_process: Queue[ProcessTask] = Queue(maxsize=20)
-        self.session = ClientSession()
         self.vendor = vendor
         self._crendentials = None
         self.statbuffer = StatBuffer()
-        self.target_rate = 1
+        self.target_rate = 1.5
         self.last_check: float = time.monotonic()
         self.errors = 0
 
@@ -107,11 +110,10 @@ class Updater:
     async def producer(self):
         async for product in Product.objects.filter(
             vendor=self.vendor, last_price_updated__lt=timezone.now() - self.record_age
-        ).exclude(product_vendor_status=STATUS_UNAVAILABLE):
+        ).exclude(product_vendor_status__in=(STATUS_UNAVAILABLE, STATUS_EXHAUSTED))[:BULK_SIZE]:
             await self.put(ProcessTask(product))
 
     async def put(self, item):
-        await asyncio.sleep(1 / self.target_rate)
         await self.to_process.put(item)
 
     async def process(self, client, pt: ProcessTask):
@@ -132,6 +134,8 @@ class Updater:
         else:
             self.statbuffer.add_item(True)
             await self.update_price(pt.product, product_price)
+        finally:
+            self.to_process.task_done()
 
     async def mark_status(self, product: Product, status: str):
         await Product.objects.filter(pk=product.pk).aupdate(product_vendor_status=status)
@@ -152,34 +156,45 @@ class Updater:
         )
 
     async def consumer(self):
+        logger.debug("Getting credentials")
         credentials = await self.get_credentials()
-        client = BaseClient.make_handler(
-            vendor_slug=self.vendor.slug,
-            session=self.session,
-            username=credentials["username"],
-            password=credentials["password"],
-        )
-        while True:
-            pt = await self.to_process.get()
-            if pt.attempt > self.attempt_threshold:
-                logger.warning("Too many attempts updating product %s. Giving up", pt.product.id)
-                await self.mark_status(pt.product, STATUS_EXHAUSTED)
-                continue
-            asyncio.create_task(self.process(client, pt))
-            stats = self.statbuffer.stats()
-            logger.debug("Stats: %s", stats)
-            if stats.total > 10 and time.monotonic() - self.last_check > 20:
-                if stats.error_rate > 0:
-                    self.errors += 1
-                    self.target_rate /= 1.05
-                else:
-                    self.target_rate *= 1 + 0.05 / (self.errors + 1)
-                self.last_check = time.monotonic()
-                logger.debug("New target rate: %s", self.target_rate)
+        async with ClientSession() as session:
+            logger.debug("Making handler")
+            client = BaseClient.make_handler(
+                vendor_slug=self.vendor.slug,
+                session=session,
+                username=credentials["username"],
+                password=credentials["password"],
+            )
+            while True:
+                await asyncio.sleep(SESSION_COUNT * random.uniform(0.5, 1.5) / self.target_rate)
+                pt = await self.to_process.get()
+                if pt.attempt > self.attempt_threshold:
+                    logger.warning("Too many attempts updating product %s. Giving up", pt.product.id)
+                    await self.mark_status(pt.product, STATUS_EXHAUSTED)
+                    continue
+                asyncio.create_task(self.process(client, pt))
+                stats = self.statbuffer.stats()
+                logger.debug("Stats: %s", stats)
+                if stats.total > 10 and time.monotonic() - self.last_check > 20:
+                    if stats.error_rate > 0:
+                        self.errors += 1
+                        self.target_rate /= 1.05
+                    else:
+                        self.target_rate *= 1 + 0.05 / (self.errors + 1)
+                    self.last_check = time.monotonic()
+                    logger.debug("New target rate: %s", self.target_rate)
+
+    async def complete(self):
+        await self.to_process.join()
 
 
 async def fetch_for_vendor(slug):
     vendor = await Vendor.objects.aget(slug=slug)
     updater = Updater(vendor=vendor)
+    worker_tasks = [asyncio.create_task(updater.consumer()) for _ in range(SESSION_COUNT)]
     asyncio.create_task(updater.producer())
-    await updater.consumer()
+    await asyncio.sleep(1)
+    await updater.complete()
+    for worker_task in worker_tasks:
+        worker_task.cancel()
