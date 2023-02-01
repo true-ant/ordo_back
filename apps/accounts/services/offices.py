@@ -1,7 +1,6 @@
 from typing import Optional, Tuple
 
 from django.utils import timezone
-from month import Month
 
 from apps.accounts.models import Office, OfficeBudget, OfficeSetting, Subscription
 from apps.accounts.services.stripe import (
@@ -11,6 +10,7 @@ from apps.accounts.services.stripe import (
     create_subscription as stripe_create_subscription,
 )
 from apps.common import messages as msgs
+from apps.common.month import Month
 
 
 class OfficeService:

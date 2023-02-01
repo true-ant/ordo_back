@@ -7,7 +7,6 @@ from dateutil.relativedelta import relativedelta
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from month import Month
 from rest_framework import mixins
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -16,10 +15,11 @@ from rest_framework.serializers import ValidationError
 from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_REQUEST
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
-from rest_framework_jwt.serializers import jwt_encode_handler, jwt_payload_handler
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
+from apps.common.month import Month
 from apps.common.utils import formatStEndDateFromQuery
 from apps.scrapers.errors import (
     NetworkConnectionException,
@@ -80,11 +80,13 @@ class UserSignupAPIView(APIView):
                     date_joined=timezone.now(),
                 )
 
-        payload = jwt_payload_handler(user)
         send_welcome_email.delay(user_id=user.id)
+        token = RefreshToken.for_user(user).access_token
+        token["username"] = user.username
+        token["email"] = user.username
         return Response(
             {
-                "token": jwt_encode_handler(payload),
+                "token": str(token),
                 "company": s.CompanySerializer(company).data,
             }
         )
@@ -486,7 +488,7 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
             return Response({"message": msgs.VENDOR_WRONG_INFORMATION}, status=HTTP_400_BAD_REQUEST)
         except NetworkConnectionException:
             return Response({"message": msgs.VENDOR_BAD_NETWORK_CONNECTION}, status=HTTP_400_BAD_REQUEST)
-        except Exception:
+        except Exception:  # noqa
             return Response({"message": msgs.UNKNOWN_ISSUE, **serializer.data})
 
         return Response({"message": msgs.VENDOR_CONNECTED, **serializer.data})

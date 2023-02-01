@@ -9,10 +9,10 @@ from typing import Dict, List, Optional, Tuple
 from aiohttp import ClientResponse, ClientSession
 from asgiref.sync import sync_to_async
 from django.db.models import F
-from month import Month
 from scrapy import Selector
 from slugify import slugify
 
+from apps.common.month import Month
 from apps.scrapers.errors import VendorAuthenticationFailed
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.semaphore import fake_semaphore
