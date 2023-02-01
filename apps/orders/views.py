@@ -17,7 +17,17 @@ from dateutil.relativedelta import relativedelta
 from django.apps import apps
 from django.core.paginator import Paginator
 from django.db import connection, transaction
-from django.db.models import Case, Count, F, Q, Sum, Value, When
+from django.db.models import (
+    Case,
+    Count,
+    F,
+    Q,
+    Sum,
+    Value,
+    When,
+    Exists,
+    OuterRef
+)
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -352,7 +362,6 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
             average_amount = (total_amount / approved_orders_count).quantize(Decimal(".01"), rounding=decimal.ROUND_UP)
 
         pending_orders_count = queryset.filter(status=m.OrderStatus.PENDING_APPROVAL).count()
-
         vendors = (
             queryset.order_by("vendor_id")
             .values("vendor_id")
@@ -361,6 +370,13 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
             .annotate(vendor_name=F("vendor__name"))
             .annotate(vendor_logo=F("vendor__logo"))
         )
+        back_ordered_count = queryset.filter(
+            Exists(
+                m.VendorOrderProduct.objects.filter(
+                    vendor_order=OuterRef("pk"), status=m.ProductStatus.BACK_ORDERED
+                )
+            )
+        ).count()
 
         ret = {
             "order": {
@@ -369,6 +385,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
                 "total_items": total_items,
                 "total_amount": total_amount,
                 "average_amount": average_amount,
+                "backordered_count": back_ordered_count
             },
             "budget": {
                 field: budget_stats[field]
