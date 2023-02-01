@@ -22,7 +22,6 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
-from month import Month
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
@@ -43,6 +42,7 @@ from apps.accounts.tasks import fetch_orders_from_vendor
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncCreateModelMixin, AsyncMixin
 from apps.common.choices import BUDGET_SPEND_TYPE, ProcedureType, ProductStatus
+from apps.common.month import Month
 from apps.common.pagination import (
     SearchProductPagination,
     SearchProductV2Pagination,
@@ -1644,9 +1644,7 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
 
         if "ebay" in vendors:
             try:
-                ebay_products = EbaySearch().execute(keyword=query,
-                                                     from_price=price_from,
-                                                     to_price=price_to)
+                ebay_products = EbaySearch().execute(keyword=query, from_price=price_from, to_price=price_to)
 
                 if ebay_products:
                     self.available_vendors.append("ebay")
@@ -1657,9 +1655,9 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
         if "amazon" in vendors:
             # Add on the fly results
             try:
-                products_fly = AmazonSearchScraper()._search_products(query=query,
-                                                                      from_price=price_from,
-                                                                      to_price=price_to)
+                products_fly = AmazonSearchScraper()._search_products(
+                    query=query, from_price=price_from, to_price=price_to
+                )
             except Exception:  # noqa
                 products_fly = {"products": []}
             # log += products_fly['log']

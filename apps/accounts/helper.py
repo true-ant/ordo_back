@@ -4,10 +4,10 @@ from typing import Union
 
 from django.db.models import F, Prefetch
 from django.utils import timezone
-from month import Month
 
 from apps.accounts.models import Office, OfficeBudget
 from apps.common.choices import BUDGET_SPEND_TYPE
+from apps.common.month import Month
 from apps.common.utils import bulk_create
 
 
