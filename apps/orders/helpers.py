@@ -65,6 +65,7 @@ from apps.vendor_clients.async_clients import BaseClient as BaseAsyncClient
 from apps.vendor_clients.errors import VendorAuthenticationFailed
 from apps.vendor_clients.sync_clients import BaseClient as BaseSyncClient
 from apps.vendor_clients.types import Product, ProductPrice, VendorCredential
+from config.utils import get_client_session
 from services.opendental import OpenDentalClient
 
 SmartID = Union[int, str]
@@ -373,11 +374,11 @@ class VendorHelper:
         username: Optional[str] = None,
         password: Optional[str] = None,
     ):
-
         try:
+            session = await get_client_session()
             vendor_client = BaseAsyncClient.make_handler(
                 vendor_slug=vendor_slug,
-                session=apps.get_app_config("accounts").session,
+                session=session,
                 username=username,
                 password=password,
             )
@@ -423,12 +424,8 @@ class VendorHelper:
 
         tasks = []
         if use_async_client:
-            session = getattr(apps.get_app_config("accounts"), "session", None)
-            aio_session = None
-            if session is None:
-                aio_session = ClientSession()
-
-            clients = VendorHelper.get_vendor_async_clients(vendors_credentials, session or aio_session)
+            aio_session = await get_client_session()
+            clients = VendorHelper.get_vendor_async_clients(vendors_credentials, aio_session)
         else:
             clients = VendorHelper.get_vendor_sync_clients(vendors_credentials)
         for vendor_slug in vendor_slugs:

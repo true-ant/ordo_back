@@ -67,6 +67,7 @@ from apps.scrapers.errors import VendorNotSupported
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import CartProduct
 from apps.types.scraper import SmartID
+from config.utils import get_client_session
 
 from . import filters as f
 from . import models as m
@@ -198,7 +199,7 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
     @action(detail=True, methods=["get"], url_path="invoice-download")
     async def download_invoice(self, request, *args, **kwargs):
         vendor_orders = await self._get_vendor_orders()
-        session = apps.get_app_config("accounts").session
+        session = await get_client_session()
         tasks = []
         if len(vendor_orders) == 0:
             return Response({"message": msgs.NO_INVOICE})
@@ -290,7 +291,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
         if vendor_order["invoice_link"] is None:
             return Response({"message": msgs.NO_INVOICE})
 
-        session = apps.get_app_config("accounts").session
+        session = await get_client_session()
 
         scraper = ScraperFactory.create_scraper(
             vendor=vendor_order["vendor"],
@@ -1046,11 +1047,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         )
         ret = {}
         try:
-            conf = apps.get_app_config("accounts")
-            if hasattr(conf, "session"):
-                session = conf.session
-            else:
-                session = ClientSession()
+            session = await get_client_session()
             tasks = []
             tmp_variables = []
             reduct_variables = []
@@ -1145,11 +1142,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         if not cart_products:
             return Response({"can_checkout": False, "message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
 
-        conf = apps.get_app_config("accounts")
-        if hasattr(conf, "session"):
-            session = apps.get_app_config("accounts").session
-        else:
-            session = ClientSession()
+        session = await get_client_session()
         tasks = []
         debug = OrderService.is_debug_mode(request.META["HTTP_HOST"])
         redundancy = OrderService.is_force_redundancy()
@@ -1500,7 +1493,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
     async def fetch_products(self, keyword, min_price, max_price, vendors=None, include_amazon=False):
         pagination_meta = self.request.data.get("meta", {})
         vendors_meta = {vendor_meta["vendor"]: vendor_meta for vendor_meta in pagination_meta.get("vendors", [])}
-        session = apps.get_app_config("accounts").session
+        session = await get_client_session()
         office_vendors = await sync_to_async(self.get_linked_vendors)()
         tasks = []
         for office_vendor in office_vendors:
