@@ -22,8 +22,6 @@ class OrdoASGIHandler(ASGIHandler):
         self.on_shutdown = []
 
     async def __call__(self, scope, receive, send):
-        from django.apps import apps
-
         if scope["type"] == "lifespan":
             while True:
                 message = await receive()
