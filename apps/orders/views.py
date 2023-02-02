@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import decimal
+import math
 import operator
 import os
 import tempfile
@@ -1758,22 +1759,59 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         start_end_date = get_date_range(date_range)
         day_from = datetime.date(start_end_date[0].year, start_end_date[0].month, start_end_date[0].day)
         day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
+        day_prev_3months_from = day_from + relativedelta(months=-3)
+        day_prev_3months_to = day_from - datetime.timedelta(days=1)
+
         ProcedureHelper.fetch_procedure_period(day_from, office_pk, date_type)
-        ret = (
+
+        ret1 = (
             m.Procedure.objects.select_related("procedurecode", "procedurecode__sumary_category")
-            .filter(type=date_type, start_date__gte=day_from, start_date__lte=day_to)
             .values_list(
                 "procedurecode__summary_category",
                 "procedurecode__summary_category__summary_slug",
                 "procedurecode__summary_category__category_order",
                 "procedurecode__summary_category__is_favorite",
             )
+            .filter(type=date_type, start_date__gte=day_from, start_date__lte=day_to)
             .annotate(dcount=Count("procedurecode__summary_category__summary_slug"))
             .order_by(
                 "procedurecode__summary_category__category_order", "-procedurecode__summary_category__is_favorite"
             )
             .filter(dcount__gt=0)
         )
+        ret2 = (
+            m.Procedure.objects.select_related("procedurecode", "procedurecode__sumary_category")
+            .filter(type=date_type, start_date__gte=day_prev_3months_from, start_date__lte=day_prev_3months_to)
+            .values_list(
+                "procedurecode__summary_category",
+                "procedurecode__summary_category__summary_slug",
+                "procedurecode__summary_category__category_order",
+                "procedurecode__summary_category__is_favorite",
+            )
+            .annotate(sum_count=Count("procedurecode__summary_category__summary_slug"))
+            .order_by(
+                "procedurecode__summary_category__category_order", "-procedurecode__summary_category__is_favorite"
+            )
+            .filter(sum_count__gt=0)
+        )
+
+        ret = []
+        for category in ret1:
+            trail_count = 0
+            item = {
+                "id": category[0],
+                "slug": category[1],
+                "order": category[2],
+                "is_favorite": category[3],
+                "count": category[4],
+            }
+            for it in ret2:
+                if item["slug"] in it:
+                    trail_count = math.floor(it[2] / 3)
+                    break
+            item["avg_count"] = trail_count
+            ret.append(item)
+
         return Response(ret)
 
     @action(detail=False, url_path="report")
