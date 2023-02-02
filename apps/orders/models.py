@@ -8,7 +8,7 @@ from django.contrib.postgres.search import (  # TrigramSimilarity,
     SearchVectorField,
 )
 from django.db import models
-from django.db.models import Q
+from django.db.models import Index, Q
 from django.utils import timezone
 from django_extensions.db.fields import AutoSlugField
 from slugify import slugify
@@ -115,6 +115,7 @@ class Product(TimeStampedModel):
     special_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     promotion_description = models.TextField(null=True, blank=True)
     search_vector = SearchVectorField(null=True, blank=True, help_text="Search vector")
+    inventory_refs = models.IntegerField(default=0, help_text="How many times it is inventory in OfficeProduct")
 
     objects = ProductManager()
 
@@ -125,6 +126,7 @@ class Product(TimeStampedModel):
         ]
         indexes = [
             GinIndex(name="product_name_gin_idx", fields=["name"], opclasses=["gin_trgm_ops"]),
+            Index(name="vendor_inventory_refs_lpu_idx", fields=["vendor", "inventory_refs", "last_price_updated"]),
         ]
 
     def __str__(self):

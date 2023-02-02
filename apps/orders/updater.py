@@ -108,9 +108,12 @@ class Updater:
         return self._crendentials
 
     async def producer(self):
-        async for product in Product.objects.filter(
-            vendor=self.vendor, last_price_updated__lt=timezone.now() - self.record_age
-        ).exclude(product_vendor_status__in=(STATUS_UNAVAILABLE, STATUS_EXHAUSTED))[:BULK_SIZE]:
+        products = (
+            Product.objects.filter(vendor=self.vendor, last_price_updated__lt=timezone.now() - self.record_age)
+            .exclude(product_vendor_status__in=(STATUS_UNAVAILABLE, STATUS_EXHAUSTED))
+            .order_by("-inventory_refs", "last_price_updated")[:BULK_SIZE]
+        )
+        async for product in products:
             await self.put(ProcessTask(product))
 
     async def put(self, item):
