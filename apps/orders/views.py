@@ -18,12 +18,21 @@ from dateutil.relativedelta import relativedelta
 from django.apps import apps
 from django.core.paginator import Paginator
 from django.db import connection, transaction
-from django.db.models import Case, Count, F, Q, Sum, Value, When
+from django.db.models import (
+    Case,
+    Count,
+    F,
+    Q,
+    Sum,
+    Value,
+    When,
+    Exists,
+    OuterRef
+)
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
-from month import Month
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
@@ -44,6 +53,7 @@ from apps.accounts.tasks import fetch_orders_from_vendor
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncCreateModelMixin, AsyncMixin
 from apps.common.choices import BUDGET_SPEND_TYPE, ProcedureType, ProductStatus
+from apps.common.month import Month
 from apps.common.pagination import (
     SearchProductPagination,
     SearchProductV2Pagination,
@@ -58,6 +68,7 @@ from apps.scrapers.errors import VendorNotSupported
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import CartProduct
 from apps.types.scraper import SmartID
+from config.utils import get_client_session
 
 from . import filters as f
 from . import models as m
@@ -189,7 +200,7 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
     @action(detail=True, methods=["get"], url_path="invoice-download")
     async def download_invoice(self, request, *args, **kwargs):
         vendor_orders = await self._get_vendor_orders()
-        session = apps.get_app_config("accounts").session
+        session = await get_client_session()
         tasks = []
         if len(vendor_orders) == 0:
             return Response({"message": msgs.NO_INVOICE})
@@ -281,7 +292,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
         if vendor_order["invoice_link"] is None:
             return Response({"message": msgs.NO_INVOICE})
 
-        session = apps.get_app_config("accounts").session
+        session = await get_client_session()
 
         scraper = ScraperFactory.create_scraper(
             vendor=vendor_order["vendor"],
@@ -353,7 +364,6 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
             average_amount = (total_amount / approved_orders_count).quantize(Decimal(".01"), rounding=decimal.ROUND_UP)
 
         pending_orders_count = queryset.filter(status=m.OrderStatus.PENDING_APPROVAL).count()
-
         vendors = (
             queryset.order_by("vendor_id")
             .values("vendor_id")
@@ -362,6 +372,13 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
             .annotate(vendor_name=F("vendor__name"))
             .annotate(vendor_logo=F("vendor__logo"))
         )
+        back_ordered_count = queryset.filter(
+            Exists(
+                m.VendorOrderProduct.objects.filter(
+                    vendor_order=OuterRef("pk"), status=m.ProductStatus.BACK_ORDERED
+                )
+            )
+        ).count()
 
         ret = {
             "order": {
@@ -370,6 +387,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
                 "total_items": total_items,
                 "total_amount": total_amount,
                 "average_amount": average_amount,
+                "backordered_count": back_ordered_count
             },
             "budget": {
                 field: budget_stats[field]
@@ -1030,11 +1048,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         )
         ret = {}
         try:
-            conf = apps.get_app_config("accounts")
-            if hasattr(conf, "session"):
-                session = conf.session
-            else:
-                session = ClientSession()
+            session = await get_client_session()
             tasks = []
             tmp_variables = []
             reduct_variables = []
@@ -1129,11 +1143,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         if not cart_products:
             return Response({"can_checkout": False, "message": msgs.EMPTY_CART}, status=HTTP_400_BAD_REQUEST)
 
-        conf = apps.get_app_config("accounts")
-        if hasattr(conf, "session"):
-            session = apps.get_app_config("accounts").session
-        else:
-            session = ClientSession()
+        session = await get_client_session()
         tasks = []
         debug = OrderService.is_debug_mode(request.META["HTTP_HOST"])
         redundancy = OrderService.is_force_redundancy()
@@ -1484,7 +1494,7 @@ class SearchProductAPIView(AsyncMixin, APIView, SearchProductPagination):
     async def fetch_products(self, keyword, min_price, max_price, vendors=None, include_amazon=False):
         pagination_meta = self.request.data.get("meta", {})
         vendors_meta = {vendor_meta["vendor"]: vendor_meta for vendor_meta in pagination_meta.get("vendors", [])}
-        session = apps.get_app_config("accounts").session
+        session = await get_client_session()
         office_vendors = await sync_to_async(self.get_linked_vendors)()
         tasks = []
         for office_vendor in office_vendors:
@@ -1603,16 +1613,12 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
         office_pk = self.request.query_params.get("office_pk")
         selected_products = self.request.query_params.get("selected_products")
         selected_products = selected_products.split(",") if selected_products else []
-        price_from = self.request.query_params.get("price_from")
-        price_to = self.request.query_params.get("price_to")
 
         products, available_vendors = ProductHelper.get_products_v3(
             query=query,
             office=office_pk,
             fetch_parents=True,
             selected_products=selected_products,
-            price_from=price_from,
-            price_to=price_to,
         )
         self.available_vendors = available_vendors
 
@@ -1627,21 +1633,29 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
         serializer_context = super().get_serializer_context()
         office_pk = self.request.query_params.get("office_pk")
         vendors = self.request.query_params.get("vendors")
-        if vendors:
-            vendors = vendors.split(",")
-        serializer_context = {**serializer_context, "office_pk": office_pk, "vendors": vendors}
-        return serializer_context
+        price_from = self.request.query_params.get("price_from")
+        price_to = self.request.query_params.get("price_to")
+
+        return {
+            **serializer_context,
+            "office_pk": office_pk,
+            "vendors": vendors.split(",") if vendors else None,
+            "price_from": price_from,
+            "price_to": price_to
+        }
 
     def list(self, request, *args, **kwargs):
         query = self.request.GET.get("search", "")
         queryset = self.filter_queryset(self.get_queryset())
         vendors = self.request.query_params.get("vendors", "").split(",")
+        price_from = self.request.query_params.get("price_from")
+        price_to = self.request.query_params.get("price_to")
 
         product_list = list(queryset)
 
         if "ebay" in vendors:
             try:
-                ebay_products = EbaySearch().execute(keyword=query)
+                ebay_products = EbaySearch().execute(keyword=query, from_price=price_from, to_price=price_to)
 
                 if ebay_products:
                     self.available_vendors.append("ebay")
@@ -1652,7 +1666,9 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
         if "amazon" in vendors:
             # Add on the fly results
             try:
-                products_fly = AmazonSearchScraper()._search_products(query)
+                products_fly = AmazonSearchScraper()._search_products(
+                    query=query, from_price=price_from, to_price=price_to
+                )
             except Exception:  # noqa
                 products_fly = {"products": []}
             # log += products_fly['log']
@@ -1681,7 +1697,7 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
                     serializer = self.get_serializer(page_item)
                     serialized_data = serializer.data
                     serialized_data["searched_data"] = False
-                    product_data.append(serializer.data)
+                    product_data.append(serialized_data)
                 else:
                     page_item["searched_data"] = True
                     product_data.append(page_item)

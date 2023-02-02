@@ -1,5 +1,7 @@
 import asyncio
 import datetime
+import logging
+import traceback
 import uuid
 from asyncio import Semaphore
 from collections import ChainMap
@@ -9,7 +11,11 @@ from typing import Any, Dict, List, Optional, Union
 from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
 
+from apps.scrapers.semaphore import fake_semaphore
 from apps.vendor_clients import errors, types
+
+logger = logging.getLogger(__name__)
+
 
 BASE_HEADERS = {
     "Connection": "keep-alive",
@@ -100,19 +106,26 @@ class BaseClient:
             self.password = password
 
         login_info = await self.get_login_data()
+        logger.debug("Got logger data: %s", login_info)
         if login_info:
+            logger.debug("Logging in...")
             async with self.session.post(
                 login_info["url"], headers=login_info["headers"], data=login_info["data"]
             ) as resp:
                 if resp.status != 200:
+                    content = await resp.read()
+                    logger.debug("Got %s status, content = %s", resp.status, content)
                     raise errors.VendorAuthenticationFailed()
 
                 is_authenticated = await self.check_authenticated(resp)
                 if not is_authenticated:
+                    logger.debug("Still not authenticated")
                     raise errors.VendorAuthenticationFailed()
 
                 if hasattr(self, "after_login_hook"):
                     await self.after_login_hook(resp)
+
+                logger.info("Successfully logged in")
 
             return resp.cookies
 
@@ -138,20 +151,18 @@ class BaseClient:
     async def get_order(self, *args, **kwargs) -> Optional[types.Order]:
         """Get Order information"""
         semaphore = kwargs.pop("semaphore", None)
-        if semaphore:
-            await semaphore.acquire()
+        if not semaphore:
+            semaphore = fake_semaphore
+        async with semaphore:
 
-        if hasattr(self, "_get_order"):
-            queue: asyncio.Queue = kwargs.pop("queue", None)
+            if hasattr(self, "_get_order"):
+                queue: asyncio.Queue = kwargs.pop("queue", None)
 
-            order = await self._get_order(*args)
-            if queue:
-                await queue.put(order)
+                order = await self._get_order(*args)
+                if queue:
+                    await queue.put(order)
 
-            return order
-
-        if semaphore:
-            semaphore.release()
+                return order
 
     async def get_orders(
         self,
@@ -176,21 +187,18 @@ class BaseClient:
         self, product: types.Product, login_required: bool = True, semaphore: Semaphore = None
     ) -> Optional[types.Product]:
         """Get the product information"""
-        if semaphore:
-            await semaphore.acquire()
+        if not semaphore:
+            semaphore = fake_semaphore
+        async with semaphore:
+            if login_required:
+                await self.login()
 
-        if login_required:
-            await self.login()
-
-        if hasattr(self, "_get_product"):
-            product_detail = await self._get_product(product)
-        else:
-            headers = getattr(self, "GET_PRODUCT_PAGE_HEADERS")
-            product_page_dom = await self.get_response_as_dom(url=product["url"], headers=headers)
-            product_detail = self.serialize(product, product_page_dom)
-
-        if semaphore:
-            semaphore.release()
+            if hasattr(self, "_get_product"):
+                product_detail = await self._get_product(product)
+            else:
+                headers = getattr(self, "GET_PRODUCT_PAGE_HEADERS")
+                product_page_dom = await self.get_response_as_dom(url=product["url"], headers=headers)
+                product_detail = self.serialize(product, product_page_dom)
 
         return product_detail
 
@@ -204,12 +212,16 @@ class BaseClient:
         if login_required:
             await self.login()
 
-        tasks = (self.get_product(product=product, semaphore=semaphore, login_required=False) for product in products)
+        tasks = [self.get_product(product=product, semaphore=semaphore, login_required=False) for product in products]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         for product, result in zip(products, results):
             if isinstance(result, dict):
                 ret[product["product_id"]] = result
             else:
+                if isinstance(result, Exception):
+                    logger.warning(
+                        "Got exception: %s", "".join(traceback.TracebackException.from_exception(result).format())
+                    )
                 ret[product["product_id"]] = None
         return ret
 

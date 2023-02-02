@@ -650,7 +650,7 @@ class EdgeEndoScraper(Scraper):
             },
         }
 
-    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
         print("edge_endo/confirm_order")
         try:
             await asyncio.sleep(1)

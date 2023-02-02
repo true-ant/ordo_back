@@ -11,7 +11,6 @@ from operator import or_
 from typing import Dict, List, Optional, TypedDict, Union
 
 import pandas as pd
-import requests
 from aiohttp import ClientSession
 from asgiref.sync import sync_to_async
 from dateutil import rrule
@@ -66,6 +65,8 @@ from apps.vendor_clients.async_clients import BaseClient as BaseAsyncClient
 from apps.vendor_clients.errors import VendorAuthenticationFailed
 from apps.vendor_clients.sync_clients import BaseClient as BaseSyncClient
 from apps.vendor_clients.types import Product, ProductPrice, VendorCredential
+from config.utils import get_client_session
+from services.opendental import OpenDentalClient
 
 SmartID = Union[int, str]
 ProductID = SmartID
@@ -373,11 +374,11 @@ class VendorHelper:
         username: Optional[str] = None,
         password: Optional[str] = None,
     ):
-
         try:
+            session = await get_client_session()
             vendor_client = BaseAsyncClient.make_handler(
                 vendor_slug=vendor_slug,
-                session=apps.get_app_config("accounts").session,
+                session=session,
                 username=username,
                 password=password,
             )
@@ -423,12 +424,8 @@ class VendorHelper:
 
         tasks = []
         if use_async_client:
-            session = getattr(apps.get_app_config("accounts"), "session", None)
-            aio_session = None
-            if session is None:
-                aio_session = ClientSession()
-
-            clients = VendorHelper.get_vendor_async_clients(vendors_credentials, session or aio_session)
+            aio_session = await get_client_session()
+            clients = VendorHelper.get_vendor_async_clients(vendors_credentials, aio_session)
         else:
             clients = VendorHelper.get_vendor_sync_clients(vendors_credentials)
         for vendor_slug in vendor_slugs:
@@ -1252,10 +1249,6 @@ class ProductHelper:
             .annotate(office_product_price=Subquery(office_product_price[:1]))
             .annotate(product_price=Coalesce(F("price"), F("office_product_price")))
         )
-        # if price_from is not None and price_from != -1:
-        #     products = products.filter(price__gte=price_from)
-        # if price_to is not None and price_to != -1:
-        #     products = products.filter(price_lte=price_to)
 
         products = (
             products.annotate(is_inventory=Exists(inventory_office_product))
@@ -1376,12 +1369,8 @@ class ProcedureHelper:
         try:
             creating_procedures = []
             while True:
-                response = requests.put(
-                    f"https://api.opendental.com/api/v1/queries/ShortQuery?Offset={offset}",
-                    headers={"Authorization": dental_api},
-                    json=json.loads(query, strict=False),
-                )
-                json_procedure = json.loads(response.content)
+                od_client = OpenDentalClient(dental_api)
+                json_procedure = od_client.query(query, offset)
                 response_len = len(json_procedure)
 
                 print(f"Fetching offset = {offset} length = {response_len}")

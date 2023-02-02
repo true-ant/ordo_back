@@ -9,6 +9,7 @@ from apps.orders.models import OrderStatus, VendorOrder, VendorOrderProduct
 from apps.orders.tasks import notify_order_creation
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import CartProduct
+from config.utils import get_client_session
 
 
 class OrderService:
@@ -56,7 +57,7 @@ class OrderService:
 
     @staticmethod
     async def approve_vendor_order(approved_by, vendor_order: VendorOrder, validated_data, stage: str):
-        session = apps.get_app_config("accounts").session
+        session = await get_client_session()
 
         products = await OrderService.get_vendor_order_products(vendor_order, validated_data)
 

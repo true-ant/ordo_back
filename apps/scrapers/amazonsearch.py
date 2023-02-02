@@ -4,7 +4,6 @@ from scrapy import Selector
 from requests import Session
 from typing import Dict, List, Optional
 
-
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Product
 from apps.types.scraper import ProductSearch
@@ -23,9 +22,9 @@ SEARCH_HEADERS = {
     "sec-ch-ua-platform": '"Windows"',
     "upgrade-insecure-requests": "1",
     "User-Agent": 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:80.0) Gecko/20100101 Firefox/80.0'
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.93 Safari/537.36",
+                  "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.93 Safari/537.36",
     "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,"
-    "image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+              "image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
     "sec-fetch-site": "none",
     "sec-fetch-mode": "navigate",
     "sec-fetch-user": "?1",
@@ -33,12 +32,11 @@ SEARCH_HEADERS = {
     "accept-language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
 }
 
+
 class AmazonSearchScraper():
     BASE_URL = "https://www.amazon.com"
 
-    def _search_products(
-        self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price", office_id=None
-    ):
+    def _search_products(self, query: str, page: int = 1, from_price=None, to_price=None):
         log1 = "query = " + query
         url = f"{self.BASE_URL}/s"
         page_size = 16
@@ -65,8 +63,9 @@ class AmazonSearchScraper():
 
         products = []
         log1 += "ama7"
+
         for product_dom in response_dom.xpath(
-            '//div[contains(@class, "s-result-list")]/div[contains(@class, "s-result-item")]'
+                '//div[contains(@class, "s-result-list")]/div[contains(@class, "s-result-item")]'
         ):
             product_id = product_dom.xpath("./@data-asin").get()  # asin
             if not product_id:
@@ -77,6 +76,14 @@ class AmazonSearchScraper():
             product_price = product_dom.xpath('.//span[@class="a-price"]/span[@class="a-offscreen"]//text()').get()
             if product_price:
                 product_price = product_price.strip("$")
+                try:
+                    if from_price and float(product_price) < float(from_price):
+                        continue
+                    if to_price and float(product_price) > float(to_price):
+                        continue
+                except:
+                    # Since searching doesn't work properly in cloud, added this exception just for checking
+                    pass
 
             product_image = product_dom.xpath('.//span[@data-component-type="s-product-image"]//img/@src').get()
             log1 += " " + product_name
@@ -107,5 +114,5 @@ class AmazonSearchScraper():
             "page_size": page_size,
             "products": products,
             "last_page": last_page,
-            "log" : log1
+            "log": log1
         }

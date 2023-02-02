@@ -11,10 +11,12 @@ class EbaySearch:
                                 appid=os.getenv("EBAY_APP_ID"),
                                 config_file=None)
 
-    def execute(self, keyword):
+    def execute(self, keyword, from_price=None, to_price=None):
         """
         Search for Ebay products by the given keyword
         and return the result in a ordo product format.
+        :param to_price: decimal - select products less than equals to this price
+        :param from_price: decimal - select products more than equals to this price
         :param keyword: str - the keyword to search products by
         :return: json
         """
@@ -35,6 +37,12 @@ class EbaySearch:
                 return []
 
             for item in searched_result["item"]:
+                item_price = item["sellingStatus"]["convertedCurrentPrice"]["value"]
+
+                if from_price and item_price and float(item_price) < float(from_price):
+                    continue
+                if to_price and item_price and float(item_price) > float(to_price):
+                    continue
                 products.append(
                     {
                         "product_id": item["itemId"],
@@ -48,7 +56,7 @@ class EbaySearch:
                                 "image": item["galleryURL"] if item["galleryURL"] else "",
                             }
                         ],
-                        "price": item["sellingStatus"]["convertedCurrentPrice"]["value"],
+                        "price": item_price,
                         "vendor": "ebay",
                     }
                 )

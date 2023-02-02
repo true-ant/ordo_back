@@ -6,6 +6,7 @@ from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.common.utils import convert_string_to_price
+from apps.scrapers.semaphore import fake_semaphore
 from apps.vendor_clients import types
 from apps.vendor_clients.async_clients.base import BaseClient
 from apps.vendor_clients.headers.net_32 import (
@@ -91,48 +92,44 @@ class Net32Client(BaseClient):
         """ """
         async with self.session.get(f"https://www.net32.com/rest/neo/pdp/{product['product_id']}") as resp:
             res = await resp.json()
-            return self.serialize(res)
+            return self.serialize(product, res)
 
     async def get_product_price(
         self, product: types.Product, semaphore: Optional[Semaphore] = None, login_required: bool = False
     ) -> Dict[str, types.ProductPrice]:
-        if semaphore:
-            await semaphore.acquire()
-        if login_required:
-            await self.login()
-        product_id = product["product_id"]
-        try:
-            async with self.session.get(
-                f"https://www.net32.com/rest/neo/pdp/{product['product_id']}/vendor-options"
-            ) as resp:
-                vendor_options = await resp.json()
-                vendor_options = sorted(
-                    # vendor_options, key=lambda x: (x["promisedHandlingTime"], x["priceBreaks"][0]["unitPrice"])
-                    vendor_options, key=lambda x:                         
-                        min(x["priceBreaks"], key = lambda y: y["unitPrice"])["unitPrice"]                    
-                )
-                price = vendor_options[0]["priceBreaks"][0]["unitPrice"]
-                is_special_offer = False
-                special_price = 0
-                if len(vendor_options[0]["priceBreaks"]) >=2 :
-                    is_special_offer = True
-                    special_price = vendor_options[0]["priceBreaks"][-1]["unitPrice"]
-
-                
-        except Exception as e:
-            return {product_id: {"price": Decimal(0), "product_vendor_status": "Network Error"}}
-        else:
-            return {
-                product_id: {
-                            "price": Decimal(str(price)), 
-                            "product_vendor_status": "Active",
-                            "is_special_offer":is_special_offer,
-                            "special_price": Decimal(str(special_price)), 
-                        }
-             }
-        finally:
-            if semaphore:
-                semaphore.release()
+        if not semaphore:
+            semaphore = fake_semaphore
+        async with semaphore:
+            if login_required:
+                await self.login()
+            product_id = product["product_id"]
+            try:
+                async with self.session.get(
+                    f"https://www.net32.com/rest/neo/pdp/{product['product_id']}/vendor-options"
+                ) as resp:
+                    vendor_options = await resp.json()
+                    vendor_options = sorted(
+                        # vendor_options, key=lambda x: (x["promisedHandlingTime"], x["priceBreaks"][0]["unitPrice"])
+                        vendor_options,
+                        key=lambda x: min(x["priceBreaks"], key=lambda y: y["unitPrice"])["unitPrice"],
+                    )
+                    price = vendor_options[0]["priceBreaks"][0]["unitPrice"]
+                    is_special_offer = False
+                    special_price = 0
+                    if len(vendor_options[0]["priceBreaks"]) >= 2:
+                        is_special_offer = True
+                        special_price = vendor_options[0]["priceBreaks"][-1]["unitPrice"]
+            except Exception as e:  # noqa
+                return {product_id: {"price": Decimal(0), "product_vendor_status": "Network Error"}}
+            else:
+                return {
+                    product_id: {
+                        "price": Decimal(str(price)),
+                        "product_vendor_status": "Active",
+                        "is_special_offer": is_special_offer,
+                        "special_price": Decimal(str(special_price)),
+                    }
+                }
 
     def serialize(self, base_product: types.Product, data: Union[dict, Selector]) -> Optional[types.Product]:
         """Serialize vendor-specific product detail to our data"""
@@ -143,7 +140,7 @@ class Net32Client(BaseClient):
             "name": data["title"],
             "url": f"https://www.net32.com/{data['url']}",
             "images": [f"https://www.net32.com/media{data['mediaPath']}"],
-            "price": Decimal(data["retailPrice"]),            
+            "price": Decimal(data["retailPrice"]),
             "product_vendor_status": "",
             "category": "",
             "unit": "",

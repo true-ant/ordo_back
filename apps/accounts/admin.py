@@ -1,16 +1,15 @@
 from dateutil.relativedelta import relativedelta
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
-
 from django.utils import timezone
 from django.utils.safestring import mark_safe
-from month import Month
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
 from apps.common.admins import ReadOnlyAdminMixin
+from apps.common.month import Month
+from apps.orders import models as om
 
 from . import models as m
-from apps.orders import models as om
 
 
 @admin.register(m.User)
@@ -83,16 +82,7 @@ class OfficeBudgetInline(NestedTabularInline):
 
 class OfficeOrdersInline(NestedTabularInline):
     model = om.Order
-    readonly_fields = (
-        "id", 
-        "company", 
-        "office", 
-        "vendors", 
-        "total_price", 
-        "order_date", 
-        "order_type", 
-        "status"
-    )
+    readonly_fields = ("id", "company", "office", "vendors", "total_price", "order_date", "order_type", "status")
 
     @admin.display(description="Company")
     def company(self, obj):
@@ -108,8 +98,6 @@ class OfficeOrdersInline(NestedTabularInline):
 
     def get_queryset(self, request):
         return super().get_queryset(request)
-        
-
 
 
 class SubscriptionInline(NestedTabularInline):
@@ -168,4 +156,5 @@ class VendorAdmin(admin.ModelAdmin):
     @admin.display(description="Order Count")
     def order_count(self, obj):
         from apps.orders import models as om
+
         return om.VendorOrder.objects.filter(vendor=obj.id).count()

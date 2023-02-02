@@ -112,7 +112,7 @@ trio = ["trio (>=0.16)"]
 
 [[package]]
 name = "asgiref"
-version = "3.5.0"
+version = "3.6.0"
 description = "ASGI specs, helper code, and adapters"
 category = "main"
 optional = false
@@ -165,6 +165,17 @@ six = "*"
 
 [package.extras]
 visualize = ["graphviz (>0.5.1)", "Twisted (>=16.1.1)"]
+
+[[package]]
+name = "backports.zoneinfo"
+version = "0.2.1"
+description = "Backport of the standard library zoneinfo module"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.extras]
+tzdata = ["tzdata"]
 
 [[package]]
 name = "billiard"
@@ -361,6 +372,17 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "coverage"
+version = "7.1.0"
+description = "Code coverage measurement for Python"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.extras]
+toml = ["tomli"]
+
+[[package]]
 name = "cryptography"
 version = "36.0.2"
 description = "cryptography is a package which provides cryptographic recipes and primitives to Python developers."
@@ -397,16 +419,17 @@ python-versions = "*"
 
 [[package]]
 name = "django"
-version = "3.2.13"
-description = "A high-level Python Web framework that encourages rapid development and clean, pragmatic design."
+version = "4.1.5"
+description = "A high-level Python web framework that encourages rapid development and clean, pragmatic design."
 category = "main"
 optional = false
-python-versions = ">=3.6"
+python-versions = ">=3.8"
 
 [package.dependencies]
-asgiref = ">=3.3.2,<4"
-pytz = "*"
+asgiref = ">=3.5.2,<4"
+"backports.zoneinfo" = {version = "*", markers = "python_version < \"3.9\""}
 sqlparse = ">=0.2.2"
+tzdata = {version = "*", markers = "sys_platform == \"win32\""}
 
 [package.extras]
 argon2 = ["argon2-cffi (>=19.1.0)"]
@@ -414,17 +437,19 @@ bcrypt = ["bcrypt"]
 
 [[package]]
 name = "django-celery-beat"
-version = "2.2.1"
+version = "2.4.0"
 description = "Database-backed Periodic Tasks."
 category = "main"
 optional = false
 python-versions = "*"
 
 [package.dependencies]
-celery = ">=5.0,<6.0"
-Django = ">=2.2,<4.0"
-django-timezone-field = ">=4.1.0,<5.0"
+"backports.zoneinfo" = {version = "*", markers = "python_version < \"3.9\""}
+celery = ">=5.2.3,<6.0"
+Django = ">=2.2,<4.2"
+django-timezone-field = ">=5.0"
 python-crontab = ">=2.3.4"
+tzdata = "*"
 
 [[package]]
 name = "django-cors-headers"
@@ -469,14 +494,6 @@ python-versions = ">=3.5"
 
 [package.dependencies]
 Django = ">=2.2"
-
-[[package]]
-name = "django-monthfield"
-version = "0.1.3"
-description = "Provides a field for storing months (YYYY-MM) on django models."
-category = "main"
-optional = false
-python-versions = "*"
 
 [[package]]
 name = "django-nested-admin"
@@ -552,18 +569,15 @@ sftp = ["paramiko"]
 
 [[package]]
 name = "django-timezone-field"
-version = "4.2.3"
-description = "A Django app providing database and form fields for pytz timezone objects."
+version = "5.0"
+description = "A Django app providing DB, form, and REST framework fields for zoneinfo and pytz timezone objects."
 category = "main"
 optional = false
-python-versions = ">=3.5"
+python-versions = ">=3.7,<4.0"
 
 [package.dependencies]
-django = ">=2.2"
+"backports.zoneinfo" = {version = ">=0.2.1,<0.3.0", markers = "python_version < \"3.9\""}
 pytz = "*"
-
-[package.extras]
-rest_framework = ["djangorestframework (>=3.0.0)"]
 
 [[package]]
 name = "djangorestframework"
@@ -578,17 +592,6 @@ django = ">=2.2"
 pytz = "*"
 
 [[package]]
-name = "djangorestframework-jwt"
-version = "1.11.0"
-description = "JSON Web Token based authentication for Django REST framework"
-category = "main"
-optional = false
-python-versions = "*"
-
-[package.dependencies]
-PyJWT = ">=1.5.2,<2.0.0"
-
-[[package]]
 name = "djangorestframework-recursive"
 version = "0.1.2"
 description = "Recursive Serialization for Django REST framework"
@@ -599,6 +602,27 @@ python-versions = "*"
 [package.dependencies]
 Django = "*"
 djangorestframework = ">=3.0"
+
+[[package]]
+name = "djangorestframework-simplejwt"
+version = "5.2.2"
+description = "A minimal JSON Web Token authentication plugin for Django REST Framework"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.dependencies]
+django = "*"
+djangorestframework = "*"
+pyjwt = ">=1.7.1,<3"
+
+[package.extras]
+crypto = ["cryptography (>=3.3.1)"]
+dev = ["pytest-watch", "wheel", "twine", "ipython", "cryptography", "pytest-cov", "pytest-django", "pytest-xdist", "pytest", "tox", "flake8", "pep8", "isort", "Sphinx (>=1.6.5,<2)", "sphinx-rtd-theme (>=0.1.9)", "python-jose (==3.3.0)"]
+doc = ["Sphinx (>=1.6.5,<2)", "sphinx-rtd-theme (>=0.1.9)"]
+lint = ["flake8", "pep8", "isort"]
+python-jose = ["python-jose (==3.3.0)"]
+test = ["cryptography", "pytest-cov", "pytest-django", "pytest-xdist", "pytest", "tox"]
 
 [[package]]
 name = "drf-nested-routers"
@@ -1088,16 +1112,17 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 
 [[package]]
 name = "pyjwt"
-version = "1.7.1"
+version = "2.6.0"
 description = "JSON Web Token implementation in Python"
 category = "main"
 optional = false
-python-versions = "*"
+python-versions = ">=3.7"
 
 [package.extras]
-crypto = ["cryptography (>=1.4)"]
-flake8 = ["flake8", "flake8-import-order", "pep8-naming"]
-test = ["pytest (>=4.0.1,<5.0.0)", "pytest-cov (>=2.6.0,<3.0.0)", "pytest-runner (>=4.2,<5.0.0)"]
+crypto = ["cryptography (>=3.4.0)"]
+dev = ["sphinx (>=4.5.0,<5.0.0)", "sphinx-rtd-theme", "zope.interface", "cryptography (>=3.4.0)", "pytest (>=6.0.0,<7.0.0)", "coverage[toml] (==5.0.4)", "pre-commit"]
+docs = ["sphinx (>=4.5.0,<5.0.0)", "sphinx-rtd-theme", "zope.interface"]
+tests = ["pytest (>=6.0.0,<7.0.0)", "coverage[toml] (==5.0.4)"]
 
 [[package]]
 name = "pyopenssl"
@@ -1572,6 +1597,14 @@ optional = false
 python-versions = ">=3.6"
 
 [[package]]
+name = "tzdata"
+version = "2022.7"
+description = "Provider of IANA time zone data"
+category = "main"
+optional = false
+python-versions = ">=2"
+
+[[package]]
 name = "urllib3"
 version = "1.26.9"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
@@ -1762,7 +1795,7 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "a8fcb20f68804aa99fb7fcd0ac5e83384bf698a3e622c730fe925ffd10fcdde6"
+content-hash = "597c6c6398423d28b5364a6ca1f83727bb8e1762e032b1d90bfeee61ae87743c"
 
 [metadata.files]
 aioboto3 = []
@@ -1778,6 +1811,7 @@ async-generator = []
 async-timeout = []
 attrs = []
 automat = []
+"backports.zoneinfo" = []
 billiard = []
 boto3 = []
 botocore = []
@@ -1792,6 +1826,7 @@ click-plugins = []
 click-repl = []
 colorama = []
 constantly = []
+coverage = []
 cryptography = []
 cssselect = []
 distlib = []
@@ -1801,7 +1836,6 @@ django-cors-headers = []
 django-credit-cards = []
 django-extensions = []
 django-filter = []
-django-monthfield = []
 django-nested-admin = []
 django-phonenumber-field = []
 django-rest-passwordreset = []
@@ -1809,8 +1843,8 @@ django-ses = []
 django-storages = []
 django-timezone-field = []
 djangorestframework = []
-djangorestframework-jwt = []
 djangorestframework-recursive = []
+djangorestframework-simplejwt = []
 drf-nested-routers = []
 ebaysdk = []
 exceptiongroup = []
@@ -1892,6 +1926,7 @@ trio-websocket = []
 twisted = []
 twisted-iocpsupport = []
 typing-extensions = []
+tzdata = []
 urllib3 = []
 uvicorn = []
 uvloop = []

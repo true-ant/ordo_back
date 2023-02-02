@@ -1,9 +1,14 @@
 import datetime
 
-from django.db.models import Q
+from django.db.models import (
+    Q,
+    Exists,
+    OuterRef
+)
 from django_filters import rest_framework as filters
 
 from apps.common.utils import get_date_range
+from apps.common.choices import ProductStatus
 
 from .models import OfficeProduct, Order, Product, VendorOrder, VendorOrderProduct
 
@@ -24,12 +29,23 @@ class VendorOrderFilter(filters.FilterSet):
     end_date = filters.DateFilter(field_name="order_date", lookup_expr="lte")
     budget_type = filters.CharFilter(method="filter_by_budget_type")
     date_range = filters.CharFilter(method="filter_by_range")
-    status = filters.CharFilter(field_name="status")
+    status = filters.CharFilter(method="filter_by_status")
     q = filters.CharFilter(method="filter_orders")
 
     class Meta:
         model = VendorOrder
         fields = ["status", "start_date", "end_date"]
+
+    def filter_by_status(self, queryset, name, value):
+        if value == ProductStatus.BACK_ORDERED.value:
+            return queryset.filter(
+                Exists(
+                    VendorOrderProduct.objects.filter(
+                        vendor_order=OuterRef("pk"), status=value
+                    )
+                )
+            )
+        return queryset.filter(**{name: value})
 
     def filter_by_ids(self, queryset, name, value):
         ids = value.split(",")
@@ -92,8 +108,19 @@ class ProductFilter(filters.FilterSet):
 
 class ProductV2Filter(filters.FilterSet):
     vendors = filters.CharFilter(method="filter_by_vendors")
-    # search = filters.CharFilter(field_name="name", lookup_expr="search")
-    # search = filters.CharFilter(method="filter_by_name")
+    price_from = filters.NumberFilter(method="filter_by_price_range", lookup_expr='gte')
+    price_to = filters.NumberFilter(method="filter_by_price_range", lookup_expr='lte')
+
+    def filter_by_price_range(self, queryset, name, value):
+        query = Q(child__isnull=False)
+
+        if name == 'price_from':
+            query |= Q(child__isnull=True) & Q(product_price__gte=value)
+        else:
+            query |= Q(child__isnull=True) & Q(product_price__lte=value)
+        queryset = queryset.filter(query)
+
+        return queryset
 
     def filter_by_vendors(self, queryset, name, value):
         vendor_slugs = value.split(",")

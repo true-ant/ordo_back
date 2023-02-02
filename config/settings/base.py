@@ -216,10 +216,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.orders.tasks.sync_with_vendors",
         "schedule": crontab(minute=0, hour=0),
     },
-    "update_net32_vendor_products_prices": {
-        "task": "apps.accounts.tasks.update_net32_vendor_products_prices",
-        "schedule": crontab(minute=0, hour="2"),
-    },
+    # "update_net32_vendor_products_prices": {
+    #     "task": "apps.accounts.tasks.update_net32_vendor_products_prices",
+    #     "schedule": crontab(minute=0, hour="2"),
+    # },
     "update_promotions": {
         "task": "apps.orders.tasks.update_promotions",
         "schedule": crontab(minute="0", hour="0", day_of_week="0"),  # Every Sunday
@@ -236,16 +236,15 @@ REST_FRAMEWORK = {
     # "DEFAULT_PAGINATION_CLASS": "apps.common.pagination.StandardResultsSetPagination",
     # "PAGE_SIZE": 20,
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_jwt.authentication.JSONWebTokenAuthentication",
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.BasicAuthentication",
     ),
 }
 
 # DRF-JWT
-JWT_AUTH = {
-    "JWT_EXPIRATION_DELTA": datetime.timedelta(days=3),
-    "JWT_RESPONSE_PAYLOAD_HANDLER": "apps.accounts.utils.jwt_response_payload_handler",
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": datetime.timedelta(days=3),
 }
 
 STATIC_LOCATION = "/static/"
@@ -304,3 +303,18 @@ NON_FORMULA_VENDORS = [
 
 
 RUNSERVER_PLUS_PRINT_SQL_TRUNCATE = None
+
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": os.getenv("LOG_LEVEL", "WARNING"),
+    },
+}
