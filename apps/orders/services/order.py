@@ -76,6 +76,7 @@ class OrderService:
                         product_id=product.product.product_id,
                         product_unit=product.product.product_unit,
                         quantity=product.quantity,
+                        price=float(product.unit_price) if product.unit_price else 0,
                     )
                     for product in products
                 ],
