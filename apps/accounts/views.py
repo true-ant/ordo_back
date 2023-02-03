@@ -67,6 +67,11 @@ class UserSignupAPIView(APIView):
                 company_member.invite_status = m.CompanyMember.InviteStatus.INVITE_APPROVED
                 company_member.date_joined = timezone.now()
                 company_member.save()
+
+                # update the user role with the company member role to be matched...
+                user.role = company_member.role
+                user.save()
+
                 company = company_member.company
             else:
                 company = m.Company.objects.create(name=company_name, on_boarding_step=0)
