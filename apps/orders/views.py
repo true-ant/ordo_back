@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import decimal
+import math
 import operator
 import os
 import tempfile
@@ -10,24 +11,12 @@ from decimal import Decimal
 from functools import reduce
 from typing import Union
 
-from aiohttp import ClientSession
 from asgiref.sync import sync_to_async
 from dateutil import rrule
 from dateutil.relativedelta import relativedelta
-from django.apps import apps
 from django.core.paginator import Paginator
 from django.db import connection, transaction
-from django.db.models import (
-    Case,
-    Count,
-    F,
-    Q,
-    Sum,
-    Value,
-    When,
-    Exists,
-    OuterRef
-)
+from django.db.models import Case, Count, Exists, F, OuterRef, Q, Sum, Value, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -373,9 +362,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
         )
         back_ordered_count = queryset.filter(
             Exists(
-                m.VendorOrderProduct.objects.filter(
-                    vendor_order=OuterRef("pk"), status=m.ProductStatus.BACK_ORDERED
-                )
+                m.VendorOrderProduct.objects.filter(vendor_order=OuterRef("pk"), status=m.ProductStatus.BACK_ORDERED)
             )
         ).count()
 
@@ -386,7 +373,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
                 "total_items": total_items,
                 "total_amount": total_amount,
                 "average_amount": average_amount,
-                "backordered_count": back_ordered_count
+                "backordered_count": back_ordered_count,
             },
             "budget": {
                 field: budget_stats[field]
@@ -1640,7 +1627,7 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
             "office_pk": office_pk,
             "vendors": vendors.split(",") if vendors else None,
             "price_from": price_from,
-            "price_to": price_to
+            "price_to": price_to,
         }
 
     def list(self, request, *args, **kwargs):
@@ -1772,12 +1759,18 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         office_pk = self.kwargs["office_pk"]
         date_range = self.request.query_params.get("date_range", "thisQuarter")
         start_end_date = get_date_range(date_range)
-        day_from = datetime.date(start_end_date[0].year, start_end_date[0].month, start_end_date[0].day)
-        day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
+        day_from = start_end_date[0]
+        day_to = start_end_date[1]
+        day_prev_3months_from = day_from + relativedelta(months=-3)
+        day_prev_3months_to = day_from - datetime.timedelta(days=1)
+
         ProcedureHelper.fetch_procedure_period(day_from, office_pk, date_type)
-        ret = (
-            m.Procedure.objects.select_related("procedurecode", "procedurecode__sumary_category")
-            .filter(type=date_type, start_date__gte=day_from, start_date__lte=day_to)
+
+        ret_current = (
+            m.Procedure.objects.filter(type=date_type, start_date__gte=day_from, start_date__lte=day_to)
+            .order_by(
+                "procedurecode__summary_category__category_order", "-procedurecode__summary_category__is_favorite"
+            )
             .values_list(
                 "procedurecode__summary_category",
                 "procedurecode__summary_category__summary_slug",
@@ -1785,11 +1778,42 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
                 "procedurecode__summary_category__is_favorite",
             )
             .annotate(dcount=Count("procedurecode__summary_category__summary_slug"))
+            .filter(dcount__gt=0)
+        )
+        ret_trailing = (
+            m.Procedure.objects.filter(
+                type=date_type, start_date__gte=day_prev_3months_from, start_date__lte=day_prev_3months_to
+            )
             .order_by(
                 "procedurecode__summary_category__category_order", "-procedurecode__summary_category__is_favorite"
             )
-            .filter(dcount__gt=0)
+            .values_list(
+                "procedurecode__summary_category",
+                "procedurecode__summary_category__summary_slug",
+                "procedurecode__summary_category__category_order",
+                "procedurecode__summary_category__is_favorite",
+            )
+            .annotate(sum_count=Count("procedurecode__summary_category__summary_slug"))
+            .filter(sum_count__gt=0)
         )
+
+        ret = []
+        for id, slug, order, is_favorite, count in ret_current:
+            trail_count = 0
+            item = {
+                "id": id,
+                "slug": slug,
+                "order": order,
+                "is_favorite": is_favorite,
+                "count": count,
+            }
+            for it in ret_trailing:
+                if item["slug"] in it:
+                    trail_count = math.floor(it[2] / 3)
+                    break
+            item["avg_count"] = trail_count
+            ret.append(item)
+
         return Response(ret)
 
     @action(detail=False, url_path="report")
