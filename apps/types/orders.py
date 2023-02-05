@@ -15,6 +15,7 @@ class CartProduct(TypedDict):
     product_unit: str
     product_url: str
     quantity: int
+    price: float
 
 
 class VendorCartProduct(TypedDict):
