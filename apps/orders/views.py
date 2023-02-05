@@ -61,6 +61,7 @@ from apps.common.pagination import (
 from apps.common.utils import get_date_range, group_products_from_search_result
 from apps.orders.helpers import OfficeProductHelper, ProcedureHelper, ProductHelper
 from apps.orders.services.order import OrderService
+from apps.orders.services.product import ProductService
 from apps.scrapers.amazonsearch import AmazonSearchScraper
 from apps.scrapers.ebay_search import EbaySearch
 from apps.scrapers.errors import VendorNotSupported
@@ -1645,11 +1646,25 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         query = self.request.GET.get("search", "")
-        queryset = self.filter_queryset(self.get_queryset())
         vendors = self.request.query_params.get("vendors", "").split(",")
         price_from = self.request.query_params.get("price_from")
         price_to = self.request.query_params.get("price_to")
 
+        if "amazon" in vendors:
+            # Add on the fly results
+            try:
+                products_fly = AmazonSearchScraper()._search_products(
+                    query=query, from_price=price_from, to_price=price_to
+                )
+            except Exception:  # noqa
+                products_fly = {"products": []}
+
+            if products_fly["products"]:
+                ProductService.generate_products_from_data(
+                    products=products_fly["products"], vendor_slug="amazon"
+                )
+
+        queryset = self.filter_queryset(self.get_queryset())
         product_list = list(queryset)
 
         if "ebay" in vendors:
@@ -1661,19 +1676,6 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
                     product_list.extend(ebay_products)
             except Exception:  # noqa
                 print("Ebay search exception")
-
-        if "amazon" in vendors:
-            # Add on the fly results
-            try:
-                products_fly = AmazonSearchScraper()._search_products(
-                    query=query, from_price=price_from, to_price=price_to
-                )
-            except Exception:  # noqa
-                products_fly = {"products": []}
-            # log += products_fly['log']
-            if products_fly["products"]:
-                product_list.extend(products_fly["products"])
-                self.available_vendors.append("amazon")
 
         count_per_page = int(self.request.query_params.get("per_page", 10))
         current_page = int(self.request.query_params.get("page", 1))

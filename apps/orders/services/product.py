@@ -4,6 +4,7 @@ from collections import defaultdict
 from itertools import chain
 from typing import List, Optional, Union
 
+from django.db import transaction
 from django.db.models import Model
 from django.db.models.query import QuerySet
 
@@ -12,7 +13,7 @@ from apps.common.utils import (
     find_numeric_values_from_string,
     find_words_from_string,
 )
-from apps.orders.models import Product, ProductCategory
+from apps.orders.models import Product, ProductCategory, Vendor, ProductImage
 
 ProductID = Union[int, str]
 ProductIDs = List[ProductID]
@@ -238,3 +239,64 @@ class ProductService:
         else:
             percentage = len(matched_words) / len(total_words)
         return percentage
+
+    @staticmethod
+    def generate_products_from_data(products, vendor_slug):
+        """
+        Create products in the Product table with a list of product json data
+        and the given vendor slug.
+        :param products: List[dict] - a list of product data to be created in Product table
+        :param vendor_slug: str - literally the vendor slug
+        :return: none
+        """
+        if not products:
+            return
+
+        vendor = Vendor.objects.filter(slug=vendor_slug).first()
+        image_data = {p["product_id"]: p.pop("images") for p in products}
+        overall_ids = [p["product_id"] for p in products]
+        products_to_update = Product.objects.filter(product_id__in=overall_ids)
+        update_products_map = {u.product_id: u for u in products_to_update}
+        products_to_create = []
+        image_products_to_create = []
+
+        for product in products:
+            if product["product_id"] in update_products_map.keys():
+                update_products_map[product["product_id"]].price = product["price"]
+                update_products_map[product["product_id"]].url = product["url"]
+                update_products_map[product["product_id"]].name = product["name"]
+                update_products_map[product["product_id"]].description = product["description"]
+
+                if (
+                    not update_products_map[product["product_id"]].images.exists()
+                    and image_data[product["product_id"]][0]["image"]
+                ):
+                    image_products_to_create.append(
+                        ProductImage(
+                            product=update_products_map[product["product_id"]],
+                            image=image_data[product["product_id"]][0]["image"]
+                        )
+                    )
+            else:
+                product["vendor"] = vendor
+                products_to_create.append(Product(**product))
+
+        try:
+            # NOTE: Need to consider batch size when upgrading the search engine later....
+            with transaction.atomic():
+                created_products = Product.objects.bulk_create(
+                    products_to_create,
+                )
+
+                for cp in created_products:
+                    image_products_to_create.append(
+                        ProductImage(product=cp, image=image_data[cp.product_id][0]['image'])
+                    )
+                ProductImage.objects.bulk_create(
+                    image_products_to_create,
+                )
+                Product.objects.bulk_update(
+                    products_to_update, ["price", "url", "name", "description"]
+                )
+        except Exception as err:
+            raise ValueError(err)
