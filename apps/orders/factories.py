@@ -37,3 +37,18 @@ class VendorOrderFactory(DjangoModelFactory):
     order = factory.SubFactory(OrderFactory)
     total_amount = 1
     order_date = factory.Faker("date")
+
+
+class ProcedureCodeFactory(DjangoModelFactory):
+    class Meta:
+        model = m.ProcedureCode
+
+
+class ProcedureFactory(DjangoModelFactory):
+    class Meta:
+        model = m.Procedure
+
+
+class ProcedureCategoryLinkFactory(DjangoModelFactory):
+    class Meta:
+        model = m.ProcedureCategoryLink
