@@ -68,7 +68,7 @@ class FutureCastAPITests(APITestCase):
             office=self.office,
             type="month",
         )
-        self.expected_order_count1 = proc1.count + proc2._count
+        self.expected_order_count1 = proc1.count + proc2.count
         self.expected_order_count2 = proc3.count
         self.expected_order_avg_count1 = math.floor((proc4.count + proc5.count) / 3)
         self.expected_order_avg_count2 = 0
@@ -76,20 +76,22 @@ class FutureCastAPITests(APITestCase):
     def test_summary_category(self):
         self.client.force_authenticate(self.admin)
         link = reverse(
-            "procedures-summary_category", kwargs={"company_pk": self.company.id, "office_pk": self.office.id}
+            "procedures-summary-category", kwargs={"company_pk": self.company.id, "office_pk": self.office.id}
         )
         link = f"{link}?type=month&date_range=thisMonth"
         response = self.client.get(link)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         result = response.data
+
+        # import pdb; pdb.set_trace()
         self.assertEqual(len(result), 2)  # Number of summary category
-        self.assertEqual(result[0].order, 2)
-        self.assertEqual(result[0].slug, self.category1.slug)
-        self.assertEqual(result[0].is_favorite, True)
-        self.assertEqual(result[0].count, self.expected_order_count1)
-        self.assertEqual(result[0].avg_count, self.expected_order_avg_count1)
-        self.assertEqual(result[1].order, 4)
-        self.assertEqual(result[1].slug, self.category2.slug)
-        self.assertEqual(result[1].is_favorite, False)
-        self.assertEqual(result[1].count, self.expected_order_count2)
-        self.assertEqual(result[1].avg_count, self.expected_order_avg_count2)
+        self.assertEqual(result[0]["order"], 2)
+        self.assertEqual(result[0]["slug"], self.category1.summary_slug)
+        self.assertEqual(result[0]["is_favorite"], True)
+        self.assertEqual(result[0]["count"], self.expected_order_count1)
+        self.assertEqual(result[0]["avg_count"], self.expected_order_avg_count1)
+        self.assertEqual(result[1]["order"], 4)
+        self.assertEqual(result[1]["slug"], self.category2.summary_slug)
+        self.assertEqual(result[1]["is_favorite"], False)
+        self.assertEqual(result[1]["count"], self.expected_order_count2)
+        self.assertEqual(result[1]["avg_count"], self.expected_order_avg_count2)

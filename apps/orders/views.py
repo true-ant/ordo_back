@@ -1777,7 +1777,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
                 "procedurecode__summary_category__category_order",
                 "procedurecode__summary_category__is_favorite",
             )
-            .annotate(dcount=Count("procedurecode__summary_category__summary_slug"))
+            .annotate(dcount=Sum("count"))
             .filter(dcount__gt=0)
         )
         ret_trailing = (
@@ -1787,13 +1787,8 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             .order_by(
                 "procedurecode__summary_category__category_order", "-procedurecode__summary_category__is_favorite"
             )
-            .values_list(
-                "procedurecode__summary_category",
-                "procedurecode__summary_category__summary_slug",
-                "procedurecode__summary_category__category_order",
-                "procedurecode__summary_category__is_favorite",
-            )
-            .annotate(sum_count=Count("procedurecode__summary_category__summary_slug"))
+            .values_list("procedurecode__summary_category", "procedurecode__summary_category__summary_slug")
+            .annotate(sum_count=Sum("count"))
             .filter(sum_count__gt=0)
         )
 
