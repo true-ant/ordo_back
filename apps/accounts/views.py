@@ -193,6 +193,13 @@ class OfficeViewSet(ModelViewSet):
             return Response(status=HTTP_200_OK, data=resp.data)
         return Response(status=HTTP_400_BAD_REQUEST)
 
+    @action(detail=True, methods=["get"])
+    def open_dental_connect_status(self, request, *args, **kwargs):
+        instance = self.get_object()
+        dental_api = instance.dental_api
+        is_connected = "FHIR" in dental_api
+        return Response(status=HTTP_200_OK, data={"connected": is_connected})
+
     def load_prev_month_production(self, day1, day2, api_key):
         with open("query/production.json") as f:
             queryProduction = json.load(f, strict=False)
