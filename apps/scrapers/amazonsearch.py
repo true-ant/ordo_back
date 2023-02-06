@@ -40,7 +40,7 @@ class AmazonSearchScraper():
         log1 = "query = " + query
         url = f"{self.BASE_URL}/s"
         page_size = 16
-        params = {"k": query, "page": page, "ref": "nb_sb_noss", "s": "price-asc-rank"}
+        params = {"title": query, "page": page, "ref": "nb_sb_noss", "s": "price-asc-rank"}
 
         log1 += "ama1=="
         resp = session.get(url, headers=SEARCH_HEADERS, params=params)

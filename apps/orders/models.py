@@ -160,7 +160,7 @@ class Product(TimeStampedModel):
             "url": self.url if self.url else "",
             "images": [image.image for image in self.images.all()],
             "price": self.price,
-            "category": self.category.slug,
+            "category": self.category.slug if self.category else "",
             "unit": self.product_unit,
         }
 

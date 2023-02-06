@@ -111,7 +111,8 @@ class ProductV2Filter(filters.FilterSet):
     price_from = filters.NumberFilter(method="filter_by_price_range", lookup_expr='gte')
     price_to = filters.NumberFilter(method="filter_by_price_range", lookup_expr='lte')
 
-    def filter_by_price_range(self, queryset, name, value):
+    @staticmethod
+    def filter_by_price_range(queryset, name, value):
         query = Q(child__isnull=False)
 
         if name == 'price_from':
@@ -122,7 +123,8 @@ class ProductV2Filter(filters.FilterSet):
 
         return queryset
 
-    def filter_by_vendors(self, queryset, name, value):
+    @staticmethod
+    def filter_by_vendors(queryset, name, value):
         vendor_slugs = value.split(",")
         q = Q(vendor__slug__in=vendor_slugs) | (Q(vendor__isnull=True) & (Q(child__vendor__slug__in=vendor_slugs)))
 
