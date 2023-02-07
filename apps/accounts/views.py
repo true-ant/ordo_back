@@ -12,7 +12,12 @@ from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.serializers import ValidationError
-from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_REQUEST
+from rest_framework.status import (
+    HTTP_200_OK,
+    HTTP_201_CREATED,
+    HTTP_400_BAD_REQUEST,
+    HTTP_401_UNAUTHORIZED,
+)
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -196,8 +201,10 @@ class OfficeViewSet(ModelViewSet):
     @action(detail=True, methods=["get"])
     def open_dental_connect_status(self, request, *args, **kwargs):
         instance = self.get_object()
-        dental_api = instance.dental_api
-        is_connected = "FHIR" in dental_api
+        api_key = instance.dental_api
+        od_client = OpenDentalClient(api_key)
+        ret, status = od_client.query("")
+        is_connected = status != HTTP_401_UNAUTHORIZED
         return Response(status=HTTP_200_OK, data={"connected": is_connected})
 
     def load_prev_month_production(self, day1, day2, api_key):
