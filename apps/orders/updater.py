@@ -30,6 +30,24 @@ SESSION_COUNT = 1
 BULK_SIZE = 500
 
 
+INVENTORY_AGE_DEFAULT = datetime.timedelta(days=1)
+NONINVENTORY_AGE_DEFAULT = datetime.timedelta(days=2)
+
+
+class AgeParams(NamedTuple):
+    inventory: datetime.timedelta
+    regular: datetime.timedelta
+
+
+DEFAULT_AGE_PARAMS = AgeParams(inventory=datetime.timedelta(days=1), regular=datetime.timedelta(days=2))
+
+VENDOR_AGE = {"net_32": AgeParams(inventory=datetime.timedelta(days=1), regular=datetime.timedelta(days=2))}
+
+
+def get_vendor_age(v: Vendor):
+    return VENDOR_AGE.get(v.slug, DEFAULT_AGE_PARAMS)
+
+
 class ProcessTask(NamedTuple):
     product: Product
     attempt: int = 0
