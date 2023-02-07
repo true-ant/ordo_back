@@ -109,7 +109,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
 
     last_order_price = serializers.DecimalField(decimal_places=2, max_digits=10, read_only=True)
 
-    children = serializers.SerializerMethodField('get_childen')
+    children = serializers.SerializerMethodField("get_childen")
 
     class Meta:
         model = m.Product
@@ -134,7 +134,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
             "last_order_date",
             "last_order_price",
             "last_order_vendor",
-            "children"
+            "children",
         )
         ordering = ("name",)
 
@@ -168,7 +168,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
             # ret["image_url"] = instance.office_product[0].image_url
 
         if instance.vendor and instance.vendor.slug in settings.NON_FORMULA_VENDORS:
-            ret["product_price"] = instance.recent_price
+            ret["product_price"] = instance.price
         if instance.parent is None:
             ret["description"] = instance.description
 
