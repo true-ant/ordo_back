@@ -222,7 +222,7 @@ CELERY_BEAT_SCHEDULE = {
     # },
     "update_promotions": {
         "task": "apps.orders.tasks.update_promotions",
-        "schedule": crontab(minute="0", hour="0", day_of_week="0"),  # Every Sunday
+        "schedule": crontab(minute="0", hour="0", day_of_week="3"),  # Every wednesday
     },
 }
 
