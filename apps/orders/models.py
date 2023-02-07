@@ -138,6 +138,8 @@ class Product(TimeStampedModel):
 
     @property
     def recent_price(self):
+        # TODO: let's get rid of this code in favor of either cleaning up, updating
+        #       more frequently or returning `oudated` flag
         if self.vendor.slug in settings.NON_FORMULA_VENDORS:
             if self.vendor.slug in ["net_32", "dental_city"] and self.last_price_updated:
                 ages_in_days = (timezone.now() - self.last_price_updated).days
@@ -160,7 +162,7 @@ class Product(TimeStampedModel):
             "url": self.url if self.url else "",
             "images": [image.image for image in self.images.all()],
             "price": self.price,
-            "category": self.category.slug,
+            "category": self.category.slug if self.category else "",
             "unit": self.product_unit,
         }
 

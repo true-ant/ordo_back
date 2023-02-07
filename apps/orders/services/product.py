@@ -1,4 +1,5 @@
 import copy
+import datetime
 import itertools
 from collections import defaultdict
 from itertools import chain
@@ -257,11 +258,14 @@ class ProductService:
         overall_ids = [p["product_id"] for p in products]
         products_to_update = Product.objects.filter(product_id__in=overall_ids)
         update_products_map = {u.product_id: u for u in products_to_update}
+        two_days_ago = datetime.datetime.now() - datetime.timedelta(days=2)
         products_to_create = []
         image_products_to_create = []
 
         for product in products:
             if product["product_id"] in update_products_map.keys():
+                if update_products_map[product["product_id"]].updated_at.date() >= two_days_ago.date():
+                    continue
                 update_products_map[product["product_id"]].price = product["price"]
                 update_products_map[product["product_id"]].url = product["url"]
                 update_products_map[product["product_id"]].name = product["name"]
