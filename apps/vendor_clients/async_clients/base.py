@@ -41,7 +41,7 @@ class PriceInfo(NamedTuple):
     price: decimal.Decimal
     product_vendor_status: str
     is_special_offer: bool
-    special_price: decimal.Decimal
+    special_price: Optional[decimal.Decimal]
 
 
 class BaseClient:

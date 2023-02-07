@@ -170,10 +170,10 @@ class Net32Client(BaseClient):
             logger.warning("Got exception: %s", "".join(traceback.TracebackException.from_exception(e).format()))
             raise
         return PriceInfo(
-            price=Decimal(str(price)),
+            price=Decimal(str(special_price)) if is_special_offer else Decimal(str(price)),
             product_vendor_status="Active",
-            is_special_offer=is_special_offer,
-            special_price=Decimal(str(special_price)),
+            is_special_offer=False,
+            special_price=None,
         )
 
     def serialize(self, base_product: types.Product, data: Union[dict, Selector]) -> Optional[types.Product]:
