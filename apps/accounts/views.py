@@ -203,7 +203,7 @@ class OfficeViewSet(ModelViewSet):
         instance = self.get_object()
         api_key = instance.dental_api
         od_client = OpenDentalClient(api_key)
-        ret, status = od_client.query("")
+        _, status = od_client.query("")
         is_connected = status != HTTP_401_UNAUTHORIZED
         return Response(status=HTTP_200_OK, data={"connected": is_connected})
 
