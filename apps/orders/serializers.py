@@ -134,6 +134,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
             "last_order_date",
             "last_order_price",
             "last_order_vendor",
+            "sku",
             "children"
         )
         ordering = ("name",)
