@@ -83,7 +83,6 @@ class FutureCastAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         result = response.data
 
-        # import pdb; pdb.set_trace()
         self.assertEqual(len(result), 2)  # Number of summary category
         self.assertEqual(result[0]["order"], 2)
         self.assertEqual(result[0]["slug"], self.category1.summary_slug)

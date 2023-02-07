@@ -1821,7 +1821,6 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         start_end_date = get_date_range(date_range)
         day_from = datetime.date(start_end_date[0].year, start_end_date[0].month, start_end_date[0].day)
         day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
-        # ProcedureHelper.fetch_procedure_period(day_from, office_pk, type)
 
         try:
             with open("query/proc_result.txt", "r") as f:
