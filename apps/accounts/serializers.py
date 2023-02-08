@@ -94,6 +94,7 @@ class OfficeSerializer(serializers.ModelSerializer):
     budget = OfficeBudgetSerializer()
     settings = OfficeSettingSerializer(read_only=True)
     name = serializers.CharField()
+    dental_api = serializers.CharField(allow_null=True, allow_blank=True, max_length=128)
 
     class Meta:
         model = m.Office

@@ -11,4 +11,4 @@ class OpenDentalClient:
     def query(self, query, offset=None):
         params = {"Offset": offset} if offset else None
         resp = self.session.put(QUERY_URL, params=params, json={"SqlCommand": query})
-        return resp.json()
+        return resp.json(), resp.status_code

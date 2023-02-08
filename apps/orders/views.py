@@ -1647,9 +1647,7 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
                 products_fly = {"products": []}
 
             if products_fly["products"]:
-                ProductService.generate_products_from_data(
-                    products=products_fly["products"], vendor_slug="amazon"
-                )
+                ProductService.generate_products_from_data(products=products_fly["products"], vendor_slug="amazon")
 
         queryset = self.filter_queryset(self.get_queryset())
         product_list = list(queryset)
@@ -1780,7 +1778,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
                 "procedurecode__summary_category__is_favorite",
             )
             .annotate(dcount=Sum("count"))
-            .filter(dcount__gt=0)
+            .filter(dcount__gt=0, procedurecode__summary_category__isnull=False)
         )
         ret_trailing = (
             m.Procedure.objects.filter(
@@ -1791,7 +1789,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             )
             .values_list("procedurecode__summary_category", "procedurecode__summary_category__summary_slug")
             .annotate(sum_count=Sum("count"))
-            .filter(sum_count__gt=0)
+            .filter(sum_count__gt=0, procedurecode__summary_category__isnull=False)
         )
 
         ret = []
