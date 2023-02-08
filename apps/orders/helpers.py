@@ -12,12 +12,10 @@ from typing import Dict, List, Optional, TypedDict, Union
 
 import pandas as pd
 from aiohttp import ClientSession
-from asgiref.sync import sync_to_async
 from dateutil import rrule
 from django.apps import apps
 from django.conf import settings
 from django.contrib.postgres.search import SearchQuery, SearchVectorField
-from django.db import transaction
 from django.db.models import (
     Case,
     Count,
@@ -43,6 +41,7 @@ from apps.accounts.models import Vendor as VendorModel
 from apps.common.choices import ProcedureType
 from apps.common.query import Replacer
 from apps.common.utils import (
+    batched,
     bulk_create,
     bulk_update,
     concatenate_list_as_string,
@@ -144,7 +143,7 @@ class OfficeProductHelper:
             return office_product.price
 
     @staticmethod
-    def get_office_vendors(office_id: str, vendor_slugs: List[str]) -> Dict[str, VendorCredential]:
+    async def get_office_vendors(office_id: str, vendor_slugs: List[str]) -> Dict[str, VendorCredential]:
         q = [Q(office_id=office_id) & Q(vendor__slug=vendor_slug) for vendor_slug in vendor_slugs]
         office_vendors = OfficeVendorModel.objects.filter(reduce(or_, q)).values(
             "vendor__slug", "username", "password"
@@ -154,73 +153,71 @@ class OfficeProductHelper:
                 "username": office_vendor["username"],
                 "password": office_vendor["password"],
             }
-            for office_vendor in office_vendors
+            async for office_vendor in office_vendors
         }
 
     @staticmethod
-    def update_products_prices(products_prices: Dict[str, ProductPrice], office_id: str):
+    async def update_products_prices(products_prices: Dict[str, ProductPrice], office_id: str):
         """Store product prices to table"""
         print("update_products_prices")
-        last_price_updated = timezone.now()
+        current_time = timezone.now()
         product_ids = products_prices.keys()
-        products = ProductModel.objects.in_bulk(product_ids)
+        products = await ProductModel.objects.select_related("vendor").ain_bulk(product_ids)
         office_products = OfficeProductModel.objects.select_related("product").filter(
             office_id=office_id, product_id__in=product_ids
         )
 
-        with transaction.atomic():
-            updated_product_ids = []
-            for office_product in office_products:
-                office_product.price = products_prices[office_product.product.id]["price"]
-                office_product.product_vendor_status = products_prices[office_product.product.id][
-                    "product_vendor_status"
-                ]
-                office_product.last_price_updated = last_price_updated
-                updated_product_ids.append(office_product.product.id)
+        updated_product_ids = []
+        async for office_product in office_products:
+            pprice = products_prices[office_product.product_id]
+            for k, v in pprice.items():
+                setattr(office_product, k, v)
+            office_product.last_price_updated = current_time
+            updated_product_ids.append(office_product.product_id)
 
-            bulk_update(
-                model_class=OfficeProductModel,
-                objs=office_products,
-                fields=["price", "product_vendor_status", "last_price_updated"],
-            )
+        await OfficeProductModel.objects.abulk_update(
+            objs=office_products, fields=["price", "product_vendor_status", "last_price_updated"], batch_size=500
+        )
 
-            # update product price
-            products_to_be_updated = []
-            for product_id, product in products.items():
-                if product.vendor.slug not in settings.NON_FORMULA_VENDORS:
-                    continue
-                product.price = products_prices[product_id]["price"]
-                product.product_vendor_status = products_prices[product_id]["product_vendor_status"]
-                product.last_price_updated = last_price_updated
-                products_to_be_updated.append(product)
+        # update product price
+        products_to_be_updated = []
+        for product_id, product in products.items():
+            if product.vendor.slug not in settings.NON_FORMULA_VENDORS:
+                continue
+            product.price = products_prices[product_id]["price"]
+            product.product_vendor_status = products_prices[product_id]["product_vendor_status"]
+            product.last_price_updated = current_time
+            products_to_be_updated.append(product)
 
-            bulk_update(
-                model_class=ProductModel,
-                objs=products_to_be_updated,
-                fields=["price", "product_vendor_status", "last_price_updated"],
-            )
+        await ProductModel.objects.abulk_update(
+            objs=products_to_be_updated,
+            fields=["price", "product_vendor_status", "last_price_updated"],
+            batch_size=500,
+        )
 
-            creating_products = []
-            for product_id in product_ids:
-                if product_id in updated_product_ids:
-                    continue
-                creating_products.append(
-                    OfficeProductModel(
-                        office_id=office_id,
-                        product=products[product_id],
-                        price=products_prices[product_id]["price"],
-                        last_price_updated=last_price_updated,
-                        product_vendor_status=products_prices[product_id]["product_vendor_status"],
-                    )
+        creating_products = []
+        for product_id in product_ids:
+            if product_id in updated_product_ids:
+                continue
+            creating_products.append(
+                OfficeProductModel(
+                    office_id=office_id,
+                    product=products[product_id],
+                    price=products_prices[product_id]["price"],
+                    last_price_updated=current_time,
+                    product_vendor_status=products_prices[product_id]["product_vendor_status"],
                 )
+            )
 
-            bulk_create(OfficeProductModel, creating_products)
+        await OfficeProductModel.objects.abulk_create(creating_products, batch_size=500)
 
     @staticmethod
     async def get_product_prices_by_ids(
-        products: List[str], office: Union[SmartID, OfficeModel]
+        product_ids: List[str], office: Union[SmartID, OfficeModel]
     ) -> Dict[str, ProductPrice]:
-        products = await sync_to_async(ProductModel.objects.in_bulk)(products)
+        products: dict[int, ProductModel] = await ProductModel.objects.select_related("vendor", "category").ain_bulk(
+            product_ids
+        )
         return await OfficeProductHelper.get_product_prices(products, office)
 
     @staticmethod
@@ -238,16 +235,13 @@ class OfficeProductHelper:
         else:
             office_id = office
 
-        product_prices_from_db = await sync_to_async(OfficeProductHelper.get_products_prices_from_db)(
-            products, office_id
-        )
+        product_prices_from_db = await OfficeProductHelper.get_products_prices_from_db(products, office_id)
         products_to_be_fetched = {}
 
         for product_id, product in products.items():
-            product_data = await sync_to_async(product.to_dict)()
-            products_to_be_fetched[product_id] = product_data
+            products_to_be_fetched[product_id] = await product.ato_dict()
 
-        print(f"==== Number of products to fetch from their sites: {len(products_to_be_fetched.keys())} ====")
+        print(f"==== Number of products to fetch from their sites: {len(products_to_be_fetched)} ====")
         if not from_api and products_to_be_fetched:
             product_prices_from_vendors = await OfficeProductHelper.get_product_prices_from_vendors(
                 products_to_be_fetched, office_id
@@ -262,7 +256,9 @@ class OfficeProductHelper:
         return product_prices_from_db
 
     @staticmethod
-    def get_products_prices_from_db(products: Dict[str, ProductModel], office_id: str) -> Dict[str, ProductPrice]:
+    async def get_products_prices_from_db(
+        products: Dict[str, ProductModel], office_id: str
+    ) -> Dict[str, ProductPrice]:
         product_ids_from_formula_vendors = []
         product_ids_from_non_formula_vendors = []
         for product_id, product in products.items():
@@ -278,7 +274,7 @@ class OfficeProductHelper:
             product_id__in=product_ids_from_formula_vendors, office_id=office_id
         ).values("product_id", "price", "product_vendor_status")
 
-        for office_product in office_products:
+        async for office_product in office_products:
             product_prices[office_product["product_id"]]["price"] = office_product["price"]
             product_prices[office_product["product_id"]]["product_vendor_status"] = office_product[
                 "product_vendor_status"
@@ -298,57 +294,49 @@ class OfficeProductHelper:
         print("get_product_prices_from_vendors")
         product_prices_from_vendors = {}
         if products:
-            vendor_slugs = set([product["vendor"] for product_id, product in products.items()])
-            vendors_credentials = await sync_to_async(OfficeProductHelper.get_office_vendors)(
+            vendor_slugs = list(set([product["vendor"] for product_id, product in products.items()]))
+            vendors_credentials = await OfficeProductHelper.get_office_vendors(
                 vendor_slugs=vendor_slugs, office_id=office_id
             )
             product_prices_from_vendors = await VendorHelper.get_products_prices(
                 products=products, vendors_credentials=vendors_credentials, use_async_client=True
             )
             print("============== update ==============")
-            await sync_to_async(OfficeProductHelper.update_products_prices)(product_prices_from_vendors, office_id)
+            await OfficeProductHelper.update_products_prices(product_prices_from_vendors, office_id)
 
         return product_prices_from_vendors
 
     @staticmethod
     def get_vendor_product_ids(office_id: str, vendor_slug: str):
-        office_products = OfficeProductModel.objects.filter(Q(office_id=office_id) & Q(product_id=OuterRef("pk")))
-        return list(
-            ProductModel.objects.annotate(office_product_price=Subquery(office_products.values("price")[:1]))
-            .annotate(
-                product_price=Case(
-                    When(office_product_price__isnull=False, then=F("office_product_price")),
-                    When(price__isnull=False, then=F("price")),
-                    default=Value(None),
-                )
-            )
+        # TODO: let's remove annotations if we are not using them?
+        # office_products = OfficeProductModel.objects.filter(Q(office_id=office_id) & Q(product_id=OuterRef("pk")))
+        return (
+            ProductModel.objects
+            # .annotate(office_product_price=Subquery(office_products.values("price")[:1]))
+            # .annotate(
+            #     product_price=Case(
+            #         When(office_product_price__isnull=False, then=F("office_product_price")),
+            #         When(price__isnull=False, then=F("price")),
+            #         default=Value(None),
+            #     )
+            # )
             # .filter(vendor__slug=vendor_slug,  product_price__isnull=True)
-            .filter(vendor__slug=vendor_slug)
-            .values_list("id", flat=True)
+            .filter(vendor__slug=vendor_slug).values_list("id", flat=True)
         )
 
     @staticmethod
-    async def get_all_product_prices_from_vendors(office_id: str, vendor_slugs: List[str]):
+    async def get_all_product_prices_from_vendors(
+        office_id: str, vendor_slugs: List[str], batch_size=20, sleep_time=1
+    ):
         for vendor_slug in vendor_slugs:
-            vendor_product_ids = await sync_to_async(OfficeProductHelper.get_vendor_product_ids)(
-                office_id, vendor_slug
-            )
-
+            vendor_product_ids: List[int] = [
+                product_id async for product_id in OfficeProductHelper.get_vendor_product_ids(office_id, vendor_slug)
+            ]
             print(f"Number of products to update price: {len(vendor_product_ids)}")
 
-            step_size = 20
-            offset = 0
-
-            while True:
-                if offset > len(vendor_product_ids):
-                    break
-                v_ids = vendor_product_ids[offset : offset + step_size]
-
-                print(offset, v_ids)
+            for v_ids in batched(vendor_product_ids, batch_size):
                 await OfficeProductHelper.get_product_prices_by_ids(v_ids, office_id)
-                await aio.sleep(1)
-
-                offset += step_size
+                await aio.sleep(sleep_time)
 
         print("======== DONE fetch =========")
 

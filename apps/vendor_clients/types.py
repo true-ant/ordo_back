@@ -23,7 +23,7 @@ class Product(TypedDict):
     product_id: str
     sku: str
     name: str
-    nickname:str
+    nickname: str
     url: str
     images: List[str]
     price: Decimal
@@ -82,6 +82,6 @@ class ProductSearch(TypedDict):
     products: List[Product]
 
 
-class ProductPrice:
+class ProductPrice(TypedDict):
     price: Decimal
     product_vendor_status: str
