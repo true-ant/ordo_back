@@ -9,6 +9,7 @@ from django.contrib.postgres.search import (  # TrigramSimilarity,
 )
 from django.db import models
 from django.db.models import Q
+from django.db.models.expressions import RawSQL
 from django.utils import timezone
 from django_extensions.db.fields import AutoSlugField
 from slugify import slugify
@@ -60,6 +61,9 @@ class ProductQuerySet(models.QuerySet):
             # .annotate(similarity=trigram_similarity)
             .filter(Q(search_vector=q))
         )
+
+    def with_inventory_refs(self):
+        return self.annotate(_inventory_refs=RawSQL("inventory_refs", (), output_field=models.IntegerField()))
 
 
 class ProductManager(models.Manager):
@@ -115,6 +119,7 @@ class Product(TimeStampedModel):
     special_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     promotion_description = models.TextField(null=True, blank=True)
     search_vector = SearchVectorField(null=True, blank=True, help_text="Search vector")
+    price_expiration = models.DateTimeField(null=True, blank=True, help_text="Price expiration")
 
     objects = ProductManager()
 
@@ -129,6 +134,10 @@ class Product(TimeStampedModel):
 
     def __str__(self):
         return f"{self.name} from {self.vendor}"
+
+    @property
+    def inventory_refs(self):
+        return self._inventory_refs
 
     @property
     def sibling_products(self):
@@ -163,6 +172,19 @@ class Product(TimeStampedModel):
             "images": [image.image for image in self.images.all()],
             "price": self.price,
             "category": self.category.slug if self.category else "",
+            "unit": self.product_unit,
+        }
+
+    async def ato_dict(self) -> ProductDict:
+        return {
+            "vendor": self.vendor.slug,
+            "product_id": self.product_id if self.product_id else "",
+            "sku": "",
+            "name": self.name,
+            "url": self.url if self.url else "",
+            "images": [image.image async for image in self.images.all()],
+            "price": self.price,
+            "category": self.category.slug,
             "unit": self.product_unit,
         }
 
