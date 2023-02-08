@@ -8,6 +8,7 @@ from collections import deque
 from typing import Deque, NamedTuple
 
 from aiohttp import ClientSession
+from django.db.models.functions import Now
 from django.utils import timezone
 
 from apps.accounts.models import OfficeVendor, Vendor
@@ -39,13 +40,16 @@ class AgeParams(NamedTuple):
     regular: datetime.timedelta
 
 
-DEFAULT_AGE_PARAMS = AgeParams(inventory=datetime.timedelta(days=1), regular=datetime.timedelta(days=2))
+DEFAULT_AGE_PARAMS = AgeParams(inventory=datetime.timedelta(days=7), regular=datetime.timedelta(days=14))
 
 VENDOR_AGE = {"net_32": AgeParams(inventory=datetime.timedelta(days=1), regular=datetime.timedelta(days=2))}
 
 
-def get_vendor_age(v: Vendor):
-    return VENDOR_AGE.get(v.slug, DEFAULT_AGE_PARAMS)
+def get_vendor_age(v: Vendor, p: Product):
+    age_params = VENDOR_AGE.get(v.slug, DEFAULT_AGE_PARAMS)
+    if p.inventory_refs > 0:
+        return age_params.inventory
+    return age_params.regular
 
 
 class ProcessTask(NamedTuple):
@@ -127,9 +131,11 @@ class Updater:
 
     async def producer(self):
         products = (
-            Product.objects.filter(vendor=self.vendor, last_price_updated__lt=timezone.now() - self.record_age)
+            Product.objects.all()
+            .with_inventory_refs()
+            .filter(vendor=self.vendor, price_expiration__lt=Now())
             .exclude(product_vendor_status__in=(STATUS_UNAVAILABLE, STATUS_EXHAUSTED))
-            .order_by("-inventory_refs", "last_price_updated")[:BULK_SIZE]
+            .order_by("-_inventory_refs", "price_expiration")[:BULK_SIZE]
         )
         async for product in products:
             await self.put(ProcessTask(product))
@@ -171,6 +177,7 @@ class Updater:
             price=price_info.price,
             last_price_updated=update_time,
             product_vendor_status=STATUS_ACTIVE,
+            price_expiration=timezone.now() + get_vendor_age(self.vendor, product),
         )
         await OfficeProduct.objects.filter(product_id=product.pk).aupdate(
             price=price_info.price, last_price_updated=update_time, product_vendor_status=STATUS_ACTIVE
