@@ -629,7 +629,9 @@ class VendorProductSearchSerializer(serializers.Serializer):
 
 
 class ProductPriceRequestSerializer(serializers.Serializer):
-    products = serializers.PrimaryKeyRelatedField(queryset=m.Product.objects.all(), many=True)
+    products = serializers.PrimaryKeyRelatedField(
+        queryset=m.Product.objects.select_related("vendor", "category"), many=True
+    )
 
 
 class VendorOrderReturnSerializer(serializers.Serializer):
