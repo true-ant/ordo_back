@@ -1811,72 +1811,40 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
 
         return Response(ret)
 
+    @action(detail=False)
+    def summary_report(self, request, *args, **kwargs):
+        date_type = self.request.query_params.get("type", "month")
+        limit = self.request.query_params.get("limit", 5)
+        summary_category = self.request.query_params.get("summary_category")
+        office_pk = self.kwargs["office_pk"]
+        date_range = self.request.query_params.get("date_range", "thisQuarter")
+        start_end_date = get_date_range(date_range)
+        day_from = start_end_date[0]
+        day_to = start_end_date[1]
+
+        summary_query = m.ProcedureCategoryLink.objects.filter(summary_slug=summary_category).first()
+        if not summary_query:
+            return Response(status=HTTP_400_BAD_REQUEST, data={"message": "No such summary category slug exists"})
+        categories = (
+            m.ProcedureCode.objects.filter(summary_category=summary_query)
+            .distinct("category")
+            .values_list("category", flat=True)
+        )
+        categories = list(categories)
+        return get_procedure_report(date_type, day_from, day_to, office_pk, limit, categories)
+
     @action(detail=False, url_path="report")
     def get_report(self, request, *args, **kwargs):
         date_type = self.request.query_params.get("type", "month")
         limit = self.request.query_params.get("limit", 5)
-        category = self.request.query_params.get("category", "all")
+        category = self.request.query_params.get("category")
+        categories = category.split(",") if category else []
         office_pk = self.kwargs["office_pk"]
         date_range = self.request.query_params.get("date_range", "thisQuarter")
         start_end_date = get_date_range(date_range)
-        day_from = datetime.date(start_end_date[0].year, start_end_date[0].month, start_end_date[0].day)
-        day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
-
-        try:
-            with open("query/proc_result.txt", "r") as f:
-                raw_sql = f.read()
-            with open("query/proc_subquery.txt", "r") as f:
-                raw_joins = f.read()
-
-            sub_counts = ""
-            sub_joins = ""
-            nIndex = 1
-            ret_header = ["Code", "Description"]
-            if date_type == ProcedureType.PROCEDURE_MONTH:
-                for dt in rrule.rrule(rrule.MONTHLY, dtstart=day_from, until=day_to):
-                    sub_counts += f"p{nIndex}.count,"
-                    sub_joins += raw_joins.format(
-                        type=date_type, office_id=office_pk, day_from=dt.date(), tablename=f"p{nIndex}"
-                    )
-                    sub_joins += " "
-                    ret_header.append(f"{dt.date()}")
-                    nIndex += 1
-                sub_counts = sub_counts[:-1]
-
-            if date_type == ProcedureType.PROCEDURE_WEEK:
-                week_startday = day_from - datetime.timedelta(days=day_from.weekday())
-                for dt in rrule.rrule(rrule.WEEKLY, dtstart=week_startday, until=day_to):
-                    sub_counts += f"p{nIndex}.count,"
-                    sub_joins += raw_joins.format(
-                        type=date_type, office_id=office_pk, day_from=dt.date(), tablename=f"p{nIndex}"
-                    )
-                    sub_joins += " "
-                    ret_header.append(f"{dt.date()}")
-                    nIndex += 1
-                sub_counts = sub_counts[:-1]
-
-            if len(sub_counts) == 0:
-                return Response({"message": "No values"})
-
-            newvalue = raw_sql.format(
-                sub_counts=sub_counts,
-                sub_joins=sub_joins,
-                type=date_type,
-                office_id=office_pk,
-                day_from=day_from,
-                day_to=day_to,
-                limit=limit,
-                proc_category=category,
-            )
-            ret_list = []
-            with connection.cursor() as cursor:
-                cursor.execute(newvalue)
-                ret_list = cursor.fetchall()
-            ret = {"headers": ret_header, "procs": ret_list}
-            return Response(data=ret)
-
-        except Exception:  # noqa
-            return Response(status=HTTP_400_BAD_REQUEST)
+        day_from = start_end_date[0]
+        day_to = start_end_date[1]
+        return get_procedure_report(date_type, day_from, day_to, office_pk, limit, categories)
 
 
 class ProcedureCategoryLink(ModelViewSet):
@@ -1897,3 +1865,52 @@ class ProcedureCategoryLink(ModelViewSet):
         if queryset:
             return Response(s.OfficeProductSerializer(queryset, many=True, context={"include_children": True}).data)
         return Response({"message": "No linked products"})
+
+
+def get_procedure_report(date_type, day_from, day_to, office_pk, limit, categories):
+    try:
+        with open("query/proc_result.sql", "r") as f:
+            raw_sql = f.read()
+        with open("query/proc_subquery.sql", "r") as f:
+            raw_joins = f.read()
+
+        sub_counts = ""
+        sub_joins = ""
+        ret_header = ["Code", "Description"]
+        rule = rrule.MONTHLY
+        day_start = day_from
+
+        if date_type == ProcedureType.PROCEDURE_WEEK:
+            rule = rrule.WEEKLY
+            day_start = day_from - datetime.timedelta(days=day_from.weekday())
+        for nIndex, dt in enumerate(rrule.rrule(rule, dtstart=day_start, until=day_to), 1):
+            sub_counts += f"p{nIndex}.count,"
+            sub_joins += raw_joins.format(
+                type=date_type, office_id=office_pk, day_from=dt.date(), tablename=f"p{nIndex}"
+            )
+            sub_joins += " "
+            ret_header.append(f"{dt.date()}")
+        sub_counts = sub_counts[:-1]
+
+        if not sub_counts:
+            return Response(status=HTTP_400_BAD_REQUEST, data={"message": "No values"})
+
+        newvalue = raw_sql.format(
+            sub_counts=sub_counts,
+            sub_joins=sub_joins,
+            type=date_type,
+            office_id=office_pk,
+            day_from=day_from,
+            day_to=day_to,
+            limit=limit,
+            proc_category=str(categories).replace("[", "(").replace("]", ")"),
+        )
+        ret_list = []
+        with connection.cursor() as cursor:
+            cursor.execute(newvalue)
+            ret_list = cursor.fetchall()
+        ret = {"headers": ret_header, "procs": ret_list}
+        return Response(data=ret)
+
+    except Exception as e:  # noqa
+        return Response(status=HTTP_400_BAD_REQUEST, data={"message": f"{e}"})

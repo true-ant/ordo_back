@@ -38,31 +38,49 @@ class FutureCastAPITests(APITestCase):
             is_favorite=False,
         )
         # Procedure Code for summary category category1
-        self.proccode1 = ProcedureCodeFactory(proccode="D9972", summary_category=self.category1)
-        self.proccode2 = ProcedureCodeFactory(proccode="D9973", summary_category=self.category1)
+        self.proccode1 = ProcedureCodeFactory(
+            proccode="D9972", category="testcategory1", summary_category=self.category1
+        )
+        self.proccode2 = ProcedureCodeFactory(
+            proccode="D9973", category="testcategory2", summary_category=self.category1
+        )
         # Procedure Code for summary category category2
-        self.proccode3 = ProcedureCodeFactory(proccode="D4263", summary_category=self.category2)
+        self.proccode3 = ProcedureCodeFactory(
+            proccode="D4263", category="testcategory2", summary_category=self.category2
+        )
         # Available procedure history for thisMonth
         proc1 = ProcedureFactory(
-            start_date=datetime.date.today(), count=5, procedurecode=self.proccode1, office=self.office, type="month"
+            start_date=datetime.date.today().replace(day=1),
+            count=5,
+            procedurecode=self.proccode1,
+            office=self.office,
+            type="month",
         )
         proc2 = ProcedureFactory(
-            start_date=datetime.date.today(), count=3, procedurecode=self.proccode2, office=self.office, type="month"
+            start_date=datetime.date.today().replace(day=1),
+            count=3,
+            procedurecode=self.proccode2,
+            office=self.office,
+            type="month",
         )
         proc3 = ProcedureFactory(
-            start_date=datetime.date.today(), count=3, procedurecode=self.proccode3, office=self.office, type="month"
+            start_date=datetime.date.today().replace(day=1),
+            count=3,
+            procedurecode=self.proccode3,
+            office=self.office,
+            type="month",
         )
 
         # Unavailable procedure history for thisMonth, but available for last 3 months
         proc4 = ProcedureFactory(
-            start_date=datetime.date.today() - relativedelta(months=1),
+            start_date=datetime.date.today().replace(day=1) - relativedelta(months=1),
             count=13,
             procedurecode=self.proccode1,
             office=self.office,
             type="month",
         )
         proc5 = ProcedureFactory(
-            start_date=datetime.date.today() - relativedelta(months=2),
+            start_date=datetime.date.today().replace(day=1) - relativedelta(months=2),
             count=20,
             procedurecode=self.proccode2,
             office=self.office,
@@ -94,3 +112,33 @@ class FutureCastAPITests(APITestCase):
         self.assertEqual(result[1]["is_favorite"], False)
         self.assertEqual(result[1]["count"], self.expected_order_count2)
         self.assertEqual(result[1]["avg_count"], self.expected_order_avg_count2)
+
+    def test_report(self):
+        self.client.force_authenticate(self.admin)
+        link = reverse("procedures-get-report", kwargs={"company_pk": self.company.id, "office_pk": self.office.id})
+        link = f"{link}?type=month&date_range=thisQuarter&category=testcategory2"
+        response = self.client.get(link)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        result = response.data
+        self.assertEqual(len(result), 2)
+        for proc in result["procs"]:
+            if proc[0] == self.proccode2.proccode:
+                self.assertEqual(proc[3], 3)
+            elif proc[0] == self.proccode3.proccode:
+                self.assertEqual(proc[3], 3)
+
+    def test_summary_report(self):
+        self.client.force_authenticate(self.admin)
+        link = reverse(
+            "procedures-summary-report", kwargs={"company_pk": self.company.id, "office_pk": self.office.id}
+        )
+        link = f"{link}?type=month&date_range=thisQuarter&summary_category=Whitening"
+        response = self.client.get(link)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        result = response.data
+        self.assertEqual(len(result), 2)
+        for proc in result["procs"]:
+            if proc[0] == self.category1.summary_slug:
+                self.assertEqual(proc[3] == 5)
