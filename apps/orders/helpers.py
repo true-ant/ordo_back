@@ -13,7 +13,6 @@ from typing import Dict, List, Optional, TypedDict, Union
 import pandas as pd
 from aiohttp import ClientSession
 from dateutil import rrule
-from django.apps import apps
 from django.conf import settings
 from django.contrib.postgres.search import SearchQuery, SearchVectorField
 from django.db.models import (
@@ -1358,7 +1357,7 @@ class ProcedureHelper:
             creating_procedures = []
             while True:
                 od_client = OpenDentalClient(dental_api)
-                json_procedure = od_client.query(query, offset)
+                json_procedure = od_client.query(query, offset)[0]
                 response_len = len(json_procedure)
 
                 print(f"Fetching offset = {offset} length = {response_len}")
