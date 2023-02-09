@@ -26,7 +26,6 @@ FROM inventory_stats istats
 WHERE istats.product_id = op.id
 """
 
-# Hardcoded part, before merging that, we clarify day count
 FILL_PRICE_EXPIRATION_SQL = """
 WITH updated_prices AS (
     SELECT
