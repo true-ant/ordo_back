@@ -144,8 +144,8 @@ def fetch_vendor_products_prices(office_vendor_id):
 
 
 @app.task
-def update_net32_vendor_products_prices():
-    asyncio.run(fetch_for_vendor("net_32"))
+def update_vendor_products_prices(vendor_slug):
+    asyncio.run(fetch_for_vendor(vendor_slug))
 
 
 @app.task
