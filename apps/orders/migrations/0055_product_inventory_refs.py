@@ -4,18 +4,6 @@ from typing import NamedTuple
 
 from django.db import migrations, models
 
-
-# Copied from updater.py
-class AgeParams(NamedTuple):
-    inventory: datetime.timedelta
-    regular: datetime.timedelta
-
-
-DEFAULT_AGE_PARAMS = AgeParams(inventory=datetime.timedelta(days=7), regular=datetime.timedelta(days=14))
-
-VENDOR_AGE = {"net_32": AgeParams(inventory=datetime.timedelta(days=1), regular=datetime.timedelta(days=2))}
-
-
 ADD_FIELDS = """
 ALTER TABLE orders_product ADD COLUMN inventory_refs integer DEFAULT 0;
 """
@@ -38,7 +26,6 @@ FROM inventory_stats istats
 WHERE istats.product_id = op.id
 """
 
-
 FILL_PRICE_EXPIRATION_SQL = """
 WITH updated_prices AS (
     SELECT
@@ -46,13 +33,13 @@ WITH updated_prices AS (
         CASE
             WHEN op.vendor_id = 2 THEN
                 CASE
-                    WHEN op.inventory_refs = 0 THEN op.updated_at + '2 days'::interval
-                    ELSE op.updated_at + '1 day'::interval
+                    WHEN op.inventory_refs = 0 THEN coalesce(op.updated_at, op.last_price_updated) + '2 days'::interval
+                    ELSE coalesce(op.updated_at, op.last_price_updated) + '1 day'::interval
                 END
             ELSE
                 CASE
-                    WHEN op.inventory_refs = 0 THEN op.updated_at + '14 days'::interval
-                    ELSE op.updated_at + '7 days'::interval
+                    WHEN op.inventory_refs = 0 THEN coalesce(op.updated_at, op.last_price_updated) + '14 days'::interval
+                    ELSE coalesce(op.updated_at, op.last_price_updated) + '7 days'::interval
                 END
         END price_expiration_value
     FROM orders_product op
