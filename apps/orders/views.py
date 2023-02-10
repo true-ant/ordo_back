@@ -1759,6 +1759,8 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         office_pk = self.kwargs["office_pk"]
         date_range = self.request.query_params.get("date_range", "thisQuarter")
         start_end_date = get_date_range(date_range)
+        if start_end_date is None:
+            return Response(status=HTTP_400_BAD_REQUEST, data={"message: Wrong date argument given"})
         day_from = start_end_date[0]
         day_to = start_end_date[1]
         day_prev_3months_from = day_from + relativedelta(months=-3)

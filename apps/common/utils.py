@@ -325,8 +325,7 @@ def strip_whitespaces(text: str) -> str:
 
 def formatStEndDateFromQuery(jsonQuery, st, end):
     newvalue = jsonQuery["SqlCommand"].format(value1=st, value2=end)
-    newquery = '''{"SqlCommand": "''' + newvalue + """" }"""
-    return newquery
+    return newvalue
 
 
 def batched(iterable, size):

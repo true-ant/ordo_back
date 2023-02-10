@@ -213,7 +213,11 @@ class OfficeViewSet(ModelViewSet):
         query = formatStEndDateFromQuery(queryProduction, day1, day2)
         od_client = OpenDentalClient(api_key)
         json_production = od_client.query(query)
-        return json_production[0]["DayProductionResult"]
+        try:
+            res = json_production[0][0]["DayProductionResult"]
+            return res
+        except Exception:
+            return 0
 
     @action(detail=True, methods=["post"], url_path="update_budget")
     def update_budget_from_dental(self, request, *args, **kwargs):
