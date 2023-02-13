@@ -494,7 +494,7 @@ class OfficeProductSerializer(serializers.ModelSerializer):
                 if images:
                     m.ProductImage.objects.bulk_create(product_images_objs)
 
-            return m.OfficeProduct.objects.create(product=product, **validated_data)
+            return m.OfficeProduct.objects.create(product=product, **validated_data, vendor_id=product.vendor_id)
 
     def update(self, instance, validated_data):
         instance = super().update(instance, validated_data)

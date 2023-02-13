@@ -1,4 +1,5 @@
 import datetime
+import logging
 import re
 from asyncio import Semaphore
 from decimal import Decimal
@@ -8,9 +9,10 @@ from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.common.utils import concatenate_strings, convert_string_to_price
+from apps.orders.models import OfficeProduct
 from apps.scrapers.semaphore import fake_semaphore
 from apps.vendor_clients import types
-from apps.vendor_clients.async_clients.base import BaseClient
+from apps.vendor_clients.async_clients.base import BaseClient, EmptyResults, PriceInfo
 from apps.vendor_clients.headers.darby import (
     ADD_PRODUCTS_TO_CART_HEADERS,
     CHECKOUT_HEADERS,
@@ -19,6 +21,11 @@ from apps.vendor_clients.headers.darby import (
     LOGIN_HEADERS,
     ORDER_HEADERS,
 )
+
+logger = logging.getLogger(__name__)
+
+
+PRICE_REGEX = re.compile(r"(?P<amount>\d+)\s*@\s*\$(?P<price>[0-9]*\.?[0-9]*)")
 
 
 class DarbyClient(BaseClient):
@@ -102,6 +109,37 @@ class DarbyClient(BaseClient):
                 return {product_id: {"price": 0, "product_vendor_status": "Network Error"}}
             else:
                 return {product_id: {"price": price, "product_vendor_status": product_vendor_status}}
+
+    async def get_product_price_v2(self, product: OfficeProduct) -> PriceInfo:
+        product_id = product.product.product_id
+        resp = await self.session.get(url=product.product.url, headers=GET_PRODUCT_PAGE_HEADERS)
+        logger.debug("Response status: %s", resp.status)
+        text = await resp.text()
+        if resp.status != 200:
+            logger.debug("Got response: %s", text)
+            raise EmptyResults()
+        page_response_dom = Selector(text=text)
+
+        price_text = page_response_dom.xpath(
+            f'//tr[@class="pdpHelltPrimary"]/td//input[@data-sku="{product_id}"]'
+            '/../following-sibling::td//span[contains(@id, "_lblPrice")]//text()'
+        ).get()
+
+        if not price_text:
+            price_text = page_response_dom.xpath('//span[@id="MainContent_lblPrice"]//text()').get()
+        if price_text.lower() == "call for price":
+            logger.debug("Got call for price")
+            raise EmptyResults()
+        mo = PRICE_REGEX.search(price_text)
+        if not mo:
+            logger.warning("Could not parse price %s", price_text)
+            raise EmptyResults()
+        gd = mo.groupdict()
+        product_unit = Decimal(gd["amount"])
+        price = Decimal(gd["price"])
+        price = price / product_unit
+        product_vendor_status = "Active"
+        return PriceInfo(price=price, product_vendor_status=product_vendor_status)
 
     def serialize(self, base_product: types.Product, data: Union[dict, Selector]) -> Optional[types.Product]:
         product_id = data.xpath(".//span[@id='MainContent_lblItemNo']/text()").get()

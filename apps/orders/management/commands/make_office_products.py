@@ -32,6 +32,7 @@ class Command(BaseCommand):
                             price=product.price,
                             office_category=product.category,
                             office_product_category=office_product_category,
+                            vendor_id=product.vendor_id,
                         )
                     )
 
