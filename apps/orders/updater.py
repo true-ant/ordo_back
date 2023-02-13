@@ -54,6 +54,13 @@ VENDOR_PARAMS: Dict[str, VendorParams] = {
         request_rate=5,
         needs_login=True,
     ),
+    "benco": VendorParams(
+        inventory_age=datetime.timedelta(days=14),
+        regular_age=datetime.timedelta(days=14),
+        batch_size=20,
+        request_rate=5,
+        needs_login=True,
+    ),
     "darby": VendorParams(
         inventory_age=datetime.timedelta(days=14),
         regular_age=datetime.timedelta(days=14),
