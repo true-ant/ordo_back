@@ -186,15 +186,15 @@ SITE_URL = os.getenv("SITE_URL", "http://localhost:8000")
 
 # Celery Settings
 CELERY_DEFAULT_QUEUE = os.getenv("CELERY_DEFAULT_QUEUE")
-# CELERY_BROKER_URL = (os.getenv("REDIS_URL"),)
-# CELERY_RESULT_BACKEND = os.getenv("REDIS_URL")
-CELERY_BROKER_TRANSPORT_OPTIONS = {
-    "polling_interval": 2,
-    "region": "us-east-1",
-}
+CELERY_BROKER_URL = (os.getenv("REDIS_URL"),)
+CELERY_RESULT_BACKEND = os.getenv("REDIS_URL")
+# CELERY_BROKER_TRANSPORT_OPTIONS = {
+#    "polling_interval": 2,
+#    "region": "us-east-1",
+# }
 # BROKER_URL = f"sqs://{AWS_ACCESS_KEY_ID}:{AWS_SECRET_ACCESS_KEY}@"  # noqa
-CELERY_BROKER_URL = f"sqs://{AWS_ACCESS_KEY_ID}:{AWS_SECRET_ACCESS_KEY}@"
-CELERY_RESULT_BACKEND = None
+# CELERY_BROKER_URL = f"sqs://{AWS_ACCESS_KEY_ID}:{AWS_SECRET_ACCESS_KEY}@"
+# CELERY_RESULT_BACKEND = None
 CELERY_ACCEPT_CONTENT = ["application/json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
@@ -219,6 +219,21 @@ CELERY_BEAT_SCHEDULE = {
     "update_net32_vendor_products_prices": {
         "task": "apps.accounts.tasks.update_vendor_products_prices",
         "args": ("net_32",),
+        "schedule": crontab(minute="*/10"),
+    },
+    "update_vendor_product_prices_for_henry_schein": {
+        "task": "apps.accounts.tasks.update_vendor_product_prices_for_all_offices",
+        "args": ("henry_schein",),
+        "schedule": crontab(minute="*/5"),
+    },
+    "update_vendor_product_prices_for_darby": {
+        "task": "apps.accounts.tasks.update_vendor_product_prices_for_all_offices",
+        "args": ("darby",),
+        "schedule": crontab(minute="*/10"),
+    },
+    "update_vendor_product_prices_for_dental_city": {
+        "task": "apps.accounts.tasks.update_vendor_product_prices_for_all_offices",
+        "args": ("dental_city",),
         "schedule": crontab(minute="*/10"),
     },
     "update_promotions": {
