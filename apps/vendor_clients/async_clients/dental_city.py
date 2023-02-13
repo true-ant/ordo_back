@@ -1,13 +1,15 @@
 import asyncio
-from decimal import Decimal
+import logging
 from typing import Optional, Union
 
 from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.common.utils import convert_string_to_price
+from apps.orders.models import OfficeProduct
 from apps.vendor_clients import types
 from apps.vendor_clients.async_clients import BaseClient
+from apps.vendor_clients.async_clients.base import EmptyResults, PriceInfo
 from apps.vendor_clients.headers.dental_city import (
     ADD_PRODUCT_TO_CART_HEADERS,
     GET_CART_HEADERS,
@@ -16,6 +18,8 @@ from apps.vendor_clients.headers.dental_city import (
     LOGIN_PAGE_HEADERS,
     REMOVE_PRODUCT_FROM_CART_HEADERS,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class DentalCityClient(BaseClient):
@@ -43,11 +47,35 @@ class DentalCityClient(BaseClient):
         login_success = dom.xpath("//input[@id='Message']/@value").get()
         return login_success == "success"
 
+    async def get_product_price_v2(self, product: OfficeProduct) -> PriceInfo:
+        url = product.product.url
+        if url is None:
+            logger.warning("Url is empty for product %s", product.id)
+            raise EmptyResults()
+        resp = await self.session.get(url, headers=self.GET_PRODUCT_PAGE_HEADERS)
+        logger.debug("Got status: %s", resp.status)
+        if resp.status != 200:
+            raise EmptyResults()
+        text = await resp.text()
+        page = Selector(text=text)
+        price_str = page.xpath('//div[@class="yourpricecontainer"]//span/text()').get()
+        price = convert_string_to_price(price_str)
+        if not price:
+            logger.warning("Got bad price for %s. %s", product.id, price_str)
+            with open(f"/home/leo/install/dental_city_bad_pages/{product.id}.html", "w") as f:
+                f.write(text)
+            raise EmptyResults()
+        return PriceInfo(
+            price=price,
+            product_vendor_status="Active",
+        )
+
     def serialize(self, base_product: types.Product, data: Union[dict, Selector]) -> Optional[types.Product]:
         # TODO: we need to parse all product details in the future if that is required.
         # price = convert_string_to_price(data.xpath('//div[@class="yourpricecontainer"]//span/text()').get())
+        # TODO: why are we having listpricecontainer? Should we change it?
         price = convert_string_to_price(data.xpath('//div[@class="listpricecontainer"]//span/text()').get())
-        
+
         # return {
         #     "vendor": self.VENDOR_SLUG,
         #     "product_id": "",
@@ -73,10 +101,9 @@ class DentalCityClient(BaseClient):
             "unit": "",
         }
         product.update(base_product)
-        product['price'] = price
-        product['vendor'] = self.VENDOR_SLUG
+        product["price"] = price
+        product["vendor"] = self.VENDOR_SLUG
         return product
-        
 
     async def get_cart_page(self) -> Union[Selector, dict]:
         return await self.get_response_as_dom(

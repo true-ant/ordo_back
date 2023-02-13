@@ -1,9 +1,11 @@
 import datetime
 import json
+import logging
 from collections import defaultdict
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, cast
 
 from aiohttp import ClientResponse
+from result import Ok
 from scrapy import Selector
 
 from apps.common.utils import (
@@ -11,8 +13,13 @@ from apps.common.utils import (
     convert_string_to_price,
     strip_whitespaces,
 )
+from apps.orders.models import OfficeProduct, Product
 from apps.vendor_clients import types
-from apps.vendor_clients.async_clients.base import BaseClient
+from apps.vendor_clients.async_clients.base import (
+    BaseClient,
+    PriceInfo,
+    ProductPriceUpdateResult,
+)
 from apps.vendor_clients.headers.henry_schein import (
     ADD_PRODUCTS_TO_CART_HEADERS,
     CHECKOUT_HEADER,
@@ -20,6 +27,8 @@ from apps.vendor_clients.headers.henry_schein import (
     GET_PRODUCT_PRICES_HEADERS,
     LOGIN_HEADERS,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class HenryScheinClient(BaseClient):
@@ -330,6 +339,62 @@ class HenryScheinClient(BaseClient):
             res_data = res_data.replace("'", '"')
             res_data = json.loads(res_data)
             return res_data["ecommerce"]["purchase"]["actionField"]["id"]
+
+    async def get_batch_product_prices(
+        self, products: List[Union[Product, OfficeProduct]]
+    ) -> List[ProductPriceUpdateResult]:
+        cast(products, List[OfficeProduct])
+        product_mapping = {office_product.product.product_id: office_product for office_product in products}
+        logger.info("Requesting info for %s", [office_product.product.id for office_product in products])
+        data = {
+            "ItemArray": json.dumps(
+                {
+                    "ItemDataToPrice": [
+                        {
+                            "ProductId": product.product.product_id,
+                            "Qty": "1",
+                            "Uom": product.product.product_unit,
+                            "PromoCode": "",
+                            "CatalogName": "B_DENTAL",
+                            "ForceUpdateInventoryStatus": False,
+                            "AvailabilityCode": "01",
+                        }
+                        for product in products
+                    ],
+                }
+            ),
+            "searchType": "6",
+            "did": "dental",
+            "catalogName": "B_DENTAL",
+            "endecaCatalogName": "DENTAL",
+            "culture": "us-en",
+            "showPriceToAnonymousUserFromCMS": "False",
+            "isCallingFromCMS": "False",
+        }
+
+        headers = GET_PRODUCT_PRICES_HEADERS.copy()
+        # headers["referer"] = f"https://www.henryschein.com/us-en/Search.aspx?searchkeyWord={keyword}"
+        product_prices = []
+        async with self.session.post(
+            "https://www.henryschein.com/webservices/JSONRequestHandler.ashx",
+            data=data,
+            headers=headers,
+        ) as resp:
+            logger.info("Response status is %s", resp.status)
+            res = await resp.json()
+            logger.debug("Response: %s", res)
+            for product_price in res["ItemDataToPrice"]:
+                result = ProductPriceUpdateResult(
+                    product=product_mapping[product_price["ProductId"]],
+                    result=Ok(
+                        PriceInfo(
+                            price=convert_string_to_price(product_price["CustomerPrice"]),
+                            product_vendor_status=product_price["InventoryStatus"],
+                        )
+                    ),
+                )
+                product_prices.append(result)
+        return product_prices
 
     async def _get_products_prices(
         self, products: List[types.Product], *args, **kwargs

@@ -144,8 +144,8 @@ def fetch_vendor_products_prices(office_vendor_id):
 
 
 @app.task
-def update_vendor_products_prices(vendor_slug):
-    asyncio.run(fetch_for_vendor(vendor_slug))
+def update_vendor_products_prices(vendor_slug, office_id=None):
+    asyncio.run(fetch_for_vendor(vendor_slug, office_id))
 
 
 @app.task

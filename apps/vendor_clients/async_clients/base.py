@@ -10,8 +10,10 @@ from http.cookies import SimpleCookie
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 
 from aiohttp import ClientResponse, ClientSession
+from result import Err, Ok, Result
 from scrapy import Selector
 
+from apps.orders.models import OfficeProduct, Product
 from apps.scrapers.semaphore import fake_semaphore
 from apps.vendor_clients import errors, types
 
@@ -29,19 +31,28 @@ BASE_HEADERS = {
 }
 
 
-class TooManyRequests(Exception):
+class ScrapingError(Exception):
     pass
 
 
-class EmptyResults(Exception):
+class TooManyRequests(ScrapingError):
+    pass
+
+
+class EmptyResults(ScrapingError):
     pass
 
 
 class PriceInfo(NamedTuple):
     price: decimal.Decimal
     product_vendor_status: str
-    is_special_offer: bool
-    special_price: Optional[decimal.Decimal]
+    is_special_offer: bool = False
+    special_price: Optional[decimal.Decimal] = None
+
+
+class ProductPriceUpdateResult(NamedTuple):
+    product: Union[Product, OfficeProduct]
+    result: Result[PriceInfo, Union[ScrapingError, Exception]]
 
 
 class BaseClient:
@@ -315,3 +326,25 @@ class BaseClient:
             self.VENDOR_SLUG: order_detail,
             "order_id": order_id,
         }
+
+    async def get_product_price_v2(self, product: Product) -> PriceInfo:
+        ...
+
+    async def get_batch_product_prices(self, products: List[Product]) -> List[ProductPriceUpdateResult]:
+        """
+        Default implementation using get_product_price_v2 approach
+        """
+        results = []
+        for product in products:
+            try:
+                price_info = await self.get_product_price_v2(product)
+                logger.debug("Got price info for product %s: %s", product.id, price_info)
+            except ScrapingError as e:
+                logger.debug("Get error: %s", e)
+                results.append(ProductPriceUpdateResult(product=product, result=Err(e)))
+            except Exception as e:
+                logger.exception("Got exception")
+                results.append(ProductPriceUpdateResult(product=product, result=Err(e)))
+            else:
+                results.append(ProductPriceUpdateResult(product=product, result=Ok(price_info)))
+        return results

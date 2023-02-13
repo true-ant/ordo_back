@@ -3,7 +3,7 @@
 from django.db import migrations
 
 ADD_INDEX = """
-CREATE INDEX vendor_inventory_refs_lpu_idx ON orders_product (vendor_id, inventory_refs, price_expiration);
+CREATE INDEX vendor_inventory_refs_lpu_idx ON orders_product (vendor_id, inventory_refs, price_expiration DESC) INCLUDE (product_vendor_status);
 """
 
 DROP_INDEX = """
