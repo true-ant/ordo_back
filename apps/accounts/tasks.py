@@ -149,6 +149,12 @@ def update_vendor_products_prices(vendor_slug, office_id=None):
 
 
 @app.task
+def update_vendor_product_prices_for_all_offices(vendor_slug):
+    for ov in OfficeVendor.objects.filter(vendor__slug=vendor_slug):
+        update_vendor_products_prices.delay(vendor_slug, ov.office_id)
+
+
+@app.task
 def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login=False):
     if login_cookies is None and perform_login is False:
         return
