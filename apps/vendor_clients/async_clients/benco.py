@@ -3,17 +3,25 @@ import json
 import os
 import re
 import ssl
+import logging
+
 from collections import defaultdict
 from decimal import Decimal
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, cast
 
 from aiohttp import ClientResponse
 from scrapy import Selector
+from result import Ok
 
 from apps.common.utils import convert_string_to_price, strip_whitespaces
 from apps.vendor_clients import types
-from apps.vendor_clients.async_clients.base import BaseClient
+from apps.vendor_clients.async_clients.base import (
+    BaseClient,
+    PriceInfo,
+    ProductPriceUpdateResult,
+)
+from apps.orders.models import OfficeProduct, Product
 from apps.vendor_clients.headers.benco import (
     ADD_PRODUCT_TO_CART_HEADERS,
     CLEAR_CART_HEADERS,
@@ -25,6 +33,8 @@ from apps.vendor_clients.headers.benco import (
 )
 
 CERTIFICATE_BASE_PATH = Path(__file__).parent.resolve()
+
+logger = logging.getLogger(__name__)
 
 
 class BencoClient(BaseClient):
@@ -194,6 +204,60 @@ class BencoClient(BaseClient):
                 else:
                     product_prices[product_id]["special_price"] = promo_price
                     product_prices[product_id]["is_special_offer"] = True
+        return product_prices
+
+    async def get_batch_product_prices(
+            self, products: List[Union[Product, OfficeProduct]]
+    ) -> List[ProductPriceUpdateResult]:
+        logger.info("\n- Benco - Requesting info for %s", [office_product.product.id for office_product in products])
+
+        headers = GET_PRODUCT_PRICES_HEADERS
+        product_mapping = {office_product.product.product_id: office_product for office_product in products}
+        data = {"productNumbers": list(product_mapping.keys()), "pricePartialType": "ProductPriceRow"}
+        product_prices = []
+
+        async with self.session.post(
+            "https://shop.benco.com/Search/GetPricePartialsForProductNumbers",
+            data=data,
+            headers=headers,
+            ssl=self._ssl_context,
+        ) as resp:
+            logger.info("Response status is %s", resp.status)
+            res = await resp.json()
+            logger.debug("Response: %s", res)
+            for product_id, row in res.items():
+                row_dom = Selector(text=row)
+                price_info = row_dom.xpath("//h4[@class='selling-price']").attrib["content"]
+                product_vendor_status = "Available"
+
+                try:
+                    product_price = Decimal(price_info)
+                except Exception as err:
+                    logger.error("Price parsing error: %s", err)
+                    product_price = Decimal("0")
+                    product_vendor_status = "Not Available"
+                promotion_price_info = row_dom.xpath("//h3/span[@class='selling-price']").get()
+                match = re.search(r"/?([0-9,]*\.[0-9]*)", promotion_price_info)
+                is_special_offer = True
+
+                try:
+                    promotion_price = Decimal(match.group(0))
+                except Exception as err:
+                    logger.error("Promotion price parsing error: %s", err)
+                    promotion_price = Decimal("0")
+                    is_special_offer = False
+                result = ProductPriceUpdateResult(
+                    product=product_mapping[product_id],
+                    result=Ok(
+                        PriceInfo(
+                            price=product_price,
+                            product_vendor_status=product_vendor_status,
+                            is_special_offer=is_special_offer,
+                            special_price=promotion_price
+                        )
+                    ),
+                )
+                product_prices.append(result)
         return product_prices
 
     async def checkout_and_review_order(self, shipping_method: Optional[str] = None) -> dict:
