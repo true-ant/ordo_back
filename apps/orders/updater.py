@@ -196,6 +196,7 @@ class Updater:
                     attempt = task_mapping[product.id].attempt + 1
                     self.statbuffer.add_item(True)
                     await self.reschedule(ProcessTask(product, attempt))
+        for _ in tasks:
             self.to_process.task_done()
 
     async def reschedule(self, pt: ProcessTask):
