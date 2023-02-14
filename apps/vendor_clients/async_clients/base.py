@@ -125,7 +125,7 @@ class BaseClient:
         """Make the real order"""
         raise NotImplementedError("Vendor client must implement `place_order`")
 
-    async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> Optional[SimpleCookie]:
+    async def login(self, username: Optional[str] = None, password: Optional[str] = None):
         """Login session"""
         if username:
             self.username = username
@@ -153,8 +153,6 @@ class BaseClient:
                     await self.after_login_hook(resp)
 
                 logger.info("Successfully logged in")
-
-            return resp.cookies
 
     async def get_response_as_dom(
         self, url: str, headers: Optional[dict] = None, query_params: Optional[dict] = None, **kwargs
