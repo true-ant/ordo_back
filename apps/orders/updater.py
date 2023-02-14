@@ -158,7 +158,7 @@ class Updater:
             products = (
                 OfficeProduct.objects.select_related("product")
                 .filter(office=self.office, vendor=self.vendor, price_expiration__lt=Now())
-                .exclude(product_vendor_status__in=(STATUS_UNAVAILABLE, STATUS_EXHAUSTED))
+                .exclude(product_vendor_status__in=(STATUS_EXHAUSTED, ))
                 .order_by("-is_inventory", "price_expiration")
             )
         else:
@@ -166,7 +166,7 @@ class Updater:
                 Product.objects.all()
                 .with_inventory_refs()
                 .filter(vendor=self.vendor, price_expiration__lt=Now())
-                .exclude(product_vendor_status__in=(STATUS_UNAVAILABLE, STATUS_EXHAUSTED))
+                .exclude(product_vendor_status__in=(STATUS_EXHAUSTED, ))
                 .order_by("-_inventory_refs", "price_expiration")
             )
         products = products[:BULK_SIZE]
@@ -227,7 +227,7 @@ class Updater:
         update_fields = {
             "price": price_info.price,
             "last_price_updated": update_time,
-            "product_vendor_status": STATUS_ACTIVE,
+            "product_vendor_status": price_info.product_vendor_status,
             "price_expiration": timezone.now() + get_vendor_age(self.vendor, product),
         }
         if isinstance(product, Product):
