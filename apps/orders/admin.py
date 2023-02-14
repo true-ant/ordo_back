@@ -76,7 +76,6 @@ class VendorOrderInline(ReadOnlyAdminMixin, NestedTabularInline):
         "invoice",
         "vendor_order_reference",
         "order_date",
-        "total_amount",
         "total_items",
         "currency",
         "status",
