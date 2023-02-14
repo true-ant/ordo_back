@@ -293,7 +293,7 @@ class VendorOrderSerializer(serializers.ModelSerializer):
         data = super().to_representation(instance)
 
         if data["status_display_text"]:
-            data["status_display_text"] = str(data["status_display_text"]).capitalize()
+            data["status_display_text"] = str(data["status_display_text"]).title()
         return data
 
 
