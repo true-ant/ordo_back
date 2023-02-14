@@ -226,6 +226,11 @@ CELERY_BEAT_SCHEDULE = {
         "args": ("henry_schein",),
         "schedule": crontab(minute="*/5"),
     },
+    "update_vendor_product_prices_for_benco": {
+        "task": "apps.accounts.tasks.update_vendor_product_prices_for_all_offices",
+        "args": ("benco",),
+        "schedule": crontab(minute="*/5"),
+    },
     "update_vendor_product_prices_for_darby": {
         "task": "apps.accounts.tasks.update_vendor_product_prices_for_all_offices",
         "args": ("darby",),

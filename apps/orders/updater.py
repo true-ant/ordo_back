@@ -48,8 +48,8 @@ VENDOR_PARAMS: Dict[str, VendorParams] = {
         needs_login=False,
     ),
     "henry_schein": VendorParams(
-        inventory_age=datetime.timedelta(days=14),
-        regular_age=datetime.timedelta(days=14),
+        inventory_age=datetime.timedelta(days=7),
+        regular_age=datetime.timedelta(days=7),
         batch_size=20,
         request_rate=5,
         needs_login=True,
