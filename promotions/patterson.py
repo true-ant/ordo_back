@@ -1,4 +1,5 @@
 import csv
+import logging
 import os
 import re
 import time
@@ -38,13 +39,11 @@ class PattersonSpider:
         return text.strip() if text else ""
 
     def run(self):
-        if os.path.exists(f"./promotions/{self.vendor_slug}.csv"):
-            os.remove(f"./promotions/{self.vendor_slug}.csv")
-
         response = self.session.get("https://www.pattersondental.com/supplies/deals", headers=self.headers)
-        self.parse_products(Selector(text=response.text))
+        return self.parse_products(Selector(text=response.text))
 
     def parse_products(self, response):
+        results = []
         for product in response.xpath(
             '//table[@aria-label="Search Results Table"]//tr//div[@ng-controller="SearchResultsController"]'
         ):
@@ -84,15 +83,16 @@ class PattersonSpider:
                     if freegood_text:
                         item["FreeGood"] = freegood_text
 
-                print(item)
-                self.write_csv(item)
+                results.append(item)
 
         next_page = response.xpath('//ul[@class="pagination"]//a[@aria-label="Next"]/@href').get()
 
         if next_page:
             link = f"https://www.pattersondental.com{next_page}"
             next_response = self.session.get(link, headers=self.headers)
-            self.parse_products(Selector(text=next_response.text))
+            next_results = self.parse_products(Selector(text=next_response.text))
+            results.extend(next_results)
+        return results
 
     def parse_family_products(self, family_link):
         resp = self.session.get(family_link, headers=self.headers)
@@ -171,4 +171,5 @@ class PattersonSpider:
 
 
 if __name__ == "__main__":
-    PattersonSpider().run()
+    logging.basicConfig(level="DEBUG")
+    print(PattersonSpider().run())

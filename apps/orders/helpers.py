@@ -573,6 +573,36 @@ class ProductHelper:
             df_index += batch_size
 
     @staticmethod
+    def import_promotion_products_from_list(items: list[dict], vendor_slug: str):
+        vendor = VendorModel.objects.get(slug=vendor_slug)
+
+        # Remove old promotion fields
+        ProductModel.objects.filter(vendor=vendor).update(is_special_offer=False)
+
+        product_objs = []
+        for row in items:
+            product = ProductModel.objects.filter(product_id=row["product_id"], vendor=vendor).first()
+            if product:
+                product.is_special_offer = True
+                price = convert_string_to_price(row.get("price"))
+                if price:
+                    product.special_price = price
+                if vendor_slug == "patterson":
+                    product.promotion_description = row["promo"] or row["FreeGood"]
+                else:
+                    product.promotion_description = row["promo"]
+                product_objs.append(product)
+            else:
+                print(f"Missing product {row['product_id']}")
+
+        bulk_update(
+            model_class=ProductModel,
+            objs=product_objs,
+            fields=["is_special_offer", "special_price", "promotion_description"],
+        )
+        print(f"Updated {len(product_objs)}s products")
+
+    @staticmethod
     def import_promotion_products_from_csv(file_path: str, vendor_slug: str):
         df = ProductHelper.read_products_from_csv(file_path, output_duplicates=False)
         df_index = 0

@@ -4,7 +4,7 @@ import os
 import re
 import uuid
 from decimal import Decimal
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Type, Union
 
 import pandas as pd
 from dateutil.relativedelta import relativedelta
@@ -234,7 +234,7 @@ def bulk_create(model_class: Model, objs: List[Model], batch_size=500) -> List[M
     return instances
 
 
-def bulk_update(model_class: Model, objs: List[Model], fields: List[str], batch_size=500):
+def bulk_update(model_class: Type[Model], objs: List[Model], fields: List[str], batch_size=500):
     for i in range(0, len(objs), batch_size):
         batch = objs[i : i + batch_size]
         model_class.objects.bulk_update(batch, fields, batch_size)
