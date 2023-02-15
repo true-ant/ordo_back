@@ -196,6 +196,10 @@ class Updater:
                     attempt = task_mapping[product.id].attempt + 1
                     self.statbuffer.add_item(True)
                     await self.reschedule(ProcessTask(product, attempt))
+            task_mapping.pop(product.id)
+
+        for _, pt in task_mapping.items():
+            await self.mark_status(pt.product, pt.product.product_vendor_status)
         for _ in tasks:
             self.to_process.task_done()
 
