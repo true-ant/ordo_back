@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
@@ -44,6 +45,8 @@ from .tasks import (
     send_company_invite_email,
     send_welcome_email,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class UserSignupAPIView(APIView):
@@ -662,6 +665,8 @@ class OfficeBudgetViewSet(ModelViewSet):
 
 
 class HealthCheck(APIView):
+    permission_classes = [AllowAny]
+
     def get(self, request):
         return Response(status=HTTP_200_OK)
 
