@@ -1,7 +1,6 @@
 import asyncio
 import datetime
 import logging
-import os
 from asyncio import Semaphore
 from decimal import Decimal
 from typing import List, Optional
@@ -408,18 +407,14 @@ def sync_with_vendors():
 
 
 @app.task
+def update_vendor_promotions(vendor_slug):
+    spider_class = PROMOTION_MAP[vendor_slug]
+    spider = spider_class()
+    result = spider.run()
+    ProductHelper.import_promotion_products_from_list(result, vendor_slug=vendor_slug)
+
+
+@app.task
 def update_promotions():
-    print("update_promotions")
     for vendor_slug in PROMOTION_MAP.keys():
-        print(vendor_slug)
-        try:
-            PROMOTION_MAP[vendor_slug]().run()
-        except:  # noqa: E722
-            # TODO: avoid bare except
-            # keep running even though there is an issue coming up in the promotion script.
-            pass
-        print(f"Read product data from {vendor_slug}.csv")
-        if os.path.exists(f"./promotions/{vendor_slug}.csv"):
-            ProductHelper.import_promotion_products_from_csv(
-                file_path=f"promotions/{vendor_slug}.csv", vendor_slug=vendor_slug
-            )
+        update_vendor_promotions.delay(vendor_slug)
