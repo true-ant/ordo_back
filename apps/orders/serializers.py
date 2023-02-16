@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 from rest_framework import serializers
@@ -171,8 +170,8 @@ class ProductV2Serializer(serializers.ModelSerializer):
             ret["nickname"] = instance.office_product[0].nickname
             # ret["image_url"] = instance.office_product[0].image_url
 
-        if instance.vendor and instance.vendor.slug in settings.NON_FORMULA_VENDORS:
-            ret["product_price"] = instance.price
+        # if instance.vendor and instance.vendor.slug in settings.NON_FORMULA_VENDORS:
+        #     ret["product_price"] = instance.price
         if instance.parent is None:
             ret["description"] = instance.description
 

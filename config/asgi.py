@@ -9,11 +9,33 @@ https://docs.djangoproject.com/en/3.2/howto/deployment/asgi/
 
 import asyncio
 import os
-import django
+from logging.config import dictConfig
 
+import django
+import dotenv
 from django.core.handlers.asgi import ASGIHandler
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+
+dotenv.load_dotenv()
+
+
+WEB_LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {"format": "%(asctime)s %(levelname)-8s %(name)-15s %(message)s", "datefmt": "%Y-%m-%d %H:%M:%S"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "default"},
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": os.getenv("LOG_LEVEL", "WARNING"),
+    },
+}
+
+dictConfig(WEB_LOGGING)
 
 
 class OrdoASGIHandler(ASGIHandler):
