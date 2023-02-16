@@ -21,6 +21,7 @@ class OrderService:
     @staticmethod
     def is_force_redundancy():
         return True
+
     @sync_to_async
     def get_office_vendor(self, vendor_order) -> OfficeVendor:
         return (
@@ -31,27 +32,22 @@ class OrderService:
 
     @sync_to_async
     def get_vendor_order_products(self, vendor_order, validated_data):
-        rejected_items = validated_data.get("rejected_items", [])
         rejected_items = {
             str(rejected_item["order_product_id"]): rejected_item["rejected_reason"]
-            for rejected_item in rejected_items
+            for rejected_item in validated_data.get("rejected_items", [])
         }
         vendor_order_products = VendorOrderProduct.objects.select_related("product").filter(vendor_order=vendor_order)
-
-        rejected_vendor_order_products = []
         approved_vendor_order_products = []
+
         for vendor_order_product in vendor_order_products:
             if str(vendor_order_product.id) in rejected_items:
                 vendor_order_product.rejected_reason = rejected_items[str(vendor_order_product.id)]
                 vendor_order_product.status = ProductStatus.REJECTED
-                rejected_vendor_order_products.append(vendor_order_product)
             else:
+                vendor_order_product.status = ProductStatus.PROCESSING
                 approved_vendor_order_products.append(vendor_order_product)
 
-        if rejected_vendor_order_products:
-            VendorOrderProduct.objects.bulk_update(
-                rejected_vendor_order_products, fields=["rejected_reason", "status"]
-            )
+        VendorOrderProduct.objects.bulk_update(vendor_order_products, fields=["rejected_reason", "status"])
 
         return approved_vendor_order_products
 
@@ -95,6 +91,9 @@ class OrderService:
         if products:
             # TODO: this logics should be refactored
             notify_order_creation.delay([vendor_order.id], approval_needed=False)
+
+        if session:
+            await session.close()
 
     @staticmethod
     def reject_vendor_order(approved_by, vendor_order: VendorOrder, validated_data):
