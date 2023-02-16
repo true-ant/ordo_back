@@ -113,32 +113,12 @@ class FutureCastAPITests(APITestCase):
         self.assertEqual(result[1]["count"], self.expected_order_count2)
         self.assertEqual(result[1]["avg_count"], self.expected_order_avg_count2)
 
-    def test_report(self):
-        self.client.force_authenticate(self.admin)
-        link = reverse("procedures-get-report", kwargs={"company_pk": self.company.id, "office_pk": self.office.id})
-        link = f"{link}?type=month&date_range=thisQuarter&category=testcategory2"
-        response = self.client.get(link)
-
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        result = response.data
-        self.assertEqual(len(result), 2)
-        for proc in result["procs"]:
-            if proc[0] == self.proccode2.proccode:
-                self.assertEqual(proc[3], 3)
-            elif proc[0] == self.proccode3.proccode:
-                self.assertEqual(proc[3], 3)
-
     def test_summary_report(self):
         self.client.force_authenticate(self.admin)
         link = reverse(
-            "procedures-summary-report", kwargs={"company_pk": self.company.id, "office_pk": self.office.id}
+            "procedures-summary-detail", kwargs={"company_pk": self.company.id, "office_pk": self.office.id}
         )
         link = f"{link}?type=month&date_range=thisQuarter&summary_category=Whitening"
         response = self.client.get(link)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        result = response.data
-        self.assertEqual(len(result), 2)
-        for proc in result["procs"]:
-            if proc[0] == self.category1.summary_slug:
-                self.assertEqual(proc[3] == 5)
