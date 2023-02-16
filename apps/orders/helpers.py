@@ -1100,13 +1100,7 @@ class ProductHelper:
             # .annotate(last_order_date=Subquery(inventory_office_products.values("last_order_date")[:1]))
             # .annotate(last_order_price=Subquery(inventory_office_products.values("price")[:1]))
             # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
-            .annotate(
-                product_price=Case(
-                    When(price__isnull=False, then=F("price")),
-                    When(office_product_price__isnull=False, then=F("office_product_price")),
-                    default=Value(None),
-                )
-            )
+            .annotate(product_price=Coalesce(F("office_product_price"), F("price")))
             .annotate(
                 selected_product=Case(
                     When(id__in=selected_products, then=Value(0)),
@@ -1169,11 +1163,7 @@ class ProductHelper:
             # .annotate(last_order_price=Subquery(inventory_office_products.values("price")[:1]))
             # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
             .annotate(
-                product_price=Case(
-                    When(price__isnull=False, then=F("price")),
-                    When(office_product_price__isnull=False, then=F("office_product_price")),
-                    default=Value(None),
-                )
+                product_price=Coalesce(F("office_product_price"), F("price")),
             )
             .annotate(
                 selected_product=Case(
@@ -1264,7 +1254,7 @@ class ProductHelper:
         products = (
             products.prefetch_related(Prefetch("office_products", queryset=office_products, to_attr="office_product"))
             .annotate(office_product_price=Subquery(office_product_price[:1]))
-            .annotate(product_price=Coalesce(F("price"), F("office_product_price")))
+            .annotate(product_price=Coalesce(F("office_product_price"), F("price")))
         )
 
         products = (
