@@ -1,7 +1,14 @@
+import logging
 import re
 
 import requests
+from django.utils import timezone
 from scrapy import Selector
+
+from apps.orders.models import Product
+
+logger = logging.getLogger()
+
 
 HEADERS = {
     "authority": "www.ultradent.com",
@@ -21,6 +28,13 @@ HEADERS = {
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, \
         like Gecko) Chrome/100.0.4896.75 Safari/537.36",
 }
+
+
+PROMOCODE_REGEX = re.compile(r"Promo Code: (?P<promo_code>\d+)")
+
+OFFICE_LIMIT_REGEX = re.compile(r"Limit (?P<office_limit>\d+) per office")
+
+SKUS = re.compile(r"Applicable SKUs\s*: (?P<skus>.*)\.")
 
 
 class UltradentSpider:
@@ -48,6 +62,24 @@ class UltradentSpider:
         response = self.session.get("https://www.ultradent.com/")
         return self.parse_products(Selector(text=response.text))
 
+    def update_products(self, data):
+        current_time = timezone.now()
+        to_update = []
+        for product_info in data:
+            logger.debug("Processing %s", product_info)
+            mo = SKUS.search(product_info["promo"])
+            skus = mo.groupdict()["skus"]
+            skus = [f"{item}-" for item in skus.replace(" ", "").split(",")]
+            logger.info("Updating product with SKUs %s", skus)
+
+            for p in Product.objects.filter(vendor__slug=self.vendor_slug, product_id__in=skus):
+                logger.info("Updating product %s sku %s", p.id, p.product_id)
+                p.promotion_description = product_info["promo"]
+                p.price_expiration = current_time
+                to_update.append(p)
+        Product.objects.bulk_update(to_update, fields=("promotion_description", "price_expiration"))
+        logger.info("Total updated: %s", len(to_update))
+
     def parse_products(self, response):
         result = []
 
@@ -70,5 +102,11 @@ class UltradentSpider:
         return result
 
 
+def main():
+    spider = UltradentSpider()
+    data = spider.run()
+    spider.update_products(data)
+
+
 if __name__ == "__main__":
-    print(UltradentSpider().run())
+    main()

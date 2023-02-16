@@ -411,7 +411,10 @@ def update_vendor_promotions(vendor_slug):
     spider_class = PROMOTION_MAP[vendor_slug]
     spider = spider_class()
     result = spider.run()
-    ProductHelper.import_promotion_products_from_list(result, vendor_slug=vendor_slug)
+    if hasattr(spider, "update_products") and callable(spider.update_products):
+        spider.update_products(result)
+    else:
+        ProductHelper.import_promotion_products_from_list(result, vendor_slug=vendor_slug)
 
 
 @app.task
