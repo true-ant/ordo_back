@@ -144,6 +144,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
         office_id = self.context.get("office_pk")
         price_from = self.context.get("price_from")
         price_to = self.context.get("price_to")
+        vendors = self.context.get("vendors")
 
         if children_ids:
             children_products = ProductHelper.get_products(
@@ -154,6 +155,8 @@ class ProductV2Serializer(serializers.ModelSerializer):
                 children_products = children_products.filter(product_price__gte=price_from)
             if price_to:
                 children_products = children_products.filter(product_price__lte=price_to)
+            if vendors:
+                children_products = children_products.filter(vendor__slug__in=vendors)
             return self.__class__(children_products, many=True, context={"office_pk": office_id}).data
         return []
 
