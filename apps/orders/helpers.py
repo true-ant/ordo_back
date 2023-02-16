@@ -573,7 +573,7 @@ class ProductHelper:
             df_index += batch_size
 
     @staticmethod
-    def import_promotion_products_from_list(items: list[dict], vendor_slug: str):
+    def import_promotion_products_from_list(items: List[dict], vendor_slug: str):
         vendor = VendorModel.objects.get(slug=vendor_slug)
 
         # Remove old promotion fields
