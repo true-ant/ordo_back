@@ -1,36 +1,30 @@
-import csv
+import json
 import logging
-import os
 import re
 import time
+from urllib.parse import urlencode
 
 import requests
+from django.utils import timezone
 from scrapy import Selector
+
+from apps.orders.models import Product
+from apps.vendor_clients.headers.patterson import (
+    HOME_HEADERS,
+    LOGIN_HEADERS,
+    LOGIN_HOOK_HEADER,
+    LOGIN_HOOK_HEADER2,
+    PRE_LOGIN_HEADERS,
+)
+
+logger = logging.getLogger()
 
 
 class PattersonSpider:
     vendor_slug = "patterson"
     session = requests.Session()
     baseItem = {"product_id": "", "name": "", "url": "", "images": "", "price": "", "promo": "", "FreeGood": ""}
-
-    headers = {
-        "Connection": "keep-alive",
-        "Pragma": "no-cache",
-        "Cache-Control": "no-cache",
-        "sec-ch-ua": '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": '"Windows"',
-        "Upgrade-Insecure-Requests": "1",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, \
-            like Gecko) Chrome/99.0.4844.51 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,\
-            */*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-User": "?1",
-        "Sec-Fetch-Dest": "document",
-        "Accept-Language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
-    }
+    headers = HOME_HEADERS
 
     def textParser(self, element):
         if not element:
@@ -38,8 +32,75 @@ class PattersonSpider:
         text = re.sub(r"\s+", " ", " ".join(element.xpath(".//text()").extract()))
         return text.strip() if text else ""
 
+    def login(self):
+        response = self.session.get("https://www.pattersondental.com/", headers=HOME_HEADERS)
+        response = self.session.get(
+            "https://www.pattersondental.com/Account?returnUrl=%2F&signIn=userSignIn", headers=PRE_LOGIN_HEADERS
+        )
+        login_page_link = response.url
+
+        settings_content = response.text.split("var SETTINGS")[1].split(";")[0].strip(" =")
+        settings = json.loads(settings_content)
+        csrf = settings.get("csrf", "")
+        transId = settings.get("transId", "")
+        policy = settings.get("hosts", {}).get("policy", "")
+        diag = {"pageViewId": settings.get("pageViewId", ""), "pageId": "CombinedSigninAndSignup", "trace": []}
+
+        headers = LOGIN_HEADERS.copy()
+        headers["Referer"] = login_page_link
+        headers["X-CSRF-TOKEN"] = csrf
+
+        params = (
+            ("tx", transId),
+            ("p", policy),
+        )
+
+        data = {"signInName": "Info@ColumbineCreekdentistry.com", "password": "Happy16!", "request_type": "RESPONSE"}
+
+        url = (
+            "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
+            "B2C_1A_PRODUCTION_Dental_SignInWithPwReset/SelfAsserted?" + urlencode(params)
+        )
+        response = self.session.post(url, headers=headers, data=data)
+
+        headers = LOGIN_HOOK_HEADER.copy()
+        headers["Referer"] = login_page_link
+
+        params = (
+            ("tx", transId),
+            ("p", policy),
+            ("rememberMe", "false"),
+            ("csrf_token", csrf),
+            ("diag", urlencode(diag)),
+        )
+
+        url = (
+            "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
+            "B2C_1A_PRODUCTION_Dental_SignInWithPwReset/api/CombinedSigninAndSignup/confirmed?" + urlencode(params)
+        )
+        response = self.session.get(url, headers=headers)
+
+        dom = Selector(text=response.text)
+        state = dom.xpath('//input[@name="state"]/@value').get()
+        code = dom.xpath('//input[@name="code"]/@value').get()
+        id_token = dom.xpath('//input[@name="id_token"]/@value').get()
+
+        data = {
+            "state": state,
+            "code": code,
+            "id_token": id_token,
+        }
+
+        response = self.session.post(
+            url="https://www.pattersondental.com/Account/LogOnPostProcessing/", headers=LOGIN_HOOK_HEADER2, data=data
+        )
+        response = self.session.get(
+            url="https://www.pattersondental.com/supplies/deals", headers=HOME_HEADERS, data=data
+        )
+        return response
+
     def run(self):
-        response = self.session.get("https://www.pattersondental.com/supplies/deals", headers=self.headers)
+        response = self.login()
         return self.parse_products(Selector(text=response.text))
 
     def parse_products(self, response):
@@ -83,6 +144,10 @@ class PattersonSpider:
                     if freegood_text:
                         item["FreeGood"] = freegood_text
 
+                resp = self.session.get(product_link, headers=self.headers)
+                response = Selector(text=resp.text)
+                item_data = json.loads(response.xpath('//input[@name="ItemSkuDetail"]/@value').get())
+                item["price"] = item_data.get("ItemPrice", 0)
                 results.append(item)
 
         next_page = response.xpath('//ul[@class="pagination"]//a[@aria-label="Next"]/@href').get()
@@ -124,8 +189,10 @@ class PattersonSpider:
                 if freegood_text:
                     item["FreeGood"] = freegood_text.strip()
 
+            price = product.xpath('.//div[contains(@class, "productFamilyDetailsPriceBreak")][1]//text()').get()
+            if "/" in price:
+                item["price"] = price.split("/")[0].strip()
             print(item)
-            self.write_csv(item)
 
     def parse_promo_text(self, ele):
         productfamilykey = ele.xpath("./@data-productfamilykey").get()
@@ -160,16 +227,23 @@ class PattersonSpider:
         )
         return response.json()["title"]
 
-    def write_csv(self, item):
-        file_exists = os.path.exists(f"./promotions/{self.vendor_slug}.csv")
-        with open(f"./promotions/{self.vendor_slug}.csv", "a", encoding="utf-8-sig", newline="") as result_f:
-            fieldnames = item.keys()
-            writer = csv.DictWriter(result_f, fieldnames=fieldnames)
-            if not file_exists:
-                writer.writeheader()
-            writer.writerow(item)
+    def update_products(self, data):
+        current_time = timezone.now()
+        to_update = []
+        for product_info in data:
+            logger.debug("Processing %s", product_info)
+            product_id = product_info["product_id"]
+            for p in Product.objects.filter(vendor__slug=self.vendor_slug, product_id=product_id):
+                logger.info("Updating product %s %s", p.id, p.product_id)
+                p.promotion_description = product_info["promo"]
+                p.price_expiration = current_time
+                to_update.append(p)
+        Product.objects.bulk_update(to_update, fields=("promotion_description", "price_expiration"))
+        logger.info("Total updated: %s", len(to_update))
 
 
 if __name__ == "__main__":
     logging.basicConfig(level="DEBUG")
-    print(PattersonSpider().run())
+    spider = PattersonSpider()
+    data = spider().run()
+    spider().update_products(data)
