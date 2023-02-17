@@ -9,6 +9,7 @@ from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.orders.models import OfficeProduct
+from apps.orders.updater import STATUS_ACTIVE, STATUS_UNAVAILABLE
 from apps.vendor_clients import errors, types
 from apps.vendor_clients.async_clients.base import BaseClient, EmptyResults, PriceInfo
 from apps.vendor_clients.headers.patterson import (
@@ -245,9 +246,6 @@ class PattersonClient(BaseClient):
         products = page_response_dom.xpath('//div[@id="ItemDetailImageAndDescriptionRow"]')
         if products:
             if "ProductFamilyDetails" in product.product.url:
-                import pdb
-
-                pdb.set_trace()
                 for product_dom in page_response_dom.xpath('//div[@id="productFamilyDetailsGridBody"]'):
                     mfg_number = product_dom.xpath(
                         './/div[@id="productFamilyDetailsGridBodyColumnTwoInnerRowMfgNumber"]//text()'
@@ -258,15 +256,15 @@ class PattersonClient(BaseClient):
                     if "/" in price:
                         price = price.split("/")[0].strip()
                     if product["mfg_number"] == mfg_number:
-                        product_vendor_status = "Active"
+                        product_vendor_status = STATUS_ACTIVE
                         return PriceInfo(price=price, product_vendor_status=product_vendor_status)
             else:
                 item_data = json.loads(page_response_dom.xpath('//input[@name="ItemSkuDetail"]/@value').get())
                 price = item_data.get("ItemPrice", 0)
-                product_vendor_status = "Active"
+                product_vendor_status = STATUS_ACTIVE
                 return PriceInfo(price=price, product_vendor_status=product_vendor_status)
         else:
-            product_vendor_status = "Unavailable"
+            product_vendor_status = STATUS_UNAVAILABLE
             return PriceInfo(price=0, product_vendor_status=product_vendor_status)
 
     def serialize(self, base_product: types.Product, data: Union[dict, Selector]) -> Optional[types.Product]:
