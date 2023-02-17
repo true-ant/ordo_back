@@ -208,6 +208,7 @@ class ProductSerializer(serializers.ModelSerializer):
     vendor = serializers.PrimaryKeyRelatedField(queryset=m.Vendor.objects.all())
     images = ProductImageSerializer(many=True, required=False)
     category = ProductCategorySerializer(read_only=True)
+    promotion_description = serializers.CharField(required=False, read_only=True)
     children = serializers.ListSerializer(child=RecursiveField(), required=False, read_only=True)
 
     class Meta:
@@ -223,6 +224,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "product_unit",
             "is_special_offer",
             "description",
+            "promotion_description",
             "url",
         )
 

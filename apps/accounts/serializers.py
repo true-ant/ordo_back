@@ -19,16 +19,6 @@ from . import models as m
 # from .tasks import fetch_orders_from_vendor
 
 
-class CompanyMemberSerializer(serializers.ModelSerializer):
-    company = serializers.PrimaryKeyRelatedField(queryset=m.Company.objects.all(), allow_null=True)
-    office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), allow_null=True)
-    role_name = serializers.CharField(source="get_role_display", required=False)
-
-    class Meta:
-        model = m.CompanyMember
-        exclude = ("token", "token_expires_at")
-
-
 class VendorLiteSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.Vendor
@@ -105,6 +95,16 @@ class OfficeSerializer(serializers.ModelSerializer):
         if self.context.get("exclude_vendors"):
             res.pop("vendors")
         return res
+
+
+class CompanyMemberSerializer(serializers.ModelSerializer):
+    company = serializers.PrimaryKeyRelatedField(queryset=m.Company.objects.all(), allow_null=True)
+    office = OfficeSerializer(allow_null=True)
+    role_name = serializers.CharField(source="get_role_display", required=False)
+
+    class Meta:
+        model = m.CompanyMember
+        exclude = ("token", "token_expires_at")
 
 
 class CompanySerializer(serializers.ModelSerializer):
