@@ -1,10 +1,17 @@
-from typing import Optional
+import logging
 
+from typing import Optional
+from scrapy import Selector
 from aiohttp import ClientResponse
 
 from apps.vendor_clients import types
-from apps.vendor_clients.async_clients.base import BaseClient
+from apps.orders.models import OfficeProduct
+from apps.common.utils import convert_string_to_price
 from apps.vendor_clients.headers.edge_endo import LOGIN_HEADERS, LOGIN_PAGE_HEADERS
+from apps.vendor_clients.async_clients.base import BaseClient, PriceInfo, EmptyResults
+from apps.vendor_clients.headers.edge_endo import GET_PRODUCT_PAGE_HEADERS
+
+logger = logging.getLogger(__name__)
 
 
 class EdgeEndoClient(BaseClient):
@@ -78,3 +85,24 @@ class EdgeEndoClient(BaseClient):
     async def check_authenticated(self, response: ClientResponse) -> bool:
         text = await response.text()
         return "CustomerID" in text
+
+    async def get_product_price_v2(self, product: OfficeProduct) -> PriceInfo:
+        url = product.product.url
+        if url is None:
+            logger.warning("Url is empty for product %s", product.id)
+            raise EmptyResults()
+        resp = await self.session.get(url, headers=GET_PRODUCT_PAGE_HEADERS)
+        logger.debug("Got status: %s", resp.status)
+        if resp.status != 200:
+            raise EmptyResults()
+        text = await resp.text()
+        page = Selector(text=text)
+        price_str = page.xpath('//div[@itemprop="offers"]//*[@itemprop="price"]/@content').get()
+        price = convert_string_to_price(price_str)
+        if not price:
+            logger.warning("Got bad price for %s. %s", product.id, price_str)
+            raise EmptyResults()
+        return PriceInfo(
+            price=price,
+            product_vendor_status="Active",
+        )

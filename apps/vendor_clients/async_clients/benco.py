@@ -15,6 +15,7 @@ from scrapy import Selector
 from result import Ok
 
 from apps.common.utils import convert_string_to_price, strip_whitespaces
+from apps.orders.updater import STATUS_ACTIVE, STATUS_UNAVAILABLE
 from apps.vendor_clients import types
 from apps.vendor_clients.async_clients.base import (
     BaseClient,
@@ -209,41 +210,39 @@ class BencoClient(BaseClient):
     async def get_batch_product_prices(
             self, products: List[Union[Product, OfficeProduct]]
     ) -> List[ProductPriceUpdateResult]:
-        logger.info("\n- Benco - Requesting info for %s", [office_product.product.id for office_product in products])
-
         headers = GET_PRODUCT_PRICES_HEADERS
         product_mapping = {office_product.product.product_id: office_product for office_product in products}
         data = {"productNumbers": list(product_mapping.keys()), "pricePartialType": "ProductPriceRow"}
+
+        logger.debug("\n- Benco - Requesting info for %s", data)
+
         product_prices = []
 
         async with self.session.post(
             "https://shop.benco.com/Search/GetPricePartialsForProductNumbers",
-            data=data,
+            json=data,
             headers=headers,
             ssl=self._ssl_context,
         ) as resp:
-            logger.info("Response status is %s", resp.status)
+            logger.debug("Response status is %s", resp.status)
             res = await resp.json()
             logger.debug("Response: %s", res)
             for product_id, row in res.items():
                 row_dom = Selector(text=row)
-                price_info = row_dom.xpath("//h4[@class='selling-price']").attrib["content"]
-                product_vendor_status = "Available"
 
                 try:
+                    price_info = row_dom.xpath("//h4[@class='selling-price']").attrib["content"]
                     product_price = Decimal(price_info)
+                    product_vendor_status = STATUS_ACTIVE
                 except Exception as err:
-                    logger.error("Price parsing error: %s", err)
                     product_price = Decimal("0")
-                    product_vendor_status = "Not Available"
-                promotion_price_info = row_dom.xpath("//h3/span[@class='selling-price']").get()
-                match = re.search(r"/?([0-9,]*\.[0-9]*)", promotion_price_info)
-                is_special_offer = True
-
+                    product_vendor_status = STATUS_UNAVAILABLE
                 try:
+                    promotion_price_info = row_dom.xpath("//h3/span[@class='selling-price']").get()
+                    match = re.search(r"/?([0-9,]*\.[0-9]*)", promotion_price_info)
                     promotion_price = Decimal(match.group(0))
+                    is_special_offer = True
                 except Exception as err:
-                    logger.error("Promotion price parsing error: %s", err)
                     promotion_price = Decimal("0")
                     is_special_offer = False
                 result = ProductPriceUpdateResult(

@@ -82,6 +82,13 @@ VENDOR_PARAMS: Dict[str, VendorParams] = {
         request_rate=5,
         needs_login=True,
     ),
+    "edge_endo": VendorParams(
+        inventory_age=datetime.timedelta(days=14),
+        regular_age=datetime.timedelta(days=14),
+        batch_size=1,
+        request_rate=5,
+        needs_login=True,
+    ),
 }
 
 
@@ -165,7 +172,7 @@ class Updater:
             products = (
                 OfficeProduct.objects.select_related("product")
                 .filter(office=self.office, vendor=self.vendor, price_expiration__lt=Now())
-                .exclude(product_vendor_status__in=(STATUS_UNAVAILABLE, STATUS_EXHAUSTED))
+                .exclude(product_vendor_status__in=(STATUS_EXHAUSTED, ))
                 .order_by("-is_inventory", "price_expiration")
             )
         else:
@@ -173,7 +180,7 @@ class Updater:
                 Product.objects.all()
                 .with_inventory_refs()
                 .filter(vendor=self.vendor, price_expiration__lt=Now())
-                .exclude(product_vendor_status__in=(STATUS_UNAVAILABLE, STATUS_EXHAUSTED))
+                .exclude(product_vendor_status__in=(STATUS_EXHAUSTED, ))
                 .order_by("-_inventory_refs", "price_expiration")
             )
         products = products[:BULK_SIZE]
@@ -203,6 +210,10 @@ class Updater:
                     attempt = task_mapping[product.id].attempt + 1
                     self.statbuffer.add_item(True)
                     await self.reschedule(ProcessTask(product, attempt))
+            task_mapping.pop(product.id)
+
+        for _, pt in task_mapping.items():
+            await self.mark_status(pt.product, pt.product.product_vendor_status)
         for _ in tasks:
             self.to_process.task_done()
 
@@ -234,7 +245,7 @@ class Updater:
         update_fields = {
             "price": price_info.price,
             "last_price_updated": update_time,
-            "product_vendor_status": STATUS_ACTIVE,
+            "product_vendor_status": price_info.product_vendor_status,
             "price_expiration": timezone.now() + get_vendor_age(self.vendor, product),
         }
         if isinstance(product, Product):

@@ -573,6 +573,36 @@ class ProductHelper:
             df_index += batch_size
 
     @staticmethod
+    def import_promotion_products_from_list(items: List[dict], vendor_slug: str):
+        vendor = VendorModel.objects.get(slug=vendor_slug)
+
+        # Remove old promotion fields
+        ProductModel.objects.filter(vendor=vendor).update(is_special_offer=False)
+
+        product_objs = []
+        for row in items:
+            product = ProductModel.objects.filter(product_id=row["product_id"], vendor=vendor).first()
+            if product:
+                product.is_special_offer = True
+                price = convert_string_to_price(row.get("price"))
+                if price:
+                    product.special_price = price
+                if vendor_slug == "patterson":
+                    product.promotion_description = row["promo"] or row["FreeGood"]
+                else:
+                    product.promotion_description = row["promo"]
+                product_objs.append(product)
+            else:
+                print(f"Missing product {row['product_id']}")
+
+        bulk_update(
+            model_class=ProductModel,
+            objs=product_objs,
+            fields=["is_special_offer", "special_price", "promotion_description"],
+        )
+        print(f"Updated {len(product_objs)}s products")
+
+    @staticmethod
     def import_promotion_products_from_csv(file_path: str, vendor_slug: str):
         df = ProductHelper.read_products_from_csv(file_path, output_duplicates=False)
         df_index = 0
@@ -1070,13 +1100,7 @@ class ProductHelper:
             # .annotate(last_order_date=Subquery(inventory_office_products.values("last_order_date")[:1]))
             # .annotate(last_order_price=Subquery(inventory_office_products.values("price")[:1]))
             # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
-            .annotate(
-                product_price=Case(
-                    When(price__isnull=False, then=F("price")),
-                    When(office_product_price__isnull=False, then=F("office_product_price")),
-                    default=Value(None),
-                )
-            )
+            .annotate(product_price=Coalesce(F("office_product_price"), F("price")))
             .annotate(
                 selected_product=Case(
                     When(id__in=selected_products, then=Value(0)),
@@ -1139,11 +1163,7 @@ class ProductHelper:
             # .annotate(last_order_price=Subquery(inventory_office_products.values("price")[:1]))
             # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
             .annotate(
-                product_price=Case(
-                    When(price__isnull=False, then=F("price")),
-                    When(office_product_price__isnull=False, then=F("office_product_price")),
-                    default=Value(None),
-                )
+                product_price=Coalesce(F("office_product_price"), F("price")),
             )
             .annotate(
                 selected_product=Case(
@@ -1234,7 +1254,7 @@ class ProductHelper:
         products = (
             products.prefetch_related(Prefetch("office_products", queryset=office_products, to_attr="office_product"))
             .annotate(office_product_price=Subquery(office_product_price[:1]))
-            .annotate(product_price=Coalesce(F("price"), F("office_product_price")))
+            .annotate(product_price=Coalesce(F("office_product_price"), F("price")))
         )
 
         products = (

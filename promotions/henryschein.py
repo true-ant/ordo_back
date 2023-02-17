@@ -1,6 +1,4 @@
-import csv
 import json
-import os
 
 import requests
 from scrapy import Selector
@@ -75,8 +73,6 @@ class HenrySpider:
         return product_ids
 
     def run(self):
-        if os.path.exists(f"./promotions/{self.vendor_slug}.csv"):
-            os.remove(f"./promotions/{self.vendor_slug}.csv")
         ads = self.parse_ads(self.get_offers())
         data = list()
         for ad in ads:
@@ -110,14 +106,12 @@ class HenrySpider:
 
         # with open(f'{self.vendor_slug}.json', 'w', encoding='utf-8-sig') as ff:
         #     json.dump(data, ff, indent=2)
-
-        with open(f"./promotions/{self.vendor_slug}.csv", "w") as f:
-            csvwriter = csv.writer(f)
-            csvwriter.writerow(["product_id", "promo"])
-            for store_promotions in data:
-                for product_id in store_promotions["ids"]:
-                    csvwriter.writerow([product_id, store_promotions["promo"]])
+        items = []
+        for store_promotions in data:
+            for product_id in store_promotions["ids"]:
+                items.append({"product_id": product_id, "promo": store_promotions["promo"]})
+        return items
 
 
 if __name__ == "__main__":
-    HenrySpider().run()
+    print(HenrySpider().run())
