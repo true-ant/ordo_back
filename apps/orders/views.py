@@ -1837,7 +1837,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         dental_api = office.dental_api
         if dental_api is None or len(dental_api) < 5:
             print("Invalid dental api key")
-            return
+            return Response(status=HTTP_400_BAD_REQUEST, data={"message": "Invalid dental api"})
 
         proccodes = m.ProcedureCode.objects.filter(category__in=categories).values_list("proccode", flat=True)
         proccodes = ",".join(proccodes)

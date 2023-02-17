@@ -118,7 +118,7 @@ class FutureCastAPITests(APITestCase):
         link = reverse(
             "procedures-summary-detail", kwargs={"company_pk": self.company.id, "office_pk": self.office.id}
         )
-        link = f"{link}?type=month&date_range=thisQuarter&summary_category=Whitening"
+        link = f"{link}?from=2023-01-30&to=2023-02-05&summary_category=Whitening"
         response = self.client.get(link)
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
