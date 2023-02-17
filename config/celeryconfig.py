@@ -70,6 +70,11 @@ beat_schedule = {
         "args": ("edge_endo",),
         "schedule": crontab(minute="*/5"),
     },
+    "update_vendor_product_prices_for_patterson": {
+        "task": "apps.accounts.tasks.update_vendor_product_prices_for_all_offices",
+        "args": ("patterson",),
+        "schedule": crontab(minute="*/5"),
+    },
     "update_promotions": {
         "task": "apps.orders.tasks.update_promotions",
         "schedule": crontab(minute="0", hour="0", day_of_week="3"),  # Every wednesday
