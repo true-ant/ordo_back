@@ -6,8 +6,9 @@ from typing import Any, Dict, List, Optional, Union
 from aiohttp import ClientResponse
 from scrapy import Selector
 
+from apps.orders.models import OfficeProduct
 from apps.vendor_clients import types
-from apps.vendor_clients.async_clients.base import BaseClient
+from apps.vendor_clients.async_clients.base import BaseClient, EmptyResults, PriceInfo
 from apps.vendor_clients.headers.ultradent import (
     ALL_PRODUCTS_QUERY,
     GET_ORDER_HEADERS,
@@ -229,3 +230,36 @@ class UltradentClient(BaseClient):
             else:
                 text = await resp.text()
                 raise ValueError(text)
+
+    async def get_product_price_v2(self, product: OfficeProduct) -> PriceInfo:
+        logger.info("Getting price for %s sku=%s", product.product_id, product.product.product_id)
+        async with self.session.post(
+            "https://www.ultradent.com/api/ecommerce",
+            headers=GET_PRODUCT_HEADERS,
+            json={
+                "variables": {
+                    "skuValues": product.product.product_id,
+                    "withAccessories": False,
+                    "withPrice": False,
+                },
+                "query": PRODUCT_DETAIL_QUERY,
+            },
+        ) as resp:
+            logger.debug("Response status %s", resp.status)
+            if resp.status != 200:
+                text = await resp.text()
+                logger.warning("Response text: %s", text)
+            data = await resp.json()
+            logger.debug("Got response: %s", data)
+            data = data["data"]["product"]
+            if not data:
+                raise EmptyResults()
+            price_str = data.get("customerPrice", data.get("catalogPrice"))
+            price = Decimal(price_str)
+            if price_str:
+                return PriceInfo(
+                    price=price,
+                    product_vendor_status="Available",
+                )
+            else:
+                raise EmptyResults()
