@@ -89,6 +89,13 @@ VENDOR_PARAMS: Dict[str, VendorParams] = {
         request_rate=5,
         needs_login=True,
     ),
+    "ultradent": VendorParams(
+        inventory_age=datetime.timedelta(days=14),
+        regular_age=datetime.timedelta(days=14),
+        batch_size=1,
+        request_rate=5,
+        needs_login=True,
+    ),
 }
 
 
@@ -172,7 +179,7 @@ class Updater:
             products = (
                 OfficeProduct.objects.select_related("product")
                 .filter(office=self.office, vendor=self.vendor, price_expiration__lt=Now())
-                .exclude(product_vendor_status__in=(STATUS_EXHAUSTED, ))
+                .exclude(product_vendor_status__in=(STATUS_EXHAUSTED,))
                 .order_by("-is_inventory", "price_expiration")
             )
         else:
@@ -180,7 +187,7 @@ class Updater:
                 Product.objects.all()
                 .with_inventory_refs()
                 .filter(vendor=self.vendor, price_expiration__lt=Now())
-                .exclude(product_vendor_status__in=(STATUS_EXHAUSTED, ))
+                .exclude(product_vendor_status__in=(STATUS_EXHAUSTED,))
                 .order_by("-_inventory_refs", "price_expiration")
             )
         products = products[:BULK_SIZE]

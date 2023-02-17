@@ -5,7 +5,7 @@ import requests
 from django.utils import timezone
 from scrapy import Selector
 
-from apps.orders.models import Product
+from apps.orders.models import OfficeProduct, Product
 
 logger = logging.getLogger()
 
@@ -63,8 +63,13 @@ class UltradentSpider:
         return self.parse_products(Selector(text=response.text))
 
     def update_products(self, data):
-        current_time = timezone.now()
-        to_update = []
+        products_to_update = []
+        # Unsetting promotion information
+        # TODO: this looks not very reliable, but I would still like to avoid putting this in a transaction
+        #       if we should put promotion information to separate table?
+        Product.objects.filter(vendor__slug=self.vendor_slug, promotion_description__isnull=False).update(
+            promotion_description=None
+        )
         for product_info in data:
             logger.debug("Processing %s", product_info)
             mo = SKUS.search(product_info["promo"])
@@ -75,10 +80,11 @@ class UltradentSpider:
             for p in Product.objects.filter(vendor__slug=self.vendor_slug, product_id__in=skus):
                 logger.info("Updating product %s sku %s", p.id, p.product_id)
                 p.promotion_description = product_info["promo"]
-                p.price_expiration = current_time
-                to_update.append(p)
-        Product.objects.bulk_update(to_update, fields=("promotion_description", "price_expiration"))
-        logger.info("Total updated: %s", len(to_update))
+                p.price_expiration = timezone.now()
+                products_to_update.append(p)
+                OfficeProduct.objects.filter(product=p).update(price_expiration=timezone.now())
+        Product.objects.bulk_update(products_to_update, fields=("promotion_description", "price_expiration"))
+        logger.info("Total updated: %s", len(products_to_update))
 
     def parse_products(self, response):
         result = []
