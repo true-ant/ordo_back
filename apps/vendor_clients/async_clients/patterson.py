@@ -1,22 +1,30 @@
 import json
+import logging
 from decimal import Decimal
+from http.cookies import SimpleCookie
 from typing import Optional, Union
+from urllib.parse import urlencode
 
 from aiohttp import ClientResponse
 from scrapy import Selector
 
-from apps.vendor_clients import types
-from apps.vendor_clients.async_clients.base import BaseClient
+from apps.orders.models import OfficeProduct
+from apps.orders.updater import STATUS_ACTIVE, STATUS_UNAVAILABLE
+from apps.vendor_clients import errors, types
+from apps.vendor_clients.async_clients.base import BaseClient, EmptyResults, PriceInfo
 from apps.vendor_clients.headers.patterson import (
     ADD_PRODUCT_CART_HEADERS,
     CLEAR_CART_HEADERS,
     GET_CART_HEADERS,
     GET_PRODUCT_PAGE_HEADERS,
+    HOME_HEADERS,
     LOGIN_HEADERS,
     LOGIN_HOOK_HEADER,
     LOGIN_HOOK_HEADER2,
     PRE_LOGIN_HEADERS,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class PattersonClient(BaseClient):
@@ -24,42 +32,129 @@ class PattersonClient(BaseClient):
     GET_PRODUCT_PAGE_HEADERS = GET_PRODUCT_PAGE_HEADERS
 
     async def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
-        params = {
-            "returnUrl": "/",
-            "signIn": "userSignIn",
-        }
-        async with self.session.get(
-            url="https://www.pattersondental.com/Account", headers=PRE_LOGIN_HEADERS, params=params
-        ) as resp:
-            url = str(resp.url)
-
-            headers = LOGIN_HEADERS.copy()
-            headers["Referer"] = url
-            return {
-                "url": url,
-                "headers": headers,
-                "data": {
-                    "userName": self.username,
-                    "password": self.password,
-                    "AuthMethod": "FormsAuthentication",
-                },
+        async with self.session.get(url="https://www.pattersondental.com/", headers=HOME_HEADERS) as resp:
+            params = {
+                "returnUrl": "/",
+                "signIn": "userSignIn",
             }
+            async with self.session.get(
+                url="https://www.pattersondental.com/Account", headers=PRE_LOGIN_HEADERS, params=params
+            ) as resp:
+                login_url = str(resp.url)
+                text = await resp.text()
+                settings_content = text.split("var SETTINGS")[1].split(";")[0].strip(" =")
+                settings = json.loads(settings_content)
+                csrf = settings.get("csrf", "")
+                transId = settings.get("transId", "")
+                policy = settings.get("hosts", {}).get("policy", "")
+                diag = {"pageViewId": settings.get("pageViewId", ""), "pageId": "CombinedSigninAndSignup", "trace": []}
+
+                headers = LOGIN_HEADERS.copy()
+                headers["Referer"] = login_url
+                headers["X-CSRF-TOKEN"] = csrf
+
+                params = (
+                    ("tx", transId),
+                    ("p", policy),
+                )
+                url = (
+                    "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
+                    "B2C_1A_PRODUCTION_Dental_SignInWithPwReset/SelfAsserted?" + urlencode(params)
+                )
+
+                data = {
+                    "signInName": self.username,
+                    "password": self.password,
+                    "request_type": "RESPONSE",
+                    "diag": diag,
+                    "login_page_link": login_url,
+                    "transId": transId,
+                    "csrf": csrf,
+                    "policy": policy,
+                }
+
+                return {
+                    "url": url,
+                    "headers": headers,
+                    "data": data,
+                }
 
     async def check_authenticated(self, resp: ClientResponse) -> bool:
-        dom = Selector(text=await resp.text())
-        return False if dom.xpath(".//div[@id='error']") else True
+        text = await resp.text()
+        dom = Selector(text=text)
+        return True if dom.xpath("//a[@href='/Account/LogOff']") else False
 
-    async def after_login_hook(self, response: ClientResponse):
-        response_dom = Selector(text=await response.text())
-        data = {
-            "wa": response_dom.xpath("//input[@name='wa']/@value").get(),
-            "wresult": response_dom.xpath("//input[@name='wresult']/@value").get(),
-            "wctx": response_dom.xpath("//input[@name='wctx']/@value").get(),
-        }
-        await self.session.post(url="https://www.pattersondental.com", headers=LOGIN_HOOK_HEADER, data=data)
-        async with self.session.get(url="https://www.pattersondental.com", headers=LOGIN_HOOK_HEADER2) as resp:
-            text = await resp.text()
-            return text
+    async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> Optional[SimpleCookie]:
+        login_info = await self.get_login_data()
+        logger.debug("Got logger data: %s", login_info)
+        if login_info:
+            async with self.session.post(
+                url=login_info["url"], headers=login_info["headers"], data=login_info["data"]
+            ) as resp:
+                transId = login_info["data"]["transId"]
+                policy = login_info["data"]["policy"]
+                csrf = login_info["data"]["csrf"]
+                diag = login_info["data"]["diag"]
+
+                headers = LOGIN_HOOK_HEADER.copy()
+                headers["Referer"] = login_info["data"]["login_page_link"]
+
+                params = (
+                    ("tx", transId),
+                    ("p", policy),
+                    ("rememberMe", "false"),
+                    ("csrf_token", csrf),
+                    ("diags", urlencode(diag)),
+                )
+                url = (
+                    "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
+                    "B2C_1A_PRODUCTION_Dental_SignInWithPwReset/api/CombinedSigninAndSignup/confirmed?"
+                    + urlencode(params)
+                )
+
+                logger.debug("Logging in...")
+                async with self.session.get(url, headers=headers) as resp:
+                    print("Login Confirmed: ", resp.status)
+                    text = await resp.text()
+                    dom = Selector(text=text)
+                    state = dom.xpath('//input[@name="state"]/@value').get()
+                    code = dom.xpath('//input[@name="code"]/@value').get()
+                    id_token = dom.xpath('//input[@name="id_token"]/@value').get()
+
+                    headers = LOGIN_HOOK_HEADER2.copy()
+
+                    data = {
+                        "state": state,
+                        "code": code,
+                        "id_token": id_token,
+                    }
+
+                    async with self.session.post(
+                        url="https://www.pattersondental.com/Account/LogOnPostProcessing/",
+                        headers=headers,
+                        data=data,
+                    ) as resp:
+                        async with self.session.get(
+                            url="https://www.pattersondental.com/supplies/deals",
+                            headers=HOME_HEADERS,
+                            data=data,
+                        ) as resp:
+                            if resp.status != 200:
+                                content = await resp.read()
+                                logger.debug("Got %s status, content = %s", resp.status, content)
+                                raise errors.VendorAuthenticationFailed()
+
+                            is_authenticated = await self.check_authenticated(resp)
+                            if not is_authenticated:
+                                logger.debug("Still not authenticated")
+                                raise errors.VendorAuthenticationFailed()
+
+                            if hasattr(self, "after_login_hook"):
+                                await self.after_login_hook(resp)
+
+                            logger.info("Successfully logged in")
+
+            return resp.cookies
 
     async def get_cart_page(self) -> Union[Selector, dict]:
         return await self.get_response_as_json(
@@ -138,6 +233,40 @@ class PattersonClient(BaseClient):
             data=json.dumps(data),
         )
 
+    async def get_product_price_v2(self, product: OfficeProduct) -> PriceInfo:
+        resp = await self.session.get(url=product.product.url, headers=GET_PRODUCT_PAGE_HEADERS)
+        logger.debug("Response status: %s", resp.status)
+        logger.debug("Product ID: %s", product.product.product_id)
+
+        text = await resp.text()
+        if resp.status != 200:
+            logger.debug("Got response: %s", text)
+            raise EmptyResults()
+        page_response_dom = Selector(text=text)
+        products = page_response_dom.xpath('//div[@id="ItemDetailImageAndDescriptionRow"]')
+        if products:
+            if "ProductFamilyDetails" in product.product.url:
+                for product_dom in page_response_dom.xpath('//div[@id="productFamilyDetailsGridBody"]'):
+                    mfg_number = product_dom.xpath(
+                        './/div[@id="productFamilyDetailsGridBodyColumnTwoInnerRowMfgNumber"]//text()'
+                    ).get()
+                    price = product_dom.xpath(
+                        './/div[contains(@class, "productFamilyDetailsPriceBreak")][1]//text()'
+                    ).get()
+                    if "/" in price:
+                        price = price.split("/")[0].strip()
+                    if product["mfg_number"] == mfg_number:
+                        product_vendor_status = STATUS_ACTIVE
+                        return PriceInfo(price=price, product_vendor_status=product_vendor_status)
+            else:
+                item_data = json.loads(page_response_dom.xpath('//input[@name="ItemSkuDetail"]/@value').get())
+                price = item_data.get("ItemPrice", 0)
+                product_vendor_status = STATUS_ACTIVE
+                return PriceInfo(price=price, product_vendor_status=product_vendor_status)
+        else:
+            product_vendor_status = STATUS_UNAVAILABLE
+            return PriceInfo(price=0, product_vendor_status=product_vendor_status)
+
     def serialize(self, base_product: types.Product, data: Union[dict, Selector]) -> Optional[types.Product]:
         product_detail = data.xpath("//input[@id='ItemSkuDetail']/@value").get()
         try:
@@ -153,7 +282,7 @@ class PattersonClient(BaseClient):
                     f"https://content.pattersondental.com/items/LargeSquare/images/{image['AssetFilename']}"
                     for image in product_detail["Images"]
                 ],
-                "price": Decimal(str(product_detail["UnitPrice"]) if product_detail["UnitPrice"] != None else 0),
+                "price": Decimal(str(product_detail["UnitPrice"]) if not product_detail["UnitPrice"] else 0),
                 "product_vendor_status": "",
                 "category": "",
                 "unit": "",
