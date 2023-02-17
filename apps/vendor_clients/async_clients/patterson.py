@@ -63,8 +63,8 @@ class PattersonClient(BaseClient):
                 )
 
                 data = {
-                    "signInName": "Info@ColumbineCreekdentistry.com",
-                    "password": "Happy16!",
+                    "signInName": self.username,
+                    "password": self.password,
                     "request_type": "RESPONSE",
                     "diag": diag,
                     "login_page_link": login_url,
