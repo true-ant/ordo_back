@@ -65,6 +65,11 @@ beat_schedule = {
         "args": ("dental_city",),
         "schedule": crontab(minute="*/10"),
     },
+    "update_vendor_product_prices_for_edge_endo": {
+        "task": "apps.accounts.tasks.update_vendor_product_prices_for_all_offices",
+        "args": ("edge_endo",),
+        "schedule": crontab(minute="*/5"),
+    },
     "update_promotions": {
         "task": "apps.orders.tasks.update_promotions",
         "schedule": crontab(minute="0", hour="0", day_of_week="3"),  # Every wednesday
