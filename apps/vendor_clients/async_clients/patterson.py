@@ -57,8 +57,8 @@ class PattersonClient(BaseClient):
                     ("p", policy),
                 )
                 url = (
-                    "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/B2C_1A_PRODUCTION_Dental_SignInWithPwReset/SelfAsserted?"
-                    + urlencode(params)
+                    "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
+                    "B2C_1A_PRODUCTION_Dental_SignInWithPwReset/SelfAsserted?" + urlencode(params)
                 )
 
                 data = {
@@ -106,7 +106,8 @@ class PattersonClient(BaseClient):
                     ("diags", urlencode(diag)),
                 )
                 url = (
-                    "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/B2C_1A_PRODUCTION_Dental_SignInWithPwReset/api/CombinedSigninAndSignup/confirmed?"
+                    "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
+                    "B2C_1A_PRODUCTION_Dental_SignInWithPwReset/api/CombinedSigninAndSignup/confirmed?"
                     + urlencode(params)
                 )
 
@@ -283,7 +284,7 @@ class PattersonClient(BaseClient):
                     f"https://content.pattersondental.com/items/LargeSquare/images/{image['AssetFilename']}"
                     for image in product_detail["Images"]
                 ],
-                "price": Decimal(str(product_detail["UnitPrice"]) if product_detail["UnitPrice"] != None else 0),
+                "price": Decimal(str(product_detail["UnitPrice"]) if not product_detail["UnitPrice"] else 0),
                 "product_vendor_status": "",
                 "category": "",
                 "unit": "",
