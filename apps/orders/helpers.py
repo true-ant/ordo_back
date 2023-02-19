@@ -1235,12 +1235,8 @@ class ProductHelper:
 
         products = products.select_related("vendor", "category")
 
-        # TODO: this should be optimized
-        price_least_update_date = timezone.now() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
-
-        # 14 day age maximum
         office_product_price = OfficeProductModel.objects.filter(
-            Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(last_price_updated__gte=price_least_update_date)
+            office_id=office_pk, product_id=OuterRef("pk")
         ).values("price")
 
         # we treat parent product as inventory product if it has inventory children product
