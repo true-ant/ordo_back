@@ -260,8 +260,10 @@ def find_prices_from_string(text: str) -> List[str]:
     return re.findall(r"\$(\d[\d.,]*)\s*", text)
 
 
-def remove_character_between_numerics(text: str, character: str) -> str:
-    return re.sub(rf"(\d+){character}(\d+)", r"\1\2", text)
+def remove_dash_between_numerics(text: str) -> str:
+    if mo := re.match(r"(\d+)-(\d+)", text):
+        return "{}{}".format(mo.group(1), mo.group(2))
+    return text
 
 
 def convert_string_to_price(text: str) -> Decimal:
