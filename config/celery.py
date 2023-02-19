@@ -1,4 +1,5 @@
 import logging
+import logging.handlers
 import os
 
 from celery import Celery
@@ -24,7 +25,15 @@ def setup_task_logger(*args, **kwargs):
     logger = logging.getLogger()
     formatter = TaskFormatter("%(asctime)s - %(task_id)s - %(task_name)s - %(name)s - %(levelname)s - %(message)s")
     for handler in logger.handlers:
+        logger.removeHandler(handler)
+    stream_handler = logging.StreamHandler()
+    rotating_file_handler = logging.handlers.TimedRotatingFileHandler(
+        os.getenv("CELERY_WORKER_LOG_FILE", "worker.log"),
+    )
+    for handler in (stream_handler, rotating_file_handler):
         handler.setFormatter(formatter)
+        handler.setLevel("DEBUG")
+        logger.addHandler(handler)
 
 
 app = Celery("ordo-back")
