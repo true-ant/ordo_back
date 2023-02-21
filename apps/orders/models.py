@@ -22,7 +22,7 @@ from apps.common.choices import (
     ProductStatus,
 )
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
-from apps.common.utils import remove_character_between_numerics
+from apps.common.utils import remove_dash_between_numerics
 from apps.scrapers.schema import Product as ProductDataClass
 from apps.scrapers.schema import ProductImage as ProductImageDataClass
 from apps.scrapers.schema import Vendor as VendorDataClass
@@ -53,7 +53,7 @@ class Keyword(TimeStampedModel):
 class ProductQuerySet(models.QuerySet):
     def search(self, text):
         # this is for search for henry schein product id
-        text = remove_character_between_numerics(text, character="-")
+        text = remove_dash_between_numerics(text)
         # trigram_similarity = TrigramSimilarity("name", text)
         q = SearchQuery(text, config="english")
         return (

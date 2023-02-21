@@ -50,7 +50,7 @@ from apps.common.utils import (
     find_words_from_string,
     formatStEndDateFromQuery,
     get_file_name_and_ext,
-    remove_character_between_numerics,
+    remove_dash_between_numerics,
     sort_and_write_to_csv,
 )
 from apps.orders.models import OfficeProduct as OfficeProductModel
@@ -1235,12 +1235,8 @@ class ProductHelper:
 
         products = products.select_related("vendor", "category")
 
-        # TODO: this should be optimized
-        price_least_update_date = timezone.now() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
-
-        # 14 day age maximum
         office_product_price = OfficeProductModel.objects.filter(
-            Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(last_price_updated__gte=price_least_update_date)
+            office_id=office_pk, product_id=OuterRef("pk")
         ).values("price")
 
         # we treat parent product as inventory product if it has inventory children product
@@ -1289,7 +1285,7 @@ class ProductHelper:
             sub_query_filter &= Q(office_id=office)
         inventory_products = OfficeProductModel.objects.filter(sub_query_filter)
 
-        product_id_search = remove_character_between_numerics(search, character="-")
+        product_id_search = remove_dash_between_numerics(search)
         product_filter = Q(parent__isnull=True) & (
             Q(name__icontains=search)
             | Q(product_id__icontains=search)

@@ -89,6 +89,13 @@ VENDOR_PARAMS: Dict[str, VendorParams] = {
         request_rate=5,
         needs_login=True,
     ),
+    "ultradent": VendorParams(
+        inventory_age=datetime.timedelta(days=14),
+        regular_age=datetime.timedelta(days=14),
+        batch_size=1,
+        request_rate=5,
+        needs_login=True,
+    ),
 }
 
 
@@ -148,6 +155,7 @@ class Updater:
     attempt_threshold = 3
 
     def __init__(self, vendor: Vendor, office: Office = None):
+        self.producer_started = asyncio.Event()
         self.vendor = vendor
         self.vendor_params = VENDOR_PARAMS[vendor.slug]
         self.batch_size = self.vendor_params.batch_size
@@ -168,11 +176,12 @@ class Updater:
         return self._crendentials
 
     async def producer(self):
+        logger.debug("Started producer...")
         if self.office:
             products = (
                 OfficeProduct.objects.select_related("product")
                 .filter(office=self.office, vendor=self.vendor, price_expiration__lt=Now())
-                .exclude(product_vendor_status__in=(STATUS_EXHAUSTED, ))
+                .exclude(product_vendor_status__in=(STATUS_EXHAUSTED,))
                 .order_by("-is_inventory", "price_expiration")
             )
         else:
@@ -180,12 +189,16 @@ class Updater:
                 Product.objects.all()
                 .with_inventory_refs()
                 .filter(vendor=self.vendor, price_expiration__lt=Now())
-                .exclude(product_vendor_status__in=(STATUS_EXHAUSTED, ))
+                .exclude(product_vendor_status__in=(STATUS_EXHAUSTED,))
                 .order_by("-_inventory_refs", "price_expiration")
             )
         products = products[:BULK_SIZE]
         async for product in products:
             await self.to_process.put(ProcessTask(product))
+            self.producer_started.set()
+        else:
+            logger.info("No items to work on")
+            self.producer_started.set()
 
     async def process(self, client: BaseClient, tasks: List[ProcessTask]):
         results: List[ProductPriceUpdateResult] = await client.get_batch_product_prices([pt.product for pt in tasks])
@@ -285,34 +298,38 @@ class Updater:
             await client.login()
         return client
 
-    async def consumer(self):
+    async def consumer(self, client):
+        logger.debug("Started consumer")
+        while True:
+            batch = await self.get_batch()
+            asyncio.create_task(self.process(client, batch))
+            stats = self.statbuffer.stats()
+            logger.debug("Stats: %s", stats)
+            if stats.total > 10 and time.monotonic() - self.last_check > 20:
+                if stats.error_rate > 0:
+                    self.errors += 1
+                    self.target_rate /= 1.05
+                else:
+                    self.target_rate *= 1 + 0.05 / (self.errors + 1)
+                self.last_check = time.monotonic()
+                logger.debug("New target rate: %s", self.target_rate)
+
+    async def complete(self):
+        await self.producer_started.wait()
+        await self.to_process.join()
+
+    async def fetch(self):
         logger.debug("Getting credentials")
         async with ClientSession() as session:
             client = await self.get_client(session)
-            while True:
-                batch = await self.get_batch()
-                asyncio.create_task(self.process(client, batch))
-                stats = self.statbuffer.stats()
-                logger.debug("Stats: %s", stats)
-                if stats.total > 10 and time.monotonic() - self.last_check > 20:
-                    if stats.error_rate > 0:
-                        self.errors += 1
-                        self.target_rate /= 1.05
-                    else:
-                        self.target_rate *= 1 + 0.05 / (self.errors + 1)
-                    self.last_check = time.monotonic()
-                    logger.debug("New target rate: %s", self.target_rate)
-
-    async def complete(self):
-        await self.to_process.join()
+            worker_task = asyncio.create_task(self.consumer(client))
+            asyncio.create_task(self.producer())
+            await self.complete()
+            worker_task.cancel()
 
 
 async def fetch_for_vendor(slug, office_id):
     vendor = await Vendor.objects.aget(slug=slug)
     office = await Office.objects.aget(pk=office_id)
     updater = Updater(vendor=vendor, office=office)
-    worker_task = asyncio.create_task(updater.consumer())
-    asyncio.create_task(updater.producer())
-    await asyncio.sleep(1)
-    await updater.complete()
-    worker_task.cancel()
+    await updater.fetch()
