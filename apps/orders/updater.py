@@ -79,7 +79,7 @@ VENDOR_PARAMS: Dict[str, VendorParams] = {
         inventory_age=datetime.timedelta(days=14),
         regular_age=datetime.timedelta(days=14),
         batch_size=1,
-        request_rate=5,
+        request_rate=1,
         needs_login=True,
     ),
     "edge_endo": VendorParams(
