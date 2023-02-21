@@ -43,7 +43,7 @@ class MidwestDentalClient(BaseClient):
     async def check_authenticated(self, resp: ClientResponse) -> bool:
         text = await resp.text()
         dom = Selector(text=text)
-        return True if dom.xpath("//a[@title='Log Out']") else False
+        return bool(dom.xpath("//a[@title='Log Out']"))
 
     async def get_product_price_v2(self, product: OfficeProduct) -> PriceInfo:
         if product.product.url is None:
