@@ -96,6 +96,13 @@ VENDOR_PARAMS: Dict[str, VendorParams] = {
         request_rate=5,
         needs_login=True,
     ),
+    "midwest_dental": VendorParams(
+        inventory_age=datetime.timedelta(days=14),
+        regular_age=datetime.timedelta(days=14),
+        batch_size=1,
+        request_rate=1,
+        needs_login=True,
+    ),
 }
 
 
