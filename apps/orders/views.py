@@ -12,10 +12,9 @@ from functools import reduce
 from typing import Union
 
 from asgiref.sync import sync_to_async
-from dateutil import rrule
 from dateutil.relativedelta import relativedelta
 from django.core.paginator import Paginator
-from django.db import connection, transaction
+from django.db import transaction
 from django.db.models import Case, Count, Exists, F, OuterRef, Q, Sum, Value, When
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -40,7 +39,7 @@ from apps.accounts.services.offices import OfficeService
 from apps.accounts.tasks import fetch_orders_from_vendor
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncCreateModelMixin, AsyncMixin
-from apps.common.choices import BUDGET_SPEND_TYPE, ProcedureType, ProductStatus
+from apps.common.choices import BUDGET_SPEND_TYPE, ProductStatus
 from apps.common.month import Month
 from apps.common.pagination import (
     SearchProductPagination,
@@ -58,6 +57,7 @@ from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import CartProduct
 from apps.types.scraper import SmartID
 from config.utils import get_client_session
+from services.opendental import OpenDentalClient
 
 from . import filters as f
 from . import models as m
@@ -1814,15 +1814,14 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         return Response(ret)
 
     @action(detail=False)
-    def summary_report(self, request, *args, **kwargs):
-        date_type = self.request.query_params.get("type", "month")
-        limit = self.request.query_params.get("limit", 5)
+    def summary_detail(self, request, *args, **kwargs):
         summary_category = self.request.query_params.get("summary_category")
         office_pk = self.kwargs["office_pk"]
-        date_range = self.request.query_params.get("date_range", "thisQuarter")
-        start_end_date = get_date_range(date_range)
-        day_from = start_end_date[0]
-        day_to = start_end_date[1]
+        day_from = self.request.query_params.get("from")
+        day_to = self.request.query_params.get("to")
+        format = "%Y-%m-%d"
+        day_from = datetime.datetime.strptime(day_from, format).date()
+        day_to = datetime.datetime.strptime(day_to, format).date()
 
         summary_query = m.ProcedureCategoryLink.objects.filter(summary_slug=summary_category).first()
         if not summary_query:
@@ -1833,20 +1832,26 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             .values_list("category", flat=True)
         )
         categories = list(categories)
-        return get_procedure_report(date_type, day_from, day_to, office_pk, limit, categories)
 
-    @action(detail=False, url_path="report")
-    def get_report(self, request, *args, **kwargs):
-        date_type = self.request.query_params.get("type", "month")
-        limit = self.request.query_params.get("limit", 5)
-        category = self.request.query_params.get("category")
-        categories = category.split(",") if category else []
-        office_pk = self.kwargs["office_pk"]
-        date_range = self.request.query_params.get("date_range", "thisQuarter")
-        start_end_date = get_date_range(date_range)
-        day_from = start_end_date[0]
-        day_to = start_end_date[1]
-        return get_procedure_report(date_type, day_from, day_to, office_pk, limit, categories)
+        office = m.Office.objects.get(id=office_pk)
+        dental_api = office.dental_api
+        if dental_api is None or len(dental_api) < 5:
+            print("Invalid dental api key")
+            return Response(status=HTTP_400_BAD_REQUEST, data={"message": "Invalid dental api"})
+
+        proccodes = m.ProcedureCode.objects.filter(category__in=categories).values_list("proccode", flat=True)
+        proccodes = ",".join(proccodes)
+        try:
+            with open("query/proc_result_new.sql", "r") as f:
+                raw_sql = f.read()
+            query = raw_sql.format(day_from=day_from, day_to=day_to, proc_codes=proccodes)
+            od_client = OpenDentalClient(dental_api)
+            json_procedure = od_client.query(query)[0]
+            ret = json_procedure
+            return Response(data=ret)
+
+        except Exception as e:  # noqa
+            return Response(status=HTTP_400_BAD_REQUEST, data={"message": f"{e}"})
 
 
 class ProcedureCategoryLink(ModelViewSet):
@@ -1867,52 +1872,3 @@ class ProcedureCategoryLink(ModelViewSet):
         if queryset:
             return Response(s.OfficeProductSerializer(queryset, many=True, context={"include_children": True}).data)
         return Response({"message": "No linked products"})
-
-
-def get_procedure_report(date_type, day_from, day_to, office_pk, limit, categories):
-    try:
-        with open("query/proc_result.sql", "r") as f:
-            raw_sql = f.read()
-        with open("query/proc_subquery.sql", "r") as f:
-            raw_joins = f.read()
-
-        sub_counts = ""
-        sub_joins = ""
-        ret_header = ["Code", "Description"]
-        rule = rrule.MONTHLY
-        day_start = day_from
-
-        if date_type == ProcedureType.PROCEDURE_WEEK:
-            rule = rrule.WEEKLY
-            day_start = day_from - datetime.timedelta(days=day_from.weekday())
-        for nIndex, dt in enumerate(rrule.rrule(rule, dtstart=day_start, until=day_to), 1):
-            sub_counts += f"p{nIndex}.count,"
-            sub_joins += raw_joins.format(
-                type=date_type, office_id=office_pk, day_from=dt.date(), tablename=f"p{nIndex}"
-            )
-            sub_joins += " "
-            ret_header.append(f"{dt.date()}")
-        sub_counts = sub_counts[:-1]
-
-        if not sub_counts:
-            return Response(status=HTTP_400_BAD_REQUEST, data={"message": "No values"})
-
-        newvalue = raw_sql.format(
-            sub_counts=sub_counts,
-            sub_joins=sub_joins,
-            type=date_type,
-            office_id=office_pk,
-            day_from=day_from,
-            day_to=day_to,
-            limit=limit,
-            proc_category=str(categories).replace("[", "(").replace("]", ")"),
-        )
-        ret_list = []
-        with connection.cursor() as cursor:
-            cursor.execute(newvalue)
-            ret_list = cursor.fetchall()
-        ret = {"headers": ret_header, "procs": ret_list}
-        return Response(data=ret)
-
-    except Exception as e:  # noqa
-        return Response(status=HTTP_400_BAD_REQUEST, data={"message": f"{e}"})
