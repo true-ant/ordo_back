@@ -269,16 +269,28 @@ class VendorOrderProductSerializer(serializers.ModelSerializer):
                 vendor_order = instance.vendor_order
                 order = vendor_order.order
 
-                if not m.VendorOrderProduct.objects.filter(
-                    Q(vendor_order=vendor_order), ~Q(status=m.ProductStatus.RECEIVED)
-                ).exists():
-                    instance.vendor_order.status = OrderStatus.CLOSED
-                    instance.vendor_order.save()
+                if not (
+                    m.VendorOrderProduct.objects
+                    .filter(vendor_order=vendor_order)
+                    .exclude(status__in=[m.ProductStatus.RECEIVED, m.ProductStatus.REJECTED])
+                    .exists()
+                ):
+                    vendor_order.status = OrderStatus.CLOSED
+                    vendor_order.save()
+                else:
+                    vendor_order.status = OrderStatus.OPEN
+                    vendor_order.save()
 
-                if not m.VendorOrderProduct.objects.filter(
-                    Q(vendor_order__order=order), ~Q(status=m.ProductStatus.RECEIVED)
-                ).exists():
+                if not (
+                    m.VendorOrderProduct.objects
+                    .filter(vendor_order__order=order)
+                    .exclude(status__in=[m.ProductStatus.RECEIVED, m.ProductStatus.REJECTED])
+                    .exists()
+                ):
                     order.status = OrderStatus.CLOSED
+                    order.save()
+                else:
+                    order.status = OrderStatus.OPEN
                     order.save()
 
             return instance
