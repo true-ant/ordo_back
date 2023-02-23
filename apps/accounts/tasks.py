@@ -19,10 +19,9 @@ from django.utils import timezone
 
 from apps.accounts.helper import OfficeBudgetHelper
 from apps.accounts.models import CompanyMember, Office, OfficeVendor, User
-from apps.orders.helpers import OfficeProductHelper
+from apps.orders.helpers import OfficeProductHelper, OfficeProductCategoryHelper, OrderHelper
 from apps.orders.models import OfficeProductCategory, OrderStatus, VendorOrder
 from apps.orders.updater import fetch_for_vendor
-from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.accounts import CompanyInvite
 from apps.vendor_clients.async_clients import BaseClient
 from config.celery import app
@@ -100,37 +99,6 @@ def send_company_invite_email(company_email_invites: List[CompanyInvite]):
         )
 
 
-async def get_orders(office_vendor, login_cookies, perform_login, completed_order_ids):
-    async with ClientSession(cookies=login_cookies, timeout=ClientTimeout(30)) as session:
-        vendor = office_vendor.vendor
-        scraper = ScraperFactory.create_scraper(
-            vendor=vendor,
-            session=session,
-            username=office_vendor.username,
-            password=office_vendor.password,
-        )
-
-        orders = await scraper.get_orders(
-            office=office_vendor.office, perform_login=perform_login, completed_order_ids=completed_order_ids
-        )
-        orders = sorted(orders, key=lambda x: x.order_date)
-        if len(orders):
-            first_order_date = orders[0].order_date
-            first_order_date -= relativedelta(days=1)
-        else:
-            first_order_date = timezone.now().date() - relativedelta(days=1)
-
-        await scraper.get_orders(
-            office=office_vendor.office,
-            from_date=first_order_date - relativedelta(months=12),
-            to_date=first_order_date,
-            completed_order_ids=completed_order_ids,
-        )
-
-        # if vendor.slug == "ultradent":
-        #     await scraper.get_all_products_v2(office_vendor.office)
-
-
 @app.task
 def fetch_vendor_products_prices(office_vendor_id):
     print("fetch_vendor_products_prices")
@@ -155,14 +123,41 @@ def update_vendor_product_prices_for_all_offices(vendor_slug):
 
 
 @app.task
+def update_order_history(vendor_slug, office_id):
+    """
+    NOTE: Passed vendor_slug and office_id as params instead of OfficeVendor object
+    to clearly observe task events in the celery flower...
+    """
+    if not OfficeProductCategory.objects.filter(office=office_id).exists():
+        OfficeProductCategoryHelper.create_categories_from_product_category(office_id)
+
+    office_vendor = OfficeVendor.objects.get(vendor__slug=vendor_slug, office=office_id)
+    order_id_field = "vendor_order_reference" if vendor_slug == "henry_schein" else "vendor_order_id"
+    completed_order_ids = list(
+        VendorOrder.objects.filter(
+            vendor=office_vendor.vendor, order__office=office_vendor.office, status=OrderStatus.CLOSED
+        ).values_list(order_id_field, flat=True)
+    )
+    asyncio.run(
+        OrderHelper.fetch_orders_and_update(
+            office_vendor=office_vendor, completed_order_ids=completed_order_ids, consider_recent=True
+        )
+    )
+
+
+@app.task
+def update_order_history_for_all_offices(vendor_slug):
+    office_vendors = OfficeVendor.objects.filter(vendor__slug=vendor_slug)
+    for ov in office_vendors:
+        update_order_history.delay(vendor_slug, ov.office_id)
+
+
+@app.task
 def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login=False):
     if login_cookies is None and perform_login is False:
         return
 
     office_vendor = OfficeVendor.objects.select_related("office", "vendor").get(id=office_vendor_id)
-    # offices_vendors = OfficeVendor.objects.filter(
-    #     office__company=office_vendor.office.company, vendor=office_vendor.vendor
-    # )
 
     if not OfficeProductCategory.objects.filter(office=office_vendor.office).exists():
         call_command("fill_office_product_categories", office_ids=[office_vendor.office.id])
@@ -183,50 +178,7 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
     )
     print("========== completed order ids==========")
     print(completed_order_ids)
-    asyncio.run(get_orders(office_vendor, cookie, True, completed_order_ids))
-    # office_vendor = OfficeVendor.objects.select_related("office", "vendor").get(id=office_vendor_id)
-    # asyncio.run(
-    #     OfficeProductHelper.get_all_product_prices_from_vendors(
-    #         office_id=office_vendor.office.id, vendor_slugs=[office_vendor.vendor.slug]
-    #     )
-    # )
-
-    # inventory group products
-    # office_vendors = OfficeVendor.objects.select_related("office", "vendor").filter(office=office_vendor.office)
-    # if office_vendors.count() > 1:
-    #     vendors_products = []
-    #     for office_vendor in office_vendors:
-    #         product_ids = OfficeProduct.objects.filter(
-    #             is_inventory=True, product__vendor=office_vendor.vendor
-    #         ).values_list("product__product_id", flat=True)
-    #         if product_ids:
-    #             vendors_products.append(
-    #                 Product.objects.filter(
-    #                     vendor=office_vendor.vendor, parent__isnull=True, product_id__in=product_ids
-    #                 )
-    #             )
-
-    #     if len(vendors_products) > 1:
-    #         group_products(vendors_products, model=True)
-
-    # TODO: iterate keyword tables. fetch products for keyword and pricing comparison
-
-    # with transaction.atomic():
-    #     for order_data_cls in orders:
-    #         order_data = order_data_cls.to_dict()
-    #         shipping_address = order_data.pop("shipping_address")
-    #         try:
-    #             office = [
-    #                 office_vendor.office
-    #                 for office_vendor in offices_vendors
-    #                 if office_vendor.office.shipping_zip_code[:5] == shipping_address["postal_code"][:5]
-    #             ][0]
-    #         except (TypeError, IndexError):
-    #             office = office_vendor.office
-
-    #         save_order_to_db(office, office_vendor.vendor, order_data)
-    #         office_vendor.task_id = ""
-    #         office_vendor.save()
+    asyncio.run(OrderHelper.fetch_orders_and_update((office_vendor, cookie, True, completed_order_ids)))
 
 
 @app.task

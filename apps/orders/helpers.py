@@ -3,17 +3,22 @@ import csv
 import datetime
 import itertools
 import json
+import logging
+import pandas as pd
+
+from slugify import slugify
 from collections import defaultdict
 from decimal import Decimal
 from functools import reduce
 from itertools import chain
 from operator import or_
 from typing import Dict, List, Optional, TypedDict, Union
-
-import pandas as pd
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientTimeout
 from dateutil import rrule
+from asgiref.sync import sync_to_async
+
 from django.conf import settings
+from django.db import transaction
 from django.contrib.postgres.search import SearchQuery, SearchVectorField
 from django.db.models import (
     Case,
@@ -32,13 +37,13 @@ from django.db.models import (
 from django.db.models.expressions import RawSQL
 from django.db.models.functions import Coalesce
 from django.utils import timezone
-from slugify import slugify
 
 from apps.accounts.models import Office as OfficeModel
 from apps.accounts.models import OfficeVendor as OfficeVendorModel
 from apps.accounts.models import Vendor as VendorModel
 from apps.common.choices import ProcedureType
 from apps.common.query import Replacer
+from apps.common.month import Month
 from apps.common.utils import (
     batched,
     bulk_create,
@@ -53,12 +58,18 @@ from apps.common.utils import (
     remove_dash_between_numerics,
     sort_and_write_to_csv,
 )
+from apps.scrapers.base import Scraper
+from apps.scrapers.scraper_factory import ScraperFactory
 from apps.orders.models import OfficeProduct as OfficeProductModel
 from apps.orders.models import Procedure as ProcedureModel
 from apps.orders.models import ProcedureCode as ProcedureCodeModel
 from apps.orders.models import Product as ProductModel
 from apps.orders.models import ProductCategory as ProductCategoryModel
+from apps.orders.models import OfficeProductCategory as OfficeProductCategoryModel
 from apps.orders.models import ProductImage as ProductImageModel
+from apps.orders.models import Order as OrderModel
+from apps.orders.models import VendorOrder as VendorOrderModel
+from apps.orders.models import VendorOrderProduct as VendorOrderProductModel
 from apps.vendor_clients.async_clients import BaseClient as BaseAsyncClient
 from apps.vendor_clients.errors import VendorAuthenticationFailed
 from apps.vendor_clients.sync_clients import BaseClient as BaseSyncClient
@@ -70,6 +81,8 @@ SmartID = Union[int, str]
 ProductID = SmartID
 ProductIDs = List[ProductID]
 CSV_DELIMITER = "!@#$%"
+
+logger = logging.getLogger(__name__)
 
 
 class ParentProduct(TypedDict):
@@ -502,7 +515,7 @@ class ProductHelper:
         category_mapping = ProductHelper.get_vendor_category_mapping()
 
         while df_len > df_index:
-            sub_df = df[df_index : df_index + batch_size]
+            sub_df = df[df_index: df_index + batch_size]
             product_objs_to_be_created = []
             product_objs_to_be_updated = []
             for index, row in sub_df.iterrows():
@@ -615,7 +628,7 @@ class ProductHelper:
         ProductModel.objects.filter(vendor=vendor).update(is_special_offer=False)
 
         while df_len > df_index:
-            sub_df = df[df_index : df_index + batch_size]
+            sub_df = df[df_index: df_index + batch_size]
             product_objs = []
             for index, row in sub_df.iterrows():
                 product = ProductModel.objects.filter(product_id=row["product_id"], vendor=vendor).first()
@@ -1406,3 +1419,61 @@ class ProcedureHelper:
             pass
 
         print(f"Update {day_from} - {day_to} {count} rows")
+
+
+class OfficeProductCategoryHelper:
+    @staticmethod
+    def create_categories_from_product_category(office_id):
+        office = OfficeModel.objects.get(pk=office_id)
+        product_categories = ProductCategoryModel.objects.all()
+
+        new_categories = [
+            OfficeProductCategoryModel(
+                office=office,
+                name=product_category.name,
+                slug=product_category.slug,
+            )
+            for product_category in product_categories
+        ]
+        batch_size = 500
+
+        try:
+            OfficeProductCategoryModel.objects.bulk_create(
+                new_categories, batch_size, ignore_conflicts=True
+            )
+        except Exception as err:
+            logger.debug("OfficeProductCategory bulk inserting error: \n")
+            raise ValueError(err)
+
+
+class OrderHelper:
+
+    @staticmethod
+    async def fetch_orders_and_update(
+        office_vendor: OfficeVendorModel,
+        login_cookies: str = None,
+        perform_login: bool = True,
+        completed_order_ids: list = [],
+        consider_recent: bool = False
+    ):
+        async with ClientSession(cookies=login_cookies, timeout=ClientTimeout(30)) as session:
+            scraper = ScraperFactory.create_scraper(
+                vendor=office_vendor.vendor,
+                session=session,
+                username=office_vendor.username,
+                password=office_vendor.password,
+            )
+            from_date = None
+            to_date = None
+
+            if consider_recent:
+                from_date = timezone.now().date() - datetime.timedelta(days=3)
+                to_date = timezone.now().date()
+
+            await scraper.get_orders(
+                office=office_vendor.office,
+                from_date=from_date,
+                to_date=to_date,
+                perform_login=perform_login,
+                completed_order_ids=completed_order_ids
+            )
