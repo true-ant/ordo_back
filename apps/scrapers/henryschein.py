@@ -729,7 +729,7 @@ class HenryScheinScraper(Scraper):
         self.session = ClientSession()
         try:
             asyncio.sleep(1)
-            # raise Exception()
+            raise Exception()
             await self.login()
             await self.clear_cart()
             await self.add_products_to_cart(products)
