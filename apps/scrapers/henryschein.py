@@ -13,6 +13,12 @@ from scrapy import Selector
 
 from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
+from apps.scrapers.headers.henryschein import (
+    CHECKOUT_HEADER,
+    CLEAR_CART_HEADERS,
+    LOGIN_HEADERS,
+    SEARCH_HEADERS,
+)
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct, VendorCartProduct
@@ -20,98 +26,6 @@ from apps.types.scraper import LoginInformation, ProductSearch, SmartProductID
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-HEADERS = {
-    "authority": "www.henryschein.com",
-    "sec-ch-ua": '"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"',
-    "n": "pikP/UtnnyEIsCZl3cphEgyUhacC9CnLZqSaDcvfufM=",
-    "iscallingfromcms": "False",
-    "sec-ch-ua-mobile": "?0",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36",
-    # noqa
-    "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-    "accept": "application/json, text/javascript, */*; q=0.01",
-    "x-requested-with": "XMLHttpRequest",
-    "origin": "https://www.henryschein.com",
-    "sec-fetch-site": "same-origin",
-    "sec-fetch-mode": "cors",
-    "sec-fetch-dest": "empty",
-    "referer": "https://www.henryschein.com/us-en/Profiles/Logout.aspx?redirdone=1",
-    "accept-language": "en-US,en;q=0.9",
-}
-SEARCH_HEADERS = {
-    "authority": "www.henryschein.com",
-    "cache-control": "max-age=0",
-    "upgrade-insecure-requests": "1",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/92.0.4515.159 Safari/537.36",
-    "accept": "text/html,application/xhtml+xml, application/xml;q=0.9, "
-    "image/avif,image/webp,image/apng, */*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "sec-ch-ua": '"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-fetch-site": "none",
-    "sec-fetch-mode": "navigate",
-    "sec-fetch-user": "?1",
-    "sec-fetch-dest": "document",
-    "accept-language": "en-US,en;q=0.9",
-}
-CLEAR_CART_HEADERS = {
-    "authority": "www.henryschein.com",
-    "sec-ch-ua": '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
-    "n": "faMC175siE4Ji7eGjyxEnEahdp30gAd6F12KILNn68E=",
-    "sec-ch-ua-mobile": "?0",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.71 Safari/537.36",
-    "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-    "accept": "application/json, text/javascript, */*; q=0.01",
-    "x-requested-with": "XMLHttpRequest",
-    "sec-ch-ua-platform": '"Windows"',
-    "origin": "https://www.henryschein.com",
-    "sec-fetch-site": "same-origin",
-    "sec-fetch-mode": "cors",
-    "sec-fetch-dest": "empty",
-    "referer": "https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx",
-    "accept-language": "en-US,en;q=0.9,ko;q=0.8",
-}
-CHECKOUT_HEADER = {
-    "authority": "www.henryschein.com",
-    "cache-control": "max-age=0",
-    "sec-ch-ua": '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "upgrade-insecure-requests": "1",
-    "origin": "https://www.henryschein.com",
-    "content-type": "application/x-www-form-urlencoded",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.71 Safari/537.36",
-    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,"
-    "image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "sec-fetch-site": "same-origin",
-    "sec-fetch-mode": "navigate",
-    "sec-fetch-user": "?1",
-    "sec-fetch-dest": "document",
-    "accept-language": "en-US,en;q=0.9,ko;q=0.8",
-}
-CART_HEADERS = {
-    "authority": "www.henryschein.com",
-    "sec-ch-ua": '"Google Chrome";v="95", "Chromium";v="95", ";Not A Brand";v="99"',
-    "n": "8Q66eFEZrl21cfd7A18MlrVGecsxls25GU/+P6Nw3QM=",
-    "iscallingfromcms": "False",
-    "sec-ch-ua-mobile": "?0",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36",
-    "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-    "accept": "application/json, text/javascript, */*; q=0.01",
-    "x-requested-with": "XMLHttpRequest",
-    "sec-ch-ua-platform": '"Windows"',
-    "origin": "https://www.henryschein.com",
-    "sec-fetch-site": "same-origin",
-    "sec-fetch-mode": "cors",
-    "sec-fetch-dest": "empty",
-    "referer": "https://www.henryschein.com",
-    "accept-language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
-}
 
 
 class HenryScheinScraper(Scraper):
@@ -130,7 +44,7 @@ class HenryScheinScraper(Scraper):
         self.session.headers.update({"n": n})
         return {
             "url": f"{self.BASE_URL}/webservices/LoginRequestHandler.ashx",
-            "headers": HEADERS,
+            "headers": LOGIN_HEADERS,
             "data": {
                 "username": self.username,
                 "password": self.password,
@@ -545,11 +459,11 @@ class HenryScheinScraper(Scraper):
     async def add_products_to_cart(self, products: List[CartProduct]) -> List[VendorCartProduct]:
         for product in products:
             params = (
-                ('addproductid', product["product_id"]),
-                ('addproductqty', product["quantity"]),
-                ('allowRedirect', 'false'),
+                ("addproductid", product["product_id"]),
+                ("addproductqty", product["quantity"]),
+                ("allowRedirect", "false"),
             )
-            resp = await self.session.get('https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx', params=params)
+            await self.session.get("https://www.henryschein.com/us-en/Shopping/CurrentCart.aspx", params=params)
 
     async def add_product_to_cart(self, product: CartProduct, perform_login=False) -> VendorCartProduct:
         if perform_login:
@@ -783,22 +697,22 @@ class HenryScheinScraper(Scraper):
             checkout_dom = await self.checkout(products)
             review_checkout_dom = await self.review_checkout(checkout_dom, shipping_method)
             vendor_order_detail = await self.review_order(review_checkout_dom)
-        except:
+        except Exception:
             print("henry_schein create_order except")
-            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
+            subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
             vendor_order_detail = VendorOrderDetail.from_dict(
-            {
-                "retail_amount": 0,
-                "savings_amount": 0,
-                "subtotal_amount": Decimal(subtotal_manual),
-                "shipping_amount": 0,
-                "tax_amount": 0,
-                "total_amount": Decimal(subtotal_manual),
-                "payment_method": "",
-                "shipping_address": "",
-                "reduction_amount": Decimal(subtotal_manual),
-            }
-        )
+                {
+                    "retail_amount": 0,
+                    "savings_amount": 0,
+                    "subtotal_amount": Decimal(subtotal_manual),
+                    "shipping_amount": 0,
+                    "tax_amount": 0,
+                    "total_amount": Decimal(subtotal_manual),
+                    "payment_method": "",
+                    "shipping_address": "",
+                    "reduction_amount": Decimal(subtotal_manual),
+                }
+            )
         finally:
             vendor_slug: str = self.vendor.slug
             print("henryschein/create_order DONE")
@@ -829,7 +743,7 @@ class HenryScheinScraper(Scraper):
                 return {
                     **vendor_order_detail.to_dict(),
                     "order_id": f"{uuid.uuid4()}",
-                    "order_type": msgs.ORDER_TYPE_ORDO
+                    "order_type": msgs.ORDER_TYPE_ORDO,
                 }
             headers = CHECKOUT_HEADER.copy()
             headers["referer"] = "https://www.henryschein.com/us-en/Checkout/OrderReview.aspx"
@@ -840,7 +754,9 @@ class HenryScheinScraper(Scraper):
                 "__EVENTTARGET": "ctl00$cphMainContentHarmony$lnkNextShop",
                 "__EVENTARGUMENT": "",
                 "__VIEWSTATE": review_checkout_dom.xpath("//input[@name='__VIEWSTATE']/@value").get(),
-                "__VIEWSTATEGENERATOR": review_checkout_dom.xpath("//input[@name='__VIEWSTATEGENERATOR']/@value").get(),
+                "__VIEWSTATEGENERATOR": review_checkout_dom.xpath(
+                    "//input[@name='__VIEWSTATEGENERATOR']/@value"
+                ).get(),
                 "ctl00_cpAsideMenu_AsideMenu_SideMenuControl1000txtItemCodeId": "",
                 "ctl00_cpAsideMenu_AsideMenu_SideMenuControl1000txtItemQtyId": "",
                 "layout": "on",
@@ -860,12 +776,12 @@ class HenryScheinScraper(Scraper):
                 return {
                     **vendor_order_detail.to_dict(),
                     "order_id": res_data["ecommerce"]["purchase"]["actionField"]["id"],
-                    "order_type": msgs.ORDER_TYPE_ORDO
+                    "order_type": msgs.ORDER_TYPE_ORDO,
                 }
-        except:
+        except Exception:
             print("henry_schein/confirm_order Except")
-            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
-            vendor_order_detail =VendorOrderDetail(
+            subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
+            vendor_order_detail = VendorOrderDetail(
                 retail_amount=Decimal(0),
                 savings_amount=Decimal(0),
                 subtotal_amount=Decimal(subtotal_manual),
@@ -874,14 +790,14 @@ class HenryScheinScraper(Scraper):
                 total_amount=Decimal(subtotal_manual),
                 reduction_amount=Decimal(subtotal_manual),
                 payment_method="",
-                shipping_address=""
+                shipping_address="",
             )
             await self.session.close()
             self.session = self.backsession
             return {
                 **vendor_order_detail.to_dict(),
                 "order_id": f"{uuid.uuid4()}",
-                "order_type": msgs.ORDER_TYPE_REDUNDANCY
+                "order_type": msgs.ORDER_TYPE_REDUNDANCY,
             }
 
     async def track_product(self, order_id, product_id, tracking_link, tracking_number, perform_login=False):

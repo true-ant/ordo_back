@@ -85,6 +85,16 @@ beat_schedule = {
         "args": ("midwest_dental",),
         "schedule": crontab(minute="*/5"),
     },
+    "update_order_history_for_net_32": {
+        "task": "apps.accounts.tasks.update_order_history",
+        "args": ("net_32",),
+        "schedule": crontab(day_of_week="1-5", hour=1, minute=0),
+    },
+    "update_order_history_for_henry_schein": {
+        "task": "apps.accounts.tasks.update_order_history",
+        "args": ("henry_schein",),
+        "schedule": crontab(day_of_week="1-5", hour=1, minute=0),
+    },
     "update_promotions": {
         "task": "apps.orders.tasks.update_promotions",
         "schedule": crontab(minute="0", hour="0", day_of_week="3"),  # Every wednesday

@@ -1,7 +1,7 @@
 import asyncio
 import datetime
-from decimal import Decimal
 import uuid
+from decimal import Decimal
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
@@ -9,14 +9,21 @@ from aiohttp import ClientResponse, ClientSession
 from django.utils.dateparse import parse_datetime
 from scrapy import Selector
 
+from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
 from apps.scrapers.errors import OrderFetchException
+from apps.scrapers.headers.net32 import (
+    CART_HEADERS,
+    LOGIN_HEADERS,
+    PLACE_ORDER_HEADERS,
+    REVIEW_CHECKOUT_HEADERS,
+    SEARCH_HEADERS,
+)
 from apps.scrapers.product_track import (
     FedexProductTrack,
     UPSProductTrack,
     USPSProductTrack,
 )
-from apps.common import messages as msgs
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct
@@ -27,115 +34,11 @@ from apps.types.scraper import (
     SmartProductID,
 )
 
-HEADERS = {
-    "Connection": "keep-alive",
-    "Cache-Control": "max-age=0",
-    "sec-ch-ua": '"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"',
-    "Accept": "application/json",
-    "sec-ch-ua-mobile": "?0",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36",  # noqa
-    "Content-Type": "application/x-www-form-urlencoded",
-    "Origin": "https://www.net32.com",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Dest": "empty",
-    "Referer": "https://www.net32.com/login?origin=%2F",
-    "Accept-Language": "en-US,en;q=0.9",
-}
-
-SEARCH_HEADERS = {
-    "Connection": "keep-alive",
-    "Cache-Control": "max-age=0",
-    "sec-ch-ua": '"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"',
-    "sec-ch-ua-mobile": "?0",
-    "Upgrade-Insecure-Requests": "1",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",  # noqa
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",  # noqa
-    "Sec-Fetch-Site": "none",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "Accept-Language": "en-US,en;q=0.9",
-}
-
-CART_HEADERS = {
-    "Connection": "keep-alive",
-    "Cache-Control": "max-age=0",
-    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    "Accept": "application/json",
-    "Content-Type": "application/json",
-    "sec-ch-ua-mobile": "?0",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",  # noqa
-    "sec-ch-ua-platform": '"Windows"',
-    "Origin": "https://www.net32.com",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Dest": "empty",
-    "Referer": "https://www.net32.com/shopping-cart",
-    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
-}
-
-CHECKOUT_HEADERS = {
-    "Connection": "keep-alive",
-    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "Upgrade-Insecure-Requests": "1",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",  # noqa
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",  # noqa
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "Referer": "https://www.net32.com/shopping-cart",
-    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
-}
-
-REVIEW_CHECKOUT_HEADERS = {
-    "Connection": "keep-alive",
-    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "Upgrade-Insecure-Requests": "1",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,"
-    "image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "Referer": "https://www.net32.com/shopping-cart",
-    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
-}
-
-PLACE_ORDER_HEADERS = {
-    "Connection": "keep-alive",
-    "Content-Length": "0",
-    "Cache-Control": "max-age=0",
-    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "Upgrade-Insecure-Requests": "1",
-    "Origin": "https://www.net32.com",
-    "Content-Type": "application/x-www-form-urlencoded",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,"
-    "image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "Referer": "https://www.net32.com/checkout/review",
-    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
-}
-
 
 class Net32Scraper(Scraper):
     BASE_URL = "https://www.net32.com"
     CATEGORY_URL = "https://www.net32.com/rest/userAndCartSummary/get"
-    CATEGORY_HEADERS = HEADERS
+    CATEGORY_HEADERS = LOGIN_HEADERS
 
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         res = await response.json()
@@ -147,7 +50,7 @@ class Net32Scraper(Scraper):
     async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
         return {
             "url": f"{self.BASE_URL}/rest/user/login",
-            "headers": HEADERS,
+            "headers": LOGIN_HEADERS,
             "data": {
                 "userName": self.username,
                 "password": self.password,
@@ -165,7 +68,7 @@ class Net32Scraper(Scraper):
         completed_order_ids: Optional[List[str]] = None,
     ) -> List[Order]:
         url = f"{self.BASE_URL}/rest/order/orderHistory"
-        headers = HEADERS.copy()
+        headers = LOGIN_HEADERS.copy()
         headers["Referer"] = f"{self.BASE_URL}/account/orders"
         params = {
             "paymentSystemId": "1",
@@ -512,13 +415,13 @@ class Net32Scraper(Scraper):
                 vendor_slug: {
                     **vendor_order_detail.to_dict(),
                     **self.vendor.to_dict(),
-                    "order_type": msgs.ORDER_TYPE_ORDO
+                    "order_type": msgs.ORDER_TYPE_ORDO,
                 }
             }
-        except:
+        except Exception:
             print("net32/create_order except")
-            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
-            vendor_order_detail =VendorOrderDetail(
+            subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
+            vendor_order_detail = VendorOrderDetail(
                 retail_amount=Decimal(0),
                 savings_amount=Decimal(0),
                 subtotal_amount=Decimal(subtotal_manual),
@@ -529,13 +432,8 @@ class Net32Scraper(Scraper):
                 payment_method="",
                 shipping_address="",
             )
-            return {
-                vendor_slug: {
-                    **vendor_order_detail.to_dict(),
-                    **self.vendor.to_dict()
-                }
-            }
-            
+            return {vendor_slug: {**vendor_order_detail.to_dict(), **self.vendor.to_dict()}}
+
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
         print("net32/confirm_order")
         self.backsession = self.session
@@ -553,15 +451,21 @@ class Net32Scraper(Scraper):
                 "https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS
             ) as resp:
                 response_dom = Selector(text=await resp.text())
-                order_id = response_dom.xpath("//h2[@class='checkout-confirmation-order-number-header']//a/text()").get()
+                order_id = response_dom.xpath(
+                    "//h2[@class='checkout-confirmation-order-number-header']//a/text()"
+                ).get()
             await self.session.close()
             self.session = self.backsession
             return {**result[self.vendor.slug], "order_id": order_id}
-        except:
+        except Exception:
             print("benco/confirm_order Except")
             await self.session.close()
             self.session = self.backsession
-            return {**result[self.vendor.slug], "order_type": msgs.ORDER_TYPE_REDUNDANCY, "order_id": f"{uuid.uuid4()}"}
+            return {
+                **result[self.vendor.slug],
+                "order_type": msgs.ORDER_TYPE_REDUNDANCY,
+                "order_id": f"{uuid.uuid4()}",
+            }
 
     def _get_vendor_categories(self, response) -> List[ProductCategory]:
         return [
