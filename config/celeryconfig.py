@@ -86,13 +86,18 @@ beat_schedule = {
         "schedule": crontab(minute="*/5"),
     },
     "update_order_history_for_net_32": {
-        "task": "apps.accounts.tasks.update_order_history",
+        "task": "apps.accounts.tasks.update_order_history_for_all_offices",
         "args": ("net_32",),
         "schedule": crontab(day_of_week="1-5", hour=1, minute=0),
     },
     "update_order_history_for_henry_schein": {
-        "task": "apps.accounts.tasks.update_order_history",
+        "task": "apps.accounts.tasks.update_order_history_for_all_offices",
         "args": ("henry_schein",),
+        "schedule": crontab(day_of_week="1-5", hour=1, minute=0),
+    },
+    "update_order_history_for_darby": {
+        "task": "apps.accounts.tasks.update_order_history_for_all_offices",
+        "args": ("darby",),
         "schedule": crontab(day_of_week="1-5", hour=1, minute=0),
     },
     "update_promotions": {
