@@ -95,6 +95,11 @@ beat_schedule = {
         "args": ("henry_schein",),
         "schedule": crontab(day_of_week="1-5", hour=1, minute=0),
     },
+    "update_order_history_for_benco": {
+        "task": "apps.accounts.tasks.update_order_history_for_all_offices",
+        "args": ("benco",),
+        "schedule": crontab(day_of_week="1-5", hour=1, minute=0),
+    },
     "update_order_history_for_darby": {
         "task": "apps.accounts.tasks.update_order_history_for_all_offices",
         "args": ("darby",),
