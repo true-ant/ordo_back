@@ -14,6 +14,20 @@ from scrapy import Selector
 
 from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
+from apps.scrapers.headers.benco import (
+    ADD_CART_HEADERS,
+    CLEAR_CART_HEADERS,
+    CONFIRM_ORDER_HEADERS,
+    CREATE_ORDER_HEADERS,
+    LOGIN_HEADERS,
+    ORDER_DETAIL_HEADERS,
+    ORDER_HISTORY_HEADERS,
+    POST_LOGIN_HEADERS,
+    PRE_LOGIN_HEADERS,
+    PRICE_SEARCH_HEADERS,
+    REMOVE_PRODUCT_CART_HEADERS,
+    SEARCH_HEADERS,
+)
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct, VendorCartProduct
@@ -26,206 +40,14 @@ from apps.types.scraper import (
 
 CERTIFICATE_BASE_PATH = Path(__file__).parent.resolve()
 
-PRE_LOGIN_HEADERS = {
-    "Connection": "keep-alive",
-    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "Upgrade-Insecure-Requests": "1",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
-    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-Fetch-Site": "none",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
-}
-LOGIN_HEADERS = {
-    "Connection": "keep-alive",
-    "Cache-Control": "max-age=0",
-    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "Upgrade-Insecure-Requests": "1",
-    "Origin": "https://identity.benco.com",
-    "Content-Type": "application/x-www-form-urlencoded",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
-    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
-}
-SEARCH_HEADERS = {
-    "Connection": "keep-alive",
-    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "Upgrade-Insecure-Requests": "1",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,"
-    "image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-Fetch-Site": "same-site",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "Referer": "https://www.benco.com/",
-    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
-}
-PRICE_SEARCH_HEADERS = {
-    "Connection": "keep-alive",
-    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    "Accept": "application/json, text/javascript, */*; q=0.01",
-    "Content-Type": "application/json",
-    "X-Requested-With": "XMLHttpRequest",
-    "sec-ch-ua-mobile": "?0",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36",
-    "sec-ch-ua-platform": '"Windows"',
-    "Origin": "https://shop.benco.com",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Dest": "empty",
-    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
-}
-ORDER_HISTORY_HEADERS = {
-    'Connection': 'keep-alive',
-    'sec-ch-ua': '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    'sec-ch-ua-mobile': '?0',
-    'sec-ch-ua-platform': '"Windows"',
-    'Upgrade-Insecure-Requests': '1',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-    'Sec-Fetch-Site': 'same-origin',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-User': '?1',
-    'Sec-Fetch-Dest': 'document',
-    'Referer': 'https://shop.benco.com',
-    'Accept-Language': 'en-US,en;q=0.9',
-}
-ORDER_DETAIL_HEADERS = {
-    "Connection": "keep-alive",
-    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "Upgrade-Insecure-Requests": "1",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
-    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
-}
-ADD_CART_HEADERS = {
-    "Connection": "keep-alive",
-    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    "sec-ch-ua-mobile": "?0",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36",
-    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-    "Accept": "*/*",
-    "X-Requested-With": "XMLHttpRequest",
-    "Request-Context": "appId=cid-v1:c74c9cb3-54a4-4cfa-b480-a6dc8f0d3cdc",
-    "Request-Id": "|fpNl1.MtH9L",
-    "sec-ch-ua-platform": '"Windows"',
-    "Origin": "https://shop.benco.com",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Dest": "empty",
-    "Referer": "https://shop.benco.com/Cart",
-    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
-}
-REMOVE_PRODUCT_CART_HEADERS = {
-    "Connection": "keep-alive",
-    "sec-ch-ua": '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
-    "sec-ch-ua-mobile": "?0",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36",
-    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-    "Accept": "*/*",
-    "X-Requested-With": "XMLHttpRequest",
-    "Request-Context": "appId=cid-v1:c74c9cb3-54a4-4cfa-b480-a6dc8f0d3cdc",
-    "Request-Id": "|/ZBP6.Z1DPB",
-    "sec-ch-ua-platform": '"Windows"',
-    "Origin": "https://shop.benco.com",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Dest": "empty",
-    "Referer": "https://shop.benco.com/Cart",
-    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
-}
-CLEAR_CART_HEADERS = {
-    "Connection": "keep-alive",
-    "sec-ch-ua": '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "Upgrade-Insecure-Requests": "1",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.71 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
-    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "Referer": "https://shop.benco.com/Cart",
-    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
-}
-CREATE_ORDER_HEADERS = {
-    "Connection": "keep-alive",
-    "Cache-Control": "max-age=0",
-    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "Upgrade-Insecure-Requests": "1",
-    "Origin": "https://shop.benco.com",
-    "Content-Type": "application/x-www-form-urlencoded",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
-    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "Referer": "https://shop.benco.com/Cart",
-    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
-}
-CONFIRM_ORDER_HEADERS = {
-    "Connection": "keep-alive",
-    "Cache-Control": "max-age=0",
-    "sec-ch-ua": '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "Upgrade-Insecure-Requests": "1",
-    "Origin": "https://shop.benco.com",
-    "Content-Type": "application/x-www-form-urlencoded",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
-    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
-}
 
 def textParser(element):
     if not element:
-        return ''
-    text = re.sub(r"\s+", " ", " ".join(element.xpath('.//text()').extract()))
+        return ""
+    text = re.sub(r"\s+", " ", " ".join(element.xpath(".//text()").extract()))
     return text.strip() if text else ""
-    
+
+
 class CartProductDetail(TypedDict):
     product_id: str
     quantity: str
@@ -266,19 +88,34 @@ class BencoScraper(Scraper):
                 return True, {}
 
     async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
-        headers = LOGIN_HEADERS.copy()
-        url: str = kwargs.get("url")
-        idsrv_xsrf = kwargs.get("idsrv_xsrf")
-        headers["Referer"] = url
-        return {
-            "url": url,
-            "headers": headers,
-            "data": {
-                "idsrv.xsrf": idsrv_xsrf,
-                "username": self.username,
-                "password": self.password,
-            },
-        }
+        async with self.session.get(
+            "https://shop.benco.com/Login/Login", headers=PRE_LOGIN_HEADERS, ssl=self._ssl_context
+        ) as resp:
+            text = await resp.text()
+            login_url = str(resp.url)
+            try:
+                model_json = (
+                    text.split("id='modelJson'")[1]
+                    .split("</script>", 1)[0]
+                    .split(">", 1)[1]
+                    .replace("&quot;", '"')
+                    .strip()
+                )
+                idsrv_xsrf = json.loads(model_json)["antiForgery"]["value"]
+
+                headers = LOGIN_HEADERS.copy()
+                headers["Referer"] = login_url
+                return {
+                    "url": login_url,
+                    "headers": headers,
+                    "data": {
+                        "idsrv.xsrf": idsrv_xsrf,
+                        "username": self.username,
+                        "password": self.password,
+                    },
+                }
+            except (IndexError, KeyError):
+                pass
 
     @catch_network
     async def _check_authenticated(self, resp: ClientResponse) -> bool:
@@ -290,29 +127,9 @@ class BencoScraper(Scraper):
         if not any([id_token, scope, state, session_state]):
             return False
 
-        headers = {
-            "Connection": "keep-alive",
-            "Cache-Control": "max-age=0",
-            "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": '"Windows"',
-            "Upgrade-Insecure-Requests": "1",
-            "Origin": "https://identity.benco.com",
-            "Content-Type": "application/x-www-form-urlencoded",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
-            "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-            "Sec-Fetch-Site": "same-site",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Dest": "document",
-            "Referer": "https://identity.benco.com/",
-            "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
-        }
-
         data = {"id_token": id_token, "scope": scope, "state": state, "session_state": session_state}
         await self.session.post(
-            "https://shop.benco.com/signin-oidc", headers=headers, data=data, ssl=self._ssl_context
+            "https://shop.benco.com/signin-oidc", headers=POST_LOGIN_HEADERS, data=data, ssl=self._ssl_context
         )
         return True
 
@@ -325,52 +142,59 @@ class BencoScraper(Scraper):
         headers["Referer"] = referer
 
         order = {"products": []}
-        async with self.session.get(f"{self.BASE_URL}{order_detail_link}", headers=headers, verify=False) as resp:
+        async with self.session.get(f"{self.BASE_URL}{order_detail_link}", headers=headers) as resp:
             response_dom = Selector(text=await resp.text())
-            order["date"] = textParser(response_dom.xpath("//p[@class='order-details-summary']/span[1]"))
-            order["date"] = order["date"].split("on", 1)[1].strip("| ") if "on" in order["date"] else None
-            # order["purchase_id"] = textParser(response_dom.xpath("//p[@class='order-details-summary']/span[3]"))
-            # order["purchase_id"] = order["purchase_id"].split("#", 1)[1].strip() if "#" in order["purchase_id"] else None
-
-            # invoice_link = response_dom.xpath("//h3[contains(@class, 'pull-right')]/a/@href").get()
-            # if invoice_link:
-            #     order["invoice_link"] = f"{self.BASE_URL}{invoice_link}"
-            order["order_id"] = textParser(response_dom.xpath("//p[@class='order-details-summary']/span[2]"))
+            order["order_date"] = textParser(response_dom.xpath("//p[@class='order-details-summary']/span[1]"))
+            order["order_date"] = (
+                order["order_date"].split("on", 1)[1].strip("| ") if "on" in order["order_date"] else None
+            )
+            order["order_id"] = order_detail_link.split("/")[-1]
 
             for order_container in response_dom.xpath("//div[contains(@class, 'order-container')]"):
                 panel_heading = textParser(order_container.xpath("./div[@class='panel-heading']/h3[1]"))
-                
+
                 if not panel_heading:
-                    
-                    order["shipping_address"] = textParser(order_container.xpath(
-                        ".//div[contains(@class, 'account-details-panel')]/div[2]/p"
-                    ))
-                    order["total_amount"] = textParser(order_container.xpath(
-                        ".//div[contains(@class, 'account-details-panel')]/div[4]/p"
-                    ))
-                    order["status"] = textParser(order_container.xpath(
-                        ".//div[contains(@class, 'account-details-panel')]/div[5]/p"
-                    ))
+                    order["shipping_address"] = {
+                        "address": textParser(
+                            order_container.xpath(".//div[contains(@class, 'account-details-panel')]/div[2]/p")
+                        ),
+                    }
+                    order["total_amount"] = textParser(
+                        order_container.xpath(".//div[contains(@class, 'account-details-panel')]/div[4]/p")
+                    )
+                    order["status"] = textParser(
+                        order_container.xpath(".//div[contains(@class, 'account-details-panel')]/div[5]/p")
+                    )
                     order["currency"] = "USD"
                 else:
                     for product_row in order_container.xpath("./ul[@class='list-group']/li[@class='list-group-item']"):
-                        if product_row.xpath('.//h4'):
+                        if product_row.xpath(".//h4"):
                             continue
-                        product_id = textParser(product_row.xpath(
-                            ".//div[contains(@class, 'product-details')]/p[contains(text(), 'Product #:')]"
-                        ))
+                        product_id = textParser(
+                            product_row.xpath(
+                                ".//div[contains(@class, 'product-details')]/p[contains(text(), 'Product #:')]"
+                            )
+                        )
                         product_id = product_id.split("Product #:")[1].strip() if product_id else None
-                        product_name =textParser(product_row.xpath(".//div[contains(@class, 'product-details')]/strong/a"))
-                        product_url = product_row.xpath(".//div[contains(@class, 'product-details')]/strong/a/@href").get()
+                        product_name = textParser(
+                            product_row.xpath(".//div[contains(@class, 'product-details')]/strong/a")
+                        )
+                        product_url = product_row.xpath(
+                            ".//div[contains(@class, 'product-details')]/strong/a/@href"
+                        ).get()
                         # product image is one in order history we try to fetch images on product detail
                         # product_images = product_row.xpath(".//img/@src").extract()
-                        product_price = textParser(product_row.xpath(
-                            ".//div[contains(@class, 'product-details')]/p[contains(text(), 'Net Price:')]"
-                        ))
+                        product_price = textParser(
+                            product_row.xpath(
+                                ".//div[contains(@class, 'product-details')]/p[contains(text(), 'Net Price:')]"
+                            )
+                        )
                         product_price = product_price.split("Net Price:")[1].strip() if product_price else None
-                        quantity = textParser(product_row.xpath(
-                            ".//div[contains(@class, 'product-details')]/p[contains(text(), 'Quantity:')]"
-                        ))
+                        quantity = textParser(
+                            product_row.xpath(
+                                ".//div[contains(@class, 'product-details')]/p[contains(text(), 'Quantity:')]"
+                            )
+                        )
                         quantity = quantity.split("Quantity:")[1].strip() if quantity else None
                         order["products"].append(
                             {
@@ -418,7 +242,6 @@ class BencoScraper(Scraper):
             await self.login()
 
         # TODO: pagination not tested
-
         if from_date and to_date:
             params = {
                 "DateRangeOption": "CustomRange",
@@ -435,8 +258,12 @@ class BencoScraper(Scraper):
             text = await resp.text()
             response_dom = Selector(text=text)
             tasks = []
-            for order_detail_link in response_dom.xpath("//div[@class='order-history']//div[contains(@class, 'order-container')]/div[@class='panel-heading']//a[contains(@href, 'OrderDetail')]/@href").extract():
-                if not order_detail_link: continue
+            for order_detail_link in response_dom.xpath(
+                "//div[@class='order-history']//div[contains(@class, 'order-container')]/"
+                "div[@class='panel-heading']//a[contains(@href, 'OrderDetail')]/@href"
+            ).extract():
+                if not order_detail_link:
+                    continue
                 tasks.append(self.get_order(sem, order_detail_link, url, office))
             orders = await asyncio.gather(*tasks, return_exceptions=True)
             return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
@@ -691,11 +518,7 @@ class BencoScraper(Scraper):
             "cartId": cart_id,
         }
 
-        await self.session.get(
-            "https://shop.benco.com/Cart/RemoveAllItems",
-            headers=CLEAR_CART_HEADERS,
-            params=params
-        )
+        await self.session.get("https://shop.benco.com/Cart/RemoveAllItems", headers=CLEAR_CART_HEADERS, params=params)
 
     async def checkout(self) -> Tuple[str, str, VendorOrderDetail]:
         cart_id, request_verification_token, cart_products = await self.get_cart()
@@ -765,10 +588,10 @@ class BencoScraper(Scraper):
             if len(res) < 1:
                 raise Exception
             _, _, vendor_order_detail = await self.checkout()
-        except:
+        except Exception:
             print("Benco/create_order except")
-            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
-            vendor_order_detail =VendorOrderDetail(
+            subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
+            vendor_order_detail = VendorOrderDetail(
                 retail_amount=Decimal(0),
                 savings_amount=Decimal(0),
                 subtotal_amount=Decimal(subtotal_manual),
@@ -807,7 +630,7 @@ class BencoScraper(Scraper):
                     **vendor_order_detail.to_dict(),
                     **self.vendor.to_dict(),
                     "order_id": f"{uuid.uuid4()}",
-                    "order_type": msgs.ORDER_TYPE_ORDO
+                    "order_type": msgs.ORDER_TYPE_ORDO,
                 }
             data = {"__RequestVerificationToken": request_verification_token}
             headers = CONFIRM_ORDER_HEADERS.copy()
@@ -823,12 +646,12 @@ class BencoScraper(Scraper):
                     **vendor_order_detail.to_dict(),
                     **self.vendor.to_dict(),
                     "order_id": order_id,
-                    "order_type": msgs.ORDER_TYPE_ORDO
+                    "order_type": msgs.ORDER_TYPE_ORDO,
                 }
-        except:
+        except Exception:
             print("benco/confirm_order Except")
-            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
-            vendor_order_detail =VendorOrderDetail(
+            subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
+            vendor_order_detail = VendorOrderDetail(
                 retail_amount=Decimal(0),
                 savings_amount=Decimal(0),
                 subtotal_amount=Decimal(subtotal_manual),
@@ -837,7 +660,7 @@ class BencoScraper(Scraper):
                 total_amount=Decimal(subtotal_manual),
                 reduction_amount=Decimal(subtotal_manual),
                 payment_method="",
-                shipping_address=""
+                shipping_address="",
             )
             await self.session.close()
             self.session = self.backsession
@@ -845,7 +668,7 @@ class BencoScraper(Scraper):
                 **vendor_order_detail.to_dict(),
                 **self.vendor.to_dict(),
                 "order_id": f"{uuid.uuid4()}",
-                "order_type": msgs.ORDER_TYPE_REDUNDANCY
+                "order_type": msgs.ORDER_TYPE_REDUNDANCY,
             }
 
     async def download_invoice(self, invoice_link, order_id) -> InvoiceFile:
