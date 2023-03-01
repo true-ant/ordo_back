@@ -2,7 +2,6 @@ import asyncio
 import logging
 import operator
 import platform
-from calendar import monthrange
 from functools import reduce
 from http.cookies import SimpleCookie
 from typing import List
@@ -183,36 +182,62 @@ def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login
 
 @app.task
 def send_budget_update_notification():
-    today = timezone.now().date()
-    last_day = monthrange(today.year, today.month)[1]
-    if today.day != last_day:
-        return
-
+    now_date = timezone.now().date()
+    current_month = now_date.strftime("%B")
+    previous_month = now_date - relativedelta(months=1)
+    previous_month = previous_month.strftime("%B")
     offices = Office.objects.select_related("company").all()
     for office in offices:
-        emails = CompanyMember.objects.filter(
-            company=office.company, role=User.Role.ADMIN, invite_status=CompanyMember.InviteStatus.INVITE_APPROVED
-        ).values_list("email", flat=True)
-
-        htm_content = render_to_string(
-            "emails/update_budget.html",
-            {
-                "SITE_URL": settings.SITE_URL,
-            },
-        )
-
-        send_mail(
-            subject="It's time to update your budget!",
-            message="message",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=emails,
-            html_message=htm_content,
-        )
+        if office.dental_api:
+            users = CompanyMember.objects.filter(
+                company=office.company, role=User.Role.ADMIN, invite_status=CompanyMember.InviteStatus.INVITE_APPROVED
+            ).values_list("email", "user__first_name")
+            for user in users:
+                htm_content = render_to_string(
+                    "emails/updated_budget.html",
+                    {
+                        "SITE_URL": settings.SITE_URL,
+                        "first_name": user[1],
+                        "current_month": current_month,
+                        "previous_month": previous_month,
+                        "adjusted_production": office.budget.adjusted_production,
+                        "collections": office.budget.collection,
+                        "dental_percentage": office.budget.dental_percentage,
+                        "dental_budget": office.budget.dental_budget,
+                        "office_percentage": office.budget.office_percentage,
+                        "office_budget": office.budget.office_budget,
+                    },
+                )
+                send_mail(
+                    subject="Your budget has automatically updated!",
+                    message="message",
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user[0]],
+                    html_message=htm_content,
+                )
+        else:
+            emails = CompanyMember.objects.filter(
+                company=office.company, role=User.Role.ADMIN, invite_status=CompanyMember.InviteStatus.INVITE_APPROVED
+            ).values_list("email")
+            htm_content = render_to_string(
+                "emails/update_budget.html",
+                {
+                    "SITE_URL": settings.SITE_URL,
+                },
+            )
+            send_mail(
+                subject="It's time to update your budget!",
+                message="message",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=emails,
+                html_message=htm_content,
+            )
 
 
 @app.task
 def update_office_budget():
-    OfficeBudgetHelper.update_budget_with_previous_month()
+    OfficeBudgetHelper.update_office_budgets()
+    # OfficeBudgetHelper.update_budget_with_previous_month()
 
 
 #####################################################################################################################
@@ -221,7 +246,6 @@ def update_office_budget():
 
 
 async def get_orders_v2(office_vendor, completed_order_ids):
-
     async with ClientSession(timeout=ClientTimeout(30)) as session:
         vendor = office_vendor.vendor
         client = BaseClient.make_handler(

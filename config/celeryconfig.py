@@ -30,7 +30,7 @@ beat_schedule = {
     },
     "send_budget_update_notification": {
         "task": "apps.accounts.tasks.send_budget_update_notification",
-        "schedule": crontab(hour=0, minute=0),
+        "schedule": crontab(hour=0, minute=0, day_of_month=1),
     },
     "update_office_cart_status": {
         "task": "apps.orders.tasks.update_office_cart_status",

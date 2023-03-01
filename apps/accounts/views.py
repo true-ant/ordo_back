@@ -1,4 +1,3 @@
-import json
 import logging
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -23,10 +22,10 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.accounts.helper import OfficeBudgetHelper
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
 from apps.common.month import Month
-from apps.common.utils import formatStEndDateFromQuery
 from apps.scrapers.errors import (
     NetworkConnectionException,
     VendorAuthenticationFailed,
@@ -193,53 +192,48 @@ class OfficeViewSet(ModelViewSet):
     @action(detail=True, methods=["post"], url_path="dental_api")
     def set_dental_api(self, request, *args, **kwargs):
         instance = self.get_object()
-        if "key" in request.data:
-            instance.dental_api = request.data["key"]
-            instance.save()
-
-            resp = self.update_budget_from_dental(request, *args, **kwargs)
-            return Response(status=HTTP_200_OK, data=resp.data)
-        return Response(status=HTTP_400_BAD_REQUEST)
+        if "dental_key" in request.data:
+            od_client = OpenDentalClient(request.data["dental_key"])
+            _, status = od_client.query("")
+            is_connected = status != HTTP_401_UNAUTHORIZED
+            if is_connected:
+                instance.dental_api = request.data["dental_key"]
+                instance.save()
+                if "budget_type" in request.data and len(request.data["budget_type"]) > 0:
+                    resp = self.update_budget_from_dental(request, *args, **kwargs)
+                    return Response(status=HTTP_200_OK, data=resp.data)
+                return Response({"message": "Dental API key is set. Invalid budget type."}, status=HTTP_200_OK)
+        return Response({"message": "Invalid key"}, status=HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=["get"])
     def open_dental_connect_status(self, request, *args, **kwargs):
         instance = self.get_object()
         api_key = instance.dental_api
-        od_client = OpenDentalClient(api_key)
-        _, status = od_client.query("")
-        is_connected = status != HTTP_401_UNAUTHORIZED
+        is_connected = bool(api_key)
         return Response(status=HTTP_200_OK, data={"connected": is_connected})
-
-    def load_prev_month_production(self, day1, day2, api_key):
-        with open("query/production.json") as f:
-            queryProduction = json.load(f, strict=False)
-        query = formatStEndDateFromQuery(queryProduction, day1, day2)
-        od_client = OpenDentalClient(api_key)
-        json_production = od_client.query(query)
-        try:
-            res = json_production[0][0]["DayProductionResult"]
-            return res
-        except Exception:
-            return 0
 
     @action(detail=True, methods=["post"], url_path="update_budget")
     def update_budget_from_dental(self, request, *args, **kwargs):
+        budget_type = request.data.get("budget_type")
+        if not budget_type or budget_type not in ["collection", "production"]:
+            return Response({"message": "Invalid budget type."}, status=HTTP_400_BAD_REQUEST)
         instance = self.get_object()
-        api_key = instance.dental_api
-        if api_key is None or len(api_key) < 5:
-            return Response({"message": "no api key"}, HTTP_200_OK)
+        dental_api_key = instance.dental_api
+        if dental_api_key is None:
+            return Response({"message": "No api key"}, HTTP_400_BAD_REQUEST)
         now_date = timezone.now().date()
+        first_day_of_month = now_date.replace(day=1)
         prev_date = now_date - relativedelta(months=1)
-
-        if m.OfficeBudget.objects.filter(office=instance, month=datetime(now_date.year, now_date.month, 1)):
-            print(now_date.year, now_date.month)
-            return Response({"message": "budget alread exists"}, status=HTTP_200_OK)
 
         last_day_of_prev_month = date.today().replace(day=1) - timedelta(days=1)
         start_day_of_prev_month = date.today().replace(day=1) - timedelta(days=last_day_of_prev_month.day)
-        prev_adjusted_production = self.load_prev_month_production(
-            start_day_of_prev_month, last_day_of_prev_month, api_key
+        prev_adjusted_production, prev_collections = OfficeBudgetHelper.load_prev_month_production_collection(
+            start_day_of_prev_month, last_day_of_prev_month, dental_api_key
         )
+        if budget_type == "collection":
+            budget_from_opendental = prev_collections
+        else:
+            budget_from_opendental = prev_adjusted_production
         prev_dental_percentage = 5.0
         prev_office_percentage = 0.5
 
@@ -250,28 +244,51 @@ class OfficeViewSet(ModelViewSet):
             prev_dental_percentage = prev_budget.dental_percentage
             prev_office_percentage = prev_budget.office_percentage
 
-        prev_dental_budget = prev_adjusted_production * float(prev_dental_percentage) / 100.0
-        prev_office_budget = prev_adjusted_production * float(prev_office_percentage) / 100.0
-        m.OfficeBudget.objects.create(
-            office=instance,
-            dental_budget_type="production",
-            dental_total_budget=prev_adjusted_production,
-            dental_percentage=prev_dental_percentage,
-            dental_budget=prev_dental_budget,
-            dental_spend="0.0",
-            office_budget_type="production",
-            office_total_budget=prev_adjusted_production,
-            office_percentage=prev_office_percentage,
-            office_budget=prev_office_budget,
-            office_spend="0.0",
-            month=now_date,
-        )
+        prev_dental_budget = budget_from_opendental * float(prev_dental_percentage) / 100.0
+        prev_office_budget = budget_from_opendental * float(prev_office_percentage) / 100.0
+
+        existing_budget = m.OfficeBudget.objects.filter(office=instance, month=first_day_of_month).first()
+        if existing_budget:
+            existing_budget.adjusted_production = prev_adjusted_production
+            existing_budget.collection = prev_collections
+            existing_budget.dental_budget_type = budget_type
+            existing_budget.dental_budget_type = budget_type
+            existing_budget.dental_total_budget = budget_from_opendental
+            existing_budget.dental_percentage = prev_dental_percentage
+            existing_budget.dental_budget = prev_dental_budget
+            existing_budget.dental_spend = "0.0"
+            existing_budget.office_budget_type = budget_type
+            existing_budget.office_total_budget = budget_from_opendental
+            existing_budget.office_percentage = prev_office_percentage
+            existing_budget.office_budget = prev_office_budget
+            existing_budget.office_spend = "0.0"
+            existing_budget.month = first_day_of_month
+            existing_budget.save()
+        else:
+            m.OfficeBudget.objects.create(
+                office=instance,
+                adjusted_production=prev_adjusted_production,
+                collection=prev_collections,
+                dental_budget_type=budget_type,
+                dental_total_budget=budget_from_opendental,
+                dental_percentage=prev_dental_percentage,
+                dental_budget=prev_dental_budget,
+                dental_spend="0.0",
+                office_budget_type=budget_type,
+                office_total_budget=budget_from_opendental,
+                office_percentage=prev_office_percentage,
+                office_budget=prev_office_budget,
+                office_spend="0.0",
+                month=first_day_of_month,
+            )
         return Response(
             data={
-                "dental_budget_type": "production",
+                "dental_budget_type": budget_type,
                 "dental_percentage": prev_dental_percentage,
                 "dental_budget": prev_dental_budget,
-                "dental_total_budget": prev_adjusted_production,
+                "dental_total_budget": budget_from_opendental,
+                "adjusted_production": prev_adjusted_production,
+                "collections": prev_collections,
             },
             status=HTTP_200_OK,
         )
