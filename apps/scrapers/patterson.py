@@ -1,265 +1,173 @@
 import asyncio
 import datetime
 import json
+import logging
 import re
+import uuid
 from decimal import Decimal
 from typing import Dict, List, Optional
-import uuid
+from urllib.parse import urlencode
 
 from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
+from apps.scrapers.headers.patterson import (
+    ADD_CART_HEADERS,
+    HOME_HEADERS,
+    LOGIN_HEADERS,
+    LOGIN_HOOK_HEADER,
+    LOGIN_HOOK_HEADER2,
+    ORDER_HISTORY_HEADERS,
+    ORDER_HISTORY_POST_HEADERS,
+    PLACE_ORDER_HEADERS,
+    PRE_LOGIN_HEADERS,
+    SEARCH_HEADERS,
+    SHIP_HEADERS,
+    SHIP_PAYMENT_HEADERS,
+    VALIDATE_CART_HEADERS,
+)
 from apps.scrapers.schema import Order, Product, VendorOrderDetail
 from apps.scrapers.utils import semaphore_coroutine
 from apps.types.orders import CartProduct
 from apps.types.scraper import LoginInformation, ProductSearch
+from apps.vendor_clients import errors
 
-PRE_LOGIN_HEADERS = {
-    "Connection": "keep-alive",
-    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "Upgrade-Insecure-Requests": "1",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
-    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-Fetch-Site": "none",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "Accept-Language": "en-US,en;q=0.9",
-}
-LOGIN_HEADERS = {
-    "Connection": "keep-alive",
-    "Cache-Control": "max-age=0",
-    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "Upgrade-Insecure-Requests": "1",
-    "Origin": "https://pcsts.pattersoncompanies.com",
-    "Content-Type": "application/x-www-form-urlencoded",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
-    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "Accept-Language": "en-US,en;q=0.9",
-}
+logger = logging.getLogger(__name__)
 
-LOGIN_HOOK_HEADER = {
-    "Connection": "keep-alive",
-    "Cache-Control": "max-age=0",
-    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "Upgrade-Insecure-Requests": "1",
-    "Origin": "https://pcsts.pattersoncompanies.com",
-    "Content-Type": "application/x-www-form-urlencoded",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
-    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-Fetch-Site": "cross-site",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Dest": "document",
-    "Referer": "https://pcsts.pattersoncompanies.com/",
-    "Accept-Language": "en-US,en;q=0.9",
-}
 
-LOGIN_HOOK_HEADER2 = {
-    "Connection": "keep-alive",
-    "Cache-Control": "max-age=0",
-    "Upgrade-Insecure-Requests": "1",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
-    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-Fetch-Site": "none",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
-}
-
-SEARCH_HEADERS = {
-    "Connection": "keep-alive",
-    "sec-ch-ua": '"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"',
-    "sec-ch-ua-mobile": "?0",
-    "Upgrade-Insecure-Requests": "1",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,"
-    "image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "Referer": "https://www.pattersondental.com/",
-    "Accept-Language": "en-US,en;q=0.9",
-}
-
-ORDER_HISTORY_HEADERS = {
-    "Connection": "keep-alive",
-    "Cache-Control": "max-age=0",
-    "sec-ch-ua": '" Not A;Brand";v="99", "Chromium";v="96", "Google Chrome";v="96"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "Upgrade-Insecure-Requests": "1",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,"
-    "image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "Sec-Fetch-Site": "none",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
-}
-
-ORDER_HISTORY_POST_HEADERS = {
-    "Connection": "keep-alive",
-    "sec-ch-ua": '" Not A;Brand";v="99", "Chromium";v="96", "Google Chrome";v="96"',
-    "sec-ch-ua-mobile": "?0",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.45 Safari/537.36",
-    "Accept": "*/*",
-    "X-Requested-With": "XMLHttpRequest",
-    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-    "sec-ch-ua-platform": '"Windows"',
-    "Origin": "https://www.pattersondental.com",
-    "Sec-Fetch-Site": "same-origin",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Dest": "empty",
-    "Referer": "https://www.pattersondental.com/OrderHistory/Search",
-    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
-}
-
-VALIDATE_CART_HEADERS = {
-    'Connection': 'keep-alive',
-    'sec-ch-ua': '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    'sec-ch-ua-mobile': '?0',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
-    'Accept': 'application/json, text/plain, */*',
-    'X-Requested-With': 'XMLHttpRequest',
-    'Content-Type': 'application/json;charset=UTF-8',
-    'sec-ch-ua-platform': '"Windows"',
-    'Origin': 'https://www.pattersondental.com',
-    'Sec-Fetch-Site': 'same-origin',
-    'Sec-Fetch-Mode': 'cors',
-    'Sec-Fetch-Dest': 'empty',
-    'Referer': 'https://www.pattersondental.com/ShoppingCart',
-    'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8',
-}
-
-ADD_CART_HEADERS = {
-    'Connection': 'keep-alive',
-    'sec-ch-ua': '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    'sec-ch-ua-mobile': '?0',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
-    'Accept': 'application/json, text/plain, */*',
-    'X-Requested-With': 'XMLHttpRequest',
-    'Content-Type': 'application/json;charset=UTF-8',
-    'sec-ch-ua-platform': '"Windows"',
-    'Origin': 'https://www.pattersondental.com',
-    'Sec-Fetch-Site': 'same-origin',
-    'Sec-Fetch-Mode': 'cors',
-    'Sec-Fetch-Dest': 'empty',
-    'Referer': 'https://www.pattersondental.com/ShoppingCart',
-    'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8',
-}
-
-SHIP_HEADERS = {
-    'Connection': 'keep-alive',
-    'sec-ch-ua': '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    'sec-ch-ua-mobile': '?0',
-    'sec-ch-ua-platform': '"Windows"',
-    'Upgrade-Insecure-Requests': '1',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-    'Sec-Fetch-Site': 'same-origin',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-User': '?1',
-    'Sec-Fetch-Dest': 'document',
-    'Referer': 'https://www.pattersondental.com/ShoppingCart',
-    'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8',
-}
-
-SHIP_PAYMENT_HEADERS = {
-    'Connection': 'keep-alive',
-    'Cache-Control': 'max-age=0',
-    'sec-ch-ua': '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    'sec-ch-ua-mobile': '?0',
-    'sec-ch-ua-platform': '"Windows"',
-    'Upgrade-Insecure-Requests': '1',
-    'Origin': 'https://www.pattersondental.com',
-    'Content-Type': 'application/x-www-form-urlencoded',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-    'Sec-Fetch-Site': 'same-origin',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-User': '?1',
-    'Sec-Fetch-Dest': 'document',
-    'Referer': 'https://www.pattersondental.com/Order/ShippingPayment',
-    'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8',
-}
-
-PLACE_ORDER_HEADERS = {
-    'Connection': 'keep-alive',
-    'Pragma': 'no-cache',
-    'Cache-Control': 'no-cache',
-    'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
-    'sec-ch-ua-mobile': '?0',
-    'sec-ch-ua-platform': '"Windows"',
-    'Upgrade-Insecure-Requests': '1',
-    'Origin': 'https://www.pattersondental.com',
-    'Content-Type': 'application/x-www-form-urlencoded',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-    'Sec-Fetch-Site': 'same-origin',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-User': '?1',
-    'Sec-Fetch-Dest': 'document',
-    'Referer': 'https://www.pattersondental.com/Order/ReviewOrder',
-    'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
-}
 class PattersonScraper(Scraper):
     BASE_URL = "https://www.pattersondental.com"
+
     async def extract_content(self, ele):
-        text = re.sub(r"\s+", " ", " ".join(ele.xpath('.//text()').extract()))
+        text = re.sub(r"\s+", " ", " ".join(ele.xpath(".//text()").extract()))
         return text.strip() if text else ""
 
     async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
-        params = {
-            "returnUrl": "/",
-            "signIn": "userSignIn",
-        }
-        async with self.session.get(f"{self.BASE_URL}/Account", headers=PRE_LOGIN_HEADERS, params=params) as resp:
-            url = str(resp.url)
-
-            headers = LOGIN_HEADERS.copy()
-            headers["Referer"] = url
-            return {
-                "url": url,
-                "headers": headers,
-                "data": {
-                    "userName": self.username,
-                    "password": self.password,
-                    "AuthMethod": "FormsAuthentication",
-                },
+        async with self.session.get(url="https://www.pattersondental.com/", headers=HOME_HEADERS) as resp:
+            params = {
+                "returnUrl": "/",
+                "signIn": "userSignIn",
             }
+            async with self.session.get(
+                url="https://www.pattersondental.com/Account", headers=PRE_LOGIN_HEADERS, params=params
+            ) as resp:
+                login_url = str(resp.url)
+                text = await resp.text()
+                settings_content = text.split("var SETTINGS")[1].split(";")[0].strip(" =")
+                settings = json.loads(settings_content)
+                csrf = settings.get("csrf", "")
+                transId = settings.get("transId", "")
+                policy = settings.get("hosts", {}).get("policy", "")
+                diag = {"pageViewId": settings.get("pageViewId", ""), "pageId": "CombinedSigninAndSignup", "trace": []}
 
-    async def _check_authenticated(self, resp: ClientResponse) -> bool:
-        dom = Selector(text=await resp.text())
-        return False if dom.xpath(".//div[@id='error']") else True
+                headers = LOGIN_HEADERS.copy()
+                headers["Referer"] = login_url
+                headers["X-CSRF-TOKEN"] = csrf
+
+                params = (
+                    ("tx", transId),
+                    ("p", policy),
+                )
+                url = (
+                    "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
+                    "B2C_1A_PRODUCTION_Dental_SignInWithPwReset/SelfAsserted?" + urlencode(params)
+                )
+
+                data = {
+                    "signInName": self.username,
+                    "password": self.password,
+                    "request_type": "RESPONSE",
+                    "diag": diag,
+                    "login_page_link": login_url,
+                    "transId": transId,
+                    "csrf": csrf,
+                    "policy": policy,
+                }
+
+                return {
+                    "url": url,
+                    "headers": headers,
+                    "data": data,
+                }
+
+    async def check_authenticated(self, resp: ClientResponse) -> bool:
+        text = await resp.text()
+        dom = Selector(text=text)
+        return True if dom.xpath("//a[@href='/Account/LogOff']") else False
+
+    async def login(self, username: Optional[str] = None, password: Optional[str] = None):
+        login_info = await self._get_login_data()
+        logger.debug("Got logger data: %s", login_info)
+        if login_info:
+            async with self.session.post(
+                url=login_info["url"], headers=login_info["headers"], data=login_info["data"]
+            ) as resp:
+                transId = login_info["data"]["transId"]
+                policy = login_info["data"]["policy"]
+                csrf = login_info["data"]["csrf"]
+                diag = login_info["data"]["diag"]
+
+                headers = LOGIN_HOOK_HEADER.copy()
+                headers["Referer"] = login_info["data"]["login_page_link"]
+
+                params = (
+                    ("tx", transId),
+                    ("p", policy),
+                    ("rememberMe", "false"),
+                    ("csrf_token", csrf),
+                    ("diags", urlencode(diag)),
+                )
+                url = (
+                    "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
+                    "B2C_1A_PRODUCTION_Dental_SignInWithPwReset/api/CombinedSigninAndSignup/confirmed?"
+                    + urlencode(params)
+                )
+
+                logger.debug("Logging in...")
+                async with self.session.get(url, headers=headers) as resp:
+                    print("Login Confirmed: ", resp.status)
+                    text = await resp.text()
+                    dom = Selector(text=text)
+                    state = dom.xpath('//input[@name="state"]/@value').get()
+                    code = dom.xpath('//input[@name="code"]/@value').get()
+                    id_token = dom.xpath('//input[@name="id_token"]/@value').get()
+
+                    headers = LOGIN_HOOK_HEADER2.copy()
+
+                    data = {
+                        "state": state,
+                        "code": code,
+                        "id_token": id_token,
+                    }
+
+                    async with self.session.post(
+                        url="https://www.pattersondental.com/Account/LogOnPostProcessing/",
+                        headers=headers,
+                        data=data,
+                    ) as resp:
+                        async with self.session.get(
+                            url="https://www.pattersondental.com/supplies/deals",
+                            headers=HOME_HEADERS,
+                            data=data,
+                        ) as resp:
+                            if resp.status != 200:
+                                content = await resp.read()
+                                logger.debug("Got %s status, content = %s", resp.status, content)
+                                raise errors.VendorAuthenticationFailed()
+
+                            is_authenticated = await self.check_authenticated(resp)
+                            if not is_authenticated:
+                                logger.debug("Still not authenticated")
+                                raise errors.VendorAuthenticationFailed()
+
+                            if hasattr(self, "after_login_hook"):
+                                await self.after_login_hook(resp)
+
+                            logger.info("Successfully logged in")
+
+            return resp.cookies
 
     async def _after_login_hook(self, response: ClientResponse):
         response_dom = Selector(text=await response.text())
@@ -581,8 +489,12 @@ class PattersonScraper(Scraper):
         for product in products:
             product_id = product["product_id"]
             quantity = product["quantity"]
-            data = {"itemNumbers":product_id,"loadItemType":"ShoppingCart"}
-            response = await self.session.post('https://www.pattersondental.com/Item/ValidateItems', headers=VALIDATE_CART_HEADERS, data=json.dumps(data))
+            data = {"itemNumbers": product_id, "loadItemType": "ShoppingCart"}
+            await self.session.post(
+                "https://www.pattersondental.com/Item/ValidateItems",
+                headers=VALIDATE_CART_HEADERS,
+                data=json.dumps(data),
+            )
 
             data = [
                 {
@@ -603,19 +515,27 @@ class PattersonScraper(Scraper):
                     "NavInkConfigurationId": None,
                     "CanBePersonalized": False,
                     "HasBeenPersonalized": False,
-                    "Manufacturer": False
+                    "Manufacturer": False,
                 }
             ]
 
-            response = await self.session.post('https://www.pattersondental.com/ShoppingCart/AddItemsToCart', headers=ADD_CART_HEADERS, data=json.dumps(data))
+            await self.session.post(
+                "https://www.pattersondental.com/ShoppingCart/AddItemsToCart",
+                headers=ADD_CART_HEADERS,
+                data=json.dumps(data),
+            )
 
     async def checkout(self):
-        response = await self.session.get('https://www.pattersondental.com/Order/ShippingPayment', headers=SHIP_HEADERS)
+        response = await self.session.get(
+            "https://www.pattersondental.com/Order/ShippingPayment", headers=SHIP_HEADERS
+        )
         response_dom = Selector(text=await response.text())
-        shipping_address = "\n".join([
-            await self.extract_content(it)
-            for it in response_dom.xpath('//div[@class="shippingPayment__address"]/div[@class="columns"]/div')
-        ])
+        shipping_address = "\n".join(
+            [
+                await self.extract_content(it)
+                for it in response_dom.xpath('//div[@class="shippingPayment__address"]/div[@class="columns"]/div')
+            ]
+        )
         print("Shipping Address:\n", shipping_address)
 
         __RequestVerificationToken = response_dom.xpath("//input[@name='__RequestVerificationToken']/@value").get()
@@ -625,8 +545,12 @@ class PattersonScraper(Scraper):
         paymentMethod = response_dom.xpath("//input[@name='paymentMethod'][@checked='checked']/@value").get()
         CardTypeId = response_dom.xpath("//select[@name='CardTypeId']/option[@selected='selected']/@value").get()
         CardNumber = response_dom.xpath("//input[@name='CardNumber']/@value").get()
-        ExpirationMonth = response_dom.xpath("//select[@name='ExpirationMonth']/option[@selected='selected']/@value").get()
-        ExpirationYear = response_dom.xpath("//select[@name='ExpirationYear']/option[@selected='selected']/@value").get()
+        ExpirationMonth = response_dom.xpath(
+            "//select[@name='ExpirationMonth']/option[@selected='selected']/@value"
+        ).get()
+        ExpirationYear = response_dom.xpath(
+            "//select[@name='ExpirationYear']/option[@selected='selected']/@value"
+        ).get()
         CardHolderName = response_dom.xpath("//input[@name='CardHolderName']/@value").get()
         StatementPostalCode = response_dom.xpath("//input[@name='StatementPostalCode']/@value").get()
         Token = response_dom.xpath("//input[@name='Token']/@value").get()
@@ -641,45 +565,47 @@ class PattersonScraper(Scraper):
         shoppingCartButton = response_dom.xpath("//input[@name='shoppingCartButton']/@value").get()
 
         data = {
-            '__RequestVerificationToken': __RequestVerificationToken,
-            'shippingMethod': shippingMethod,
-            'SpecialInstructions': SpecialInstructions,
-            'shippingAddressNumber': shippingAddressNumber,
-            'paymentMethod': paymentMethod,
-            'CardTypeId': CardTypeId,
-            'CardNumber': CardNumber,
-            'ExpirationMonth': ExpirationMonth,
-            'ExpirationYear': ExpirationYear,
-            'CardHolderName': CardHolderName,
-            'StatementPostalCode': StatementPostalCode,
-            'Token': Token,
-            'poNumber': poNumber,
-            'purchaseOrderRequired': purchaseOrderRequired,
-            'isZeroOrderTotal': isZeroOrderTotal,
-            'cardNumberLastFour': cardNumberLastFour,
-            'encryptedCardNumber': encryptedCardNumber,
-            'ShippingInfo.DefaultCharges': ShippingInfo,
-            'UserIsTerritoryRep': UserIsTerritoryRep,
-            'CustomerRefNumber': CustomerRefNumber,
-            'shoppingCartButton': shoppingCartButton
+            "__RequestVerificationToken": __RequestVerificationToken,
+            "shippingMethod": shippingMethod,
+            "SpecialInstructions": SpecialInstructions,
+            "shippingAddressNumber": shippingAddressNumber,
+            "paymentMethod": paymentMethod,
+            "CardTypeId": CardTypeId,
+            "CardNumber": CardNumber,
+            "ExpirationMonth": ExpirationMonth,
+            "ExpirationYear": ExpirationYear,
+            "CardHolderName": CardHolderName,
+            "StatementPostalCode": StatementPostalCode,
+            "Token": Token,
+            "poNumber": poNumber,
+            "purchaseOrderRequired": purchaseOrderRequired,
+            "isZeroOrderTotal": isZeroOrderTotal,
+            "cardNumberLastFour": cardNumberLastFour,
+            "encryptedCardNumber": encryptedCardNumber,
+            "ShippingInfo.DefaultCharges": ShippingInfo,
+            "UserIsTerritoryRep": UserIsTerritoryRep,
+            "CustomerRefNumber": CustomerRefNumber,
+            "shoppingCartButton": shoppingCartButton,
         }
 
-        response = await self.session.post('https://www.pattersondental.com/Order/ShippingPayment', headers=SHIP_PAYMENT_HEADERS, data=data)
+        response = await self.session.post(
+            "https://www.pattersondental.com/Order/ShippingPayment", headers=SHIP_PAYMENT_HEADERS, data=data
+        )
         response_dom = Selector(text=await response.text())
-        
-        subtotal = await self.extract_content(response_dom.xpath(
-            '//div[contains(@class, "OrderSummaryBackground")]/div[2]/div[2]'
-        ))
+
+        subtotal = await self.extract_content(
+            response_dom.xpath('//div[contains(@class, "OrderSummaryBackground")]/div[2]/div[2]')
+        )
         print("--- subtotal:\n", subtotal.strip() if subtotal else "")
 
-        shipping = await self.extract_content(response_dom.xpath(
-            '//div[contains(@class, "OrderSummaryBackground")]/div[3]/div[2]'
-        ))
+        shipping = await self.extract_content(
+            response_dom.xpath('//div[contains(@class, "OrderSummaryBackground")]/div[3]/div[2]')
+        )
         print("--- shipping:\n", shipping.strip() if shipping else "")
 
-        order_total = await self.extract_content(response_dom.xpath(
-            '//div[contains(@class, "OrderSummaryBackground")]/following-sibling::div/div[2]'
-        ))
+        order_total = await self.extract_content(
+            response_dom.xpath('//div[contains(@class, "OrderSummaryBackground")]/following-sibling::div/div[2]')
+        )
         print("--- order_total:\n", order_total.strip() if order_total else "")
         return response_dom, subtotal, shipping, order_total, shipping_address
 
@@ -703,9 +629,9 @@ class PattersonScraper(Scraper):
                 "payment_method": "",
                 "shipping_address": shipping_address,
             }
-        except:
+        except Exception:
             print("patterson/create_order except")
-            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
+            subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
             vendor_order_detail = {
                 "retail_amount": "",
                 "savings_amount": "",
@@ -734,7 +660,7 @@ class PattersonScraper(Scraper):
             await self.clear_cart()
             await self.add_to_cart(products)
             order_dom, subtotal, shipping, order_total, shipping_address = await self.checkout()
-            
+
             if fake:
                 vendor_order_detail = {
                     "retail_amount": "",
@@ -746,21 +672,25 @@ class PattersonScraper(Scraper):
                     "payment_method": "",
                     "shipping_address": shipping_address,
                     "order_id": f"{uuid.uuid4()}",
-                    "order_type": msgs.ORDER_TYPE_ORDO
+                    "order_type": msgs.ORDER_TYPE_ORDO,
                 }
                 return {
                     **vendor_order_detail,
                     **self.vendor.to_dict(),
                 }
             data = {
-                "__RequestVerificationToken": order_dom.xpath("//input[@name='__RequestVerificationToken']/@value").get(),
+                "__RequestVerificationToken": order_dom.xpath(
+                    "//input[@name='__RequestVerificationToken']/@value"
+                ).get(),
                 "SpecialInstructions": "",
                 "CustomerPurchaseOrder": "",
                 "PaymentMethodId": order_dom.xpath("//input[@name='PaymentMethodId']/@value").get(),
                 "PlaceOrderButton": "Place+Order",
             }
-            
-            response = await self.session.post('https://www.pattersondental.com/Order/ReviewOrder', headers=PLACE_ORDER_HEADERS, data=data)
+
+            await self.session.post(
+                "https://www.pattersondental.com/Order/ReviewOrder", headers=PLACE_ORDER_HEADERS, data=data
+            )
             vendor_order_detail = {
                 "retail_amount": "",
                 "savings_amount": "",
@@ -770,16 +700,16 @@ class PattersonScraper(Scraper):
                 "total_amount": order_total,
                 "payment_method": "",
                 "shipping_address": shipping_address,
-                "order_id":"invalid",
-                "order_type": msgs.ORDER_TYPE_ORDO
+                "order_id": "invalid",
+                "order_type": msgs.ORDER_TYPE_ORDO,
             }
             return {
                 **vendor_order_detail,
                 **self.vendor.to_dict(),
             }
-        except:
+        except Exception:
             print("patterson/confirm_order except")
-            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
+            subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
             vendor_order_detail = {
                 "retail_amount": "",
                 "savings_amount": "",
@@ -791,7 +721,7 @@ class PattersonScraper(Scraper):
                 "payment_method": "",
                 "shipping_address": "",
                 "order_id": f"{uuid.uuid4()}",
-                "order_type": msgs.ORDER_TYPE_REDUNDANCY
+                "order_type": msgs.ORDER_TYPE_REDUNDANCY,
             }
             return {
                 **vendor_order_detail,
