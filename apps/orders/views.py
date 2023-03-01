@@ -406,7 +406,6 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
         serializer.is_valid(raise_exception=True)
 
         if serializer.validated_data["return_items"]:
-
             for i, item in enumerate(serializer.validated_data["return_items"]):
                 vendor_product = m.VendorOrderProduct.objects.get(id=item)
                 vendor_product.status = ProductStatus.RETURNED
@@ -1757,12 +1756,11 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
     def summary_category(self, request, *args, **kwargs):
         date_type = self.request.query_params.get("type", "month")
         office_pk = self.kwargs["office_pk"]
-        date_range = self.request.query_params.get("date_range", "thisQuarter")
-        start_end_date = get_date_range(date_range)
-        if start_end_date is None:
-            return Response(status=HTTP_400_BAD_REQUEST, data={"message: Wrong date argument given"})
-        day_from = start_end_date[0]
-        day_to = start_end_date[1]
+        day_from = self.request.query_params.get("from")
+        day_to = self.request.query_params.get("to")
+        format = "%Y-%m-%d"
+        day_from = datetime.datetime.strptime(day_from, format).date()
+        day_to = datetime.datetime.strptime(day_to, format).date()
         day_prev_3months_from = day_from + relativedelta(months=-3)
         day_prev_3months_to = day_from - datetime.timedelta(days=1)
 

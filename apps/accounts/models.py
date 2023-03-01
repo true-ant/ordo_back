@@ -149,6 +149,8 @@ class OfficeBudget(TimeStampedModel):
     dental_percentage = models.DecimalField(max_digits=5, decimal_places=2)
     dental_budget = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     dental_spend = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    adjusted_production = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    collection = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     # office_* is used for managing budgets for amazon
     office_budget_type = models.CharField(max_length=10, choices=BudgetType.choices, default=BudgetType.PRODUCTION)
