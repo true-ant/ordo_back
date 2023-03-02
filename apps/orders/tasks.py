@@ -421,3 +421,30 @@ def update_vendor_promotions(vendor_slug):
 def update_promotions():
     for vendor_slug in PROMOTION_MAP.keys():
         update_vendor_promotions.delay(vendor_slug)
+
+
+@app.task
+def notify_order_issue_to_customers(vendor_order: VendorOrderModel):
+    company_members = CompanyMember.objects.filter(office=vendor_order.order.office)
+
+    for company_member in company_members:
+        user = company_member.user
+
+        htm_content = render_to_string(
+            "emails/vendor_issue.html",
+            {
+                "customer_name": user.first_name,
+                "order_number": vendor_order.pk,
+                "vendor_name": vendor_order.vendor.name,
+                "order_date": vendor_order.order_date,
+                "vendor_url": vendor_order.vendor.url
+            },
+        )
+
+        send_mail(
+            subject=f"Urgent Issue with Order #{vendor_order.pk}",
+            message="message",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            html_message=htm_content,
+        )
