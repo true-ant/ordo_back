@@ -1454,7 +1454,7 @@ class OrderHelper:
             to_date = None
 
             if consider_recent:
-                from_date = timezone.now().date() - datetime.timedelta(days=3)
+                from_date = timezone.now().date() - datetime.timedelta(days=4)
                 to_date = timezone.now().date()
 
             await scraper.get_orders(
