@@ -205,6 +205,13 @@ class OfficeViewSet(ModelViewSet):
                 return Response({"message": "Dental API key is set. Invalid budget type."}, status=HTTP_200_OK)
         return Response({"message": "Invalid key"}, status=HTTP_400_BAD_REQUEST)
 
+    @action(detail=True, methods=["post"])
+    def unlink_open_dental(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.dental_api = ""
+        instance.save()
+        return Response({"message": "Removed Open Dental API key"}, status=HTTP_200_OK)
+
     @action(detail=True, methods=["get"])
     def open_dental_connect_status(self, request, *args, **kwargs):
         instance = self.get_object()

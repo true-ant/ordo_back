@@ -12,7 +12,27 @@ from scrapy import Selector
 
 from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
+from apps.scrapers.headers.ultradent import (
+    ADDCART_HEADERS,
+    BILLING_HEADERS,
+    CHECKOUT_HEADERS,
+    CLEAR_HEADERS,
+    MAIN_HEADERS,
+    ORDER_HEADERS,
+    SEARCH_HEADERS,
+    SUBMIT_HEADERS,
+    UPDATECART_HEADERS,
+)
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
+from apps.scrapers.search_queries.ultradent import (
+    ADD_CART_QUERY,
+    ALL_PRODUCTS_QUERY,
+    BILLING_QUERY,
+    GET_ORDER_DETAIL_HTML,
+    GET_ORDER_QUERY,
+    GET_ORDERS_QUERY,
+    PRODUCT_DETAIL_QUERY,
+)
 from apps.scrapers.utils import (
     catch_network,
     convert_string_to_price,
@@ -23,403 +43,16 @@ from apps.types.scraper import InvoiceFile, LoginInformation, ProductSearch
 
 logger = logging.getLogger(__name__)
 
-HEADERS = {
-    "authority": "www.ultradent.com",
-    "cache-control": "max-age=0",
-    "sec-ch-ua": '"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"',
-    "sec-ch-ua-mobile": "?0",
-    "upgrade-insecure-requests": "1",
-    "origin": "https://www.ultradent.com",
-    "content-type": "application/x-www-form-urlencoded",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",  # noqa
-    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",  # noqa
-    "sec-fetch-site": "same-origin",
-    "sec-fetch-mode": "navigate",
-    "sec-fetch-user": "?1",
-    "sec-fetch-dest": "document",
-    "referer": "https://www.ultradent.com/account",
-    "accept-language": "en-US,en;q=0.9",
-}
-
-ORDER_HEADERS = {
-    "authority": "www.ultradent.com",
-    "sec-ch-ua": '"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"',
-    "accept": "*/*",
-    "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImluZm9AY29sdW1iaW5lY3JlZWtkZW50aXN0cnkuY29tIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy91c2VyZGF0YSI6IntcIkRhdGFcIjp7XCJVc2VySWRcIjoyMjg3NjUsXCJBY2NvdW50TnVtYmVyXCI6Mzk0NzYwLFwiVXNlckd1aWRcIjpcImZlZWUyYWZhLTM4YmMtNGIwOS1hYmY3LWY5YjcyNjMyNTUyMlwiLFwiRW1haWxcIjpcImluZm9AY29sdW1iaW5lY3JlZWtkZW50aXN0cnkuY29tXCIsXCJGaXJzdE5hbWVcIjpcIkFMRVhBTkRSQVwiLFwiU2FsZXNDaGFubmVsXCI6MX0sXCJVc2VyVHlwZVwiOjAsXCJSb2xlc1wiOltdLFwiUHJldmlld01vZGVcIjpmYWxzZX0iLCJuYmYiOjE2Mjk3ODkyNDEsImV4cCI6MTYyOTc5Mjg0MSwiaWF0IjoxNjI5Nzg5MjQxLCJpc3MiOiJodHRwczovL3d3dy51bHRyYWRlbnQuY29tIiwiYXVkIjoiaHR0cHM6Ly93d3cudWx0cmFkZW50LmNvbSJ9.aYwtN7JvDoZ8WeSJ1BkympQXlGgYpWuOtvTS0M2q2jM",  # noqa
-    "sec-ch-ua-mobile": "?0",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36",  # noqa
-    "content-type": "application/json",
-    "origin": "https://www.ultradent.com",
-    "sec-fetch-site": "same-origin",
-    "sec-fetch-mode": "cors",
-    "sec-fetch-dest": "empty",
-    "referer": "https://www.ultradent.com/account/order-history",
-    "accept-language": "en-US,en;q=0.9",
-}
-
-SEARCH_HEADERS = {
-    "authority": "www.ultradent.com",
-    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    "accept": "*/*",
-    "content-type": "application/json",
-    "sec-ch-ua-mobile": "?0",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36",
-    "sec-ch-ua-platform": '"Windows"',
-    "origin": "https://www.ultradent.com",
-    "sec-fetch-site": "same-origin",
-    "sec-fetch-mode": "cors",
-    "sec-fetch-dest": "empty",
-    "referer": "https://www.ultradent.com/checkout",
-    "accept-language": "en-US,en;q=0.9,ko;q=0.8",
-}
-CLEAR_HEADERS = {
-    "authority": "www.ultradent.com",
-    "sec-ch-ua": '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "upgrade-insecure-requests": "1",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/94.0.4606.71"
-    " Safari/537.36",
-    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;"
-    "q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "sec-fetch-site": "same-origin",
-    "sec-fetch-mode": "navigate",
-    "sec-fetch-user": "?1",
-    "sec-fetch-dest": "document",
-    "referer": "https://www.ultradent.com/checkout",
-    "accept-language": "en-US,en;q=0.9,ko;q=0.8",
-}
-ADDCART_HEADERS = {
-    "authority": "www.ultradent.com",
-    "sec-ch-ua": '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
-    "accept": "*/*",
-    "content-type": "application/json",
-    "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImluZm9AY29sdW1iaW5lY3JlZW"
-    "tkZW50aXN0cnkuY29tIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2Ns"
-    "YWltcy91c2VyZGF0YSI6IntcIkRhdGFcIjp7XCJVc2VySWRcIjoyMjg3NjUsXCJBY2NvdW50TnVtYmVyXCI6Mzk0Nz"
-    "YwLFwiVXNlckd1aWRcIjpcImZlZWUyYWZhLTM4YmMtNGIwOS1hYmY3LWY5YjcyNjMyNTUyMlwiLFwiRW1haWxcIjpc"
-    "ImluZm9AY29sdW1iaW5lY3JlZWtkZW50aXN0cnkuY29tXCIsXCJGaXJzdE5hbWVcIjpcIkFMRVhBTkRSQVwiLFwiU2"
-    "FsZXNDaGFubmVsXCI6MX0sXCJVc2VyVHlwZVwiOjAsXCJSb2xlc1wiOltdLFwiUHJldmlld01vZGVcIjpmYWxzZX0i"
-    "LCJuYmYiOjE2MzI4MTY3NTksImV4cCI6MTYzMjgyMDM1OSwiaWF0IjoxNjMyODE2NzU5LCJpc3MiOiJodHRwczovL3"
-    "d3dy51bHRyYWRlbnQuY29tIiwiYXVkIjoiaHR0cHM6Ly93d3cudWx0cmFkZW50LmNvbSJ9.jC6AghvW7DWY4fU2qyU"
-    "0fwUTfCj2iNZhw2QTG65iGd8",
-    "sec-ch-ua-mobile": "?0",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/94.0.4606.61 Safari/537.36",
-    "sec-ch-ua-platform": '"Windows"',
-    "origin": "https://www.ultradent.com",
-    "sec-fetch-site": "same-origin",
-    "sec-fetch-mode": "cors",
-    "sec-fetch-dest": "empty",
-    "referer": "https://www.ultradent.com/products/categories/bond-etch/etchants/ultra-etch?sku=163-",
-    "accept-language": "en-US,en;q=0.9,ko;q=0.8",
-}
-CHECKOUT_HEADERS = {
-    "authority": "www.ultradent.com",
-    "sec-ch-ua": '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "upgrade-insecure-requests": "1",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/94.0.4606.61 Safari/537.36",
-    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;"
-    "q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "sec-fetch-site": "same-origin",
-    "sec-fetch-mode": "navigate",
-    "sec-fetch-user": "?1",
-    "sec-fetch-dest": "document",
-    "referer": "https://www.ultradent.com/checkout",
-    "accept-language": "en-US,en;q=0.9,ko;q=0.8",
-}
-UPDATECART_HEADERS = {
-    "authority": "www.ultradent.com",
-    "cache-control": "max-age=0",
-    "sec-ch-ua": '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "upgrade-insecure-requests": "1",
-    "origin": "https://www.ultradent.com",
-    "content-type": "application/x-www-form-urlencoded",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/94.0.4606.61 Safari/537.36",
-    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;"
-    "q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "sec-fetch-site": "same-origin",
-    "sec-fetch-mode": "navigate",
-    "sec-fetch-user": "?1",
-    "sec-fetch-dest": "document",
-    "referer": "https://www.ultradent.com/checkout",
-    "accept-language": "en-US,en;q=0.9,ko;q=0.8",
-}
-BILLING_HEADERS = {
-    "authority": "www.ultradent.com",
-    "pragma": "no-cache",
-    "cache-control": "no-cache",
-    "sec-ch-ua": '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
-    "accept": "*/*",
-    "content-type": "application/json",
-    "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6ImluZm9AY29sdW1iaW5lY3JlZWtk"
-    "ZW50aXN0cnkuY29tIiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWlt"
-    "cy91c2VyZGF0YSI6IntcIkRhdGFcIjp7XCJVc2VySWRcIjoyMjg3NjUsXCJBY2NvdW50TnVtYmVyXCI6Mzk0NzYwLFwi"
-    "VXNlckd1aWRcIjpcImZlZWUyYWZhLTM4YmMtNGIwOS1hYmY3LWY5YjcyNjMyNTUyMlwiLFwiRW1haWxcIjpcImluZm9A"
-    "Y29sdW1iaW5lY3JlZWtkZW50aXN0cnkuY29tXCIsXCJGaXJzdE5hbWVcIjpcIkFMRVhBTkRSQVwiLFwiU2FsZXNDaGFu"
-    "bmVsXCI6MX0sXCJVc2VyVHlwZVwiOjAsXCJSb2xlc1wiOltdLFwiUHJldmlld01vZGVcIjpmYWxzZX0iLCJuYmYiOjE2"
-    "NDc1NDI3MjUsImV4cCI6MTY0NzU0NjMyNSwiaWF0IjoxNjQ3NTQyNzI1LCJpc3MiOiJodHRwczovL3d3dy51bHRyYWRl"
-    "bnQuY29tIiwiYXVkIjoiaHR0cHM6Ly93d3cudWx0cmFkZW50LmNvbSJ9.9W3tPxFYSBCowZKXZozgarlN_8Xcr4a0J3l"
-    "FnX0iqjU",
-    "sec-ch-ua-mobile": "?0",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/99.0.4844.51 Safari/537.36",
-    "sec-ch-ua-platform": '"Windows"',
-    "origin": "https://www.ultradent.com",
-    "sec-fetch-site": "same-origin",
-    "sec-fetch-mode": "cors",
-    "sec-fetch-dest": "empty",
-    "referer": "https://www.ultradent.com/checkout/payment",
-    "accept-language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
-}
-SUBMIT_HEADERS = {
-    "authority": "www.ultradent.com",
-    "pragma": "no-cache",
-    "cache-control": "no-cache",
-    "sec-ch-ua": '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"Windows"',
-    "upgrade-insecure-requests": "1",
-    "origin": "https://www.ultradent.com",
-    "content-type": "multipart/form-data; boundary=----WebKitFormBoundaryFK2XSoFIILacpl1Z",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/99.0.4844.84 Safari/537.36",
-    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;"
-    "q=0.8,application/signed-exchange;v=b3;q=0.9",
-    "sec-fetch-site": "same-origin",
-    "sec-fetch-mode": "navigate",
-    "sec-fetch-user": "?1",
-    "sec-fetch-dest": "document",
-    "referer": "https://www.ultradent.com/checkout/payment",
-    "accept-language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
-}
 ALL_PRODUCTS_VARIABLE = {
     "includeAllSkus": True,
     "withImages": True,
 }
-ALL_PRODUCTS_QUERY = """
-  query Catalog($includeAllSkus: Boolean = true, $withImages: Boolean = false) {
-    allProducts(includeAllSkus: $includeAllSkus) {
-      sku
-      brandName
-      productName
-      productFamily
-      kitName
-      url
-      isOrderable
-      images @include(if: $withImages) {
-        source
-        __typename
-      }
-      __typename
-    }
-  }
-"""
-PRODUCT_DETAIL_QUERY = """
-    query CatalogItem($skuValues: String!, $withPrice: Boolean = false, $withAccessories: Boolean = false) {
-        product(sku: $skuValues) {
-            ...baseCatalogDetail
-            quantityBreaks @include(if: $withPrice) {
-                ...quantityBreakDetail
-                __typename
-            }
-            accessories @include(if: $withAccessories) {
-                ...accessoryDetail
-                __typename
-            }
-            __typename
-        }
-    }
-
-    fragment baseCatalogDetail on Product {
-        sku
-        brandId
-        url
-        kitName
-        brandName
-        productName
-        productFamily
-        catalogPrice
-        customerPrice
-        inStock
-        isOrderable
-        images {
-            source
-            __typename
-        }
-        __typename
-    }
-
-    fragment quantityBreakDetail on QuantityBreak {
-        price
-        quantity
-        __typename
-    }
-
-    fragment accessoryDetail on Product {
-        sku
-        productFamily
-        productName
-        kitName
-        url
-        images {
-            source
-            __typename
-        }
-        __typename
-    }
-"""
-
-GET_ORDERS_QUERY = """
-   query GetOrderHeaders($numberOfDays: Int!, $numberOfRows: Int!) {
-       orders(numberOfDays: $numberOfDays, numberOfRows: $numberOfRows) {
-           id
-           orderGuid
-           orderNumber
-           poNumber
-           orderStatus
-           orderDate
-           shippingAddress {
-               id
-               __typename
-           }
-           __typename
-       }
-   }
-"""
-
-GET_ORDER_QUERY = """
-    query GetOrderDetailWithTrackingHtml($orderNumber: Int!) {
-        orderHtml(orderNumber: $orderNumber) {
-            orderDetailWithShippingHtml
-            __typename
-        }
-    }
-"""
-ADD_CART_QUERY = """
-    mutation AddLineItems($input: LineItemsInput!) {
-        addLineItems(input: $input) {
-            changedLineItems {
-            ...CartItemDetail
-            __typename
-            }
-            cart {
-            ...CartDetail
-            __typename
-            }
-            __typename
-        }
-    }
-
-    fragment CartItemDetail on CartLineItem {
-        id
-        quantity
-        linePrice
-        autoAddedItem
-        product {
-            ...baseCatalogDetail
-            quantityBreaks {
-            ...quantityBreakDetail
-            __typename
-            }
-            __typename
-        }
-        __typename
-    }
-
-    fragment CartDetail on Cart {
-        ...CartSummary
-        lineItems {
-            ...CartItemDetail
-            __typename
-        }
-        __typename
-    }
-
-    fragment baseCatalogDetail on Product {
-        sku
-        brandId
-        url
-        kitName
-        brandName
-        productName
-        productFamily
-        catalogPrice
-        customerPrice
-        inStock
-        isOrderable
-        images {
-            source
-            __typename
-        }
-        __typename
-    }
-
-    fragment quantityBreakDetail on QuantityBreak {
-        price
-        quantity
-        __typename
-    }
-
-    fragment CartSummary on Cart {
-        id
-        poNumber
-        subtotal
-        total
-        __typename
-    }
-"""
-BILLING_QUERY = """
-    query GetCustomer($withAddresses: Boolean = false) {
-        customer {
-            email
-            firstName
-            lastName
-            userGuid
-            isAdmin
-            addresses @include(if: $withAddresses) {
-                ...AddressDetail
-                __typename
-            }
-            __typename
-        }
-    }
-
-    fragment AddressDetail on Address {
-        address1
-        address2
-        addressType
-        city
-        country
-        id
-        postalCode
-        primary
-        state
-        __typename
-    }
-"""
-GET_ORDER_DETAIL_HTML = """
-    query GetOrderDetailHtml($orderNumber: Int!) {
-        orderHtml(orderNumber: $orderNumber) {
-            orderDetailHtml
-            __typename
-        }
-    }
-"""
 
 
 class UltraDentScraper(Scraper):
     BASE_URL = "https://www.ultradent.com"
     CATEGORY_URL = "https://www.ultradent.com/products/categories"
-    CATEGORY_HEADERS = HEADERS
+    CATEGORY_HEADERS = MAIN_HEADERS
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -428,12 +61,6 @@ class UltraDentScraper(Scraper):
     @sync_to_async
     def resolve_product_urls(self, product_ids):
         pass
-        # from apps.orders.models import Product
-        #
-        # not_exists_product_ids = set(product_ids) - self.product_urls.keys()
-        # if not_exists_product_ids:
-        #     products = Product.objects.filter(product_id__in=not_exists_product_ids).values_list("product_id", "url")
-        #     self.product_urls = {product["product_id"]: product["url"] for product in products}
 
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         res = await response.text()
@@ -442,13 +69,13 @@ class UltraDentScraper(Scraper):
 
     async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
         url = "https://www.ultradent.com/login"
-        async with self.session.get(url, headers=HEADERS) as resp:
+        async with self.session.get(url, headers=MAIN_HEADERS) as resp:
             login_get_response_dom = Selector(text=await resp.text())
             token = login_get_response_dom.xpath("//input[@name='__RequestVerificationToken']/@value").get()
 
         return {
             "url": url,
-            "headers": HEADERS,
+            "headers": MAIN_HEADERS,
             "data": {
                 "Email": self.username,
                 "Password": self.password,
@@ -542,20 +169,6 @@ class UltraDentScraper(Scraper):
                         }
                     )
 
-        # await self.resolve_product_urls(
-        #     [order_product["product"]["product_id"] for order_product in order["products"]]
-        # )
-        # for order_product in order["product"]:
-        #     order_product["product"]["url"] = self.product_urls[order_product["product"]["product_id"]]
-
-        # await self.get_missing_products_fields(
-        #     order["products"],
-        #     fields=(
-        #         "description",
-        #         "images",
-        #         "category",
-        #     ),
-        # )
         if office:
             await self.save_order_to_db(office, order=Order.from_dict(order))
         return order
@@ -852,7 +465,7 @@ class UltraDentScraper(Scraper):
                 "https://www.ultradent.com/Cart/UpdateCart", headers=UPDATECART_HEADERS, data=data
             ) as resp:
                 resp_text = await resp.text()
-                return (resp_text, subtotal, shipping, tax, order_total, shipping_address)
+                return resp_text, subtotal, shipping, tax, order_total, shipping_address
 
     async def submit_order(self, response_dom):
         __RequestVerificationToken = response_dom.xpath("//input[@name='__RequestVerificationToken']/@value").get()
