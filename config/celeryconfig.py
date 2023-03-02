@@ -120,6 +120,11 @@ beat_schedule = {
         "args": ("patterson",),
         "schedule": crontab(day_of_week="1-5", hour=1, minute=0),
     },
+    "update_order_history_for_safco": {
+        "task": "apps.accounts.tasks.update_order_history_for_all_offices",
+        "args": ("safco",),
+        "schedule": crontab(day_of_week="1-5", hour=1, minute=0),
+    },
     "update_promotions": {
         "task": "apps.orders.tasks.update_promotions",
         "schedule": crontab(minute="0", hour="0", day_of_week="3"),  # Every wednesday
