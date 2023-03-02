@@ -14,7 +14,6 @@ from slugify import slugify
 
 from apps.common.month import Month
 from apps.common.choices import OrderStatus
-from apps.orders.tasks import notify_order_issue_to_customers
 from apps.scrapers.errors import VendorAuthenticationFailed
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.semaphore import fake_semaphore
@@ -341,6 +340,7 @@ class Scraper:
         from apps.orders.models import Order as OrderModel
         from apps.orders.models import VendorOrder as VendorOrderModel
         from apps.orders.models import VendorOrderProduct as VendorOrderProductModel
+        from apps.orders.tasks import notify_order_issue_to_customers
 
         order_data = order.to_dict()
         order_data.pop("shipping_address")
