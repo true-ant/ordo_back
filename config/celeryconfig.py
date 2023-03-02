@@ -6,7 +6,6 @@ from celery.schedules import crontab
 
 dotenv.load_dotenv()
 
-
 default_queue = os.getenv("CELERY_DEFAULT_QUEUE")
 broker_url = (os.getenv("REDIS_URL"),)
 result_backend = os.getenv("REDIS_URL")
@@ -118,6 +117,11 @@ beat_schedule = {
     "update_order_history_for_patterson": {
         "task": "apps.accounts.tasks.update_order_history_for_all_offices",
         "args": ("patterson",),
+        "schedule": crontab(day_of_week="1-5", hour=1, minute=0),
+    },
+    "update_order_history_for_ultradent": {
+        "task": "apps.accounts.tasks.update_order_history_for_all_offices",
+        "args": ("ultradent",),
         "schedule": crontab(day_of_week="1-5", hour=1, minute=0),
     },
     "update_promotions": {
