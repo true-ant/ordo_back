@@ -13,6 +13,7 @@ from typing import Union
 
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
+from django.contrib.postgres.search import SearchQuery
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Case, Count, Exists, F, OuterRef, Q, Sum, Value, When
@@ -1741,6 +1742,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         start_end_date = get_date_range(date_range)
         day_from = datetime.date(start_end_date[0].year, start_end_date[0].month, start_end_date[0].day)
         day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
+
         ProcedureHelper.fetch_procedure_period(day_from, office_pk, date_type)
         ret = (
             m.Procedure.objects.select_related("procedurecode", "procedurecode__sumary_category")
@@ -1763,6 +1765,8 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         day_to = datetime.datetime.strptime(day_to, format).date()
         day_prev_3months_from = day_from + relativedelta(months=-3)
         day_prev_3months_to = day_from - datetime.timedelta(days=1)
+        query = self.request.GET.get("search", "")
+        q = SearchQuery(query, config="english")
 
         ProcedureHelper.fetch_procedure_period(day_from, office_pk, date_type)
 
@@ -1780,6 +1784,8 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             .annotate(dcount=Sum("count"))
             .filter(dcount__gt=0, procedurecode__summary_category__isnull=False)
         )
+        if query:
+            ret_current = ret_current.filter(Q(procedurecode__search_vector=q))
         ret_trailing = (
             m.Procedure.objects.filter(
                 type=date_type, start_date__gte=day_prev_3months_from, start_date__lte=day_prev_3months_to

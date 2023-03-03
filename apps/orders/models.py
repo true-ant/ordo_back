@@ -506,11 +506,29 @@ class ProcedureCategoryLink(models.Model):
     is_favorite = models.BooleanField(default=False)
 
 
+class ProcedureCodeQuerySet(models.QuerySet):
+    def search(self, text):
+        text = remove_dash_between_numerics(text)
+        q = SearchQuery(text, config="english")
+        return self.filter(Q(search_vector=q))
+
+
+class ProcedureCodeManager(models.Manager):
+    _queryset_class = ProcedureCodeQuerySet
+
+    def search(self, text):
+        return self.get_queryset().search(text)
+
+
 class ProcedureCode(models.Model):
     proccode = models.CharField(max_length=16)
     descript = models.CharField(max_length=256, null=True, blank=True)
     category = models.CharField(max_length=256, null=True, blank=True)
     summary_category = models.ForeignKey(ProcedureCategoryLink, on_delete=models.CASCADE, null=True)
+    abbr_desc = models.CharField(max_length=256, null=True, blank=True)
+    search_vector = SearchVectorField(null=True, blank=True, help_text="Search vector")
+
+    objects = ProcedureCodeManager()
 
     def __str__(self):
         return str(self.proccode)
