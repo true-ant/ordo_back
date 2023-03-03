@@ -193,7 +193,7 @@ def send_budget_update_notification():
     offices = Office.objects.select_related("company").all()
     for office in offices:
         users = CompanyMember.objects.filter(
-            company=office.company, role=User.Role.ADMIN, invite_status=CompanyMember.InviteStatus.INVITE_APPROVED
+            office=office, role=User.Role.ADMIN, invite_status=CompanyMember.InviteStatus.INVITE_APPROVED
         ).values_list("email", "user__first_name")
         for user in users:
             if office.dental_api:
