@@ -963,12 +963,22 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 vendor_order_ids.append(vendor_order.id)
                 objs = []
                 for vendor_order_product in vendor_order_products:
-                    if vendor_order_product.budget_spend_type == BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET:
-                        total_dental_amount += float(vendor_order_product.quantity * vendor_order_product.unit_price)
-                    elif vendor_order_product.budget_spend_type == BUDGET_SPEND_TYPE.FRONT_OFFICE_SUPPLY_SPEND_BUDGET:
-                        total_office_amount += float(vendor_order_product.quantity * vendor_order_product.unit_price)
-                    elif vendor_order_product.budget_spend_type == BUDGET_SPEND_TYPE.MISCELLANEOUS_SPEND_BUDGET:
-                        total_miscel_amount += float(vendor_order_product.quantity * vendor_order_product.unit_price)
+                    if not approval_needed:
+                        if vendor_order_product.budget_spend_type == BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET:
+                            total_dental_amount += float(
+                                vendor_order_product.quantity * vendor_order_product.unit_price
+                            )
+                        elif (
+                            vendor_order_product.budget_spend_type
+                            == BUDGET_SPEND_TYPE.FRONT_OFFICE_SUPPLY_SPEND_BUDGET
+                        ):
+                            total_office_amount += float(
+                                vendor_order_product.quantity * vendor_order_product.unit_price
+                            )
+                        elif vendor_order_product.budget_spend_type == BUDGET_SPEND_TYPE.MISCELLANEOUS_SPEND_BUDGET:
+                            total_miscel_amount += float(
+                                vendor_order_product.quantity * vendor_order_product.unit_price
+                            )
                     product: Product = vendor_order_product.product
                     objs.append(
                         m.VendorOrderProduct(
