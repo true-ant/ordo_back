@@ -13,7 +13,6 @@ from typing import Union
 
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
-from django.contrib.postgres.search import SearchQuery
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Case, Count, Exists, F, OuterRef, Q, Sum, Value, When
@@ -1734,6 +1733,12 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
     queryset = m.Procedure.objects.all()
     serializer_class = s.ProcedureSerializer
 
+    def get_queryset(self):
+        query = self.request.GET.get("search", "")
+        if query:
+            return m.Procedure.objects.search(query)
+        return m.Procedure.objects.all()
+
     @action(detail=False, url_path="category")
     def get_category(self, request, *args, **kwargs):
         date_type = self.request.query_params.get("type", "month")
@@ -1765,13 +1770,12 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         day_to = datetime.datetime.strptime(day_to, format).date()
         day_prev_3months_from = day_from + relativedelta(months=-3)
         day_prev_3months_to = day_from - datetime.timedelta(days=1)
-        query = self.request.GET.get("search", "")
-        q = SearchQuery(query, config="english")
 
         ProcedureHelper.fetch_procedure_period(day_from, office_pk, date_type)
 
         ret_current = (
-            m.Procedure.objects.filter(type=date_type, start_date__gte=day_from, start_date__lte=day_to)
+            self.get_queryset()
+            .filter(type=date_type, start_date__gte=day_from, start_date__lte=day_to)
             .order_by(
                 "procedurecode__summary_category__category_order", "-procedurecode__summary_category__is_favorite"
             )
@@ -1784,8 +1788,6 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             .annotate(dcount=Sum("count"))
             .filter(dcount__gt=0, procedurecode__summary_category__isnull=False)
         )
-        if query:
-            ret_current = ret_current.filter(Q(procedurecode__search_vector=q))
         ret_trailing = (
             m.Procedure.objects.filter(
                 type=date_type, start_date__gte=day_prev_3months_from, start_date__lte=day_prev_3months_to
