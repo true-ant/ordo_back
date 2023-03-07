@@ -119,26 +119,24 @@ class OrderService:
         order_date = vendor_order.order_date
         order_month = Month(year=order_date.year, month=order_date.month)
         office_budget = office.budgets.filter(month=order_month).first()
-        total_dental_amount = 0.0
-        total_office_amount = 0.0
-        total_miscel_amount = 0.0
+        dental_amount = {
+            BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET: 0.0,
+            BUDGET_SPEND_TYPE.FRONT_OFFICE_SUPPLY_SPEND_BUDGET: 0.0,
+            BUDGET_SPEND_TYPE.MISCELLANEOUS_SPEND_BUDGET: 0.0,
+        }
 
         products = async_to_sync(OrderService.get_vendor_order_products)(vendor_order, validated_data)
-
         if products:
             for vendor_order_product in products:
-                if vendor_order_product.budget_spend_type == BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET:
-                    total_dental_amount += float(vendor_order_product.quantity * vendor_order_product.unit_price)
-                elif vendor_order_product.budget_spend_type == BUDGET_SPEND_TYPE.FRONT_OFFICE_SUPPLY_SPEND_BUDGET:
-                    total_office_amount += float(vendor_order_product.quantity * vendor_order_product.unit_price)
-                elif vendor_order_product.budget_spend_type == BUDGET_SPEND_TYPE.MISCELLANEOUS_SPEND_BUDGET:
-                    total_miscel_amount += float(vendor_order_product.quantity * vendor_order_product.unit_price)
+                dental_amount[vendor_order_product.budget_spend_type] += (
+                    vendor_order_product.quantity * vendor_order_product.unit_price
+                )
         else:
-            total_dental_amount = vendor_order.total_amount
+            dental_amount[BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET] = vendor_order.total_amount
 
         # Update Spent Budget
         if office_budget:
-            office_budget.dental_spend += Decimal(total_dental_amount)
-            office_budget.office_spend += Decimal(total_office_amount)
-            office_budget.miscellaneous_spend += Decimal(total_miscel_amount)
+            office_budget.dental_spend += Decimal(dental_amount[BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET])
+            office_budget.office_spend += Decimal(dental_amount[BUDGET_SPEND_TYPE.FRONT_OFFICE_SUPPLY_SPEND_BUDGET])
+            office_budget.miscellaneous_spend += Decimal(dental_amount[BUDGET_SPEND_TYPE.MISCELLANEOUS_SPEND_BUDGET])
             office_budget.save()
