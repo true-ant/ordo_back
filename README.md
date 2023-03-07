@@ -14,6 +14,13 @@ poetry shell
 pre-commit install
 python manage.py migrate
 ```
+Run celery worker & celery beat
+
+```shell
+docker run -d -p 6379:6379 redis
+celery -A config beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+celery -A config worker
+```
 You can dump database from staging server. I strongly suggest that you can use this data to populate your local database.
 
 ## Project Deployment
@@ -59,6 +66,7 @@ We integrated following vendors:
 **What does linking mean exactly?**
 
 The user should share credentials of each vendor with us. Let’s assume that the user has an account on Henry Schein and they want to link it to our platform. They should input `username`, `password` of Henry Schein on the modal. If they click Link button, we validates if they provide correct username & password. If they provide correct credentials, we start a background task to fetch order made within last 12 months.
+
 
 
 ### Order Management
