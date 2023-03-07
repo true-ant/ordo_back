@@ -268,6 +268,9 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
                 validated_data=serializer.validated_data,
                 stage=request.META["HTTP_HOST"],
             )
+
+            await sync_to_async(OrderService.update_vendor_order_spent)(vendor_order, serializer.validated_data)
+
         else:
             await sync_to_async(OrderService.reject_vendor_order)(
                 approved_by=request.user, vendor_order=vendor_order, validated_data=serializer.validated_data
