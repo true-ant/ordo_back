@@ -268,6 +268,9 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
                 validated_data=serializer.validated_data,
                 stage=request.META["HTTP_HOST"],
             )
+
+            await sync_to_async(OrderService.update_vendor_order_spent)(vendor_order, serializer.validated_data)
+
         else:
             await sync_to_async(OrderService.reject_vendor_order)(
                 approved_by=request.user, vendor_order=vendor_order, validated_data=serializer.validated_data
@@ -931,9 +934,11 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
             total_amount = 0.0
             total_items = 0.0
 
-            total_dental_amount = 0.0
-            total_office_amount = 0.0
-            total_miscel_amount = 0.0
+            dental_amount = {
+                BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET: 0.0,
+                BUDGET_SPEND_TYPE.FRONT_OFFICE_SUPPLY_SPEND_BUDGET: 0.0,
+                BUDGET_SPEND_TYPE.MISCELLANEOUS_SPEND_BUDGET: 0.0,
+            }
 
             for office_vendor, vendor_order_result in zip(office_vendors, vendor_order_results):
                 if not isinstance(vendor_order_result, dict):
@@ -963,12 +968,11 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 vendor_order_ids.append(vendor_order.id)
                 objs = []
                 for vendor_order_product in vendor_order_products:
-                    if vendor_order_product.budget_spend_type == BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET:
-                        total_dental_amount += float(vendor_order_product.quantity * vendor_order_product.unit_price)
-                    elif vendor_order_product.budget_spend_type == BUDGET_SPEND_TYPE.FRONT_OFFICE_SUPPLY_SPEND_BUDGET:
-                        total_office_amount += float(vendor_order_product.quantity * vendor_order_product.unit_price)
-                    elif vendor_order_product.budget_spend_type == BUDGET_SPEND_TYPE.MISCELLANEOUS_SPEND_BUDGET:
-                        total_miscel_amount += float(vendor_order_product.quantity * vendor_order_product.unit_price)
+                    if not approval_needed:
+                        dental_amount[vendor_order_product.budget_spend_type] += (
+                            vendor_order_product.quantity * vendor_order_product.unit_price
+                        )
+
                     product: Product = vendor_order_product.product
                     objs.append(
                         m.VendorOrderProduct(
@@ -1005,9 +1009,15 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
             office_budget = office.budgets.filter(month=month).first()
 
             if office_budget:
-                office_budget.dental_spend = F("dental_spend") + total_dental_amount
-                office_budget.office_spend = F("office_spend") + total_office_amount
-                office_budget.miscellaneous_spend = F("office_spend") + total_miscel_amount
+                office_budget.dental_spend = (
+                    F("dental_spend") + dental_amount[BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET]
+                )
+                office_budget.office_spend = (
+                    F("office_spend") + dental_amount[BUDGET_SPEND_TYPE.FRONT_OFFICE_SUPPLY_SPEND_BUDGET]
+                )
+                office_budget.miscellaneous_spend = (
+                    F("office_spend") + dental_amount[BUDGET_SPEND_TYPE.MISCELLANEOUS_SPEND_BUDGET]
+                )
                 office_budget.save()
 
         cart_products.delete()
@@ -1733,6 +1743,12 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
     queryset = m.Procedure.objects.all()
     serializer_class = s.ProcedureSerializer
 
+    def get_queryset(self):
+        query = self.request.GET.get("search", "")
+        if query:
+            return m.Procedure.objects.search(query)
+        return m.Procedure.objects.all()
+
     @action(detail=False, url_path="category")
     def get_category(self, request, *args, **kwargs):
         date_type = self.request.query_params.get("type", "month")
@@ -1741,6 +1757,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         start_end_date = get_date_range(date_range)
         day_from = datetime.date(start_end_date[0].year, start_end_date[0].month, start_end_date[0].day)
         day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
+
         ProcedureHelper.fetch_procedure_period(day_from, office_pk, date_type)
         ret = (
             m.Procedure.objects.select_related("procedurecode", "procedurecode__sumary_category")
@@ -1767,7 +1784,8 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         ProcedureHelper.fetch_procedure_period(day_from, office_pk, date_type)
 
         ret_current = (
-            m.Procedure.objects.filter(type=date_type, start_date__gte=day_from, start_date__lte=day_to)
+            self.get_queryset()
+            .filter(type=date_type, start_date__gte=day_from, start_date__lte=day_to)
             .order_by(
                 "procedurecode__summary_category__category_order", "-procedurecode__summary_category__is_favorite"
             )
