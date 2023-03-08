@@ -128,21 +128,11 @@ class OfficeProductHelper:
             return office_product
 
     @staticmethod
-    def get_product_price(
-        office: Union[SmartID, OfficeModel], product: Union[SmartID, ProductModel]
-    ) -> Optional[Decimal]:
-        if isinstance(product, ProductModel):
-            if product.price:
-                return product.price
-
-            product = product.id
-
-        if isinstance(office, OfficeModel):
-            office = office.id
-
-        office_product = OfficeProductModel.objects.filter(product_id=product, office_id=office).first()
-        if office_product:
+    def get_product_price(office: OfficeModel, product: ProductModel) -> Optional[Decimal]:
+        office_product = OfficeProductModel.objects.filter(product=product, office=office).first()
+        if office_product and office_product.price:
             return office_product.price
+        return product.price
 
     @staticmethod
     async def get_office_vendors(office_id: str, vendor_slugs: List[str]) -> Dict[str, VendorCredential]:
@@ -1454,7 +1444,7 @@ class OrderHelper:
             to_date = None
 
             if consider_recent:
-                from_date = timezone.now().date() - datetime.timedelta(days=3)
+                from_date = timezone.now().date() - datetime.timedelta(days=4)
                 to_date = timezone.now().date()
 
             await scraper.get_orders(

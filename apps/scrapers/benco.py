@@ -148,6 +148,7 @@ class BencoScraper(Scraper):
             order["order_date"] = (
                 order["order_date"].split("on", 1)[1].strip("| ") if "on" in order["order_date"] else None
             )
+            order["order_date"] = datetime.datetime.strptime(order["order_date"], "%B %d, %Y").date()
             order["order_id"] = order_detail_link.split("/")[-1]
 
             for order_container in response_dom.xpath("//div[contains(@class, 'order-container')]"):
