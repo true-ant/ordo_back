@@ -131,6 +131,6 @@ beat_schedule = {
     },
     "update_promotions": {
         "task": "apps.orders.tasks.update_promotions",
-        "schedule": crontab(minute="0", hour="0", day_of_week="3"),  # Every wednesday
+        "schedule": crontab(minute="0", hour="0", day_of_week="1,3,5"),  # Mon, Wed, Fri
     },
 }
