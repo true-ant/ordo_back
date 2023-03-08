@@ -18,7 +18,11 @@ from django.utils import timezone
 
 from apps.accounts.helper import OfficeBudgetHelper
 from apps.accounts.models import CompanyMember, Office, OfficeVendor, User
-from apps.orders.helpers import OfficeProductHelper, OfficeProductCategoryHelper, OrderHelper
+from apps.orders.helpers import (
+    OfficeProductCategoryHelper,
+    OfficeProductHelper,
+    OrderHelper,
+)
 from apps.orders.models import OfficeProductCategory, OrderStatus, VendorOrder
 from apps.orders.updater import fetch_for_vendor
 from apps.types.accounts import CompanyInvite
@@ -188,16 +192,16 @@ def send_budget_update_notification():
     previous_month = previous_month.strftime("%B")
     offices = Office.objects.select_related("company").all()
     for office in offices:
-        if office.dental_api:
-            users = CompanyMember.objects.filter(
-                company=office.company, role=User.Role.ADMIN, invite_status=CompanyMember.InviteStatus.INVITE_APPROVED
-            ).values_list("email", "user__first_name")
-            for user in users:
+        company_members = CompanyMember.objects.filter(
+            office=office, role=User.Role.ADMIN, invite_status=CompanyMember.InviteStatus.INVITE_APPROVED
+        )
+        for member in company_members:
+            if office.dental_api:
                 htm_content = render_to_string(
                     "emails/updated_budget.html",
                     {
                         "SITE_URL": settings.SITE_URL,
-                        "first_name": user[1],
+                        "first_name": member.user.first_name,
                         "current_month": current_month,
                         "previous_month": previous_month,
                         "adjusted_production": office.budget.adjusted_production,
@@ -212,26 +216,21 @@ def send_budget_update_notification():
                     subject="Your budget has automatically updated!",
                     message="message",
                     from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[user[0]],
+                    recipient_list=[member.email],
                     html_message=htm_content,
                 )
-        else:
-            emails = CompanyMember.objects.filter(
-                company=office.company, role=User.Role.ADMIN, invite_status=CompanyMember.InviteStatus.INVITE_APPROVED
-            ).values_list("email")
-            htm_content = render_to_string(
-                "emails/update_budget.html",
-                {
-                    "SITE_URL": settings.SITE_URL,
-                },
-            )
-            send_mail(
-                subject="It's time to update your budget!",
-                message="message",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=emails,
-                html_message=htm_content,
-            )
+            else:
+                htm_content = render_to_string(
+                    "emails/update_budget.html",
+                    {"SITE_URL": settings.SITE_URL, "first_name": "Alex"},
+                )
+                send_mail(
+                    subject="It's time to update your budget!",
+                    message="message",
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[member.email],
+                    html_message=htm_content,
+                )
 
 
 @app.task

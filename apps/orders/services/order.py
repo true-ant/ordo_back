@@ -1,10 +1,12 @@
-from asgiref.sync import sync_to_async
-from django.apps import apps
+from decimal import Decimal
+
+from asgiref.sync import async_to_sync, sync_to_async
 from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import OfficeVendor
-from apps.common.choices import ProductStatus
+from apps.common.choices import BUDGET_SPEND_TYPE, ProductStatus
+from apps.common.month import Month
 from apps.orders.models import OrderStatus, VendorOrder, VendorOrderProduct
 from apps.orders.tasks import notify_order_creation
 from apps.scrapers.scraper_factory import ScraperFactory
@@ -110,3 +112,31 @@ class OrderService:
                 vendor_order_product.rejected_reason = VendorOrderProduct.RejectReason.NOT_NEEDED
 
             VendorOrderProduct.objects.bulk_update(vendor_order_products, ["rejected_reason", "status"])
+
+    @staticmethod
+    def update_vendor_order_spent(vendor_order: VendorOrder, validated_data):
+        office = vendor_order.order.office
+        order_date = vendor_order.order_date
+        order_month = Month(year=order_date.year, month=order_date.month)
+        office_budget = office.budgets.filter(month=order_month).first()
+        dental_amount = {
+            BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET: 0.0,
+            BUDGET_SPEND_TYPE.FRONT_OFFICE_SUPPLY_SPEND_BUDGET: 0.0,
+            BUDGET_SPEND_TYPE.MISCELLANEOUS_SPEND_BUDGET: 0.0,
+        }
+
+        products = async_to_sync(OrderService.get_vendor_order_products)(vendor_order, validated_data)
+        if products:
+            for vendor_order_product in products:
+                dental_amount[vendor_order_product.budget_spend_type] += (
+                    vendor_order_product.quantity * vendor_order_product.unit_price
+                )
+        else:
+            dental_amount[BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET] = vendor_order.total_amount
+
+        # Update Spent Budget
+        if office_budget:
+            office_budget.dental_spend += Decimal(dental_amount[BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET])
+            office_budget.office_spend += Decimal(dental_amount[BUDGET_SPEND_TYPE.FRONT_OFFICE_SUPPLY_SPEND_BUDGET])
+            office_budget.miscellaneous_spend += Decimal(dental_amount[BUDGET_SPEND_TYPE.MISCELLANEOUS_SPEND_BUDGET])
+            office_budget.save()
