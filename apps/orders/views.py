@@ -1788,7 +1788,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
 
         ret_current = (
             self.get_queryset()
-            .filter(type=date_type, start_date__gte=day_from, start_date__lte=day_to)
+            .filter(office=office, type=date_type, start_date__gte=day_from, start_date__lte=day_to)
             .order_by(
                 "procedurecode__summary_category__category_order", "-procedurecode__summary_category__is_favorite"
             )
@@ -1807,8 +1807,12 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             for id, slug, order, is_favorite, count, codes in ret_current
         }
         ret_trailing = (
-            m.Procedure.objects.filter(
-                type=date_type, start_date__gte=day_prev_3months_from, start_date__lte=day_prev_3months_to
+            self.get_queryset()
+            .filter(
+                office=office,
+                type=date_type,
+                start_date__gte=day_prev_3months_from,
+                start_date__lte=day_prev_3months_to,
             )
             .order_by(
                 "procedurecode__summary_category__category_order", "-procedurecode__summary_category__is_favorite"
@@ -1825,7 +1829,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         try:
             with open("query/proc_schedule.sql", "r") as f:
                 raw_sql = f.read()
-            query = raw_sql.format(day_from=day_from, day_to=day_to)
+            query = raw_sql.format(day_from=day_from, day_to=day_to, codes="")
             od_client = OpenDentalClient(dental_api)
             ret_schedule = od_client.query(query)[0]
         except Exception as e:
@@ -1840,6 +1844,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=False)
     def summary_detail(self, request, *args, **kwargs):
+        date_type = self.request.query_params.get("type", "month")
         summary_category = self.request.query_params.get("summary_category")
         office_pk = self.kwargs["office_pk"]
         day_from = self.request.query_params.get("from")
@@ -1847,6 +1852,8 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         format = "%Y-%m-%d"
         day_from = datetime.datetime.strptime(day_from, format).date()
         day_to = datetime.datetime.strptime(day_to, format).date()
+        day_prev_3months_from = day_from + relativedelta(months=-3)
+        day_prev_3months_to = day_from - datetime.timedelta(days=1)
 
         summary_query = m.ProcedureCategoryLink.objects.filter(summary_slug=summary_category).first()
         if not summary_query:
@@ -1865,13 +1872,42 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             return Response(status=HTTP_400_BAD_REQUEST, data={"message": "Invalid dental api"})
 
         proccodes = m.ProcedureCode.objects.filter(category__in=categories).values_list("proccode", flat=True)
-        proccodes = ",".join(proccodes)
+        proccodes_comma = ",".join(proccodes)
+        proccodes_dash = "|".join(proccodes)
+
+        ret_trailing = (
+            self.get_queryset()
+            .filter(
+                office=office,
+                type=date_type,
+                start_date__gte=day_prev_3months_from,
+                start_date__lte=day_prev_3months_to,
+                procedurecode__summary_category=summary_query,
+            )
+            .values_list("procedurecode__proccode")
+            .annotate(sum_count=Sum("count"))
+        )
+        dict_trailing = {code: count for code, count in ret_trailing}
+
         try:
             with open("query/proc_result_new.sql", "r") as f:
                 raw_sql = f.read()
-            query = raw_sql.format(day_from=day_from, day_to=day_to, proc_codes=proccodes)
+            query = raw_sql.format(day_from=day_from, day_to=day_to, proc_codes=proccodes_comma)
             od_client = OpenDentalClient(dental_api)
             json_procedure = od_client.query(query)[0]
+
+            with open("query/proc_schedule.sql", "r") as f:
+                raw_sql = f.read()
+            query = raw_sql.format(day_from=day_from, day_to=day_to, codes=proccodes_dash)
+            ret_schedule = od_client.query(query)[0]
+            dict_schedule = {item["ProcCode"]: item["Count"] for item in ret_schedule}
+
+            for item in json_procedure:
+                if item["Code"] in dict_schedule:
+                    item["schedule"] = dict_schedule[item["Code"]]
+                if item["Code"] in dict_trailing:
+                    item["avg_count"] = dict_trailing[item["Code"]]
+
             return Response(data=json_procedure)
 
         except Exception as e:  # noqa
