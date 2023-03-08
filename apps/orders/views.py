@@ -13,6 +13,7 @@ from typing import Union
 
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
+from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Case, Count, Exists, F, OuterRef, Q, Sum, Value, When
@@ -1773,6 +1774,8 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
     def summary_category(self, request, *args, **kwargs):
         date_type = self.request.query_params.get("type", "month")
         office_pk = self.kwargs["office_pk"]
+        office = m.Office.objects.get(id=office_pk)
+        dental_api = office.dental_api
         day_from = self.request.query_params.get("from")
         day_to = self.request.query_params.get("to")
         format = "%Y-%m-%d"
@@ -1795,9 +1798,14 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
                 "procedurecode__summary_category__category_order",
                 "procedurecode__summary_category__is_favorite",
             )
-            .annotate(dcount=Sum("count"))
-            .filter(dcount__gt=0, procedurecode__summary_category__isnull=False)
+            .annotate(dcount=Sum("count"), codes=ArrayAgg("procedurecode__proccode"))
+            .filter(procedurecode__summary_category__isnull=False)
+            .order_by("-dcount")
         )
+        proc_total = {
+            slug: {"id": id, "order": order, "is_favorite": is_favorite, "count": count, "codes": codes}
+            for id, slug, order, is_favorite, count, codes in ret_current
+        }
         ret_trailing = (
             m.Procedure.objects.filter(
                 type=date_type, start_date__gte=day_prev_3months_from, start_date__lte=day_prev_3months_to
@@ -1807,27 +1815,28 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             )
             .values_list("procedurecode__summary_category", "procedurecode__summary_category__summary_slug")
             .annotate(sum_count=Sum("count"))
-            .filter(sum_count__gt=0, procedurecode__summary_category__isnull=False)
+            .filter(procedurecode__summary_category__isnull=False)
         )
+        for _, slug, total_count in ret_trailing:
+            if slug in proc_total:
+                proc_total[slug]["avg_count"] = math.floor(total_count / 3)
 
-        ret = []
-        for id, slug, order, is_favorite, count in ret_current:
-            trail_count = 0
-            item = {
-                "id": id,
-                "slug": slug,
-                "order": order,
-                "is_favorite": is_favorite,
-                "count": count,
-            }
-            for it in ret_trailing:
-                if item["slug"] in it:
-                    trail_count = math.floor(it[2] / 3)
-                    break
-            item["avg_count"] = trail_count
-            ret.append(item)
+        ret_schedule = []
+        try:
+            with open("query/proc_schedule.sql", "r") as f:
+                raw_sql = f.read()
+            query = raw_sql.format(day_from=day_from, day_to=day_to)
+            od_client = OpenDentalClient(dental_api)
+            ret_schedule = od_client.query(query)[0]
+        except Exception as e:
+            return Response(status=HTTP_400_BAD_REQUEST, data={"message": f"{e}"})
 
-        return Response(ret)
+        for proc in ret_schedule:
+            for slug, cate in proc_total.items():
+                if proc["ProcCode"] in cate["codes"]:
+                    proc_total[slug]["count"] += proc["Count"]
+
+        return Response(proc_total)
 
     @action(detail=False)
     def summary_detail(self, request, *args, **kwargs):
@@ -1863,8 +1872,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             query = raw_sql.format(day_from=day_from, day_to=day_to, proc_codes=proccodes)
             od_client = OpenDentalClient(dental_api)
             json_procedure = od_client.query(query)[0]
-            ret = json_procedure
-            return Response(data=ret)
+            return Response(data=json_procedure)
 
         except Exception as e:  # noqa
             return Response(status=HTTP_400_BAD_REQUEST, data={"message": f"{e}"})
