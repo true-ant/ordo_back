@@ -264,7 +264,7 @@ class OfficeProduct(TimeStampedModel):
     last_price_updated = models.DateTimeField(null=True, blank=True, db_index=True)
     price_expiration = models.DateTimeField(null=True, blank=True)
     vendor = models.ForeignKey(Vendor, on_delete=models.PROTECT, null=True, blank=True)
-    nickname = models.CharField(max_length=128, null=True)
+    nickname = models.CharField(max_length=128, null=True, blank=True)
     image_url = models.ImageField(null=True, blank=True, upload_to="offices")
     is_favorite = models.BooleanField(default=False)
     is_inventory = models.BooleanField(default=False)

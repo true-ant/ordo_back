@@ -1,7 +1,7 @@
 /* Manual query based on 61. Please use this query at your own risk. */
 /*Query code written/modified 03/07/2023*/
 
-SET @Codes =''; /*Enter exact procedure codes here, separated by a | symbol. Must not end in a | . Will search all if left blank.*/
+SET @Codes ='{codes}'; /*Enter exact procedure codes here, separated by a | symbol. Must not end in a | . Will search all if left blank.*/
 SET @StartDate='{day_from}' , @EndDate='{day_to}'; /*Enter dates here in YYYY-MM-DD format*/
 
 /*---DO NOT MODIFY BELOW THIS LINE---*/
