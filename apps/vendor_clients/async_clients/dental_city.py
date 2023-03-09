@@ -58,16 +58,16 @@ class DentalCityClient(BaseClient):
             raise EmptyResults()
         text = await resp.text()
         page = Selector(text=text)
+        sku = page.xpath('//div[@class="skuname"]//span/text()').get()
         price_str = page.xpath('//div[@class="yourpricecontainer"]//span/text()').get()
         price = convert_string_to_price(price_str)
         if not price:
             logger.warning("Got bad price for %s. %s", product.id, price_str)
-            with open(f"/home/leo/install/dental_city_bad_pages/{product.id}.html", "w") as f:
-                f.write(text)
             raise EmptyResults()
         return PriceInfo(
             price=price,
             product_vendor_status="Active",
+            sku_code=sku,
         )
 
     def serialize(self, base_product: types.Product, data: Union[dict, Selector]) -> Optional[types.Product]:

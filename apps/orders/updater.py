@@ -270,9 +270,10 @@ class Updater:
         }
         if isinstance(product, Product):
             logger.debug("Updating price for product %s: %s", product.id, price_info)
-            await Product.objects.filter(pk=product.pk).aupdate(
-                special_price=price_info.special_price, is_special_offer=price_info.is_special_offer, **update_fields
-            )
+            data = {"special_price": price_info.special_price, "is_special_offer": price_info.is_special_offer}
+            if price_info.sku_code:
+                data["sku"] = price_info.sku_code
+            await Product.objects.filter(pk=product.pk).aupdate(**data, **update_fields)
             await OfficeProduct.objects.filter(product_id=product.pk).aupdate(**update_fields)
         elif isinstance(product, OfficeProduct):
             await OfficeProduct.objects.filter(id=product.pk).aupdate(**update_fields)
