@@ -6,7 +6,6 @@ import traceback
 import uuid
 from asyncio import Semaphore
 from collections import ChainMap
-from http.cookies import SimpleCookie
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 
 from aiohttp import ClientResponse, ClientSession
@@ -48,6 +47,7 @@ class PriceInfo(NamedTuple):
     product_vendor_status: str
     is_special_offer: bool = False
     special_price: Optional[decimal.Decimal] = None
+    sku_code: Optional[str] = None
 
 
 class ProductPriceUpdateResult(NamedTuple):
@@ -179,7 +179,6 @@ class BaseClient:
         if not semaphore:
             semaphore = fake_semaphore
         async with semaphore:
-
             if hasattr(self, "_get_order"):
                 queue: asyncio.Queue = kwargs.pop("queue", None)
 
