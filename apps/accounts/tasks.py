@@ -305,11 +305,19 @@ def generate_csv_for_salesforce():
             target_columns.append("company_name")
             target_columns.append("company_slug")
             target_columns.append("onboarding_step")
+            target_columns.append("email")
         data = office.__dict__
         data["company_name"] = office.company.name
         data["company_slug"] = office.company.slug
         data["onboarding_step"] = office.company.on_boarding_step
-        office_data.append(data)
+        data["created_at"] = data["created_at"].strftime("%Y-%m-%d %H:%M:%S")
+        data["updated_at"] = data["updated_at"].strftime("%Y-%m-%d %H:%M:%S")
+
+        company_member_emails = office.companymember_set.values_list("email", flat=True)
+        for member_email in company_member_emails:
+            new_data = data.copy()
+            new_data["email"] = member_email
+            office_data.append(new_data)
 
     dict_columns = {i: i.title() for i in target_columns}
     host = os.getenv("SFTP_HOST")
