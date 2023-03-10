@@ -183,6 +183,7 @@ class OfficeVendor(TimeStampedModel):
     office = FlexibleForeignKey(Office, related_name="connected_vendors")
     username = models.CharField(max_length=100)
     password = models.CharField(max_length=100)
+    login_success = models.BooleanField(default=True)
     task_id = models.CharField(max_length=64, null=True, blank=True)
     vendor_phone_number = PhoneNumberField(null=True, blank=True)
     vendor_email = models.EmailField(null=True, blank=True)

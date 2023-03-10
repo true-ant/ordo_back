@@ -290,7 +290,6 @@ def notify_order_creation(vendor_order_ids, approval_needed):
     }
 
     if approval_needed:
-
         metadata["link"] = f"{settings.SITE_URL}/orders?order_approval_reject={vendor_order_ids}"
     else:
         metadata["link"] = f"{settings.SITE_URL}/orders?view={vendor_order_ids}"
@@ -424,7 +423,8 @@ def update_promotions():
 
 
 @app.task
-def notify_order_issue_to_customers(vendor_order: VendorOrderModel):
+def notify_order_issue_to_customers(vendor_order_id):
+    vendor_order = VendorOrderModel.objects.get(pk=vendor_order_id)
     company_members = CompanyMember.objects.filter(office=vendor_order.order.office)
 
     for company_member in company_members:
@@ -437,7 +437,7 @@ def notify_order_issue_to_customers(vendor_order: VendorOrderModel):
                 "order_number": vendor_order.pk,
                 "vendor_name": vendor_order.vendor.name,
                 "order_date": vendor_order.order_date,
-                "vendor_url": vendor_order.vendor.url
+                "vendor_url": vendor_order.vendor.url,
             },
         )
 

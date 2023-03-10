@@ -1,11 +1,13 @@
 import asyncio
+import csv
 import logging
 import operator
+import os
 import platform
 from functools import reduce
-from http.cookies import SimpleCookie
 from typing import List
 
+import pysftp
 from aiohttp import ClientSession, ClientTimeout
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
@@ -16,6 +18,7 @@ from django.db.models import Q
 from django.template.loader import render_to_string
 from django.utils import timezone
 
+from apps.accounts.errors import TaskFailure
 from apps.accounts.helper import OfficeBudgetHelper
 from apps.accounts.models import CompanyMember, Office, OfficeVendor, User
 from apps.orders.helpers import (
@@ -126,7 +129,7 @@ def update_vendor_product_prices_for_all_offices(vendor_slug):
 
 
 @app.task
-def update_order_history(vendor_slug, office_id):
+def fetch_order_history(vendor_slug, office_id, consider_recent=False):
     """
     NOTE: Passed vendor_slug and office_id as params instead of OfficeVendor object
     to clearly observe task events in the celery flower...
@@ -135,6 +138,10 @@ def update_order_history(vendor_slug, office_id):
         OfficeProductCategoryHelper.create_categories_from_product_category(office_id)
 
     office_vendor = OfficeVendor.objects.get(vendor__slug=vendor_slug, office=office_id)
+
+    if not office_vendor.login_success:
+        raise TaskFailure("The authentication of this vendor doesn't work.")
+
     order_id_field = "vendor_order_reference" if vendor_slug == "henry_schein" else "vendor_order_id"
     completed_order_ids = list(
         VendorOrder.objects.filter(
@@ -143,7 +150,7 @@ def update_order_history(vendor_slug, office_id):
     )
     asyncio.run(
         OrderHelper.fetch_orders_and_update(
-            office_vendor=office_vendor, completed_order_ids=completed_order_ids, consider_recent=True
+            office_vendor=office_vendor, completed_order_ids=completed_order_ids, consider_recent=consider_recent
         )
     )
 
@@ -152,36 +159,7 @@ def update_order_history(vendor_slug, office_id):
 def update_order_history_for_all_offices(vendor_slug):
     office_vendors = OfficeVendor.objects.filter(vendor__slug=vendor_slug)
     for ov in office_vendors:
-        update_order_history.delay(vendor_slug, ov.office_id)
-
-
-@app.task
-def fetch_orders_from_vendor(office_vendor_id, login_cookies=None, perform_login=False):
-    if login_cookies is None and perform_login is False:
-        return
-
-    office_vendor = OfficeVendor.objects.select_related("office", "vendor").get(id=office_vendor_id)
-
-    if not OfficeProductCategory.objects.filter(office=office_vendor.office).exists():
-        call_command("fill_office_product_categories", office_ids=[office_vendor.office.id])
-
-    if login_cookies:
-        cookie = SimpleCookie()
-        for login_cookie in login_cookies.split("\r\n"):
-            login_cookie = login_cookie.replace("Set-Cookie: ", "")
-            cookie.load(login_cookie)
-    else:
-        cookie = None
-
-    order_id_field = "vendor_order_reference" if office_vendor.vendor.slug == "henry_schein" else "vendor_order_id"
-    completed_order_ids = list(
-        VendorOrder.objects.filter(
-            vendor=office_vendor.vendor, order__office=office_vendor.office, status=OrderStatus.CLOSED
-        ).values_list(order_id_field, flat=True)
-    )
-    print("========== completed order ids==========")
-    print(completed_order_ids)
-    asyncio.run(OrderHelper.fetch_orders_and_update((office_vendor, cookie, True, completed_order_ids)))
+        fetch_order_history.delay(vendor_slug, ov.office_id, True)
 
 
 @app.task
@@ -277,3 +255,74 @@ def fetch_orders_v2(office_vendor_id):
         ).values_list(order_id_field, flat=True)
     )
     asyncio.run(get_orders_v2(office_vendor, completed_order_ids))
+
+
+@app.task
+def notify_vendor_auth_issue_to_admins(office_vendor_id):
+    office_vendor = OfficeVendor.objects.get(pk=office_vendor_id)
+    company_members = CompanyMember.objects.filter(office=office_vendor.office, role=User.Role.ADMIN).values_list(
+        "user"
+    )
+
+    for company_member in company_members:
+        user = company_member.user
+
+        htm_content = render_to_string(
+            "emails/vendor_unlink.html",
+            {
+                "vendor": office_vendor.vendor.name,
+            },
+        )
+
+        send_mail(
+            subject="Vendor authentication failure!",
+            message="message",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            html_message=htm_content,
+        )
+
+
+@app.task
+def generate_csv_for_salesforce():
+    """
+    NOTE: the logic needs to be updated a bit more.
+    But, this is basically create csv file from office table and upload it into SFTP server
+    """
+    offices = Office.objects.all()
+
+    if not offices.exists():
+        # No data accidentally
+        return
+
+    office_data = []
+
+    for idx, office in enumerate(offices):
+        if idx == 0:
+            target_columns = list(office.__dict__.keys())
+            target_columns.remove("_state")
+            target_columns.remove("company_id")
+            target_columns.append("company_name")
+            target_columns.append("company_slug")
+            target_columns.append("onboarding_step")
+        data = office.__dict__
+        data["company_name"] = office.company.name
+        data["company_slug"] = office.company.slug
+        data["onboarding_step"] = office.company.on_boarding_step
+        office_data.append(data)
+
+    dict_columns = {i: i.title() for i in target_columns}
+    host = os.getenv("SFTP_HOST")
+    username = os.getenv("SFTP_USERNAME")
+    password = os.getenv("SFTP_PASSWORD")
+    port = os.getenv("SFTP_PORT")
+    connection_options = pysftp.CnOpts()
+    connection_options.hostkeys = None
+
+    with pysftp.Connection(
+        host=host, username=username, password=password, port=int(port), cnopts=connection_options
+    ) as sftp:
+        with sftp.open(f"/Import/customer_master{timezone.now().strftime('%Y%m%d')}.csv", mode="w") as csv_file:
+            file_writer = csv.DictWriter(csv_file, fieldnames=dict_columns, extrasaction="ignore")
+            file_writer.writerow(dict_columns)
+            file_writer.writerows(office_data)

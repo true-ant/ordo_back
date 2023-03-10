@@ -37,7 +37,7 @@ from rest_framework.viewsets import ModelViewSet
 
 from apps.accounts.models import Company, Office, OfficeBudget, OfficeVendor
 from apps.accounts.services.offices import OfficeService
-from apps.accounts.tasks import fetch_orders_from_vendor
+from apps.accounts.tasks import fetch_order_history
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncCreateModelMixin, AsyncMixin
 from apps.common.choices import BUDGET_SPEND_TYPE, ProductStatus
@@ -992,7 +992,9 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 m.VendorOrderProduct.objects.bulk_create(objs)
 
                 send_date = datetime.datetime.utcnow() + timedelta(days=1)
-                fetch_orders_from_vendor.apply_async([office_vendor.id, None, True], eta=send_date)
+                fetch_order_history.apply_async(
+                    [office_vendor.vendor.slug, office_vendor.office.id, False], eta=send_date
+                )
 
             order.total_amount = total_amount
             order.total_items = total_items
