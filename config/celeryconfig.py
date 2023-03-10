@@ -79,6 +79,11 @@ beat_schedule = {
         "args": ("pearson",),
         "schedule": crontab(minute="*/5"),
     },
+    "update_vendor_product_prices_for_safco": {
+        "task": "apps.accounts.tasks.update_vendor_product_prices_for_all_offices",
+        "args": ("safco",),
+        "schedule": crontab(minute="*/5"),
+    },
     "update_vendor_product_prices_for_ultradent": {
         "task": "apps.accounts.tasks.update_vendor_product_prices_for_all_offices",
         "args": ("ultradent",),
