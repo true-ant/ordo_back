@@ -132,3 +132,4 @@ wrapt==1.14.1; python_version >= "3.7" and python_full_version < "3.0.0" and pyt
 wsproto==1.2.0; python_full_version >= "3.7.0" and python_version >= "3.7"
 yarl==1.8.2; python_version >= "3.7" and python_version < "4.0"
 zope.interface==5.5.2; python_full_version >= "3.7.1" and python_version >= "3.7"
+pysftp==0.2.9
