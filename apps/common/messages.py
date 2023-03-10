@@ -43,3 +43,8 @@ OFFICE_HAS_NO_SUBSCRIPTION = "This office has no subscription"
 PRODUCT_CATEGORY_NOT_PERMITTED = "This is predefined product category, You can't delete this product category"
 
 ALREADY_ADMIN = "Already granted admin role"
+
+# OfficeVendor
+OFFICE_VENDOR_MISSING = "There is no such a vendor linked to the office"
+OFFICE_VENDOR_ALREADY_LINKED = "The vendor is already linked and fine"
+OFFICE_VENDOR_RECONNECTED = "The vendor is reconnected to the office"

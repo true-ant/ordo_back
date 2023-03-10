@@ -4,16 +4,18 @@ import logging
 import re
 from collections import defaultdict
 from http.cookies import SimpleCookie
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
+import requests
 from aiohttp import ClientResponse, ClientSession
 from asgiref.sync import sync_to_async
 from django.db.models import F
+from requests import Response
 from scrapy import Selector
 from slugify import slugify
 
-from apps.common.month import Month
 from apps.common.choices import OrderStatus
+from apps.common.month import Month
 from apps.scrapers.errors import VendorAuthenticationFailed
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.semaphore import fake_semaphore
@@ -30,6 +32,8 @@ logger = logging.getLogger(__name__)
 
 
 class Scraper:
+    aiohttp_mode = True
+
     def __init__(
         self,
         session: ClientSession,
@@ -37,13 +41,13 @@ class Scraper:
         username: Optional[str] = None,
         password: Optional[str] = None,
     ):
-        self.session = session
+        self.session = session if self.aiohttp_mode else requests.Session()
         self.vendor = vendor
         self.username = username
         self.password = password
         self.orders = {}
         self.objs = {"product_categories": defaultdict(dict)}
-        self.logged_in = False
+        self.logged_in = True
 
     @staticmethod
     def extract_first(dom, xpath):
@@ -155,7 +159,7 @@ class Scraper:
 
             return resp.cookies
 
-    async def _check_authenticated(self, response: ClientResponse) -> bool:
+    async def _check_authenticated(self, response: Union[ClientResponse, Response]) -> bool:
         return True
 
     async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
@@ -357,9 +361,7 @@ class Scraper:
                     vendor=self.vendor, vendor_order_reference=vendor_order_reference
                 ).first()
             else:
-                vendor_order = VendorOrderModel.objects.filter(
-                    vendor=self.vendor, vendor_order_id=order_id
-                ).first()
+                vendor_order = VendorOrderModel.objects.filter(vendor=self.vendor, vendor_order_id=order_id).first()
             if vendor_order:
                 logger.debug("Update existing vendor order status")
                 vendor_order.vendor_order_id = order_id
@@ -370,7 +372,7 @@ class Scraper:
                 # the order status is still not shipped...
                 now_date = datetime.datetime.now().date()
                 if (now_date - order_date).days >= 3 and order_data["status"] == OrderStatus.OPEN.value:
-                    notify_order_issue_to_customers.delay(vendor_order)
+                    notify_order_issue_to_customers.delay(vendor_order.id)
             else:
                 logger.debug("Create new vendor order information")
                 order = OrderModel.objects.create(
@@ -380,14 +382,9 @@ class Scraper:
                     total_items=order_data["total_items"],
                     total_amount=order_data["total_amount"],
                 )
-                vendor_order = VendorOrderModel.from_dataclass(
-                    vendor=self.vendor, order=order, dict_data=order_data
-                )
+                vendor_order = VendorOrderModel.from_dataclass(vendor=self.vendor, order=order, dict_data=order_data)
                 office_budget = (
-                    office.budgets
-                    .filter(month__year=order_date.year)
-                    .filter(month__month=order_date.month)
-                    .first()
+                    office.budgets.filter(month__year=order_date.year).filter(month__month=order_date.month).first()
                 )
                 if office_budget:
                     office_budget.dental_spend = F("dental_spend") + order_data["total_amount"]
@@ -417,9 +414,7 @@ class Scraper:
                         product_data, office, is_inventory=True, order_date=order_date
                     )
                     order_product["vendor_status"] = order_product["status"]
-                    order_product["status"] = self.normalize_order_product_status(
-                        order_product["vendor_status"]
-                    )
+                    order_product["status"] = self.normalize_order_product_status(order_product["vendor_status"])
 
                     VendorOrderProductModel.objects.update_or_create(
                         vendor_order=vendor_order,

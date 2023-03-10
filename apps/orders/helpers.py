@@ -12,6 +12,7 @@ from typing import Dict, List, Optional, TypedDict, Union
 
 import pandas as pd
 from aiohttp import ClientSession, ClientTimeout
+from asgiref.sync import sync_to_async
 from dateutil import rrule
 from django.conf import settings
 from django.contrib.postgres.search import SearchQuery, SearchVectorField
@@ -59,6 +60,7 @@ from apps.orders.models import ProcedureCode as ProcedureCodeModel
 from apps.orders.models import Product as ProductModel
 from apps.orders.models import ProductCategory as ProductCategoryModel
 from apps.orders.models import ProductImage as ProductImageModel
+from apps.scrapers.errors import VendorAuthenticationFailed as VendorAuthFailed
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.vendor_clients.async_clients import BaseClient as BaseAsyncClient
 from apps.vendor_clients.errors import VendorAuthenticationFailed
@@ -1433,6 +1435,8 @@ class OrderHelper:
         completed_order_ids: list = [],
         consider_recent: bool = False,
     ):
+        from apps.accounts.tasks import notify_vendor_auth_issue_to_admins
+
         async with ClientSession(cookies=login_cookies, timeout=ClientTimeout(30)) as session:
             scraper = ScraperFactory.create_scraper(
                 vendor=office_vendor.vendor,
@@ -1447,10 +1451,19 @@ class OrderHelper:
                 from_date = timezone.now().date() - datetime.timedelta(days=4)
                 to_date = timezone.now().date()
 
+            if perform_login:
+                try:
+                    await scraper.login()
+                except Exception:
+                    office_vendor.login_success = False
+                    await sync_to_async(office_vendor.save)()
+                    notify_vendor_auth_issue_to_admins.delay(office_vendor.id)
+                    raise VendorAuthFailed(f"Authentication is failed for {office_vendor.vendor.name} vendor")
+
             await scraper.get_orders(
                 office=office_vendor.office,
                 from_date=from_date,
                 to_date=to_date,
-                perform_login=perform_login,
+                perform_login=False,
                 completed_order_ids=completed_order_ids,
             )

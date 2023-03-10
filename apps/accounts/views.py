@@ -39,7 +39,7 @@ from . import permissions as p
 from . import serializers as s
 from .services.offices import OfficeService
 from .tasks import (
-    fetch_orders_from_vendor,
+    fetch_order_history,
     fetch_vendor_products_prices,
     send_company_invite_email,
     send_welcome_email,
@@ -516,10 +516,9 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
 
                 # All scrapers work with login_cookies,
                 # but henryschein doesn't work with login_cookies...
-                fetch_orders_from_vendor.delay(
-                    office_vendor_id=office_vendor.id,
-                    login_cookies=None,
-                    perform_login=True,
+                fetch_order_history.delay(
+                    vendor_slug=office_vendor.vendor.slug,
+                    office_id=office_vendor.office.id,
                 )
 
             else:
@@ -543,6 +542,24 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
 
         return Response({"message": msgs.VENDOR_CONNECTED, **serializer.data})
 
+    @action(detail=True, methods=["post"])
+    def relink_office_vendor(self, request, *args, **kwargs):
+        office_vendor = self.get_object()
+        if office_vendor.login_success:
+            return Response({"message": msgs.OFFICE_VENDOR_ALREADY_LINKED}, status=HTTP_400_BAD_REQUEST)
+
+        serializer = s.OfficeVendorSerializer(
+            office_vendor, data={**request.data, "login_success": True}, partial=True
+        )
+        if serializer.is_valid():
+            self.perform_update(serializer)
+
+        fetch_order_history.delay(
+            vendor_slug=office_vendor.vendor.slug,
+            office_id=office_vendor.office.id,
+        )
+        return Response({"message": msgs.OFFICE_VENDOR_RECONNECTED})
+
     @action(detail=True, methods=["get"], url_path="fetch-prices")
     def fetch_product_prices(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -552,33 +569,8 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
     @action(detail=True, methods=["post"], url_path="fetch")
     def fetch_orders(self, request, *args, **kwargs):
         instance = self.get_object()
-        fetch_orders_from_vendor.delay(office_vendor_id=instance.id, login_cookies=None, perform_login=True)
-        # instance = await sync_to_async(self.get_object)()
-        # office = await sync_to_async(m.Office.objects.get)(id=135)
-        # vendor = await sync_to_async(m.Vendor.objects.get)(id=13)
-        # session = apps.get_app_config("accounts").session
-        # scraper = ScraperFactory.create_scraper(
-        #         vendor=vendor,
-        #         username="drpatel@puresmilesmarietta.com",
-        #         password="Puresmiles1!",
-        #         session=session,
-        #     )
-        # ret = await scraper.get_orders()
-        # ar: AsyncResult = fetch_orders_from_vendor.delay(
-        #     office_vendor_id=instance.id, login_cookies=None, perform_login=True
-        # )
-        # instance.task_id = ar.id
-        # instance.save()
+        fetch_order_history.delay(vendor_slug=instance.vendor.slug, office_id=instance.office.id)
         return Response(s.OfficeVendorSerializer(instance).data)
-
-    # @action(detail=True, methods=["get"], url_path="fetch-status")
-    # def get_fetching_status(self, request, *args, **kwargs):
-    #     instance = self.get_object()
-    #     if not instance.task_id:
-    #         return Response({"status": "SUCCESS", "message": "Fetching Orders has been finished"})
-    #
-    #     ar: AsyncResult = fetch_orders_from_vendor.AsyncResult(instance.task_id)
-    #     return Response({"status": ar.status})
 
 
 class UserViewSet(ModelViewSet):

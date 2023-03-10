@@ -1,44 +1,44 @@
-import datetime
-from decimal import Decimal
-import time
-import re
-import json
-import uuid
-import scrapy
-import requests
-import traceback
 import asyncio
-from scrapy import Selector
-from typing import Dict, List, Optional, Tuple
+import datetime
+import json
+import re
+import time
+import uuid
+from decimal import Decimal
 from http.cookies import SimpleCookie
+from typing import Dict, List, Optional
+
+import scrapy
+from scrapy import Selector
 
 from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
+from apps.scrapers.errors import VendorAuthenticationFailed
+from apps.scrapers.schema import Order, VendorOrderDetail
 from apps.scrapers.utils import catch_network, semaphore_coroutine
-from apps.scrapers.schema import VendorOrderDetail, Order
 from apps.types.orders import CartProduct
 
-
 headers = {
-    'authority': 'store.implantdirect.com',
-    'sec-ch-ua': '" Not;A Brand";v="99", "Google Chrome";v="97", "Chromium";v="97"',
-    'sec-ch-ua-mobile': '?0',
-    'sec-ch-ua-platform': '"Windows"',
-    'upgrade-insecure-requests': '1',
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36',
-    'accept': '*/*',
-    'sec-fetch-site': 'same-origin',
-    'sec-fetch-mode': 'navigate',
-    'sec-fetch-user': '?1',
-    'sec-fetch-dest': 'document',
-    'referer': 'https://store.implantdirect.com/us/en/',
-    'accept-language': 'en-US,en;q=0.9',
+    "authority": "store.implantdirect.com",
+    "sec-ch-ua": '" Not;A Brand";v="99", "Google Chrome";v="97", "Chromium";v="97"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    "upgrade-insecure-requests": "1",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit"
+    "/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36",
+    "accept": "*/*",
+    "sec-fetch-site": "same-origin",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-user": "?1",
+    "sec-fetch-dest": "document",
+    "referer": "https://store.implantdirect.com/us/en/",
+    "accept-language": "en-US,en;q=0.9",
 }
 
-class ImplantDirectScraper(Scraper):
 
-    reqsession = requests.Session()
+class ImplantDirectScraper(Scraper):
     results = list()
+    aiohttp_mode = False
 
     def extractContent(dom, xpath):
         return re.sub(r"\s+", " ", " ".join(dom.xpath(xpath).extract())).strip()
@@ -51,40 +51,40 @@ class ImplantDirectScraper(Scraper):
             self.password = password
 
         loop = asyncio.get_event_loop()
-        res = await loop.run_in_executor(None,self.login_proc)
+        res = await loop.run_in_executor(None, self.login_proc)
         print("login DONE")
         return res
 
     def getHomePage(self):
-        response = self.reqsession.get('https://store.implantdirect.com/us/en/', headers=headers)
+        response = self.session.get("https://store.implantdirect.com/us/en/", headers=headers)
         print("Home Page:", response.status_code)
         return response
 
     def getLoginPage(self, login_link):
-        response = self.reqsession.get(login_link, headers=headers)
+        response = self.session.get(login_link, headers=headers)
         print("LogIn Page:", response.status_code)
         return response
 
     def getCartPage(self):
-        response = self.reqsession.get('https://store.implantdirect.com/us/en/checkout/cart/', headers=headers)
+        response = self.session.get("https://store.implantdirect.com/us/en/checkout/cart/", headers=headers)
         print("Cart Page:", response.status_code)
         return response.text
-        
+
     def getProductPage(self, link):
-        response = self.reqsession.get(link, headers=headers)
+        response = self.session.get(link, headers=headers)
         return response.text
 
     def getOrderDetailPage(self, _link):
-        response = self.reqsession.get(_link, headers=headers)
+        response = self.session.get(_link, headers=headers)
         print("Order Detail Page:", response.status_code)
 
     @semaphore_coroutine
     async def get_order(self, sem, order, office=None) -> dict:
         print(" === get order ==", office, order)
         loop = asyncio.get_event_loop()
-        order_dict = await loop.run_in_executor(None,self.orderDetail, order['order_detail_link'])
+        order_dict = await loop.run_in_executor(None, self.orderDetail, order["order_detail_link"])
         order_dict.update(order)
-        order_dict.update({"currency":"USD"})
+        order_dict.update({"currency": "USD"})
         print(order_dict)
 
         if office:
@@ -102,14 +102,14 @@ class ImplantDirectScraper(Scraper):
         loop = asyncio.get_event_loop()
 
         if perform_login:
-            await loop.run_in_executor(None,self.login_proc)
+            await loop.run_in_executor(None, self.login_proc)
 
         await loop.run_in_executor(None, self.orderHistory, 1)
-        tasks=[]
+        tasks = []
 
         for order_data in self.results:
             print(order_data["order_date"])
-            # month, day, year= order_data["order_date"].split("/")                
+            # month, day, year= order_data["order_date"].split("/")
             # order_date = datetime.date(int(year), int(month), int(day))
             if isinstance(order_data["order_date"], datetime.date):
                 order_date = order_data["order_date"]
@@ -130,31 +130,34 @@ class ImplantDirectScraper(Scraper):
 
     def orderHistory(self, page):
         json_headers = {
-            'authority': 'store.implantdirect.com',
-            'accept': 'application/json, text/javascript, */*; q=0.01',
-            'accept-language': 'en-US,en;q=0.9',
-            'referer': 'https://store.implantdirect.com/us/en/customer/order/',
-            'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-origin',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36',
-            'x-newrelic-id': 'VQUAU1dTABABVFdVBgYEUFcD',
-            'x-requested-with': 'XMLHttpRequest',
+            "authority": "store.implantdirect.com",
+            "accept": "application/json, text/javascript, */*; q=0.01",
+            "accept-language": "en-US,en;q=0.9",
+            "referer": "https://store.implantdirect.com/us/en/customer/order/",
+            "sec-ch-ua": '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit"
+            "/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36",
+            "x-newrelic-id": "VQUAU1dTABABVFdVBgYEUFcD",
+            "x-requested-with": "XMLHttpRequest",
         }
 
         params = {
-            'namespace': 'customer_order_listing',
-            'sorting[field]': 'creation_date',
-            'sorting[direction]': 'desc',
-            'filters[placeholder]': 'true',
-            'paging[pageSize]': '50',
-            'paging[current]': f'{page}',
-            '_': f'{int(time.time()*1000)}',
+            "namespace": "customer_order_listing",
+            "sorting[field]": "creation_date",
+            "sorting[direction]": "desc",
+            "filters[placeholder]": "true",
+            "paging[pageSize]": "50",
+            "paging[current]": f"{page}",
+            "_": f"{int(time.time() * 1000)}",
         }
 
-        response = self.reqsession.get('https://store.implantdirect.com/us/en/customer/order/grid/', params=params, headers=json_headers)
+        response = self.session.get(
+            "https://store.implantdirect.com/us/en/customer/order/grid/", params=params, headers=json_headers
+        )
         data = response.json()
 
         for order_item in data["items"]:
@@ -171,33 +174,34 @@ class ImplantDirectScraper(Scraper):
             # order_history["order_number"] = order_item["increment_id"]
             self.results.append(order_history)
 
-
         if data["totalRecords"] > 50 * page:
-            self.orderHistory(page+1)
-        
+            self.orderHistory(page + 1)
+
     def orderDetail(self, _link):
         self.getOrderDetailPage(_link)
         json_headers = {
-            'authority': 'store.implantdirect.com',
-            'accept': 'application/json, text/javascript, */*; q=0.01',
-            'accept-language': 'en-US,en;q=0.9',
-            'referer': _link,
-            'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-origin',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36',
-            'x-newrelic-id': 'VQUAU1dTABABVFdVBgYEUFcD',
-            'x-requested-with': 'XMLHttpRequest',
+            "authority": "store.implantdirect.com",
+            "accept": "application/json, text/javascript, */*; q=0.01",
+            "accept-language": "en-US,en;q=0.9",
+            "referer": _link,
+            "sec-ch-ua": '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit"
+            "/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36",
+            "x-newrelic-id": "VQUAU1dTABABVFdVBgYEUFcD",
+            "x-requested-with": "XMLHttpRequest",
         }
 
-        response = self.reqsession.get(
-            f'https://store.implantdirect.com/us/en/mui/index/render/?namespace=customer_order_items&_={int(time.time()*1000)}',
-            headers=json_headers
+        response = self.session.get(
+            f"https://store.implantdirect.com/us/en/mui/index/render"
+            f"/?namespace=customer_order_items&_={int(time.time() * 1000)}",
+            headers=json_headers,
         )
         order = dict()
-        order['products'] = list()
+        order["products"] = list()
         for product_item in response.json()["items"]:
             product = dict()
             product["qty"] = product_item["qty"]
@@ -207,15 +211,18 @@ class ImplantDirectScraper(Scraper):
             product["product_id"] = product_item["sku"]
             product["vendor"] = self.vendor.to_dict()
             product["subtotal"] = product_item["row_total"]
-            product["images"]= []
-            order['products'].append({
-                "product": product,
-                "quantity": product.pop("qty"),
-                "unit_price":product["price"]
-            })
+            product["images"] = []
+            order["products"].append(
+                {"product": product, "quantity": product.pop("qty"), "unit_price": product["price"]}
+            )
 
         return order
-    
+
+    def _check_authenticated(self, response):
+        dom = Selector(text=response.text)
+        page_title = dom.css("title::text").get()
+        return page_title != "Customer Login"
+
     def login_proc(self):
         home_resp = self.getHomePage()
         home_dom = scrapy.Selector(text=home_resp.text)
@@ -226,16 +233,16 @@ class ImplantDirectScraper(Scraper):
             return True
         form_key = login_dom.xpath('//form[@id="login-form"]/input[@name="form_key"]/@value').get()
         form_action = login_dom.xpath('//form[@id="login-form"]/@action').get()
-        data = {
-            'form_key': form_key,
-            'login[username]': self.username,
-            'login[password]': self.password,
-            'send': ''
-        }
-        response = self.reqsession.post(form_action, data=data, headers=headers)
+        data = {"form_key": form_key, "login[username]": self.username, "login[password]": self.password, "send": ""}
+        response = self.session.post(form_action, data=data, headers=headers)
+
+        is_authenticated = self._check_authenticated(response)
+        if not is_authenticated:
+            raise VendorAuthenticationFailed()
+
         print(response.url)
         print("Log In POST:", response.status_code)
-        return response.cookies        
+        return response.cookies
 
     def clear_cart(self):
         cart_page = self.getCartPage()
@@ -243,106 +250,132 @@ class ImplantDirectScraper(Scraper):
         form_key = dom.xpath('//form[@id="form-validate"]//input[@name="form_key"]/@value').get()
         products = dom.xpath('//form[@id="form-validate"]//table[@id="shopping-cart-table"]/tbody[@class="cart item"]')
         data = {
-            'form_key': form_key,
-            'update_cart_action': 'empty_cart',
+            "form_key": form_key,
+            "update_cart_action": "empty_cart",
         }
         for product in products:
             _key = product.xpath('.//input[@data-role="cart-item-qty"]/@name').get()
             _val = product.xpath('.//input[@data-role="cart-item-qty"]/@value').get()
             data[_key] = _val
-        
+
         if products:
-            response = self.reqsession.post('https://store.implantdirect.com/us/en/checkout/cart/updatePost/', data=data, headers=headers)
+            response = self.session.post(
+                "https://store.implantdirect.com/us/en/checkout/cart/updatePost/", data=data, headers=headers
+            )
             print("Empty Cart POST:", response.status_code)
         else:
             print("Empty Cart: Already Empty")
 
     def add_to_cart(self, products):
         add_to_cart_headers = {
-            'authority': 'store.implantdirect.com',
-            'accept': 'application/json, text/javascript, */*; q=0.01',
-            'accept-language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
-            'content-type': 'multipart/form-data; boundary=----WebKitFormBoundarytvKTimFXuo4R6Xsw',
-            'origin': 'https://store.implantdirect.com',
-            'referer': 'https://store.implantdirect.com/us/en/surgical-kit-grommet-small-2pk',
-            'sec-ch-ua': '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"',
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-origin',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36',
-            'x-requested-with': 'XMLHttpRequest',
+            "authority": "store.implantdirect.com",
+            "accept": "application/json, text/javascript, */*; q=0.01",
+            "accept-language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
+            "content-type": "multipart/form-data; boundary=----WebKitFormBoundarytvKTimFXuo4R6Xsw",
+            "origin": "https://store.implantdirect.com",
+            "referer": "https://store.implantdirect.com/us/en/surgical-kit-grommet-small-2pk",
+            "sec-ch-ua": '"Google Chrome";v="105", "Not)A;Brand";v="8", "Chromium";v="105"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit"
+            "/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36",
+            "x-requested-with": "XMLHttpRequest",
         }
 
         cookies = {
-            'form_key': 'l7i7sDRkNglwFRKP',
+            "form_key": "l7i7sDRkNglwFRKP",
         }
-        
+
         for product in products:
             product_page = self.getProductPage(product["product_url"])
             dom = Selector(text=product_page)
             action_link = dom.xpath('//form[@id="product_addtocart_form"]/@action').get()
-            product_id = dom.xpath('//div[@data-product-id]/@data-product-id').get()
+            product_id = dom.xpath("//div[@data-product-id]/@data-product-id").get()
 
-            data = f'------WebKitFormBoundarytvKTimFXuo4R6Xsw\r\nContent-Disposition: form-data; name="product"\r\n\r\n{product_id}\r\n------WebKitFormBoundarytvKTimFXuo4R6Xsw\r\nContent-Disposition: form-data; name="selected_configurable_option"\r\n\r\n\r\n------WebKitFormBoundarytvKTimFXuo4R6Xsw\r\nContent-Disposition: form-data; name="related_product"\r\n\r\n\r\n------WebKitFormBoundarytvKTimFXuo4R6Xsw\r\nContent-Disposition: form-data; name="item"\r\n\r\n{product_id}\r\n------WebKitFormBoundarytvKTimFXuo4R6Xsw\r\nContent-Disposition: form-data; name="form_key"\r\n\r\nl7i7sDRkNglwFRKP\r\n------WebKitFormBoundarytvKTimFXuo4R6Xsw\r\nContent-Disposition: form-data; name="qty"\r\n\r\n{product["quantity"]}\r\n------WebKitFormBoundarytvKTimFXuo4R6Xsw--\r\n'
+            data = (
+                f"------WebKitFormBoundarytvKTimFXuo4R6Xsw\r\nContent-Disposition: "
+                f'form-data; name="product"\r\n\r\n{product_id}\r\n------WebKitForm'
+                f'BoundarytvKTimFXuo4R6Xsw\r\nContent-Disposition: form-data; name="'
+                f'selected_configurable_option"\r\n\r\n\r\n------WebKitFormBoundary'
+                f'tvKTimFXuo4R6Xsw\r\nContent-Disposition: form-data; name="related'
+                f'_product"\r\n\r\n\r\n------WebKitFormBoundarytvKTimFXuo4R6Xsw\r\n'
+                f'Content-Disposition: form-data; name="item"\r\n\r\n{product_id}\r'
+                f"\n------WebKitFormBoundarytvKTimFXuo4R6Xsw\r\nContent-Disposition"
+                f': form-data; name="form_key"\r\n\r\nl7i7sDRkNglwFRKP\r\n------Web'
+                f"KitFormBoundarytvKTimFXuo4R6Xsw\r\nContent-Disposition: form-data;"
+                f' name="qty"\r\n\r\n{product["quantity"]}\r\n------WebKitFormBound'
+                f"arytvKTimFXuo4R6Xsw--\r\n"
+            )
 
-            response = self.reqsession.post(action_link, data=data, headers=add_to_cart_headers, cookies=cookies)
+            response = self.session.post(action_link, data=data, headers=add_to_cart_headers, cookies=cookies)
             print(f"Product ({product_id}) added to cart:", response.status_code)
-    
+
     def shipping_infomation(self, payload):
         post_headers = {
-            'authority': 'store.implantdirect.com',
-            'pragma': 'no-cache',
-            'cache-control': 'no-cache',
-            'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
-            'x-newrelic-id': 'VQUAU1dTABAHXFhUDgUHXlc=',
-            'sec-ch-ua-mobile': '?0',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36',
-            'content-type': 'application/json',
-            'accept': '*/*',
-            'x-requested-with': 'XMLHttpRequest',
-            'sec-ch-ua-platform': '"Windows"',
-            'origin': 'https://store.implantdirect.com',
-            'sec-fetch-site': 'same-origin',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-dest': 'empty',
-            'referer': 'https://store.implantdirect.com/us/en/checkout/',
-            'accept-language': 'en-US,en;q=0.9',
+            "authority": "store.implantdirect.com",
+            "pragma": "no-cache",
+            "cache-control": "no-cache",
+            "sec-ch-ua": '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
+            "x-newrelic-id": "VQUAU1dTABAHXFhUDgUHXlc=",
+            "sec-ch-ua-mobile": "?0",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit"
+            "/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "x-requested-with": "XMLHttpRequest",
+            "sec-ch-ua-platform": '"Windows"',
+            "origin": "https://store.implantdirect.com",
+            "sec-fetch-site": "same-origin",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-dest": "empty",
+            "referer": "https://store.implantdirect.com/us/en/checkout/",
+            "accept-language": "en-US,en;q=0.9",
         }
 
-        response = self.reqsession.post('https://store.implantdirect.com/us/en/rest/us_en/V1/carts/mine/shipping-information', headers=post_headers, json=payload)
+        response = self.session.post(
+            "https://store.implantdirect.com/us/en/rest/us_en/V1/carts/mine/shipping-information",
+            headers=post_headers,
+            json=payload,
+        )
         print("Shipping Infomation:", response.status_code)
         return response.json()["totals"]
 
     def proceed_checkout(self):
-        response = self.reqsession.get('https://store.implantdirect.com/us/en/checkout/', headers=headers)
+        response = self.session.get("https://store.implantdirect.com/us/en/checkout/", headers=headers)
         print("Checkout Page:", response.status_code)
         response_dom = Selector(text=response.text)
         json_text = response_dom.xpath('//script[contains(text(), "totalsData")]//text()').get().strip()
-        json_text = json_text.split("window.checkoutConfig", 1)[1].split("window.customerData", 1)[0].split("window.isCustomerLoggedIn", 1)[0].rsplit("};", 1)[0]
+        json_text = (
+            json_text.split("window.checkoutConfig", 1)[1]
+            .split("window.customerData", 1)[0]
+            .split("window.isCustomerLoggedIn", 1)[0]
+            .rsplit("};", 1)[0]
+        )
         json_text = json_text.strip("\n\r\t =")
-        json_data = json.loads(json_text+"}")
+        json_data = json.loads(json_text + "}")
 
         cartId = json_data["quoteData"]["entity_id"]
-        
+
         shipping_payload = {
-            'addressInformation': {
-                'shipping_address': {},
-                'billing_address': {},
-                # shipping_method_code: 
+            "addressInformation": {
+                "shipping_address": {},
+                "billing_address": {},
+                # shipping_method_code:
                 # - Will Call – Pomona, CA: 38
                 # - UPS 2 Day : 31
                 # - UPS Overnight : 33
                 # - UPS Overnight - AM delivery : 34
                 # - UPS Overnight - Saturday delivery : UD
                 # - UPS Overnight - AM Saturday delivery : 59
-                'shipping_method_code': '31',
-                'shipping_carrier_code': 'shippingoptions',
-                'extension_attributes': {},
+                "shipping_method_code": "31",
+                "shipping_carrier_code": "shippingoptions",
+                "extension_attributes": {},
             },
         }
-        
+
         shipping_address_l = json_data["customerData"]["addresses"]
         for item in shipping_address_l.values():
             if item["default_billing"]:
@@ -364,17 +397,23 @@ class ImplantDirectScraper(Scraper):
                 shipping_payload["addressInformation"]["billing_address"]["prefix"] = item["prefix"]
                 shipping_payload["addressInformation"]["billing_address"]["suffix"] = item["suffix"]
                 shipping_payload["addressInformation"]["billing_address"]["vatId"] = item["vat_id"]
-                shipping_payload["addressInformation"]["billing_address"]["customAttributes"] = list(item["custom_attributes"].values())
+                shipping_payload["addressInformation"]["billing_address"]["customAttributes"] = list(
+                    item["custom_attributes"].values()
+                )
 
                 billing_address = f'{item["inline"]}\n{item["telephone"]}'
                 print("--- billing_address:\n", billing_address.strip() if billing_address else "")
 
             if item["default_shipping"]:
                 shipping_payload["addressInformation"]["shipping_address"]["customerAddressId"] = item["id"]
-                shipping_payload["addressInformation"]["shipping_address"]["email"] = json_data["customerData"]["email"]
+                shipping_payload["addressInformation"]["shipping_address"]["email"] = json_data["customerData"][
+                    "email"
+                ]
                 shipping_payload["addressInformation"]["shipping_address"]["countryId"] = item["country_id"]
                 shipping_payload["addressInformation"]["shipping_address"]["regionId"] = item["region_id"]
-                shipping_payload["addressInformation"]["shipping_address"]["regionCode"] = item["region"]["region_code"]
+                shipping_payload["addressInformation"]["shipping_address"]["regionCode"] = item["region"][
+                    "region_code"
+                ]
                 shipping_payload["addressInformation"]["shipping_address"]["region"] = item["region"]["region"]
                 shipping_payload["addressInformation"]["shipping_address"]["customerId"] = item["customer_id"]
                 shipping_payload["addressInformation"]["shipping_address"]["street"] = item["street"]
@@ -389,7 +428,9 @@ class ImplantDirectScraper(Scraper):
                 shipping_payload["addressInformation"]["shipping_address"]["prefix"] = item["prefix"]
                 shipping_payload["addressInformation"]["shipping_address"]["suffix"] = item["suffix"]
                 shipping_payload["addressInformation"]["shipping_address"]["vatId"] = item["vat_id"]
-                shipping_payload["addressInformation"]["shipping_address"]["customAttributes"] = list(item["custom_attributes"].values())
+                shipping_payload["addressInformation"]["shipping_address"]["customAttributes"] = list(
+                    item["custom_attributes"].values()
+                )
 
                 shipping_address = f'{item["inline"]}\n{item["telephone"]}'
                 print("--- shipping_address:\n", shipping_address.strip() if shipping_address else "")
@@ -397,61 +438,62 @@ class ImplantDirectScraper(Scraper):
         total_info = self.shipping_infomation(shipping_payload)
         currency = total_info["base_currency_code"]
         subtotal = total_info["subtotal"]
-        print("--- subtotal:\n", f'{currency} {subtotal}'.strip() if subtotal else "")
+        print("--- subtotal:\n", f"{currency} {subtotal}".strip() if subtotal else "")
 
         shipping = total_info["shipping_amount"]
-        print("--- shipping:\n", f'{currency} {shipping}'.strip() if shipping else "")
+        print("--- shipping:\n", f"{currency} {shipping}".strip() if shipping else "")
 
         discount = total_info["discount_amount"]
-        print("--- discount:\n", f'{currency} {discount}'.strip() if discount else "")
+        print("--- discount:\n", f"{currency} {discount}".strip() if discount else "")
 
         tax = total_info["tax_amount"]
-        print("--- tax:\n", f'{currency} {tax}'.strip() if tax else "")
+        print("--- tax:\n", f"{currency} {tax}".strip() if tax else "")
 
         order_total = total_info["grand_total"]
-        print("--- order_total:\n", f'{currency} {order_total}'.strip() if order_total else "")
+        print("--- order_total:\n", f"{currency} {order_total}".strip() if order_total else "")
 
         return cartId, shipping_payload, shipping_address, subtotal, shipping, discount, tax, order_total
 
     def submit_order(self, cartId, shipping_payload):
         post_headers = {
-            'authority': 'store.implantdirect.com',
-            'pragma': 'no-cache',
-            'cache-control': 'no-cache',
-            'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
-            'x-newrelic-id': 'VQUAU1dTABAHXFhUDgUHXlc=',
-            'sec-ch-ua-mobile': '?0',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36',
-            'content-type': 'application/json',
-            'accept': '*/*',
-            'x-requested-with': 'XMLHttpRequest',
-            'sec-ch-ua-platform': '"Windows"',
-            'origin': 'https://store.implantdirect.com',
-            'sec-fetch-site': 'same-origin',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-dest': 'empty',
-            'referer': 'https://store.implantdirect.com/us/en/checkout/',
-            'accept-language': 'en-US,en;q=0.9',
+            "authority": "store.implantdirect.com",
+            "pragma": "no-cache",
+            "cache-control": "no-cache",
+            "sec-ch-ua": '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
+            "x-newrelic-id": "VQUAU1dTABAHXFhUDgUHXlc=",
+            "sec-ch-ua-mobile": "?0",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit"
+            "/537.36 (KHTML, like Gecko) Chrome/99.0.4844.84 Safari/537.36",
+            "content-type": "application/json",
+            "accept": "*/*",
+            "x-requested-with": "XMLHttpRequest",
+            "sec-ch-ua-platform": '"Windows"',
+            "origin": "https://store.implantdirect.com",
+            "sec-fetch-site": "same-origin",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-dest": "empty",
+            "referer": "https://store.implantdirect.com/us/en/checkout/",
+            "accept-language": "en-US,en;q=0.9",
         }
 
         billingAddress = shipping_payload["addressInformation"]["shipping_address"]
         billingAddress["saveInAddressBook"] = None
 
         json_data = {
-            'cartId': cartId,
-            'billingAddress': billingAddress,
-            "paymentMethod": {
-                "method": "checkmo",
-                "po_number": None,
-                "additional_data": None
-            }
+            "cartId": cartId,
+            "billingAddress": billingAddress,
+            "paymentMethod": {"method": "checkmo", "po_number": None, "additional_data": None},
         }
 
-        response = self.reqsession.post('https://store.implantdirect.com/us/en/rest/us_en/V1/carts/mine/payment-information', headers=post_headers, json=json_data)
+        response = self.session.post(
+            "https://store.implantdirect.com/us/en/rest/us_en/V1/carts/mine/payment-information",
+            headers=post_headers,
+            json=json_data,
+        )
         print("Place Order Response:", response.status_code)
         print("Place Order Response:", response.text)
 
-        response = self.reqsession.get('https://store.implantdirect.com/us/en/checkout/onepage/success/', headers=headers)
+        response = self.session.get("https://store.implantdirect.com/us/en/checkout/onepage/success/", headers=headers)
         print("Order Result Response:", response.status_code)
 
         response_dom = Selector(text=response.text)
@@ -466,9 +508,18 @@ class ImplantDirectScraper(Scraper):
             await asyncio.sleep(0.5)
             raise Exception()
             await self.login()
-            await loop.run_in_executor(None,self.clear_cart)
-            await loop.run_in_executor(None,self.add_to_cart, products)
-            cartId, shipping_payload, shipping_address, subtotal, shipping, discount, tax, order_total = await loop.run_in_executor(None,self.proceed_checkout)
+            await loop.run_in_executor(None, self.clear_cart)
+            await loop.run_in_executor(None, self.add_to_cart, products)
+            (
+                cartId,
+                shipping_payload,
+                shipping_address,
+                subtotal,
+                shipping,
+                discount,
+                tax,
+                order_total,
+            ) = await loop.run_in_executor(None, self.proceed_checkout)
             vendor_order_detail = {
                 "retail_amount": "",
                 "savings_amount": discount,
@@ -478,11 +529,11 @@ class ImplantDirectScraper(Scraper):
                 "total_amount": order_total,
                 "reduction_amount": order_total,
                 "payment_method": "",
-                "shipping_address": shipping_address
+                "shipping_address": shipping_address,
             }
-        except:
+        except Exception:
             print("implant_direct create_order except")
-            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
+            subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
             vendor_order_detail = {
                 "retail_amount": "",
                 "savings_amount": "",
@@ -504,15 +555,23 @@ class ImplantDirectScraper(Scraper):
 
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
         print("Implant Direct/confirm_order")
-        self.reqsession = requests.Session()
         loop = asyncio.get_event_loop()
         try:
             await asyncio.sleep(1)
             raise Exception()
             await self.login()
-            await loop.run_in_executor(None,self.clear_cart)
-            await loop.run_in_executor(None,self.add_to_cart, products)
-            cartId, shipping_payload, shipping_address, subtotal, shipping, discount, tax, order_total = await loop.run_in_executor(None,self.proceed_checkout)
+            await loop.run_in_executor(None, self.clear_cart)
+            await loop.run_in_executor(None, self.add_to_cart, products)
+            (
+                cartId,
+                shipping_payload,
+                shipping_address,
+                subtotal,
+                shipping,
+                discount,
+                tax,
+                order_total,
+            ) = await loop.run_in_executor(None, self.proceed_checkout)
             if fake:
                 vendor_order_detail = {
                     "retail_amount": "",
@@ -523,8 +582,8 @@ class ImplantDirectScraper(Scraper):
                     "total_amount": order_total,
                     "payment_method": "",
                     "shipping_address": shipping_address,
-                    "order_id":f"{uuid.uuid4()}",
-                    "order_type": msgs.ORDER_TYPE_ORDO
+                    "order_id": f"{uuid.uuid4()}",
+                    "order_type": msgs.ORDER_TYPE_ORDO,
                 }
                 print("Implant Direct/confirm_order DONE")
 
@@ -532,8 +591,8 @@ class ImplantDirectScraper(Scraper):
                     **vendor_order_detail,
                     **self.vendor.to_dict(),
                 }
-            
-            order_num = await loop.run_in_executor(None,self.submit_order, cartId, shipping_payload)
+
+            order_num = await loop.run_in_executor(None, self.submit_order, cartId, shipping_payload)
             print("Order Number:", order_num)
             vendor_order_detail = {
                 "retail_amount": "",
@@ -544,8 +603,8 @@ class ImplantDirectScraper(Scraper):
                 "total_amount": order_total,
                 "payment_method": "",
                 "shipping_address": shipping_address,
-                "order_id":order_num,
-                "order_type": msgs.ORDER_TYPE_ORDO
+                "order_id": order_num,
+                "order_type": msgs.ORDER_TYPE_ORDO,
             }
             print("Implant Direct/confirm_order DONE")
 
@@ -553,9 +612,9 @@ class ImplantDirectScraper(Scraper):
                 **vendor_order_detail,
                 **self.vendor.to_dict(),
             }
-        except:
+        except Exception:
             print("implant_direct confirm_order except")
-            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
+            subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
             vendor_order_detail = {
                 "retail_amount": "",
                 "savings_amount": "",
@@ -566,8 +625,8 @@ class ImplantDirectScraper(Scraper):
                 "reduction_amount": Decimal(subtotal_manual),
                 "payment_method": "",
                 "shipping_address": "",
-                "order_id":f"{uuid.uuid4()}",
-                "order_type": msgs.ORDER_TYPE_REDUNDANCY
+                "order_id": f"{uuid.uuid4()}",
+                "order_type": msgs.ORDER_TYPE_REDUNDANCY,
             }
             return {
                 **vendor_order_detail,
