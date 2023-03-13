@@ -1788,6 +1788,30 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
 
         ProcedureHelper.fetch_procedure_period(day_from, office_pk, date_type)
 
+        summary_category_all = m.ProcedureCategoryLink.objects.all()
+        proc_total = {
+            category.summary_slug: {
+                "order": category.category_order,
+                "is_favorite": category.is_favorite,
+                "count": 0,
+                "avg_count": 0,
+            }
+            for category in summary_category_all
+        }
+
+        ret_proccodes = (
+            m.ProcedureCode.objects.all()
+            .values_list(
+                "summary_category__summary_slug",
+            )
+            .annotate(dcount=Count("proccode"), codes=ArrayAgg("proccode"))
+            .order_by("dcount")
+            .filter(summary_category__isnull=False)
+        )
+
+        for slug, _, codes in ret_proccodes:
+            proc_total[slug]["codes"] = codes
+
         ret_current = (
             self.get_queryset()
             .filter(office=office, type=date_type, start_date__gte=day_from, start_date__lte=day_to)
@@ -1800,19 +1824,19 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
                 "procedurecode__summary_category__category_order",
                 "procedurecode__summary_category__is_favorite",
             )
-            .annotate(dcount=Sum("count"), codes=ArrayAgg("procedurecode__proccode"))
+            .annotate(dcount=Sum("count"))
             .filter(procedurecode__summary_category__isnull=False)
             .order_by("-dcount")
         )
-        proc_total = {
-            slug: {"id": id, "order": order, "is_favorite": is_favorite, "count": count, "codes": codes}
-            for id, slug, order, is_favorite, count, codes in ret_current
-        }
+
+        for _, slug, _, _, count in ret_current:
+            proc_total[slug]["count"] = count
+
         ret_trailing = (
             self.get_queryset()
             .filter(
                 office=office,
-                type=date_type,
+                type="month",
                 start_date__gte=day_prev_3months_from,
                 start_date__lte=day_prev_3months_to,
             )
@@ -1839,14 +1863,13 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
 
         for proc in ret_schedule:
             for slug, cate in proc_total.items():
-                if proc["ProcCode"] in cate["codes"]:
+                if "codes" in cate and proc["ProcCode"] in cate["codes"]:
                     proc_total[slug]["count"] += proc["Count"]
 
         return Response(proc_total)
 
     @action(detail=False)
     def summary_detail(self, request, *args, **kwargs):
-        date_type = self.request.query_params.get("type", "month")
         summary_category = self.request.query_params.get("summary_category")
         office_pk = self.kwargs["office_pk"]
         day_from = self.request.query_params.get("from")
@@ -1860,12 +1883,6 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         summary_query = m.ProcedureCategoryLink.objects.filter(summary_slug=summary_category).first()
         if not summary_query:
             return Response(status=HTTP_400_BAD_REQUEST, data={"message": "No such summary category slug exists"})
-        categories = (
-            m.ProcedureCode.objects.filter(summary_category=summary_query)
-            .distinct("category")
-            .values_list("category", flat=True)
-        )
-        categories = list(categories)
 
         office = m.Office.objects.get(id=office_pk)
         dental_api = office.dental_api
@@ -1873,15 +1890,26 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             print("Invalid dental api key")
             return Response(status=HTTP_400_BAD_REQUEST, data={"message": "Invalid dental api"})
 
-        proccodes = m.ProcedureCode.objects.filter(category__in=categories).values_list("proccode", flat=True)
-        proccodes_comma = ",".join(proccodes)
-        proccodes_dash = "|".join(proccodes)
+        ret_proccodes = m.ProcedureCode.objects.filter(summary_category=summary_query).values_list(
+            "summary_category__summary_slug", "proccode", "descript", "abbr_desc"
+        )
+        proc_total = {}
+        for slug, code, descript, abbr_desc in ret_proccodes:
+            proc_total[code] = {
+                "Category": slug,
+                "Code": code,
+                "Description": descript,
+                "Abbr_Desc": abbr_desc,
+                "avg_count": 0,
+                "schedule": 0,
+            }
+        proccodes_dash = "|".join(proc_total.keys())
 
         ret_trailing = (
             self.get_queryset()
             .filter(
                 office=office,
-                type=date_type,
+                type="month",
                 start_date__gte=day_prev_3months_from,
                 start_date__lte=day_prev_3months_to,
                 procedurecode__summary_category=summary_query,
@@ -1889,28 +1917,27 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             .values_list("procedurecode__proccode")
             .annotate(sum_count=Sum("count"))
         )
-        dict_trailing = {code: count for code, count in ret_trailing}
+        for code, count in ret_trailing:
+            if code in proc_total:
+                proc_total[code]["avg_count"] = math.floor(count / 3)
 
         try:
-            with open("query/proc_result_new.sql", "r") as f:
-                raw_sql = f.read()
-            query = raw_sql.format(day_from=day_from, day_to=day_to, proc_codes=proccodes_comma)
             od_client = OpenDentalClient(dental_api)
-            json_procedure = od_client.query(query)[0]
+            # This might be needed later to grab data from db.
+            # with open("query/proc_result_new.sql", "r") as f:
+            #     raw_sql = f.read()
+            # query = raw_sql.format(day_from=day_from, day_to=day_to, proc_codes=proccodes_comma)
+            # json_procedure = od_client.query(query)[0]
 
             with open("query/proc_schedule.sql", "r") as f:
                 raw_sql = f.read()
             query = raw_sql.format(day_from=day_from, day_to=day_to, codes=proccodes_dash)
             ret_schedule = od_client.query(query)[0]
-            dict_schedule = {item["ProcCode"]: item["Count"] for item in ret_schedule}
+            for item in ret_schedule:
+                if item["ProcCode"] in proc_total:
+                    proc_total[item["ProcCode"]]["schedule"] = item["Count"]
 
-            for item in json_procedure:
-                if item["Code"] in dict_schedule:
-                    item["schedule"] = dict_schedule[item["Code"]]
-                if item["Code"] in dict_trailing:
-                    item["avg_count"] = dict_trailing[item["Code"]]
-
-            return Response(data=json_procedure)
+            return Response(data=proc_total)
 
         except Exception as e:  # noqa
             return Response(status=HTTP_400_BAD_REQUEST, data={"message": f"{e}"})
