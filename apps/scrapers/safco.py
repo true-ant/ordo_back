@@ -170,33 +170,33 @@ class SafcoScraper(Scraper):
         }
         order_header_ele = order_dom.xpath('.//div[@class="orderHeaderInfo"]')
         order_value_ele = order_dom.xpath('.//div[@class="right-side-shipments"]')
-        order_id = clean_text(
-            './/li/span[@class="attribute-txt"][contains(text(), "Order number")]/following-sibling::"\
-                "span[@class="attribute-value"]//text()',
+        order_id = self.extract_first(
             order_header_ele,
+            './/li/span[@class="attribute-txt"][contains(text(), "Order number")]/following-sibling::'
+            'span[@class="attribute-value"]//text()',
         )
         order_item["order_id"] = order_id
 
-        order_date = clean_text('.//div[contains(@class, "order-date")]//text()', order_header_ele)
+        order_date = self.extract_first(order_header_ele, './/div[contains(@class, "order-date")]//text()')
         order_date = datetime.strptime(order_date, "%B %d, %Y")
         order_item["order_date"] = datetime.strftime(order_date, "%Y-%m-%d")
 
-        order_total = clean_text(
-            './/li/span[@class="attribute-txt"][contains(text(), "Order total")]/following-sibling::"\
-                "span[@class="attribute-value"]//text()',
+        order_total = self.extract_first(
             order_header_ele,
+            './/li/span[@class="attribute-txt"][contains(text(), "Order total")]/following-sibling::'
+            'span[@class="attribute-value"]//text()',
         )
         order_item["total_amount"] = order_total
 
-        payment_method = clean_text(
-            './/li/span[@class="attribute-txt"][contains(text(), "Payment method")]/following-sibling::"\
-                "span[@class="attribute-value"]//text()',
+        payment_method = self.extract_first(
             order_header_ele,
+            './/li/span[@class="attribute-txt"][contains(text(), "Payment method")]/following-sibling::'
+            'span[@class="attribute-value"]//text()',
         )
         order_item["payment_method"] = payment_method
 
-        order_status = clean_text(
-            './/div[@class="shipmentInfo"]//div[contains(@class, "delivered")]//text()', order_value_ele
+        order_status = self.extract_first(
+            order_value_ele, './/div[@class="shipmentInfo"]//div[contains(@class, "delivered")]//text()'
         )
         order_item["status"] = order_status
 
