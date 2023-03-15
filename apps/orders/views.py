@@ -51,6 +51,7 @@ from apps.common.utils import get_date_range, group_products_from_search_result
 from apps.orders.helpers import OfficeProductHelper, ProcedureHelper, ProductHelper
 from apps.orders.services.order import OrderService
 from apps.orders.services.product import ProductService
+from apps.orders.tasks import check_order_status_and_notify_customers
 from apps.scrapers.amazonsearch import AmazonSearchScraper
 from apps.scrapers.ebay_search import EbaySearch
 from apps.scrapers.errors import VendorNotSupported
@@ -995,6 +996,9 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 fetch_order_history.apply_async(
                     [office_vendor.vendor.slug, office_vendor.office.id, False], eta=send_date
                 )
+
+                check_date = datetime.datetime.now() + timedelta(days=3)
+                check_order_status_and_notify_customers.apply_async([vendor_order.id], eta=check_date)
 
             order.total_amount = total_amount
             order.total_items = total_items

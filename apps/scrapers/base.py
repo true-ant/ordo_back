@@ -14,7 +14,6 @@ from requests import Response
 from scrapy import Selector
 from slugify import slugify
 
-from apps.common.choices import OrderStatus
 from apps.common.month import Month
 from apps.scrapers.errors import VendorAuthenticationFailed
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
@@ -344,7 +343,6 @@ class Scraper:
         from apps.orders.models import Order as OrderModel
         from apps.orders.models import VendorOrder as VendorOrderModel
         from apps.orders.models import VendorOrderProduct as VendorOrderProductModel
-        from apps.orders.tasks import notify_order_issue_to_customers
 
         order_data = order.to_dict()
         order_data.pop("shipping_address")
@@ -362,17 +360,12 @@ class Scraper:
                 ).first()
             else:
                 vendor_order = VendorOrderModel.objects.filter(vendor=self.vendor, vendor_order_id=order_id).first()
+
             if vendor_order:
                 logger.debug("Update existing vendor order status")
                 vendor_order.vendor_order_id = order_id
                 vendor_order.status = order_data["status"]
                 vendor_order.save()
-
-                # Notify the user if the order date is over 3 days and
-                # the order status is still not shipped...
-                now_date = datetime.datetime.now().date()
-                if (now_date - order_date).days >= 3 and order_data["status"] == OrderStatus.OPEN.value:
-                    notify_order_issue_to_customers.delay(vendor_order.id)
             else:
                 logger.debug("Create new vendor order information")
                 order = OrderModel.objects.create(

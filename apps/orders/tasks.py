@@ -423,8 +423,12 @@ def update_promotions():
 
 
 @app.task
-def notify_order_issue_to_customers(vendor_order_id):
+def check_order_status_and_notify_customers(vendor_order_id):
     vendor_order = VendorOrderModel.objects.get(pk=vendor_order_id)
+
+    if vendor_order.status != OrderStatus.OPEN:
+        return
+
     company_members = CompanyMember.objects.filter(office=vendor_order.order.office)
 
     for company_member in company_members:
