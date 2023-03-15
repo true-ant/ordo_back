@@ -157,7 +157,7 @@ class UltraDentScraper(Scraper):
                     order["products"].append(
                         {
                             "product": {
-                                "product_id": product_id,
+                                "product_id": product_id.strip("#-"),
                                 "name": self.extract_first(order_detail, "./span[@class='sku-product-name']//text()"),
                                 "images": order_product_images,
                                 "price": price,

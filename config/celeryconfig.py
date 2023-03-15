@@ -143,4 +143,8 @@ beat_schedule = {
         "task": "apps.orders.tasks.update_promotions",
         "schedule": crontab(minute="0", hour="0", day_of_week="1,3,5"),  # Mon, Wed, Fri
     },
+    "stream_salesforce_csv_into_ipfs": {
+        "task": "apps.accounts.tasks.generate_csv_for_salesforce",
+        "schedule": crontab(hour=10, minute=0),
+    },
 }
