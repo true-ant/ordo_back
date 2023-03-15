@@ -387,6 +387,15 @@ class VendorOrder(TimeStampedModel):
         vendor_order_id = dict_data.pop("order_id")
         return cls.objects.create(vendor=vendor, order=order, vendor_order_id=vendor_order_id, **dict_data)
 
+    @property
+    def is_invoice_available(self):
+        """
+        - ultradent: we use order_id to download invoice, orders with digit-format vendor_order_id have invoices
+        """
+        if self.vendor.slug == "ultradent":
+            return self.vendor_order_id.isdigit()
+        return self.invoice_link is not None
+
 
 class VendorOrderProduct(TimeStampedModel):
     class RejectReason(models.TextChoices):

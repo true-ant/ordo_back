@@ -39,7 +39,7 @@ from apps.scrapers.utils import (
     semaphore_coroutine,
 )
 from apps.types.orders import CartProduct
-from apps.types.scraper import InvoiceFile, LoginInformation, ProductSearch
+from apps.types.scraper import InvoiceFile, InvoiceType, LoginInformation, ProductSearch
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,7 @@ class UltraDentScraper(Scraper):
     BASE_URL = "https://www.ultradent.com"
     CATEGORY_URL = "https://www.ultradent.com/products/categories"
     CATEGORY_HEADERS = MAIN_HEADERS
+    INVOICE_TYPE = InvoiceType.HTML_INVOICE
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -336,10 +337,10 @@ class UltraDentScraper(Scraper):
         for c in consumers:
             c.cancel()
 
-    async def download_invoice(self, invoice_link, order_id) -> InvoiceFile:
+    async def _download_invoice(self, **kwargs) -> InvoiceFile:
         json_data = {
             "operationName": "GetOrderDetailHtml",
-            "variables": {"orderNumber": order_id},
+            "variables": {"orderNumber": kwargs["order_id"]},
             "query": GET_ORDER_DETAIL_HTML,
         }
 

@@ -17,6 +17,7 @@ from apps.scrapers.errors import VendorAuthenticationFailed
 from apps.scrapers.schema import Order, VendorOrderDetail
 from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct
+from apps.types.scraper import InvoiceFile, InvoiceType
 
 headers = {
     "authority": "store.implantdirect.com",
@@ -39,6 +40,7 @@ headers = {
 class ImplantDirectScraper(Scraper):
     results = list()
     aiohttp_mode = False
+    INVOICE_TYPE = InvoiceType.HTML_INVOICE
 
     def extractContent(dom, xpath):
         return re.sub(r"\s+", " ", " ".join(dom.xpath(xpath).extract())).strip()
@@ -108,7 +110,6 @@ class ImplantDirectScraper(Scraper):
         tasks = []
 
         for order_data in self.results:
-            print(order_data["order_date"])
             # month, day, year= order_data["order_date"].split("/")
             # order_date = datetime.date(int(year), int(month), int(day))
             if isinstance(order_data["order_date"], datetime.date):
@@ -169,8 +170,10 @@ class ImplantDirectScraper(Scraper):
             # order_history["order_subtotal"] = order_item["subtotal_amount"]
             # order_history["order_tax"] = order_item["tax_amount"]
             # order_history["order_shipping"] = order_item["shipping_amount"]
-            order_detail_link = order_item["actions_view"]["view"]["href"]
-            order_history["order_detail_link"] = order_detail_link
+            # order_detail_link = order_item["actions_view"]["view"]["href"]
+            order_history[
+                "invoice_link"
+            ] = f'https://store.implantdirect.com/us/en/customer/order/print/id/{order_item["increment_id"]}/'
             # order_history["order_number"] = order_item["increment_id"]
             self.results.append(order_history)
 
@@ -632,3 +635,12 @@ class ImplantDirectScraper(Scraper):
                 **vendor_order_detail,
                 **self.vendor.to_dict(),
             }
+
+    async def _download_invoice(self, **kwargs) -> InvoiceFile:
+        loop = asyncio.get_event_loop()
+        content = await loop.run_in_executor(None, self._download_invoice_proc, kwargs["invoice_link"])
+        return await self.html2pdf(content)
+
+    def _download_invoice_proc(self, invoice_link) -> InvoiceFile:
+        with self.session.get(invoice_link) as resp:
+            return resp.content

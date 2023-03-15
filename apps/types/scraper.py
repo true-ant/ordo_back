@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import List, TypedDict, Union
 
 from apps.scrapers.schema import Product
@@ -28,3 +29,8 @@ class VendorInformation(TypedDict):
     slug: str
     url: str
     logo: str
+
+
+class InvoiceType(Enum):
+    HTML_INVOICE = "html"
+    PDF_INVOICE = "pdf"

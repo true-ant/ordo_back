@@ -33,6 +33,7 @@ from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct, VendorCartProduct
 from apps.types.scraper import (
     InvoiceFile,
+    InvoiceType,
     LoginInformation,
     ProductSearch,
     SmartProductID,
@@ -61,6 +62,7 @@ class CartProductDetail(TypedDict):
 class BencoScraper(Scraper):
     BASE_URL = "https://shop.benco.com"
     CATEGORY_URL = "https://shop.benco.com/Browse"
+    INVOICE_TYPE = InvoiceType.PDF_INVOICE
 
     def __init__(self, *args, **kwargs):
         self._ssl_context = ssl.create_default_context(
@@ -672,7 +674,6 @@ class BencoScraper(Scraper):
                 "order_type": msgs.ORDER_TYPE_REDUNDANCY,
             }
 
-    async def download_invoice(self, invoice_link, order_id) -> InvoiceFile:
-        await self.login()
-        async with self.session.get(invoice_link, ssl=self._ssl_context) as resp:
+    async def _download_invoice(self, **kwargs) -> InvoiceFile:
+        async with self.session.get(kwargs["invoice_link"], ssl=self._ssl_context) as resp:
             return await resp.content.read()

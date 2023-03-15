@@ -15,13 +15,15 @@ from scrapy import Selector
 from slugify import slugify
 
 from apps.common.month import Month
-from apps.scrapers.errors import VendorAuthenticationFailed
+from apps.scrapers.errors import DownloadInvoiceError, VendorAuthenticationFailed
+from apps.scrapers.headers.base import HTTP_HEADERS
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.semaphore import fake_semaphore
 from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct, VendorCartProduct
 from apps.types.scraper import (
     InvoiceFile,
+    InvoiceType,
     LoginInformation,
     ProductSearch,
     SmartProductID,
@@ -208,10 +210,25 @@ class Scraper:
         if fields and isinstance(fields, tuple):
             return {k: v for k, v in product.items() if k in fields}
 
-    async def download_invoice(self, invoice_link, order_id) -> InvoiceFile:
+    async def download_invoice(self, **kwargs) -> InvoiceFile:
+        invoice_link = kwargs.get("invoice_link")
+        if invoice_link is None:
+            raise DownloadInvoiceError("Not Found invoice")
+
+        invoice_type = getattr(self, "INVOICE_TYPE", None)
+        if invoice_type is None:
+            raise DownloadInvoiceError(f"{self.vendor} does not implement Downloading Invoice")
+
         await self.login()
-        async with self.session.get(invoice_link) as resp:
-            return await resp.content.read()
+        if hasattr(self, "_download_invoice") and callable(self._download_invoice):
+            return await self._download_invoice(**kwargs)
+
+        async with self.session.get(invoice_link, headers=HTTP_HEADERS) as resp:
+            content = await resp.content.read()
+
+        if invoice_type == InvoiceType.HTML_INVOICE:
+            content = await self.html2pdf(content)
+        return content
 
     @staticmethod
     async def run_command(cmd, data=None):

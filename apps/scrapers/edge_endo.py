@@ -1,32 +1,30 @@
-
 import asyncio
 import datetime
-import traceback
-import uuid
 import re
 import time
-from typing import Dict, List, Optional
+import uuid
 from decimal import Decimal
+from typing import Dict, List, Optional
 
 import scrapy
-from aiohttp import ClientSession
-from selenium import webdriver
+from aiohttp import ClientResponse
+from scrapy import Selector
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.support.wait import WebDriverWait
 
 from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
-from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
-from apps.scrapers.utils import catch_network, convert_string_to_price, semaphore_coroutine
+from apps.scrapers.schema import Order, VendorOrderDetail
+from apps.scrapers.utils import (
+    catch_network,
+    convert_string_to_price,
+    semaphore_coroutine,
+)
 from apps.types.orders import CartProduct
-from apps.types.scraper import ProductSearch
+from apps.types.scraper import InvoiceFile, InvoiceType, LoginInformation, ProductSearch
 
 LOGIN_PAGE_HEADERS = {
     "Connection": "keep-alive",
@@ -66,112 +64,174 @@ LOGIN_HEADERS = {
     "Accept-Language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
 }
 ORDER_HEADERS = {
-    'Connection': 'keep-alive',
-    'Cache-Control': 'max-age=0',
-    'sec-ch-ua': '" Not;A Brand";v="99", "Google Chrome";v="97", "Chromium";v="97"',
-    'sec-ch-ua-mobile': '?0',
-    'sec-ch-ua-platform': '"Windows"',
-    'Upgrade-Insecure-Requests': '1',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-    'Sec-Fetch-Site': 'none',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-User': '?1',
-    'Sec-Fetch-Dest': 'document',
-    'Accept-Language': 'en-US,en;q=0.9',
+    "Connection": "keep-alive",
+    "Cache-Control": "max-age=0",
+    "sec-ch-ua": '" Not;A Brand";v="99", "Google Chrome";v="97", "Chromium";v="97"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    "Upgrade-Insecure-Requests": "1",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;"
+    "q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-User": "?1",
+    "Sec-Fetch-Dest": "document",
+    "Accept-Language": "en-US,en;q=0.9",
 }
+
 
 def extractContent(dom, xpath):
     return re.sub(r"\s+", " ", " ".join(dom.xpath(xpath).extract())).strip()
+
+
 class EdgeEndoScraper(Scraper):
-    
-    BASE_URL = "https://www.henryschein.com"
-    CATEGORY_URL = "https://www.henryschein.com/us-en/dental/c/browsesupplies"
-    TRACKING_BASE_URL = "https://narvar.com/tracking/itemvisibility/v1/henryschein-dental/orders"
+    INVOICE_TYPE = InvoiceType.HTML_INVOICE
     product_skus = dict()
-    
-    def __init__(
-        self, 
-        session: ClientSession,
-        vendor,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        ):
-        Scraper.__init__(self, session,vendor, username,password)
-        self.driver = None
-        self.sleepAmount = 10
 
-    @catch_network
-    async def login(self, username: Optional[str] = None, password: Optional[str] = None):
-        if username:
-            self.username = username
-        if password:
-            self.password = password
+    async def get_login_form(self):
+        async with self.session.get(url="https://store.edgeendo.com/login.aspx", headers=LOGIN_PAGE_HEADERS) as resp:
+            text = await resp.text()
+            login_dom = Selector(text=text)
+            login_dom.xpath('//input[@name="_TSM_HiddenField_"]/@value').extract()
+            hidden_field = login_dom.xpath('//input[@name="_TSM_HiddenField_"]/@value').extract_first()
+            event_target = login_dom.xpath('//input[@name="__EVENTTARGET"]/@value').extract_first()
+            event_argument = login_dom.xpath('//input[@name="__EVENTARGUMENT"]/@value').extract_first()
+            view_state = login_dom.xpath('//input[@name="__VIEWSTATE"]/@value').extract_first()
+            view_state_generator = login_dom.xpath('//input[@name="__VIEWSTATEGENERATOR"]/@value').extract_first()
+            return {
+                "hidden_field": hidden_field,
+                "event_target": event_target,
+                "event_argument": event_argument,
+                "view_state": view_state,
+                "view_state_generator": view_state_generator,
+            }
 
-        loop = asyncio.get_event_loop()
-        res = await loop.run_in_executor(None,self.login_proc)
-        print("login DONE")
-        return res
-    
+    async def _get_login_data(self, *args, **kwargs) -> Optional[LoginInformation]:
+        form = await self.get_login_form()
+        return {
+            "url": "https://store.edgeendo.com/login.aspx",
+            "headers": LOGIN_HEADERS,
+            "data": {
+                "ctl00$ctl00$tsmScripts": "",
+                "_TSM_HiddenField_": form["hidden_field"],
+                "__EVENTTARGET": form["event_target"],
+                "__EVENTARGUMENT": form["event_argument"],
+                "__VIEWSTATE": form["view_state"],
+                "ctl00$ctl00$cphMain$cphMain$lfBtoC$emlLogin$txtEmail": self.username,
+                "ctl00$ctl00$cphMain$cphMain$lfBtoC$emlLogin$vceValid_ClientState": "",
+                "ctl00$ctl00$cphMain$cphMain$lfBtoC$emlLogin$vceRequired_ClientState": "",
+                "ctl00$ctl00$cphMain$cphMain$lfBtoC$pwdLogin$rtbPassword$txtRestricted": self.password,
+                "ctl00$ctl00$cphMain$cphMain$lfBtoC$pwdLogin$rtbPassword$vceRegExp_ClientState": "",
+                "ctl00$ctl00$cphMain$cphMain$lfBtoC$pwdLogin$rtbPassword$vceLength_ClientState": "",
+                "ctl00$ctl00$cphMain$cphMain$lfBtoC$pwdLogin$rtbPassword$vceRequired_ClientState": "",
+                "ctl00$ctl00$cphMain$ctl00$hfCartProductID": "",
+                "ctl00$ctl00$cphMain$ctl00$hfCartSKUID": "",
+                "ctl00$ctl00$cphMain$ctl00$hfCartQuantity": "",
+                "ctl00$ctl00$cphMain$ctl00$hfCartWriteInIDs": "",
+                "ctl00$ctl00$cphMain$ctl00$hfCartWriteInValues": "",
+                "ctl00$ctl00$cphMain$ctl00$hfCartBidPrice": "",
+                "ctl00$ctl00$cphMain$ctl00$hfCartShipTo": "",
+                "ctl00$ctl00$cphMain$ctl00$hfCartNewShipTo": "",
+                "ctl00$ctl00$cphMain$ctl00$hfCartGiftMessage": "",
+                "ctl00$ctl00$cphMain$ctl00$hfCartGiftWrap": "",
+                "ctl00$ctl00$cphMain$ctl00$hfCartFulfillmentMethod": "",
+                "ctl00$ctl00$cphMain$ctl00$hfCartPickupAt": "",
+                "ctl00$ctl00$cphMain$ctl00$hfCartEmailTo": "",
+                "ctl00$ctl00$cphMain$ctl00$hfCartSubscriptionID": "",
+                "ctl00$ctl00$cphMain$ctl00$hfCartExpressOrder": "",
+                "ctl00$ctl00$cphMain$ctl00$hfManualCartPostBack": "",
+                "ctl00$ctl00$cphMain$ctl00$hfRemoveCartProductIndex": "",
+                "ctl00$ctl00$cphMain$ctl00$hfEditQuantityNewValue": "",
+                "ctl00$ctl00$cphMain$ctl00$hfEditQuantityCartProductIndex": "",
+                "ctl00$ctl00$cphMain$ctl00$hfReorderID": "",
+                "ctl00$ctl00$cphMain$ctl00$hfProductSharingDiscountID": "",
+                "ctl00$ctl00$cphMain$ctl00$hfCartRefresh": "",
+                "__VIEWSTATEGENERATOR": form["view_state_generator"],
+                "__ASYNCPOST": "true",
+                "ctl00$ctl00$cphMain$cphMain$lfBtoC$btnCustomerLogin": "Log In Securely",
+            },
+        }
+
+    async def _check_authenticated(self, response: ClientResponse) -> bool:
+        text = await response.text()
+        return "CustomerID" in text
+
     async def product_detail(self, _link):
-        if not _link: return None
+        if not _link:
+            return None
         headers = {
-            'Connection': 'keep-alive',
-            'Cache-Control': 'max-age=0',
-            'Upgrade-Insecure-Requests': '1',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-            'Sec-Fetch-Site': 'none',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-User': '?1',
-            'Sec-Fetch-Dest': 'document',
-            'sec-ch-ua': '" Not;A Brand";v="99", "Google Chrome";v="97", "Chromium";v="97"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"',
-            'Accept-Language': 'en-US,en;q=0.9',
+            "Connection": "keep-alive",
+            "Cache-Control": "max-age=0",
+            "Upgrade-Insecure-Requests": "1",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;"
+            "q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-User": "?1",
+            "Sec-Fetch-Dest": "document",
+            "sec-ch-ua": '" Not;A Brand";v="99", "Google Chrome";v="97", "Chromium";v="97"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "Accept-Language": "en-US,en;q=0.9",
         }
         response = await self.session.get(_link, headers=headers)
-        dom = scrapy.Selector(text= await response.text())
+        dom = scrapy.Selector(text=await response.text())
         sku = extractContent(dom, '//meta[@property="og:mpn"]/@content')
-        print(f'Product: {_link} / SKU: {sku}')
+        print(f"Product: {_link} / SKU: {sku}")
         return sku
-    async def orderDetail(self, order_history):     
+
+    async def orderDetail(self, order_history):
         _link = order_history["order_detail_link"]
         order = dict()
 
         headers = {
-            'Connection': 'keep-alive',
-            'Cache-Control': 'max-age=0',
-            'Upgrade-Insecure-Requests': '1',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-            'Sec-Fetch-Site': 'none',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-User': '?1',
-            'Sec-Fetch-Dest': 'document',
-            'sec-ch-ua': '" Not;A Brand";v="99", "Google Chrome";v="97", "Chromium";v="97"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"',
-            'Accept-Language': 'en-US,en;q=0.9',
+            "Connection": "keep-alive",
+            "Cache-Control": "max-age=0",
+            "Upgrade-Insecure-Requests": "1",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;"
+            "q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-User": "?1",
+            "Sec-Fetch-Dest": "document",
+            "sec-ch-ua": '" Not;A Brand";v="99", "Google Chrome";v="97", "Chromium";v="97"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "Accept-Language": "en-US,en;q=0.9",
         }
 
         response = await self.session.get(_link, headers=headers)
         dom = scrapy.Selector(text=await response.text())
         table = dom.xpath('//tr[@class="nextCartSubtotal"]/..')
-        order["subtotal"] = extractContent(table, './tr[@class="nextCartSubtotal"]/td[contains(@id, "_tdSubtotalPrice")]//text()')
-        order["shipping "] = extractContent(table, './tr[@class="nextShipping"]/td[contains(@id, "_tdShippingPrice")]//text()')
-        order["tax"] = extractContent(table, './tr[@class="nextSalesTax"]/td[contains(@id, "_tdSalesTaxPrice")]//text()')
-        order["grandtotal"] = extractContent(table, './tr[@class="nextCartTotal"]/td[contains(@id, "_tdTotalPrice")]//text()')
-        order["products"] = list()        
-        for tr in table.xpath('./tr'):
-            if tr.xpath('./@class'): continue
+        order["subtotal"] = extractContent(
+            table, './tr[@class="nextCartSubtotal"]/td[contains(@id, "_tdSubtotalPrice")]//text()'
+        )
+        order["shipping "] = extractContent(
+            table, './tr[@class="nextShipping"]/td[contains(@id, "_tdShippingPrice")]//text()'
+        )
+        order["tax"] = extractContent(
+            table, './tr[@class="nextSalesTax"]/td[contains(@id, "_tdSalesTaxPrice")]//text()'
+        )
+        order["grandtotal"] = extractContent(
+            table, './tr[@class="nextCartTotal"]/td[contains(@id, "_tdTotalPrice")]//text()'
+        )
+        order["products"] = list()
+        for tr in table.xpath("./tr"):
+            if tr.xpath("./@class"):
+                continue
             product = dict()
-            product["qty"] = extractContent(tr, './td[1]//text()')
+            product["qty"] = extractContent(tr, "./td[1]//text()")
             product["name"] = extractContent(tr, './td[3]/span[@class="nextCartProdText"]/a//text()')
-            product["unit_price"] = extractContent(tr, './td[5]//text()')
+            product["unit_price"] = extractContent(tr, "./td[5]//text()")
             product["price"] = product["unit_price"]
-            product["ext_price"] = extractContent(tr, './td[6]//text()')            
-            product["status"] = extractContent(tr, './td[7]//text()')
+            product["ext_price"] = extractContent(tr, "./td[6]//text()")
+            product["status"] = extractContent(tr, "./td[7]//text()")
             product["vendor"] = self.vendor.to_dict()
             product["product_url"] = extractContent(tr, './td[3]/span[@class="nextCartProdText"]/a/@href')
             if product["product_url"] in self.product_skus:
@@ -180,27 +240,26 @@ class EdgeEndoScraper(Scraper):
                 product["product_id"] = await self.product_detail(product["product_url"])
                 if product["product_id"]:
                     self.product_skus[product["product_url"]] = product["product_id"]
-            product["images"]= []
+            product["images"] = []
             # product["product_id"] = "TESTEOFSK25MMQWE"
             # product["product_url"] =""
 
-            if not product["status"]: continue
-            order["products"].append({
-                "product":product, 
-                "quantity": product.pop("qty"),
-                "unit_price": product.pop("unit_price")
-            })
+            if not product["status"]:
+                continue
+            order["products"].append(
+                {"product": product, "quantity": product.pop("qty"), "unit_price": product.pop("unit_price")}
+            )
 
         return order
 
     @semaphore_coroutine
     async def get_order(self, sem, order, office=None) -> dict:
         print(" === get order ==", office, order)
-        order_dict=await self.orderDetail(order_history=order)
+        order_dict = await self.orderDetail(order_history=order)
         order_dict.update(order)
-        order_dict.update({"currency":"USD"})
+        order_dict.update({"currency": "USD"})
         print(order_dict)
-        
+
         # await self.resolve_product_urls(
         #     [order_product["product"]["product_id"] for order_product in order["products"]]
         # )
@@ -219,7 +278,6 @@ class EdgeEndoScraper(Scraper):
             await self.save_order_to_db(office, order=Order.from_dict(order_dict))
         return order
 
-
     @catch_network
     async def get_orders(
         self,
@@ -233,7 +291,7 @@ class EdgeEndoScraper(Scraper):
         url = "https://store.edgeendo.com/account.aspx"
         if perform_login:
             await self.login()
-        results=[]
+        results = []
         async with self.session.get(url, headers=ORDER_HEADERS) as response:
             tasks = []
             dom = scrapy.Selector(text=await response.text())
@@ -241,22 +299,25 @@ class EdgeEndoScraper(Scraper):
                 '//table[@id="ctl00_ctl00_cphMain_cphMain_oltOrderList_gvOrders"]//tr[contains(@class, "OrderRow")]'
             ):
                 order_history = dict()
-                order_history["order_id"] = extractContent(tr_ele, './td[1]/span[@id]//text()')
-                order_history["order_date"] = extractContent(tr_ele, './td[2]//text()')
-                order_history["status"] = extractContent(tr_ele, './td[3]//text()')
-                order_history["billing_status"] = extractContent(tr_ele, './td[4]//text()')
-                order_history["total_amount"] = extractContent(tr_ele, './td[5]//text()')
-                order_detail_link = extractContent(tr_ele, './td[1]/span[@id]/a/@href')
+                order_history["order_id"] = extractContent(tr_ele, "./td[1]/span[@id]//text()")
+                order_history["order_date"] = extractContent(tr_ele, "./td[2]//text()")
+                order_history["status"] = extractContent(tr_ele, "./td[3]//text()")
+                order_history["billing_status"] = extractContent(tr_ele, "./td[4]//text()")
+                order_history["total_amount"] = extractContent(tr_ele, "./td[5]//text()")
+                order_detail_link = extractContent(tr_ele, "./td[1]/span[@id]/a/@href")
                 order_history["order_detail_link"] = order_detail_link
+                order_history[
+                    "invoice_link"
+                ] = f"https://store.edgeendo.com/accountinvoice.aspx?RowID={order_history['order_id']}"
                 results.append(order_history)
-            
-            tasks=[]
+
+            tasks = []
             print("===========33434============")
             print(completed_order_ids)
             for order_data in results:
                 print("================= #1 ===")
                 print(order_data, from_date, to_date)
-                month, day, year= order_data["order_date"].split("/")                
+                month, day, year = order_data["order_date"].split("/")
                 order_date = datetime.date(int(year), int(month), int(day))
                 order_data["order_date"] = order_date
                 if from_date and to_date and (order_date < from_date or order_date > to_date):
@@ -272,7 +333,7 @@ class EdgeEndoScraper(Scraper):
                 orders = await asyncio.gather(*tasks)
                 return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
             else:
-                return []        
+                return []
 
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price", office_id=None
@@ -288,87 +349,11 @@ class EdgeEndoScraper(Scraper):
         # self.driver.execute_script("arguments[0].scrollIntoView(false);", element)
         try:
             element.click()
-        except:
+        except Exception:
             self.driver.execute_script("arguments[0].click();", element)
-        
+
         time.sleep(0.5)
 
-    # create browser
-    def setDriver(self):
-        user_agent = (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/80.0.3987.132 Safari/537.36"
-        )
-
-        caps = DesiredCapabilities.CHROME
-        caps["pageLoadStrategy"] = "eager"
-        # chrome_options = webdriver.ChromeOptions()
-        # # chrome_options.add_argument("--headless")
-        # chrome_options.add_argument("--disable-dev-shm-usage")
-        # chrome_options.add_argument(f"user-agent={user_agent}")
-        # chrome_options.add_argument("--log-level=3")
-        # driver = webdriver.Chrome(
-        #     options=chrome_options,
-        #     desired_capabilities=caps,
-        # )
-        options = Options()
-        options.add_argument('--headless')
-        options.add_argument('--no-sandbox')
-        options.add_argument('--disable-dev-shm-usage')
-        options.add_argument(f"user-agent={user_agent}")
-        options.add_argument("--log-level=3")
-        driver = webdriver.Chrome(
-            service=Service(ChromeDriverManager().install()), 
-            options=options, 
-            desired_capabilities=caps,
-        )
-        
-        driver.set_window_size(1920, 1080)
-        print("edge_endo/set_Driver done")
-        return driver
-    
-    def login_proc(self):
-        try:
-            self.driver.get("https://store.edgeendo.com/login.aspx")
-            emailInput = WebDriverWait(self.driver, self.sleepAmount).until(
-                EC.element_to_be_clickable(
-                    (
-                        By.XPATH,
-                        '//input[@name="ctl00$ctl00$cphMain$cphMain$lfBtoC$emlLogin$txtEmail"]'
-                    )
-                )
-            )
-            emailInput.clear()
-            emailInput.send_keys(self.username)
-            time.sleep(0.5)
-            
-            passInput = WebDriverWait(self.driver, self.sleepAmount).until(
-                EC.element_to_be_clickable(
-                    (
-                        By.XPATH,
-                        '//input[@name="ctl00$ctl00$cphMain$cphMain$lfBtoC$pwdLogin$rtbPassword$txtRestricted"]'
-                    )
-                )
-            )
-            passInput.clear()
-            passInput.send_keys(self.password)
-            time.sleep(0.5)
-
-            loginBtn = WebDriverWait(self.driver, self.sleepAmount).until(
-                EC.element_to_be_clickable(
-                    (
-                        By.XPATH,
-                        '//input[@name="ctl00$ctl00$cphMain$cphMain$lfBtoC$btnCustomerLogin"]'
-                    )
-                )
-            )
-
-            self.scroll_and_click_element(loginBtn)
-            time.sleep(5)
-            print("edge_endo/login done")
-        except:
-            traceback.print_exc()
-    
     def wait_cart_action(self):
         while True:
             progress_ele = WebDriverWait(self.driver, self.sleepAmount).until(
@@ -401,31 +386,29 @@ class EdgeEndoScraper(Scraper):
                     EC.element_to_be_clickable(
                         (
                             By.XPATH,
-                            '//a[@id="__tab_ctl00_ctl00_ctl00_cphMain_cphMain_cphMain_pdtProduct_tcTabs_tpReviewsQuestions3"]'
+                            '//a[@id="__tab_ctl00_ctl00_ctl00_cphMain_cph'
+                            'Main_cphMain_pdtProduct_tcTabs_tpReviewsQuestions3"]',
                         )
                     )
                 )
                 self.scroll_and_click_element(open_tab_ele)
-                
+
                 while True:
                     quantity_ele = WebDriverWait(self.driver, self.sleepAmount).until(
                         EC.presence_of_element_located(
                             (
                                 By.XPATH,
                                 f'//table[@class="nextExpressOrderSKUTable"]//tr/td[2][contains(text(), "{sku}")]'
-                                '/following-sibling::td/span/input[@title="Enter Quantity"]'
+                                '/following-sibling::td/span/input[@title="Enter Quantity"]',
                             )
                         )
                     )
-                    quantity = int(quantity_ele.get_attribute('value'))
+                    quantity = int(quantity_ele.get_attribute("value"))
 
                     if quantity == product["quantity"]:
                         add_to_cart_btn = WebDriverWait(self.driver, self.sleepAmount).until(
                             EC.element_to_be_clickable(
-                                (
-                                    By.XPATH,
-                                    '//div[@class="nextExpressOrderATC"]//input[@type="submit"]'
-                                )
+                                (By.XPATH, '//div[@class="nextExpressOrderATC"]//input[@type="submit"]')
                             )
                         )
                         self.scroll_and_click_element(add_to_cart_btn)
@@ -438,7 +421,7 @@ class EdgeEndoScraper(Scraper):
                                 (
                                     By.XPATH,
                                     f'//table[@class="nextExpressOrderSKUTable"]//tr/td[2][contains(text(), "{sku}")]'
-                                    '/following-sibling::td/span/a[contains(@id, "Quantity_aIncrementTxt")]'
+                                    '/following-sibling::td/span/a[contains(@id, "Quantity_aIncrementTxt")]',
                                 )
                             )
                         )
@@ -449,18 +432,20 @@ class EdgeEndoScraper(Scraper):
                         EC.presence_of_element_located(
                             (
                                 By.XPATH,
-                                '//input[@name="ctl00$ctl00$ctl00$cphMain$cphMain$cphMain$pdtProduct$atcTabbed$txtQuantity"]',
+                                '//input[@name="ctl00$ctl00$ctl00$cphMain$cphMain$'
+                                'cphMain$pdtProduct$atcTabbed$txtQuantity"]',
                             )
                         )
                     )
-                    quantity = quantity_ele.get_attribute('value')
+                    quantity = quantity_ele.get_attribute("value")
 
                     if quantity == product["quantity"]:
                         add_to_cart_btn = WebDriverWait(self.driver, self.sleepAmount).until(
                             EC.element_to_be_clickable(
                                 (
                                     By.XPATH,
-                                    '//input[@name="ctl00$ctl00$ctl00$cphMain$cphMain$cphMain$pdtProduct$atcTabbed$btnAddToCart"]',
+                                    '//input[@name="ctl00$ctl00$ctl00$cphMain$'
+                                    'cphMain$cphMain$pdtProduct$atcTabbed$btnAddToCart"]',
                                 )
                             )
                         )
@@ -473,7 +458,8 @@ class EdgeEndoScraper(Scraper):
                             EC.element_to_be_clickable(
                                 (
                                     By.XPATH,
-                                    '//a[@id="ctl00_ctl00_ctl00_cphMain_cphMain_cphMain_pdtProduct_atcTabbed_aIncrementATCTxt"]',
+                                    '//a[@id="ctl00_ctl00_ctl00_cphMain_cphMain_cph'
+                                    'Main_pdtProduct_atcTabbed_aIncrementATCTxt"]',
                                 )
                             )
                         )
@@ -510,113 +496,76 @@ class EdgeEndoScraper(Scraper):
 
         if not checkoutBtn:
             self.driver.get("https://store.edgeendo.com/storefront.aspx")
-            checkoutBtn = WebDriverWait(self.driver, self.sleepAmount*2).until(
-                EC.element_to_be_clickable((
-                        By.XPATH,
-                        '//input[contains(@name, "$cphMain$ctl00$btnCheckOutBottom")]'
-                ))
+            checkoutBtn = WebDriverWait(self.driver, self.sleepAmount * 2).until(
+                EC.element_to_be_clickable((By.XPATH, '//input[contains(@name, "$cphMain$ctl00$btnCheckOutBottom")]'))
             )
         self.scroll_and_click_element(checkoutBtn)
         continueBtn = WebDriverWait(self.driver, self.sleepAmount).until(
-            EC.element_to_be_clickable((
-                    By.XPATH,
-                    '//input[contains(@name, "$cphMain$uplUpsell$btnClose")]'
-            ))
+            EC.element_to_be_clickable((By.XPATH, '//input[contains(@name, "$cphMain$uplUpsell$btnClose")]'))
         )
         self.scroll_and_click_element(continueBtn)
         time.sleep(1.5)
         print("edge_endo/checkout done")
-    
+
     def secure_payment(self):
         securepaymentBtn = WebDriverWait(self.driver, self.sleepAmount).until(
-            EC.element_to_be_clickable((
-                    By.XPATH,
-                    '//input[contains(@name, "$cphMain$dbSubmit$btnSubmit")]'
-            ))
+            EC.element_to_be_clickable((By.XPATH, '//input[contains(@name, "$cphMain$dbSubmit$btnSubmit")]'))
         )
         self.scroll_and_click_element(securepaymentBtn)
         time.sleep(1)
         print("edge_endo/secure_payment done")
 
-
     def real_order(self):
         shipping_address_ele = WebDriverWait(self.driver, self.sleepAmount).until(
-            EC.element_to_be_clickable((
-                    By.XPATH,
-                    '//td[@class="nextInvoiceShipToAddress"]'
-            ))
+            EC.element_to_be_clickable((By.XPATH, '//td[@class="nextInvoiceShipToAddress"]'))
         )
         shipping_address = self.textParser(shipping_address_ele)
         print("Shpping Address:\n", shipping_address)
-        
+
         billing_address_ele = WebDriverWait(self.driver, self.sleepAmount).until(
-            EC.element_to_be_clickable((
-                    By.XPATH,
-                    '//span[contains(@id, "adBillTo_spnAddressDisplay")]'
-            ))
+            EC.element_to_be_clickable((By.XPATH, '//span[contains(@id, "adBillTo_spnAddressDisplay")]'))
         )
         billing_address = self.textParser(billing_address_ele)
         print("Billing Address:\n", billing_address)
-        
+
         subtotal_ele = WebDriverWait(self.driver, self.sleepAmount).until(
-            EC.element_to_be_clickable((
-                    By.XPATH,
-                    '//td[contains(@id, "sctrShipToOrder_tdSubtotalPrice")]'
-            ))
+            EC.element_to_be_clickable((By.XPATH, '//td[contains(@id, "sctrShipToOrder_tdSubtotalPrice")]'))
         )
         subtotal = convert_string_to_price(self.textParser(subtotal_ele))
         print("Subtotal:\n", subtotal)
-        
+
         tax_ele = WebDriverWait(self.driver, self.sleepAmount).until(
-            EC.element_to_be_clickable((
-                    By.XPATH,
-                    '//td[contains(@id, "sctrShipToOrder_tdSalesTaxPrice")]'
-            ))
+            EC.element_to_be_clickable((By.XPATH, '//td[contains(@id, "sctrShipToOrder_tdSalesTaxPrice")]'))
         )
         tax = convert_string_to_price(self.textParser(tax_ele))
         print("Tax:\n", tax)
-        
+
         shipping_ele = WebDriverWait(self.driver, self.sleepAmount).until(
-            EC.element_to_be_clickable((
-                    By.XPATH,
-                    '//td[contains(@id, "sctrShipToOrder_tdShippingPrice")]'
-            ))
+            EC.element_to_be_clickable((By.XPATH, '//td[contains(@id, "sctrShipToOrder_tdShippingPrice")]'))
         )
         shipping = convert_string_to_price(self.textParser(shipping_ele))
         print("Shipping:\n", shipping)
-        
+
         order_total_ele = WebDriverWait(self.driver, self.sleepAmount).until(
-            EC.element_to_be_clickable((
-                By.XPATH,
-                '//td[contains(@id, "sctrShipToOrder_tdTotalPrice")]'
-            ))
+            EC.element_to_be_clickable((By.XPATH, '//td[contains(@id, "sctrShipToOrder_tdTotalPrice")]'))
         )
         order_total = convert_string_to_price(self.textParser(order_total_ele))
         print("Order Total:\n", order_total)
 
         # payment option
         invoice_ele = WebDriverWait(self.driver, self.sleepAmount).until(
-            EC.element_to_be_clickable((
-                By.XPATH,
-                '//tr[@id="ctl00_cphMain_piInformation_trInvoicePay"]//label'
-            ))
+            EC.element_to_be_clickable((By.XPATH, '//tr[@id="ctl00_cphMain_piInformation_trInvoicePay"]//label'))
         )
         self.scroll_and_click_element(invoice_ele)
-        
+
         submitBtn = WebDriverWait(self.driver, self.sleepAmount).until(
-            EC.element_to_be_clickable((
-                    By.XPATH,
-                    '//input[contains(@name, "$cphMain$dbOrderSubmit$btnSubmit")]'
-            ))
+            EC.element_to_be_clickable((By.XPATH, '//input[contains(@name, "$cphMain$dbOrderSubmit$btnSubmit")]'))
         )
         self.scroll_and_click_element(submitBtn)
 
         # order number
         ordernum_ele = WebDriverWait(self.driver, self.sleepAmount).until(
-            EC.presence_of_element_located((
-                By.XPATH,
-                '//p[@class="nextOrderConfirmationText"]/b[1]'
-            ))
+            EC.presence_of_element_located((By.XPATH, '//p[@class="nextOrderConfirmationText"]/b[1]'))
         )
         orderNumber = ordernum_ele.get_attribute("textContent")
         print("Order Number:", orderNumber)
@@ -628,9 +577,9 @@ class EdgeEndoScraper(Scraper):
         try:
             await asyncio.sleep(0.3)
             raise Exception()
-        except:
+        except Exception:
             print("edge_endo/create_order except")
-            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
+            subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
             vendor_order_detail = {
                 "retail_amount": "",
                 "savings_amount": "",
@@ -657,12 +606,12 @@ class EdgeEndoScraper(Scraper):
             raise Exception()
 
             loop = asyncio.get_event_loop()
-            self.driver = await loop.run_in_executor(None,self.setDriver)
+            self.driver = await loop.run_in_executor(None, self.setDriver)
             await self.login()
-            await loop.run_in_executor(None,self.clear_cart)
-            await loop.run_in_executor(None,self.add_to_cart, products)
-            await loop.run_in_executor(None,self.checkout)
-            
+            await loop.run_in_executor(None, self.clear_cart)
+            await loop.run_in_executor(None, self.add_to_cart, products)
+            await loop.run_in_executor(None, self.checkout)
+
             if fake:
                 vendor_order_detail = {
                     "retail_amount": "",
@@ -678,8 +627,10 @@ class EdgeEndoScraper(Scraper):
                     **vendor_order_detail,
                     "order_id": f"{uuid.uuid4()}",
                 }
-            await loop.run_in_executor(None,self.secure_payment)
-            shipping_address, shipping, tax, subtotal, order_total, orderNumber = await loop.run_in_executor(None,self.real_order)    
+            await loop.run_in_executor(None, self.secure_payment)
+            shipping_address, shipping, tax, subtotal, order_total, orderNumber = await loop.run_in_executor(
+                None, self.real_order
+            )
 
             self.secure_payment()
             shipping_address, shipping, tax, subtotal, order_total, orderNumber = self.real_order()
@@ -698,9 +649,9 @@ class EdgeEndoScraper(Scraper):
                 **vendor_order_detail,
                 "order_id": orderNumber,
             }
-        except:
+        except Exception:
             print("edge_endo/confirm_order except")
-            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
+            subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
             vendor_order_detail = {
                 "retail_amount": "",
                 "savings_amount": "",
@@ -712,9 +663,14 @@ class EdgeEndoScraper(Scraper):
                 "payment_method": "",
                 "shipping_address": "",
                 "order_id": f"{uuid.uuid4()}",
-                "order_type": msgs.ORDER_TYPE_REDUNDANCY
+                "order_type": msgs.ORDER_TYPE_REDUNDANCY,
             }
             return {
                 **vendor_order_detail,
                 **self.vendor.to_dict(),
             }
+
+    async def download_invoice(self, **kwargs) -> InvoiceFile:
+        if order_id := kwargs.get("order_id"):
+            kwargs.setdefault("invoice_link", f"https://store.edgeendo.com/accountinvoice.aspx?RowID={order_id}")
+        return await super().download_invoice(**kwargs)
