@@ -544,6 +544,7 @@ class ProductHelper:
                             name=row["name"][:512],
                             product_unit=row["product_unit"],
                             url=row["url"],
+                            sku=row["sku"],
                             category=product_category,
                             price=product_price,
                             manufacturer_number=manufacturer_number,
