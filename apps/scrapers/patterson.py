@@ -305,6 +305,9 @@ class PattersonScraper(Scraper):
         if from_date and to_date:
             search_data["FromDate"] = from_date.strftime("%m/%d/%Y")
             search_data["ToDate"] = to_date.strftime("%m/%d/%Y")
+        else:
+            search_data["FromDate"] = (datetime.datetime.now() - datetime.timedelta(days=2 * 365)).strftime("%m/%d/%Y")
+            search_data["ToDate"] = datetime.datetime.today().strftime("%m/%d/%Y")
 
         async with self.session.post(
             url, headers=ORDER_HISTORY_POST_HEADERS, params=search_params, data=search_data
