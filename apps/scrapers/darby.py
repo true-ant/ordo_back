@@ -1,17 +1,16 @@
 import asyncio
 import datetime
-from decimal import Decimal
-from email.errors import HeaderParseError
-import time
 import re
-from typing import Dict, List, Optional
+import time
 import uuid
+from decimal import Decimal
+from typing import Dict, List, Optional
 
 from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
 
-from apps.common.utils import concatenate_list_as_string
 from apps.common import messages as msgs
+from apps.common.utils import concatenate_list_as_string
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import (
@@ -20,7 +19,7 @@ from apps.scrapers.utils import (
     semaphore_coroutine,
 )
 from apps.types.orders import CartProduct
-from apps.types.scraper import LoginInformation, ProductSearch
+from apps.types.scraper import InvoiceType, LoginInformation, ProductSearch
 
 HEADERS = {
     "Connection": "keep-alive",
@@ -128,63 +127,69 @@ ORDER_HEADERS = {
 }
 
 REVIEW_ORDER_HEADER = {
-    'Connection': 'keep-alive',
-    'sec-ch-ua': '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
-    'sec-ch-ua-mobile': '?0',
-    'sec-ch-ua-platform': '"Windows"',
-    'Upgrade-Insecure-Requests': '1',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-    'Sec-Fetch-Site': 'same-origin',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-User': '?1',
-    'Sec-Fetch-Dest': 'document',
-    'Referer': 'https://www.darbydental.com/scripts/cart.aspx',
-    'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8',
+    "Connection": "keep-alive",
+    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    "Upgrade-Insecure-Requests": "1",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;"
+    "q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-User": "?1",
+    "Sec-Fetch-Dest": "document",
+    "Referer": "https://www.darbydental.com/scripts/cart.aspx",
+    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
 }
 
 CHECKOUT_SUBMIT_HEADER = {
-    'Connection': 'keep-alive',
-    'Pragma': 'no-cache',
-    'Cache-Control': 'no-cache',
-    'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="98", "Google Chrome";v="98"',
-    'sec-ch-ua-mobile': '?0',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36',
-    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-    'X-Requested-With': 'XMLHttpRequest',
-    'X-MicrosoftAjax': 'Delta=true',
-    'sec-ch-ua-platform': '"Windows"',
-    'Accept': '*/*',
-    'Origin': 'https://www.darbydental.com',
-    'Sec-Fetch-Site': 'same-origin',
-    'Sec-Fetch-Mode': 'cors',
-    'Sec-Fetch-Dest': 'empty',
-    'Referer': 'https://www.darbydental.com/scripts/checkout.aspx',
-    'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
+    "Connection": "keep-alive",
+    "Pragma": "no-cache",
+    "Cache-Control": "no-cache",
+    "sec-ch-ua": '" Not A;Brand";v="99", "Chromium";v="98", "Google Chrome";v="98"',
+    "sec-ch-ua-mobile": "?0",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",
+    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+    "X-Requested-With": "XMLHttpRequest",
+    "X-MicrosoftAjax": "Delta=true",
+    "sec-ch-ua-platform": '"Windows"',
+    "Accept": "*/*",
+    "Origin": "https://www.darbydental.com",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "empty",
+    "Referer": "https://www.darbydental.com/scripts/checkout.aspx",
+    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
 }
 REAL_ORDER_HEADER = {
-    'Connection': 'keep-alive',
-    'Pragma': 'no-cache',
-    'Cache-Control': 'no-cache',
-    'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="98", "Google Chrome";v="98"',
-    'sec-ch-ua-mobile': '?0',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36',
-    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-    'X-Requested-With': 'XMLHttpRequest',
-    'X-MicrosoftAjax': 'Delta=true',
-    'sec-ch-ua-platform': '"Windows"',
-    'Accept': '*/*',
-    'Origin': 'https://www.darbydental.com',
-    'Sec-Fetch-Site': 'same-origin',
-    'Sec-Fetch-Mode': 'cors',
-    'Sec-Fetch-Dest': 'empty',
-    'Referer': 'https://www.darbydental.com/scripts/checkout.aspx',
-    'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8,pt;q=0.7',
+    "Connection": "keep-alive",
+    "Pragma": "no-cache",
+    "Cache-Control": "no-cache",
+    "sec-ch-ua": '" Not A;Brand";v="99", "Chromium";v="98", "Google Chrome";v="98"',
+    "sec-ch-ua-mobile": "?0",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",
+    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+    "X-Requested-With": "XMLHttpRequest",
+    "X-MicrosoftAjax": "Delta=true",
+    "sec-ch-ua-platform": '"Windows"',
+    "Accept": "*/*",
+    "Origin": "https://www.darbydental.com",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "empty",
+    "Referer": "https://www.darbydental.com/scripts/checkout.aspx",
+    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
 }
+
 
 class DarbyScraper(Scraper):
     BASE_URL = "https://www.darbydental.com"
     CATEGORY_URL = "https://www.darbydental.com/scripts/Categories.aspx"
+    INVOICE_TYPE = InvoiceType.PDF_INVOICE
 
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         res = await response.json()
@@ -322,7 +327,7 @@ class DarbyScraper(Scraper):
 
             if tasks:
                 orders = await asyncio.gather(*tasks, return_exceptions=True)
-                
+
         return [Order.from_dict(order) for order in orders]
 
     async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
@@ -452,7 +457,7 @@ class DarbyScraper(Scraper):
         response = await self.session.post(
             "https://www.darbydental.com/api/ShopCart/doAddToCart2", headers=ADD_TO_CART_HEADERS, data=data
         )
-        res = await response.text()
+        await response.text()
 
     async def clear_cart(self):
         cart_page_dom = await self.get_cart_page()
@@ -496,55 +501,60 @@ class DarbyScraper(Scraper):
                 "total_amount": total_amount,
                 "shipping_address": shipping_address,
                 "reduction_amount": total_amount,
-
             }
         )
 
     async def checkout(self):
-        response = await self.session.get('https://www.darbydental.com/scripts/checkout.aspx', headers=REVIEW_ORDER_HEADER)
-        dom = Selector(text = await response.text())
+        response = await self.session.get(
+            "https://www.darbydental.com/scripts/checkout.aspx", headers=REVIEW_ORDER_HEADER
+        )
+        dom = Selector(text=await response.text())
 
         data = {
             "__EVENTTARGET": "ctl00$MainContent$completeOrder",
             "ctl00$MainContent$paymode": "rdbAccount",
             "__EVENTARGUMENT": "",
-            'ctl00$masterSM': 'ctl00$MainContent$UpdatePanel1|ctl00$MainContent$completeOrder',
-            '__ASYNCPOST': 'true',
-            'ctl00$ddlPopular': '-1',
-            'ctl00$MainContent$pono': f"Ordo Order ({time.strftime('%Y-%m-%d')})",
+            "ctl00$masterSM": "ctl00$MainContent$UpdatePanel1|ctl00$MainContent$completeOrder",
+            "__ASYNCPOST": "true",
+            "ctl00$ddlPopular": "-1",
+            "ctl00$MainContent$pono": f"Ordo Order ({time.strftime('%Y-%m-%d')})",
         }
 
-        for ele in dom.xpath('//input[@name]'):
-            _key = ele.xpath('./@name').get()
-            _val = ele.xpath('./@value').get()
-            if _val is None: _val = ""
+        for ele in dom.xpath("//input[@name]"):
+            _key = ele.xpath("./@name").get()
+            _val = ele.xpath("./@value").get()
+            if _val is None:
+                _val = ""
             if _key not in data:
                 if _key not in [
                     "ctl00$logonControl$btnLogin",
                     "ctl00$logonControl$btnSignUp",
                     "ctl00$btnBigSearch",
-                    "ctl00$MainContent$completeOrder"
+                    "ctl00$MainContent$completeOrder",
                 ]:
                     data[_key] = _val
 
-        for ele in dom.xpath('//select[@name]'):
-            _key = ele.xpath('./@name').get()
+        for ele in dom.xpath("//select[@name]"):
+            _key = ele.xpath("./@name").get()
             _val = ele.xpath('./option[@selected="selected"]/@value').get()
             if not _val:
-                _val = ele.xpath('./option[1]/@value').get()
-            if _val is None: _val = ""
-            if _key not in data: data[_key] = _val
+                _val = ele.xpath("./option[1]/@value").get()
+            if _val is None:
+                _val = ""
+            if _key not in data:
+                data[_key] = _val
 
-        response = await self.session.post('https://www.darbydental.com/scripts/checkout.aspx', headers=CHECKOUT_SUBMIT_HEADER, data=data)
+        response = await self.session.post(
+            "https://www.darbydental.com/scripts/checkout.aspx", headers=CHECKOUT_SUBMIT_HEADER, data=data
+        )
         response_text = await response.text()
         response_text = response_text.replace("%2f", "/")
         response_text = response_text.replace("%3f", "?")
         response_text = response_text.replace("%3d", "=")
         response_text = response_text.replace("%26", "&")
         response_text = response_text.strip("| ").split("|")[-1]
-        redirect_link = f'https://www.darbydental.com{response_text}'
+        redirect_link = f"https://www.darbydental.com{response_text}"
         return redirect_link
-
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("darby/create_order")
@@ -555,10 +565,10 @@ class DarbyScraper(Scraper):
             await self.clear_cart()
             await self.add_products_to_cart(products)
             vendor_order_detail = await self.review_order()
-        except:
+        except Exception:
             print("darby/create_order except")
-            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
-            vendor_order_detail =VendorOrderDetail(
+            subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
+            vendor_order_detail = VendorOrderDetail(
                 retail_amount=(0),
                 savings_amount=(0),
                 subtotal_amount=Decimal(subtotal_manual),
@@ -582,7 +592,7 @@ class DarbyScraper(Scraper):
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
         self.backsession = self.session
         self.session = ClientSession()
-        
+
         print("darby/confirm_order")
         try:
             await asyncio.sleep(1)
@@ -598,24 +608,24 @@ class DarbyScraper(Scraper):
                 return {
                     **vendor_order_detail.to_dict(),
                     **self.vendor.to_dict(),
-                    "order_id":f"{uuid.uuid4()}",
-                    "order_type": msgs.ORDER_TYPE_ORDO
+                    "order_id": f"{uuid.uuid4()}",
+                    "order_type": msgs.ORDER_TYPE_ORDO,
                 }
 
             link = await self.checkout()
-            await self.session.post(link, headers = REAL_ORDER_HEADER)
+            await self.session.post(link, headers=REAL_ORDER_HEADER)
             await self.session.close()
             self.session = self.backsession
             return {
                 **vendor_order_detail.to_dict(),
                 **self.vendor.to_dict(),
-                "order_id":"invalid",
-                "order_type": msgs.ORDER_TYPE_ORDO
+                "order_id": "invalid",
+                "order_type": msgs.ORDER_TYPE_ORDO,
             }
-        except:
+        except Exception:
             print("darby/confirm_order except")
-            subtotal_manual = sum([prod['price']*prod['quantity'] for prod in products])
-            vendor_order_detail =VendorOrderDetail(
+            subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
+            vendor_order_detail = VendorOrderDetail(
                 retail_amount=(0),
                 savings_amount=(0),
                 subtotal_amount=Decimal(subtotal_manual),
@@ -624,14 +634,13 @@ class DarbyScraper(Scraper):
                 total_amount=Decimal(subtotal_manual),
                 reduction_amount=Decimal(subtotal_manual),
                 payment_method="",
-                shipping_address=""
+                shipping_address="",
             )
             await self.session.close()
             self.session = self.backsession
             return {
                 **vendor_order_detail.to_dict(),
                 **self.vendor.to_dict(),
-                "order_id":"invalid",
-                "order_type": msgs.ORDER_TYPE_REDUNDANCY
+                "order_id": "invalid",
+                "order_type": msgs.ORDER_TYPE_REDUNDANCY,
             }
-            

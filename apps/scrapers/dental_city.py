@@ -26,7 +26,7 @@ from apps.scrapers.headers.dental_city import (
 from apps.scrapers.schema import Order, VendorOrderDetail
 from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct
-from apps.types.scraper import LoginInformation, ProductSearch
+from apps.types.scraper import InvoiceFile, InvoiceType, LoginInformation, ProductSearch
 
 
 def extractContent(dom, xpath):
@@ -37,6 +37,7 @@ class DentalCityScraper(Scraper):
     BASE_URL = "https://www.dentalcity.com"
     CATEGORY_URL = "https://www.henryschein.com/us-en/dental/c/browsesupplies"
     TRACKING_BASE_URL = "https://narvar.com/tracking/itemvisibility/v1/henryschein-dental/orders"
+    INVOICE_TYPE = InvoiceType.HTML_INVOICE
 
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         text = await response.text()
@@ -839,3 +840,10 @@ class DentalCityScraper(Scraper):
                 "order_id": f"{uuid.uuid4()}",
                 "order_type": msgs.ORDER_TYPE_REDUNDANCY,
             }
+
+    async def _download_invoice(self, **kwargs) -> InvoiceFile:
+        async with self.session.get(kwargs["invoice_link"]) as resp:
+            text = await resp.text()
+            dom = Selector(text=text)
+            content = dom.xpath("//div[@class='invdetails-ctn']").get()
+            return await self.html2pdf(content.encode("utf-8"))

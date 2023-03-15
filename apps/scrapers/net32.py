@@ -28,7 +28,7 @@ from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDet
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct
 from apps.types.scraper import (
-    InvoiceFile,
+    InvoiceType,
     LoginInformation,
     ProductSearch,
     SmartProductID,
@@ -39,6 +39,7 @@ class Net32Scraper(Scraper):
     BASE_URL = "https://www.net32.com"
     CATEGORY_URL = "https://www.net32.com/rest/userAndCartSummary/get"
     CATEGORY_HEADERS = LOGIN_HEADERS
+    INVOICE_TYPE = InvoiceType.HTML_INVOICE
 
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         res = await response.json()
@@ -475,12 +476,6 @@ class Net32Scraper(Scraper):
             )
             for category in response["TopCategories"]
         ]
-
-    async def download_invoice(self, invoice_link, order_id) -> InvoiceFile:
-        await self.login()
-        async with self.session.get(invoice_link) as resp:
-            content = await resp.content.read()
-            return await self.html2pdf(content)
 
     async def track_product(self, order_id, product_id, tracking_link, tracking_number, perform_login=False):
         parsed_url = urlparse(tracking_link)
