@@ -263,7 +263,7 @@ class OfficeViewSet(ModelViewSet):
             existing_budget.dental_total_budget = budget_from_opendental
             existing_budget.dental_percentage = prev_dental_percentage
             existing_budget.dental_budget = prev_dental_budget
-            existing_budget.dental_spend = "0.0"
+            existing_budget.dental_spend = OfficeBudgetHelper.get_office_spent_budget_current_month(instance)
             existing_budget.office_budget_type = budget_type
             existing_budget.office_total_budget = budget_from_opendental
             existing_budget.office_percentage = prev_office_percentage
@@ -280,7 +280,7 @@ class OfficeViewSet(ModelViewSet):
                 dental_total_budget=budget_from_opendental,
                 dental_percentage=prev_dental_percentage,
                 dental_budget=prev_dental_budget,
-                dental_spend="0.0",
+                dental_spend=OfficeBudgetHelper.get_office_spent_budget_current_month(instance),
                 office_budget_type=budget_type,
                 office_total_budget=budget_from_opendental,
                 office_percentage=prev_office_percentage,

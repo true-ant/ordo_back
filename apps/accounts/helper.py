@@ -2,13 +2,14 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Union
 
-from django.db.models import F, Prefetch
+from django.db.models import F, Prefetch, Sum
 from django.utils import timezone
 
 from apps.accounts.models import Office, OfficeBudget
 from apps.common.choices import BUDGET_SPEND_TYPE
 from apps.common.month import Month
 from apps.common.utils import bulk_create
+from apps.orders.models import Order
 from services.opendental import OpenDentalClient
 
 
@@ -154,3 +155,13 @@ class OfficeBudgetHelper:
             return adjusted_production, collections
         except Exception:
             return 0, 0
+
+    @staticmethod
+    def get_office_spent_budget_current_month(office):
+        current_month = Month.from_date(timezone.now().date())
+        first_day_current_month = datetime(current_month.year, current_month.month, 1)
+        orders = Order.objects.filter(office=office, order_date__gte=first_day_current_month).aggregate(
+            total_amount=Sum("total_amount")
+        )
+        total_order_amount = orders["total_amount"]
+        return total_order_amount
