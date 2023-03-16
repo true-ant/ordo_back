@@ -61,6 +61,7 @@ from apps.types.scraper import SmartID
 from config.utils import get_client_session
 from services.opendental import OpenDentalClient
 
+from ..audit.models import SearchHistory
 from . import filters as f
 from . import models as m
 from . import permissions as p
@@ -1613,6 +1614,7 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
 
     def get_queryset(self):
         query = self.request.GET.get("search", "")
+        SearchHistory.objects.create(user=self.request.user, query=query)
         office_pk = self.request.query_params.get("office_pk")
         selected_products = self.request.query_params.get("selected_products")
         selected_products = selected_products.split(",") if selected_products else []
