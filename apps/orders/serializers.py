@@ -1,5 +1,4 @@
 from django.db import transaction
-from django.db.models import Q
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 from rest_framework_recursive.fields import RecursiveField
@@ -40,7 +39,6 @@ class OfficeProductVendorSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         if self.context.get("with_inventory_count"):
-
             office_inventory_products = (
                 m.OfficeProduct.objects.all()
                 .filter(office_id=self.context["office_id"], product__vendor_id=instance.id, is_inventory=True)
@@ -265,33 +263,30 @@ class VendorOrderProductSerializer(serializers.ModelSerializer):
 
             instance = super().update(instance, validated_data)
 
-            if instance.status == m.ProductStatus.RECEIVED:
-                vendor_order = instance.vendor_order
-                order = vendor_order.order
+            vendor_order = instance.vendor_order
+            order = vendor_order.order
 
-                if not (
-                    m.VendorOrderProduct.objects
-                    .filter(vendor_order=vendor_order)
-                    .exclude(status__in=[m.ProductStatus.RECEIVED, m.ProductStatus.REJECTED])
-                    .exists()
-                ):
-                    vendor_order.status = OrderStatus.CLOSED
-                    vendor_order.save()
-                else:
-                    vendor_order.status = OrderStatus.OPEN
-                    vendor_order.save()
+            if not (
+                m.VendorOrderProduct.objects.filter(vendor_order=vendor_order)
+                .exclude(status__in=[m.ProductStatus.RECEIVED, m.ProductStatus.REJECTED])
+                .exists()
+            ):
+                vendor_order.status = OrderStatus.CLOSED
+                vendor_order.save()
+            else:
+                vendor_order.status = OrderStatus.OPEN
+                vendor_order.save()
 
-                if not (
-                    m.VendorOrderProduct.objects
-                    .filter(vendor_order__order=order)
-                    .exclude(status__in=[m.ProductStatus.RECEIVED, m.ProductStatus.REJECTED])
-                    .exists()
-                ):
-                    order.status = OrderStatus.CLOSED
-                    order.save()
-                else:
-                    order.status = OrderStatus.OPEN
-                    order.save()
+            if not (
+                m.VendorOrderProduct.objects.filter(vendor_order__order=order)
+                .exclude(status__in=[m.ProductStatus.RECEIVED, m.ProductStatus.REJECTED])
+                .exists()
+            ):
+                order.status = OrderStatus.CLOSED
+                order.save()
+            else:
+                order.status = OrderStatus.OPEN
+                order.save()
 
             return instance
 
