@@ -3,11 +3,11 @@ from django.db import models
 from apps.accounts.models import User
 
 
-class ProductRelationHistory(models.Model):
-    before = models.JSONField()
-    after = models.JSONField()
-    user = models.ForeignKey(User, on_delete=models.PROTECT)
-    created = models.DateTimeField(auto_now_add=True)
+class ProductParentHistory(models.Model):
+    operation_id = models.UUIDField()
+    product = models.IntegerField()
+    old_parent = models.IntegerField(null=True)
+    new_parent = models.IntegerField(null=True)
 
 
 class SearchHistory(models.Model):
