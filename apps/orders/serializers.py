@@ -295,6 +295,7 @@ class VendorOrderSerializer(serializers.ModelSerializer):
     products = VendorOrderProductSerializer(many=True, source="order_products")
     vendor = VendorLiteSerializer()
     status_display_text = serializers.CharField(source="get_status_display")
+    is_invoice_available = serializers.BooleanField()
 
     class Meta:
         model = m.VendorOrder
