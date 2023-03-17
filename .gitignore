@@ -138,3 +138,4 @@ dmypy.json
 init.sql
 install-pyenv-win.ps1
 .vscode/*
+*.pdf
