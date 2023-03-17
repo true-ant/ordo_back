@@ -128,7 +128,7 @@ class OrderService:
         products = async_to_sync(OrderService.get_vendor_order_products)(vendor_order, validated_data)
         if products:
             for vendor_order_product in products:
-                dental_amount[vendor_order_product.budget_spend_type] += (
+                dental_amount[vendor_order_product.budget_spend_type] += float(
                     vendor_order_product.quantity * vendor_order_product.unit_price
                 )
         else:

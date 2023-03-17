@@ -971,7 +971,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 objs = []
                 for vendor_order_product in vendor_order_products:
                     if not approval_needed:
-                        dental_amount[vendor_order_product.budget_spend_type] += (
+                        dental_amount[vendor_order_product.budget_spend_type] += float(
                             vendor_order_product.quantity * vendor_order_product.unit_price
                         )
 
@@ -1016,14 +1016,14 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
             office_budget = office.budgets.filter(month=month).first()
 
             if office_budget:
-                office_budget.dental_spend = (
-                    F("dental_spend") + dental_amount[BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET]
+                office_budget.dental_spend = F("dental_spend") + Decimal(
+                    dental_amount[BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET]
                 )
-                office_budget.office_spend = (
-                    F("office_spend") + dental_amount[BUDGET_SPEND_TYPE.FRONT_OFFICE_SUPPLY_SPEND_BUDGET]
+                office_budget.office_spend = F("office_spend") + Decimal(
+                    dental_amount[BUDGET_SPEND_TYPE.FRONT_OFFICE_SUPPLY_SPEND_BUDGET]
                 )
-                office_budget.miscellaneous_spend = (
-                    F("office_spend") + dental_amount[BUDGET_SPEND_TYPE.MISCELLANEOUS_SPEND_BUDGET]
+                office_budget.miscellaneous_spend = F("office_spend") + Decimal(
+                    dental_amount[BUDGET_SPEND_TYPE.MISCELLANEOUS_SPEND_BUDGET]
                 )
                 office_budget.save()
 
