@@ -5,8 +5,8 @@ def move_bone_graft_to_grafting(apps, schema_editor):
     ProcedureCategory = apps.get_model('orders', 'ProcedureCategoryLink')
     ProcedureCode = apps.get_model('orders', 'ProcedureCode')
 
-    category_graft = ProcedureCategory.objects.get(summary_slug='Bone Graft')
-    category_grafting = ProcedureCategory.objects.get(summary_slug='Bone Grafting')
+    category_graft = ProcedureCategory.objects.filter(summary_slug='Bone Graft').first()
+    category_grafting = ProcedureCategory.objects.filter(summary_slug='Bone Grafting').first()
     modify_proc_codes = ProcedureCode.objects.filter(summary_category=category_graft)
     if category_graft and category_grafting:
         # Update summary_category with Bone Graft to Bone Grafting
