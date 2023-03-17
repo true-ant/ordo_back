@@ -44,6 +44,10 @@ def get_testing_data():
                 #     "quantity": 10,
                 # },
             ],
+            "invoice_data": {
+                "invoice_link": "https://www.henryschein.com/us-en/olp/invoiceloading.aspx?"
+                "type=inv&invoice_num=heg4aI8Rub%2fAnEirOka%2fd0Tq1OxDkVSdtOP%2bf344g18%3d",
+            },
         },
         "net_32": {
             "username": os.getenv("NET32_USERNAME"),
@@ -207,6 +211,13 @@ def get_testing_data():
                 "invoice_link": "https://www.pearsondental.com/order/c-dtllst.asp?no=979494",
             },
         },
+        "safco": {
+            "username": os.getenv("SAFCO_USERNAME"),
+            "password": os.getenv("SAFCO_PASSWORD"),
+            "invoice_data": {
+                "invoice_link": "https://www.safcodental.com/my-account/invoices/1838206.pdf",
+            },
+        },
     }
 
 
@@ -278,7 +289,9 @@ if __name__ == "__main__":
         "dcdental",
         "crazy_dental",
         "pearson",
+        "safco",
+        "henry_schein",
     ]
     vendors = Vendor.objects.filter(slug__in=testing_scrapers)
-    asyncio.run(test_get_orders(vendors))
-    # asyncio.run(test_download_invoices(vendors))
+    # asyncio.run(test_get_orders(vendors))
+    asyncio.run(test_download_invoices(vendors))

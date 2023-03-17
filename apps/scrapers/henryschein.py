@@ -13,6 +13,7 @@ from scrapy import Selector
 
 from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
+from apps.scrapers.headers.base import HTTP_HEADERS
 from apps.scrapers.headers.henryschein import (
     CHECKOUT_HEADER,
     CLEAR_CART_HEADERS,
@@ -22,7 +23,12 @@ from apps.scrapers.headers.henryschein import (
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct, VendorCartProduct
-from apps.types.scraper import LoginInformation, ProductSearch, SmartProductID
+from apps.types.scraper import (
+    InvoiceType,
+    LoginInformation,
+    ProductSearch,
+    SmartProductID,
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -32,13 +38,16 @@ class HenryScheinScraper(Scraper):
     BASE_URL = "https://www.henryschein.com"
     CATEGORY_URL = "https://www.henryschein.com/us-en/dental/c/browsesupplies"
     TRACKING_BASE_URL = "https://narvar.com/tracking/itemvisibility/v1/henryschein-dental/orders"
+    INVOICE_TYPE = InvoiceType.PDF_INVOICE
 
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         res = await response.json()
         return res.get("IsAuthenticated", False)
 
     async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
-        async with self.session.get("https://www.henryschein.com/us-en/dental/Default.aspx") as resp:
+        async with self.session.get(
+            "https://www.henryschein.com/us-en/dental/Default.aspx", headers=HTTP_HEADERS
+        ) as resp:
             text = await resp.text()
             n = text.split("var _n =")[1].split(";")[0].strip(" '")
         self.session.headers.update({"n": n})
