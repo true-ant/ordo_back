@@ -184,6 +184,29 @@ def get_testing_data():
                 "invoice_link": "https://www.dentalcity.com/profile/invoicedetails?invoiceid=99533480",
             },
         },
+        "dcdental": {
+            "username": os.getenv("DC_DENTAL_USERNAME"),
+            "password": os.getenv("DC_DENTAL_PASSWORD"),
+            "invoice_data": {
+                "invoice_link": "https://www.dcdental.com/app/accounting/print/hotprint.nl"
+                "?regular=T&sethotprinter=T&printtype=transaction&trantype=salesord&label=Sales%20Order&id=71396563",
+            },
+        },
+        "crazy_dental": {
+            "username": os.getenv("CRAZY_DENTAL_USERNAME"),
+            "password": os.getenv("CRAZY_DENTAL_PASSWORD"),
+            "invoice_data": {
+                "invoice_link": "https://www.crazydentalprices.com/app/accounting/print/hotprint.nl"
+                "?regular=T&sethotprinter=T&printtype=transaction&trantype=salesord&label=Sales%20Order&id=72444003",
+            },
+        },
+        "pearson": {
+            "username": os.getenv("PEARSON_USERNAME"),
+            "password": os.getenv("PEARSON_PASSWORD"),
+            "invoice_data": {
+                "invoice_link": "https://www.pearsondental.com/order/c-dtllst.asp?no=979494",
+            },
+        },
     }
 
 
@@ -252,7 +275,10 @@ if __name__ == "__main__":
         "implant_direct",
         "edge_endo",
         "patterson",
+        "dcdental",
+        "crazy_dental",
+        "pearson",
     ]
     vendors = Vendor.objects.filter(slug__in=testing_scrapers)
-    # asyncio.run(test_get_orders(vendors))
-    asyncio.run(test_download_invoices(vendors))
+    asyncio.run(test_get_orders(vendors))
+    # asyncio.run(test_download_invoices(vendors))

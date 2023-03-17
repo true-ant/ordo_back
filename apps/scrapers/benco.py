@@ -154,7 +154,7 @@ class BencoScraper(Scraper):
             order["order_id"] = order_detail_link.split("/")[-1]
 
             for order_container in response_dom.xpath("//div[contains(@class, 'order-container')]"):
-                panel_heading = textParser(order_container.xpath("./div[@class='panel-heading']/h3[1]"))
+                panel_heading = order_container.xpath("./div[@class='panel-heading']/h3[2]")
 
                 if not panel_heading:
                     order["shipping_address"] = {
@@ -170,6 +170,9 @@ class BencoScraper(Scraper):
                     )
                     order["currency"] = "USD"
                 else:
+                    invoice_link = panel_heading.xpath(".//a/@href").get()
+                    if invoice_link:
+                        order["invoice_link"] = f"https://shop.benco.com{invoice_link}"
                     for product_row in order_container.xpath("./ul[@class='list-group']/li[@class='list-group-item']"):
                         if product_row.xpath(".//h4"):
                             continue

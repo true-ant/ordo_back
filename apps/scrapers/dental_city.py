@@ -470,6 +470,7 @@ class DentalCityScraper(Scraper):
         order["shipping_address"] = {
             "address": shipping_address,
         }
+        order["invoice_link"] = dom.xpath('//a[@id="invoicelink"]/@href').get()
         return order
 
     @semaphore_coroutine

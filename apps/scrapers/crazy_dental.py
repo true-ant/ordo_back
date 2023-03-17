@@ -11,6 +11,7 @@ from apps.scrapers.base import Scraper
 from apps.scrapers.schema import VendorOrderDetail
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct
+from apps.types.scraper import InvoiceFile, InvoiceType
 
 headers = {
     "authority": "www.crazydentalprices.com",
@@ -34,6 +35,7 @@ headers = {
 
 class CrazyDentalScraper(Scraper):
     aiohttp_mode = False
+    INVOICE_TYPE = InvoiceType.PDF_INVOICE
 
     @catch_network
     async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> SimpleCookie:
@@ -320,3 +322,12 @@ class CrazyDentalScraper(Scraper):
                 **vendor_order_detail,
                 **self.vendor.to_dict(),
             }
+
+    async def _download_invoice(self, **kwargs) -> InvoiceFile:
+        loop = asyncio.get_event_loop()
+        content = await loop.run_in_executor(None, self._download_invoice_proc, kwargs.get("invoice_link"))
+        return content
+
+    def _download_invoice_proc(self, invoice_link) -> InvoiceFile:
+        with self.session.get(invoice_link) as resp:
+            return resp.content
