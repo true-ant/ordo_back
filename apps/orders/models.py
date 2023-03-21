@@ -259,6 +259,7 @@ class OfficeProduct(TimeStampedModel):
     office_product_category = models.ForeignKey(
         OfficeProductCategory, null=True, blank=True, on_delete=models.SET_NULL, related_name="products"
     )
+    previous_office_product_category = models.BigIntegerField(null=True, blank=True)
     last_order_date = models.DateField(null=True, blank=True)
     last_order_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     last_price_updated = models.DateTimeField(null=True, blank=True, db_index=True)
