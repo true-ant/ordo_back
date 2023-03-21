@@ -1341,11 +1341,34 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="remove")
     def remove_from_inventory(self, request, *args, **kwargs):
+        """
+        NOTE: Uncategorized API - I left this API because of Uncategorized category in frontend.
+        """
         instance = self.get_object()
         other_category = m.OfficeProductCategory.objects.filter(office=instance.office, slug="other").first()
         instance.office_product_category = other_category
         instance.save()
         return Response({"message": "Deleted successfully"}, status=HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["post"], url_path="hide")
+    def hide_from_inventory(self, request, *args, **kwargs):
+        instance = self.get_object()
+        hidden_category = m.OfficeProductCategory.objects.filter(office=instance.office, slug="hidden").first()
+        instance.previous_office_product_category = instance.office_product_category.id
+        instance.office_product_category = hidden_category
+        instance.save()
+        return Response({"message": "Hid successfully"}, status=HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["post"], url_path="unhide")
+    def unhide_from_inventory(self, request, *args, **kwargs):
+        instance = self.get_object()
+        previous_category = m.OfficeProductCategory.objects.filter(
+            pk=instance.previous_office_product_category
+        ).first()
+        instance.office_product_category = previous_category
+        instance.previous_office_product_category = None
+        instance.save()
+        return Response({"message": "Unhid successfully"}, status=HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=["post"], url_path="prices")
     async def get_product_prices(self, request, *args, **kwargs):
