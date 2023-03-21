@@ -1353,7 +1353,9 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
     @action(detail=True, methods=["post"], url_path="hide")
     def hide_from_inventory(self, request, *args, **kwargs):
         instance = self.get_object()
-        hidden_category = m.OfficeProductCategory.objects.filter(office=instance.office, slug="hidden").first()
+        hidden_category = m.OfficeProductCategory.objects.filter(
+            office=instance.office, slug="hidden-products"
+        ).first()
         instance.previous_office_product_category = instance.office_product_category.id
         instance.office_product_category = hidden_category
         instance.save()
