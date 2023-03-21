@@ -29,7 +29,7 @@ henry_schein,Small Equipment,Small Equipment
 henry_schein,Surgical & Implant Products,Surgical Supplies
 henry_schein,Uniforms & Work Wear,Miscellaneous
 henry_schein,X-Ray And Digital Imaging,X-Ray & Digital Imaging
-henry_schein,Hidden,Hidden
+henry_schein,Hidden Products,Hidden Products
 net_32,"Acrylics, reline & tray materials",Laboratory
 net_32,Alloys & accessories,Restorative
 net_32,Anesthetic products,Anesthetics
@@ -71,7 +71,7 @@ net_32,Surgical Supplies,Surgical Supplies
 net_32,Unique gifts,Miscellaneous
 net_32,Waxes,Laboratory
 net_32,X-Ray products,X-Ray & Digital Imaging
-net_32,Hidden,Hidden
+net_32,Hidden Products,Hidden Products
 darby,Acrylics,Laboratory
 darby,Alloys,Restorative
 darby,Anesthetics,Anesthetics
@@ -112,7 +112,7 @@ darby,Surgical,Surgical Supplies
 darby,Uncategorized,Miscellaneous
 darby,Waxes,Laboratory
 darby,X-Ray,X-Ray & Digital Imaging
-darby,Hidden,Hidden
+darby,Hidden Products,Hidden Products
 patterson,"Adhesive Agents, Materials & Accessories",Restorative
 patterson,Crown & Bridge,Restorative
 patterson,Endodontics,Endodontics
@@ -144,7 +144,7 @@ ultradent,surgical,Surgical Supplies
 ultradent,tips-syringes,Disposables
 ultradent,triodent,Restorative
 ultradent,whitening,Whitening
-ultradent,Hidden,Hidden
+ultradent,Hidden Products,Hidden Products
 benco,Acrylics & Relines,Laboratory
 benco,Alloy,Restorative
 benco,Anesthetic,Anesthetics
@@ -180,13 +180,13 @@ benco,Small Equipment,Small Equipment
 benco,Surgical,Surgical Supplies
 benco,Waxes,Laboratory
 benco,X-Ray,X-Ray & Digital Imaging
-benco,Hidden,Hidden
+benco,Hidden Products,Hidden Products
 implant_direct,Biomaterials,Surgical Supplies
 implant_direct,Implants,Implant
 implant_direct,Infection Prevention,Infection Control
 implant_direct,Instruments,Instruments
 implant_direct,Prosthetics,Restorative
-implant_direct,Hidden,Hidden
+implant_direct,Hidden Products,Hidden Products
 edge_endo,Bioceramics,Endodontics
 edge_endo,EdgeBurs®,Endodontics
 edge_endo,EdgePro,Endodontics
@@ -201,7 +201,7 @@ edge_endo,Root Canal Rockstar Apparel,Miscellaneous
 edge_endo,Starter Bundle,Endodontics
 edge_endo,Supplies,Endodontics
 edge_endo,Ultrasonics,Small Equipment
-edge_endo,Hidden,Hidden
+edge_endo,Hidden Products,Hidden Products
 dental_city,Alloy,Restorative
 dental_city,Anesthetics,Anesthetics
 dental_city,Articulating,Restorative
@@ -234,4 +234,4 @@ dental_city,Sutures and Surgical Products,Surgical Supplies
 dental_city,Uniforms,Miscellaneous
 dental_city,Waxes,Laboratory
 dental_city,X,X-Ray & Digital Imaging
-dental_city,Hidden,Hidden
+dental_city,Hidden Products,Hidden Products
