@@ -18,7 +18,7 @@ from apps.accounts.models import CompanyMember, OfficeVendor, Subscription, User
 from apps.common.choices import OrderStatus
 from apps.common.utils import group_products
 from apps.notifications.models import Notification
-from apps.orders.helpers import ProductHelper
+from apps.orders.helpers import OrderHelper, ProductHelper
 from apps.orders.models import Keyword as KeyModel
 from apps.orders.models import OfficeCheckoutStatus
 from apps.orders.models import OfficeKeyword as OfficeKeyModel
@@ -452,3 +452,16 @@ def check_order_status_and_notify_customers(vendor_order_id):
             recipient_list=[user.email],
             html_message=htm_content,
         )
+
+
+@app.task
+def perform_real_order(order_id, vendor_order_ids, cart_product_ids, fake_order=False, shipping_options={}):
+    asyncio.run(
+        OrderHelper.perform_orders_in_vendors(
+            order_id=order_id,
+            vendor_order_ids=vendor_order_ids,
+            cart_product_ids=cart_product_ids,
+            fake_order=fake_order,
+            shipping_options=shipping_options,
+        )
+    )

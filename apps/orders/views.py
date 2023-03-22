@@ -68,7 +68,7 @@ from . import permissions as p
 from . import serializers as s
 from .actions.product_management import attach_to_parent, unlink_from_parent
 from .models import OfficeProduct, Product
-from .tasks import notify_order_creation, search_and_group_products
+from .tasks import perform_real_order, search_and_group_products
 
 
 class OrderViewSet(AsyncMixin, ModelViewSet):
@@ -922,17 +922,21 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         return Response({"message": msgs.SUCCESS})
 
     @sync_to_async
-    def _create_order(self, office_vendors, vendor_order_results, cart_products, approval_needed, data):
+    def _create_order(
+        self, office_vendors, vendor_order_results, cart_products, approval_needed, shippingg_options, fake_order
+    ):
         order_date = timezone.now().date()
         office = office_vendors[0].office
         vendor_order_ids = []
+        office_vendor_ids = []
+        cart_product_ids = list(cart_products.values_list("id", flat=True))
         with transaction.atomic():
             order = m.Order.objects.create(
                 office_id=self.kwargs["office_pk"],
                 created_by=self.request.user,
                 order_date=order_date,
                 status=m.OrderStatus.PENDING_APPROVAL if approval_needed else m.OrderStatus.OPEN,
-                order_type=msgs.ORDER_TYPE_ORDO,
+                order_type=msgs.ORDER_TYPE_REDUNDANCY,
             )
             total_amount = 0.0
             total_items = 0.0
@@ -946,7 +950,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
             for office_vendor, vendor_order_result in zip(office_vendors, vendor_order_results):
                 if not isinstance(vendor_order_result, dict):
                     continue
-
+                office_vendor_ids.append(office_vendor.id)
                 vendor = office_vendor.vendor
                 vendor_order_id = vendor_order_result.get("order_id", "")
                 if vendor_order_id is None:
@@ -955,9 +959,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 total_amount += float(vendor_total_amount)
                 vendor_order_products = cart_products.filter(product__vendor=vendor)
                 total_items += (vendor_total_items := vendor_order_products.count())
-                order_type = vendor_order_result.get("order_type", msgs.ORDER_TYPE_ORDO)
-                if order_type == msgs.ORDER_TYPE_REDUNDANCY:
-                    order.order_type = order_type
+
                 vendor_order = m.VendorOrder.objects.create(
                     order=order,
                     vendor=office_vendor.vendor,
@@ -1028,9 +1030,8 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 )
                 office_budget.save()
 
-        cart_products.delete()
-
-        notify_order_creation.delay(vendor_order_ids, approval_needed)
+        perform_real_order.delay(order.id, vendor_order_ids, cart_product_ids, fake_order, shippingg_options)
+        # notify_order_creation.delay(vendor_order_ids, approval_needed)
         return s.OrderSerializer(order).data
 
     @action(detail=False, url_path="checkout", methods=["get"], permission_classes=[p.OrderCheckoutPermission])
@@ -1139,7 +1140,6 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
     @action(detail=False, url_path="confirm-order", methods=["post"], permission_classes=[p.OrderCheckoutPermission])
     async def confirm_order(self, request, *args, **kwargs):
-        data = request.data["data"]
         shipping_options = request.data["shipping_options"]
 
         cart_products, office_vendors = await sync_to_async(get_cart)(office_pk=self.kwargs["office_pk"])
@@ -1181,9 +1181,9 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 password=office_vendor.password,
             )
 
-            if hasattr(scraper, "confirm_order"):
+            if hasattr(scraper, "redundancy_order"):
                 tasks.append(
-                    scraper.confirm_order(
+                    scraper.redundancy_order(
                         [
                             CartProduct(
                                 product_id=cart_product.product.product_id,
@@ -1204,7 +1204,10 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 )
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        order_data = await self._create_order(office_vendors, results, cart_products, order_approval_needed, data)
+        order_data = await self._create_order(
+            office_vendors, results, cart_products, order_approval_needed, shipping_options, fake_order
+        )
+
         await session.close()
         return Response(order_data)
 

@@ -38,6 +38,7 @@ from slugify import slugify
 from apps.accounts.models import Office as OfficeModel
 from apps.accounts.models import OfficeVendor as OfficeVendorModel
 from apps.accounts.models import Vendor as VendorModel
+from apps.common import messages as msgs
 from apps.common.choices import ProcedureType
 from apps.common.query import Replacer
 from apps.common.utils import (
@@ -53,15 +54,19 @@ from apps.common.utils import (
     remove_dash_between_numerics,
     sort_and_write_to_csv,
 )
+from apps.orders.models import Cart as CartModel
 from apps.orders.models import OfficeProduct as OfficeProductModel
 from apps.orders.models import OfficeProductCategory as OfficeProductCategoryModel
+from apps.orders.models import Order as OrderModel
 from apps.orders.models import Procedure as ProcedureModel
 from apps.orders.models import ProcedureCode as ProcedureCodeModel
 from apps.orders.models import Product as ProductModel
 from apps.orders.models import ProductCategory as ProductCategoryModel
 from apps.orders.models import ProductImage as ProductImageModel
+from apps.orders.models import VendorOrder as VendorOrderModel
 from apps.scrapers.errors import VendorAuthenticationFailed as VendorAuthFailed
 from apps.scrapers.scraper_factory import ScraperFactory
+from apps.types.orders import CartProduct
 from apps.vendor_clients.async_clients import BaseClient as BaseAsyncClient
 from apps.vendor_clients.errors import VendorAuthenticationFailed
 from apps.vendor_clients.sync_clients import BaseClient as BaseSyncClient
@@ -1468,3 +1473,89 @@ class OrderHelper:
                 perform_login=False,
                 completed_order_ids=completed_order_ids,
             )
+
+    @staticmethod
+    async def process_order_in_vendor(
+        vendor_order: VendorOrderModel,
+        office_vendor: OfficeVendorModel,
+        products: List[CartProduct],
+        shipping_option: str = "",
+        fake_order: bool = False,
+        perform_login: bool = True,
+    ):
+        async with ClientSession(timeout=ClientTimeout(30)) as session:
+            scraper = ScraperFactory.create_scraper(
+                vendor=office_vendor.vendor,
+                session=session,
+                username=office_vendor.username,
+                password=office_vendor.password,
+            )
+
+            if perform_login:
+                try:
+                    await scraper.login()
+                except Exception:
+                    logger.debug(f"Authentication is failed for {office_vendor.vendor.name} vendor")
+                    return False
+
+            result = await scraper.confirm_order(
+                products=products,
+                shipping_method=shipping_option,
+                fake=fake_order,
+            )
+            if result.get("order_type") is msgs.ORDER_TYPE_ORDO:
+                vendor_order.vendor_order_id = result.get("order_id")
+                await sync_to_async(vendor_order.save)()
+                return True
+        return False
+
+    @staticmethod
+    async def perform_orders_in_vendors(
+        order_id: int,
+        vendor_order_ids: List[int],
+        cart_product_ids: List[int],
+        shipping_options: dict = {},
+        fake_order: bool = False,
+    ):
+        order = await OrderModel.objects.aget(pk=order_id)
+        all_cart_products = CartModel.objects.filter(id__in=cart_product_ids)
+
+        order_tasks = []
+
+        for vendor_order_id in vendor_order_ids:
+            vendor_order = await VendorOrderModel.objects.select_related("order", "order__office").aget(
+                pk=vendor_order_id
+            )
+            office_vendor = await OfficeVendorModel.objects.select_related("vendor").aget(
+                office_id=vendor_order.order.office.id, vendor_id=vendor_order.vendor_id
+            )
+            cart_products = all_cart_products.select_related("product", "product__vendor").filter(
+                product__vendor=vendor_order.vendor_id
+            )
+            products = [
+                CartProduct(
+                    product_id=cart_product.product.product_id,
+                    product_unit=cart_product.product.product_unit,
+                    product_url=cart_product.product.url,
+                    price=float(cart_product.unit_price) if cart_product.unit_price else 0.0,
+                    quantity=int(cart_product.quantity),
+                )
+                async for cart_product in cart_products
+            ]
+            shipping_option = shipping_options.get(office_vendor.vendor.slug)
+            order_tasks.append(
+                OrderHelper.process_order_in_vendor(
+                    vendor_order=vendor_order,
+                    office_vendor=office_vendor,
+                    products=products,
+                    shipping_option=shipping_option,
+                    fake_order=fake_order,
+                )
+            )
+
+        await all_cart_products.adelete()
+
+        results = await aio.gather(*order_tasks, return_exceptions=True)
+        if all(results):
+            order.order_type = msgs.ORDER_TYPE_ORDO
+            await sync_to_async(order.save)()
