@@ -4,9 +4,8 @@ LOGIN_HEADERS = {
     "n": "pikP/UtnnyEIsCZl3cphEgyUhacC9CnLZqSaDcvfufM=",
     "iscallingfromcms": "False",
     "sec-ch-ua-mobile": "?0",
-    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36",
-    # noqa
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
+        AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36",
     "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
     "accept": "application/json, text/javascript, */*; q=0.01",
     "x-requested-with": "XMLHttpRequest",
@@ -14,7 +13,7 @@ LOGIN_HEADERS = {
     "sec-fetch-site": "same-origin",
     "sec-fetch-mode": "cors",
     "sec-fetch-dest": "empty",
-    "referer": "https://www.henryschein.com/us-en/Profiles/Logout.aspx?redirdone=1",
+    "referer": "https://www.henryschein.com",
     "accept-language": "en-US,en;q=0.9",
 }
 SEARCH_HEADERS = {

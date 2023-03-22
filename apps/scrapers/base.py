@@ -2,7 +2,9 @@ import asyncio
 import datetime
 import logging
 import re
+import uuid
 from collections import defaultdict
+from decimal import Decimal
 from http.cookies import SimpleCookie
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -14,6 +16,7 @@ from requests import Response
 from scrapy import Selector
 from slugify import slugify
 
+from apps.common import messages as msgs
 from apps.common.month import Month
 from apps.scrapers.errors import DownloadInvoiceError, VendorAuthenticationFailed
 from apps.scrapers.headers.base import HTTP_HEADERS
@@ -604,8 +607,47 @@ class Scraper:
     async def clear_cart(self):
         raise NotImplementedError("Vendor scraper must implement `clear_cart`")
 
-    async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
-        raise NotImplementedError("Vendor scraper must implement `create_order`")
-
     # async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
     #     raise NotImplementedError("Vendor scraper must implement `confirm_order`")
+
+    async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
+        subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
+        vendor_order_detail = VendorOrderDetail.from_dict(
+            {
+                "retail_amount": 0,
+                "savings_amount": 0,
+                "subtotal_amount": Decimal(subtotal_manual),
+                "shipping_amount": 0,
+                "tax_amount": 0,
+                "total_amount": Decimal(subtotal_manual),
+                "payment_method": "",
+                "shipping_address": "",
+                "reduction_amount": Decimal(subtotal_manual),
+            }
+        )
+        vendor_slug: str = self.vendor.slug
+        return {
+            vendor_slug: {
+                **vendor_order_detail.to_dict(),
+                **self.vendor.to_dict(),
+            },
+        }
+
+    async def redundancy_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
+        subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
+        vendor_order_detail = VendorOrderDetail(
+            retail_amount=Decimal(0),
+            savings_amount=Decimal(0),
+            subtotal_amount=Decimal(subtotal_manual),
+            shipping_amount=Decimal(0),
+            tax_amount=Decimal(0),
+            total_amount=Decimal(subtotal_manual),
+            reduction_amount=Decimal(subtotal_manual),
+            payment_method="",
+            shipping_address="",
+        )
+        return {
+            **vendor_order_detail.to_dict(),
+            "order_id": f"{uuid.uuid4()}",
+            "order_type": msgs.ORDER_TYPE_REDUNDANCY,
+        }

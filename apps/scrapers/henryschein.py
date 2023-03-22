@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
-from aiohttp import ClientResponse, ClientSession
+from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.common import messages as msgs
@@ -695,51 +695,29 @@ class HenryScheinScraper(Scraper):
             }
         )
 
-    async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
-        print("henryschein/create_order")
-        try:
-            await asyncio.sleep(0.3)
-            raise Exception()
-            await self.login()
-            await self.clear_cart()
-            await self.add_products_to_cart(products)
-            checkout_dom = await self.checkout(products)
-            review_checkout_dom = await self.review_checkout(checkout_dom, shipping_method)
-            vendor_order_detail = await self.review_order(review_checkout_dom)
-        except Exception:
-            print("henry_schein create_order except")
-            subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
-            vendor_order_detail = VendorOrderDetail.from_dict(
-                {
-                    "retail_amount": 0,
-                    "savings_amount": 0,
-                    "subtotal_amount": Decimal(subtotal_manual),
-                    "shipping_amount": 0,
-                    "tax_amount": 0,
-                    "total_amount": Decimal(subtotal_manual),
-                    "payment_method": "",
-                    "shipping_address": "",
-                    "reduction_amount": Decimal(subtotal_manual),
-                }
-            )
-        finally:
-            vendor_slug: str = self.vendor.slug
-            print("henryschein/create_order DONE")
-            return {
-                vendor_slug: {
-                    **vendor_order_detail.to_dict(),
-                    **self.vendor.to_dict(),
-                },
-            }
+    async def track_product(self, order_id, product_id, tracking_link, tracking_number, perform_login=False):
+        parsed_url = urlparse(tracking_link)
+        if parsed_url.netloc == "www.henryschein.com":
+            if perform_login:
+                await self.login()
 
-    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
-        print(f"henryschein/confirm_order {redundancy}")
-        self.backsession = self.session
-        self.session = ClientSession()
+            async with self.session.post(tracking_link) as resp:
+                tracking_link = str(resp.url)
+                parsed_url = urlparse(tracking_link)
+
+            tracking_link = f"{self.TRACKING_BASE_URL}/{order_id}?{parsed_url.query}&tracking_url={tracking_link}"
+
+        async with self.session.get(tracking_link) as resp:
+            res = await resp.json()
+
+        for shipment in res["order_info"]["shipments"]:
+            for item in shipment["items_info"]:
+                if item["sku"] == product_id:
+                    return self.normalize_product_status(shipment["status"])
+
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+        print("confirm_order")
         try:
-            asyncio.sleep(1)
-            raise Exception()
-            await self.login()
             await self.clear_cart()
             await self.add_products_to_cart(products)
             checkout_dom = await self.checkout(products)
@@ -747,8 +725,6 @@ class HenryScheinScraper(Scraper):
             vendor_order_detail = await self.review_order(review_checkout_dom)
             if fake:
                 print("henryschein/confirm_order DONE")
-                await self.session.close()
-                self.session = self.backsession
                 return {
                     **vendor_order_detail.to_dict(),
                     "order_id": f"{uuid.uuid4()}",
@@ -780,51 +756,12 @@ class HenryScheinScraper(Scraper):
                 res_data = response.split("dataLayer.push(", 1)[1].split(");")[0]
                 res_data = res_data.replace("'", '"')
                 res_data = json.loads(res_data)
-                await self.session.close()
-                self.session = self.backsession
                 return {
                     **vendor_order_detail.to_dict(),
                     "order_id": res_data["ecommerce"]["purchase"]["actionField"]["id"],
                     "order_type": msgs.ORDER_TYPE_ORDO,
                 }
         except Exception:
-            print("henry_schein/confirm_order Except")
-            subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
-            vendor_order_detail = VendorOrderDetail(
-                retail_amount=Decimal(0),
-                savings_amount=Decimal(0),
-                subtotal_amount=Decimal(subtotal_manual),
-                shipping_amount=Decimal(0),
-                tax_amount=Decimal(0),
-                total_amount=Decimal(subtotal_manual),
-                reduction_amount=Decimal(subtotal_manual),
-                payment_method="",
-                shipping_address="",
-            )
-            await self.session.close()
-            self.session = self.backsession
             return {
-                **vendor_order_detail.to_dict(),
-                "order_id": f"{uuid.uuid4()}",
                 "order_type": msgs.ORDER_TYPE_REDUNDANCY,
             }
-
-    async def track_product(self, order_id, product_id, tracking_link, tracking_number, perform_login=False):
-        parsed_url = urlparse(tracking_link)
-        if parsed_url.netloc == "www.henryschein.com":
-            if perform_login:
-                await self.login()
-
-            async with self.session.post(tracking_link) as resp:
-                tracking_link = str(resp.url)
-                parsed_url = urlparse(tracking_link)
-
-            tracking_link = f"{self.TRACKING_BASE_URL}/{order_id}?{parsed_url.query}&tracking_url={tracking_link}"
-
-        async with self.session.get(tracking_link) as resp:
-            res = await resp.json()
-
-        for shipment in res["order_info"]["shipments"]:
-            for item in shipment["items_info"]:
-                if item["sku"] == product_id:
-                    return self.normalize_product_status(shipment["status"])
