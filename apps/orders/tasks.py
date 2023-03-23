@@ -455,13 +455,13 @@ def check_order_status_and_notify_customers(vendor_order_id):
 
 
 @app.task
-def perform_real_order(order_id, vendor_order_ids, cart_product_ids, fake_order=False, shipping_options={}):
+def perform_real_order(order_id, vendor_order_ids, cart_product_ids, shipping_options={}):
     asyncio.run(
         OrderHelper.perform_orders_in_vendors(
             order_id=order_id,
             vendor_order_ids=vendor_order_ids,
             cart_product_ids=cart_product_ids,
-            fake_order=fake_order,
+            fake_order=False,
             shipping_options=shipping_options,
         )
     )

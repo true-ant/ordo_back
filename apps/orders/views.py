@@ -68,7 +68,7 @@ from . import permissions as p
 from . import serializers as s
 from .actions.product_management import attach_to_parent, unlink_from_parent
 from .models import OfficeProduct, Product
-from .tasks import perform_real_order, search_and_group_products
+from .tasks import notify_order_creation, perform_real_order, search_and_group_products
 
 
 class OrderViewSet(AsyncMixin, ModelViewSet):
@@ -1030,8 +1030,8 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 )
                 office_budget.save()
 
-        perform_real_order.delay(order.id, vendor_order_ids, cart_product_ids, fake_order, shippingg_options)
-        # notify_order_creation.delay(vendor_order_ids, approval_needed)
+        perform_real_order.delay(order.id, vendor_order_ids, cart_product_ids, shippingg_options)
+        notify_order_creation.delay(vendor_order_ids, approval_needed)
         return s.OrderSerializer(order).data
 
     @action(detail=False, url_path="checkout", methods=["get"], permission_classes=[p.OrderCheckoutPermission])
