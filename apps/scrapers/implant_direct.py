@@ -560,9 +560,6 @@ class ImplantDirectScraper(Scraper):
         print("Implant Direct/confirm_order")
         loop = asyncio.get_event_loop()
         try:
-            await asyncio.sleep(1)
-            raise Exception()
-            await self.login()
             await loop.run_in_executor(None, self.clear_cart)
             await loop.run_in_executor(None, self.add_to_cart, products)
             (
