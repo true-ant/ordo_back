@@ -9,7 +9,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, TypedDict
 
-from aiohttp import ClientResponse, ClientSession
+from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.common import messages as msgs
@@ -618,20 +618,13 @@ class BencoScraper(Scraper):
             }
 
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
-        self.backsession = self.session
-        self.session = ClientSession()
         try:
-            await asyncio.sleep(1)
-            raise Exception()
-            await self.login()
             await self.clear_cart()
             res = await self.add_products_to_cart(products)
             if len(res) < 1:
                 raise Exception
             cart_id, request_verification_token, vendor_order_detail = await self.checkout()
             if fake:
-                await self.session.close()
-                self.session = self.backsession
                 return {
                     **vendor_order_detail.to_dict(),
                     **self.vendor.to_dict(),
@@ -646,8 +639,6 @@ class BencoScraper(Scraper):
             ) as resp:
                 response_dom = Selector(text=await resp.text())
                 order_id = response_dom.xpath("//h4//span[@class='alt-dark-text']//text()").get()
-                await self.session.close()
-                self.session = self.backsession
                 return {
                     **vendor_order_detail.to_dict(),
                     **self.vendor.to_dict(),
@@ -668,8 +659,6 @@ class BencoScraper(Scraper):
                 payment_method="",
                 shipping_address="",
             )
-            await self.session.close()
-            self.session = self.backsession
             return {
                 **vendor_order_detail.to_dict(),
                 **self.vendor.to_dict(),

@@ -159,6 +159,7 @@ class Scraper:
                 if not is_authenticated:
                     logger.warning("Not authenticated after an attempt")
                     raise VendorAuthenticationFailed()
+                logger.info("Login success!")
                 await self._after_login_hook(resp)
 
             return resp.cookies
