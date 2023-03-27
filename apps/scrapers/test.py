@@ -1,7 +1,10 @@
 import asyncio
 import os
+from enum import IntEnum, auto
 
 from aiohttp import ClientSession, ClientTimeout
+
+from apps.types.orders import CartProduct
 
 
 def get_testing_data():
@@ -172,6 +175,15 @@ def get_testing_data():
                 "invoice_link": "https://store.implantdirect.com/us/en/customer/order/print/id/0041532869/",
                 "order_id": "1641753",
             },
+            "cart_products": [
+                CartProduct(
+                    product_id="DAP",
+                    product_unit="",
+                    product_url="https://store.implantdirect.com/dap.html",
+                    quantity=1,
+                    price=23.12,
+                )
+            ],
         },
         "edge_endo": {
             "username": os.getenv("EDGE_ENDO_USERNAME"),
@@ -221,13 +233,21 @@ def get_testing_data():
     }
 
 
-async def test_download_invoices(vendors):
+class ScraperTestCase(IntEnum):
+    TEST_LOGIN = auto()
+    TEST_CLEAR_CART = auto()
+    TEST_DOWNLOAD_INVOICE = auto()
+    TEST_GET_ORDERS = auto()
+    TEST_CONFIRM_ORDER = auto()
+
+
+async def test_scraper(test: ScraperTestCase, vendors):
     from apps.scrapers.scraper_factory import ScraperFactory
 
     testing_data = get_testing_data()
     tasks = []
     async with ClientSession(timeout=ClientTimeout(30)) as session:
-        for vendor in vendors:
+        async for vendor in vendors:
             scraper_testing_data = testing_data[vendor.slug]
             scraper = ScraperFactory.create_scraper(
                 vendor=vendor,
@@ -235,34 +255,26 @@ async def test_download_invoices(vendors):
                 username=scraper_testing_data["username"],
                 password=scraper_testing_data["password"],
             )
-            tasks.append(scraper.download_invoice(**scraper_testing_data["invoice_data"]))
+            if test == ScraperTestCase.TEST_LOGIN:
+                tasks.append(scraper.login())
+            else:
+                await scraper.login()
+                if test == ScraperTestCase.TEST_CLEAR_CART:
+                    tasks.append(scraper.clear_cart())
+                elif test == ScraperTestCase.TEST_DOWNLOAD_INVOICE:
+                    tasks.append(scraper.download_invoice(**scraper_testing_data["invoice_data"]))
+                elif test == ScraperTestCase.TEST_GET_ORDERS:
+                    tasks.append(scraper.get_orders(perform_login=True))
+                elif test == ScraperTestCase.TEST_CONFIRM_ORDER:
+                    tasks.append(scraper.confirm_order(scraper_testing_data["cart_products"]))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        for vendor, result in zip(vendors, results):
-            with open(f"{vendor.slug}.pdf", "wb") as f:
-                f.write(result)
-
-
-async def test_get_orders(vendors):
-    from apps.scrapers.scraper_factory import ScraperFactory
-
-    testing_data = get_testing_data()
-    tasks = []
-    async with ClientSession(timeout=ClientTimeout(30)) as session:
-        for vendor in vendors:
-            scraper_testing_data = testing_data[vendor.slug]
-            scraper = ScraperFactory.create_scraper(
-                vendor=vendor,
-                session=session,
-                username=scraper_testing_data["username"],
-                password=scraper_testing_data["password"],
-            )
-            tasks.append(scraper.get_orders(perform_login=True))
-
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        print(results)
+        if test == ScraperTestCase.TEST_DOWNLOAD_INVOICE:
+            for vendor, result in zip(vendors, results):
+                with open(f"{vendor.slug}.pdf", "wb") as f:
+                    f.write(result)
+        else:
+            print(results)
 
 
 if __name__ == "__main__":
@@ -279,19 +291,18 @@ if __name__ == "__main__":
 
     testing_scrapers = [
         "net_32",
-        "ultradent",
-        "benco",
-        "darby",
-        "dental_city",
+        # "ultradent",
+        # "benco",
+        # "darby",
+        # "dental_city",
         "implant_direct",
-        "edge_endo",
-        "patterson",
-        "dcdental",
-        "crazy_dental",
-        "pearson",
-        "safco",
-        "henry_schein",
+        # "edge_endo",
+        # "patterson",
+        # "dcdental",
+        # "crazy_dental",
+        # "pearson",
+        # "safco",
+        # "henry_schein",
     ]
     vendors = Vendor.objects.filter(slug__in=testing_scrapers)
-    # asyncio.run(test_get_orders(vendors))
-    asyncio.run(test_download_invoices(vendors))
+    asyncio.run(test_scraper(ScraperTestCase.TEST_LOGIN, vendors))
