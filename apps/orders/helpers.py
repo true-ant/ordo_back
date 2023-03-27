@@ -1539,6 +1539,7 @@ class OrderHelper:
                     product_url=cart_product.product.url,
                     price=float(cart_product.unit_price) if cart_product.unit_price else 0.0,
                     quantity=int(cart_product.quantity),
+                    sku=cart_product.product.sku,
                 )
                 async for cart_product in cart_products
             ]
