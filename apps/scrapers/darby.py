@@ -6,7 +6,7 @@ import uuid
 from decimal import Decimal
 from typing import Dict, List, Optional
 
-from aiohttp import ClientResponse, ClientSession
+from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.common import messages as msgs
@@ -559,9 +559,6 @@ class DarbyScraper(Scraper):
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("darby/create_order")
         try:
-            await asyncio.sleep(0.3)
-            raise Exception()
-            await self.login()
             await self.clear_cart()
             await self.add_products_to_cart(products)
             vendor_order_detail = await self.review_order()
@@ -590,21 +587,14 @@ class DarbyScraper(Scraper):
             }
 
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
-        self.backsession = self.session
-        self.session = ClientSession()
-
         print("darby/confirm_order")
         try:
-            await asyncio.sleep(1)
-            raise Exception()
-            await self.login()
             await self.clear_cart()
             await self.add_products_to_cart(products)
             vendor_order_detail = await self.review_order()
+
             if fake:
                 print("darby/confirm_order DONE")
-                await self.session.close()
-                self.session = self.backsession
                 return {
                     **vendor_order_detail.to_dict(),
                     **self.vendor.to_dict(),
@@ -613,31 +603,29 @@ class DarbyScraper(Scraper):
                 }
 
             link = await self.checkout()
-            await self.session.post(link, headers=REAL_ORDER_HEADER)
-            await self.session.close()
-            self.session = self.backsession
+            response = await self.session.post(link, headers=REAL_ORDER_HEADER)
+            dom = Selector(text=await response.text())
+            invoice_num = dom.xpath('//span[@id="MainContent_lblInvoiceNo"]//text()').get()
             return {
                 **vendor_order_detail.to_dict(),
                 **self.vendor.to_dict(),
-                "order_id": "invalid",
+                "order_id": invoice_num,
                 "order_type": msgs.ORDER_TYPE_ORDO,
             }
         except Exception:
             print("darby/confirm_order except")
             subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
             vendor_order_detail = VendorOrderDetail(
-                retail_amount=(0),
-                savings_amount=(0),
+                retail_amount=Decimal(0),
+                savings_amount=Decimal(0),
                 subtotal_amount=Decimal(subtotal_manual),
-                shipping_amount=(0),
-                tax_amount=(0),
+                shipping_amount=Decimal(0),
+                tax_amount=Decimal(0),
                 total_amount=Decimal(subtotal_manual),
                 reduction_amount=Decimal(subtotal_manual),
                 payment_method="",
                 shipping_address="",
             )
-            await self.session.close()
-            self.session = self.backsession
             return {
                 **vendor_order_detail.to_dict(),
                 **self.vendor.to_dict(),
