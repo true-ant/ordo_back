@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
 
-from aiohttp import ClientResponse, ClientSession
+from aiohttp import ClientResponse
 from django.utils.dateparse import parse_datetime
 from scrapy import Selector
 
@@ -405,9 +405,6 @@ class Net32Scraper(Scraper):
         print("net32/create_order")
         vendor_slug: str = self.vendor.slug
         try:
-            await asyncio.sleep(1)
-            raise Exception()
-            await self.login()
             await self.clear_cart()
             await self.add_products_to_cart(products)
             vendor_order_detail = await self.review_order()
@@ -437,17 +434,11 @@ class Net32Scraper(Scraper):
 
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
         print("net32/confirm_order")
-        self.backsession = self.session
-        self.session = ClientSession()
         result = await self.create_order(products)
         if fake:
             print("net32/confirm_order DONE")
-            await self.session.close()
-            self.session = self.backsession
             return {**result[self.vendor.slug], "order_id": f"{uuid.uuid4()}", "order_type": msgs.ORDER_TYPE_ORDO}
         try:
-            await asyncio.sleep(1)
-            raise Exception()
             async with self.session.post(
                 "https://www.net32.com/checkout/confirmation", headers=PLACE_ORDER_HEADERS
             ) as resp:
@@ -455,13 +446,9 @@ class Net32Scraper(Scraper):
                 order_id = response_dom.xpath(
                     "//h2[@class='checkout-confirmation-order-number-header']//a/text()"
                 ).get()
-            await self.session.close()
-            self.session = self.backsession
             return {**result[self.vendor.slug], "order_id": order_id}
         except Exception:
             print("benco/confirm_order Except")
-            await self.session.close()
-            self.session = self.backsession
             return {
                 **result[self.vendor.slug],
                 "order_type": msgs.ORDER_TYPE_REDUNDANCY,
