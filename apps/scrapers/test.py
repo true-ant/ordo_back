@@ -132,6 +132,16 @@ def get_testing_data():
             "username": os.getenv("ULTRADENT_USERNAME"),
             "password": os.getenv("ULTRADENT_PASSWORD"),
             "invoice_data": {"invoice_link": "", "order_id": "11678713"},
+            "cart_products": [
+                CartProduct(
+                    product_id="1019278",
+                    product_unit="PK",
+                    product_url="https://www.henryschein.com/us-en/dental/p/preventive/prophy-angles/acclean-disp-proph\
+                        y-angle-lf/1045452",
+                    quantity=1,
+                    price=3.09,
+                )
+            ],
         },
         "benco": {
             "username": os.getenv("BENCO_USERNAME"),
