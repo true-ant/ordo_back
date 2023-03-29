@@ -1,0 +1,41 @@
+import asyncio
+import re
+import xml.etree.ElementTree as ET
+from decimal import Decimal
+from typing import List
+
+from aiohttp.client import ClientSession
+
+from services.api_client.vendor_api_types import ProductPrice
+
+
+class Net32APIClient:
+    def __init__(self, session: ClientSession):
+        self.session = session
+
+    async def get_products(self) -> List[ProductPrice]:
+        url = "https://www.net32.com/feeds/feedonomics/dental_delta_products.xml"
+        products = []
+        async with self.session.get(url) as resp:
+            content = await resp.text()
+            products_xml = ET.fromstring(content)
+            for product_element in products_xml.iter("entry"):
+                price_string = product_element.find("price").text
+                price_string = re.search(r"[,\d]+.?\d*", price_string).group(0)
+                products.append(
+                    ProductPrice(
+                        product_identifier=product_element.find("mp_id").text,
+                        price=Decimal(price_string),
+                    )
+                )
+            return products
+
+
+async def main():
+    async with ClientSession() as session:
+        api_client = Net32APIClient(session)
+        await api_client.get_products()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
