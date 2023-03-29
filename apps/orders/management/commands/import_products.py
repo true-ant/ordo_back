@@ -30,7 +30,7 @@ class Command(BaseCommand):
             type=str,
             help="import products from vendors",
         )
-        parser.add_argument("--verbose", type=bool, help="debug mode", default=False)
+        parser.add_argument("--verbose", action="store_true", help="debug mode")
 
     def load_products(self, directory, vendors, fields=None, verbose=False):
         for file_name in sorted(glob.glob(f"{directory}/*.csv")):
