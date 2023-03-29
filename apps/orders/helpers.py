@@ -2,6 +2,7 @@ import asyncio as aio
 import csv
 import datetime
 import itertools
+import json
 import logging
 from collections import defaultdict
 from decimal import Decimal
@@ -57,12 +58,16 @@ from apps.common.utils import (
 from apps.orders.models import Cart as CartModel
 from apps.orders.models import OfficeProduct as OfficeProductModel
 from apps.orders.models import OfficeProductCategory as OfficeProductCategoryModel
+from apps.orders.models import (
+    OfficeVendorShippingOptions as OfficeVendorShippingOptionsModel,
+)
 from apps.orders.models import Order as OrderModel
 from apps.orders.models import Procedure as ProcedureModel
 from apps.orders.models import ProcedureCode as ProcedureCodeModel
 from apps.orders.models import Product as ProductModel
 from apps.orders.models import ProductCategory as ProductCategoryModel
 from apps.orders.models import ProductImage as ProductImageModel
+from apps.orders.models import ShippingMethod as ShippingMethodModel
 from apps.orders.models import VendorOrder as VendorOrderModel
 from apps.scrapers.errors import VendorAuthenticationFailed as VendorAuthFailed
 from apps.scrapers.scraper_factory import ScraperFactory
@@ -490,6 +495,60 @@ class ProductHelper:
         if output_duplicates:
             sort_and_write_to_csv(duplicated_products, columns=["category"], file_name=f"{file_name}_duplicated.csv")
         return df.drop_duplicates(subset=["product_id"], keep="first")
+
+    @staticmethod
+    def import_shipping_options_from_json(file_path, vendor_slug, office_id=None):
+        if not office_id:
+            office_ids = OfficeModel.objects.all().values_list("pk", flat=True).distinct()
+            for office_id in office_ids:
+                ProductHelper.import_shipping_options_for_one_office(
+                    file_path=file_path, vendor_slug=vendor_slug, office_id=office_id
+                )
+        else:
+            ProductHelper.import_shipping_options_for_one_office(
+                file_path=file_path, vendor_slug=vendor_slug, office_id=office_id
+            )
+
+    @staticmethod
+    def import_shipping_options_for_one_office(file_path, vendor_slug, office_id):
+        with open(file_path, "r") as file:
+            data = json.loads(file.read())
+        vendor = VendorModel.objects.get(slug=vendor_slug)
+        office = OfficeModel.objects.get(id=office_id)
+
+        connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_id)
+        if vendor.id in connected_vendor_ids:
+            default_shipping_method = data["default_shipping_method"]
+            shipping_options = data["shipping_options"]
+            default_shipping_option: dict = {}
+
+            shipping_options_to_be_created = []
+            office_vendor_shipping_options = OfficeVendorShippingOptionsModel.objects.filter(
+                office=office, vendor=vendor
+            ).first()
+            if office_vendor_shipping_options:
+                office_vendor_shipping_options.delete()
+
+            for option in shipping_options:
+                price = shipping_options[option]["shipping"].strip("$")
+                name = shipping_options[option]["shipping_method"]
+                value = shipping_options[option]["shipping_value"]
+                if name == default_shipping_method:
+                    default_shipping_option = shipping_options[option]
+                print("Creating new shopping option")
+                shipping_options_to_be_created.append(ShippingMethodModel(name=name, price=price, value=value))
+
+            shipping_options_objs = bulk_create(model_class=ShippingMethodModel, objs=shipping_options_to_be_created)
+            print(f"{vendor}: {len(shipping_options_to_be_created)} shipping options created")
+
+            default_shipping_option_obj = [
+                o for o in shipping_options_objs if o.name == default_shipping_option["shipping_method"]
+            ][0]
+            office_vendor_shipping_options = OfficeVendorShippingOptionsModel.objects.create(
+                default_shipping_option=default_shipping_option_obj, office=office, vendor=vendor
+            )
+            for obj in shipping_options_objs:
+                office_vendor_shipping_options.shipping_options.add(obj)
 
     @staticmethod
     def import_products_from_csv(file_path, vendor_slug, fields: Optional[List[str]] = None, verbose: bool = True):
@@ -1483,7 +1542,16 @@ class OrderHelper:
         fake_order: bool = False,
         perform_login: bool = True,
     ):
-        async with ClientSession(timeout=ClientTimeout(30)) as session:
+        import aiohttp
+
+        async def on_request_start(session, context, params):
+            logging.getLogger("aiohttp.client").debug(f"Starting request <{params}>")
+
+        logging.basicConfig(level=logging.DEBUG)
+        trace_config = aiohttp.TraceConfig()
+        trace_config.on_request_start.append(on_request_start)
+
+        async with ClientSession(timeout=ClientTimeout(30), trace_configs=[trace_config]) as session:
             scraper = ScraperFactory.create_scraper(
                 vendor=office_vendor.vendor,
                 session=session,

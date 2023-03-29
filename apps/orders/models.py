@@ -559,3 +559,18 @@ class Procedure(models.Model):
     class Meta:
         unique_together = ["office", "procedurecode", "start_date", "type"]
         ordering = ["start_date"]
+
+
+class ShippingMethod(models.Model):
+    name = models.CharField(max_length=255)
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    value = models.CharField(max_length=255, null=True, blank=True)
+
+
+class OfficeVendorShippingOptions(TimeStampedModel):
+    office = models.ForeignKey(Office, on_delete=models.CASCADE, related_name="shipping_options")
+    vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE, related_name="shipping_options")
+    shipping_options = models.ManyToManyField(ShippingMethod, related_name="ov_shipping_options")
+    default_shipping_option = models.ForeignKey(
+        ShippingMethod, related_name="ov_default_shipping_option", on_delete=models.SET_NULL, null=True
+    )
