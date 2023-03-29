@@ -142,8 +142,8 @@ VALIDATE_CART_HEADERS = {
     "Connection": "keep-alive",
     "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
     "sec-ch-ua-mobile": "?0",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)"
-    " Chrome/93.0.4577.82 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.8"
+    "2 Safari/537.36",
     "Accept": "application/json, text/plain, */*",
     "X-Requested-With": "XMLHttpRequest",
     "Content-Type": "application/json;charset=UTF-8",
@@ -160,8 +160,8 @@ ADD_CART_HEADERS = {
     "Connection": "keep-alive",
     "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
     "sec-ch-ua-mobile": "?0",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)"
-    " Chrome/93.0.4577.82 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.8"
+    "2 Safari/537.36",
     "Accept": "application/json, text/plain, */*",
     "X-Requested-With": "XMLHttpRequest",
     "Content-Type": "application/json;charset=UTF-8",
@@ -201,10 +201,10 @@ SHIP_PAYMENT_HEADERS = {
     "Upgrade-Insecure-Requests": "1",
     "Origin": "https://www.pattersondental.com",
     "Content-Type": "application/x-www-form-urlencoded",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)"
-    " Chrome/93.0.4577.82 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,"
-    "*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.8"
+    "2 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,applic"
+    "ation/signed-exchange;v=b3;q=0.9",
     "Sec-Fetch-Site": "same-origin",
     "Sec-Fetch-Mode": "navigate",
     "Sec-Fetch-User": "?1",
@@ -233,4 +233,43 @@ PLACE_ORDER_HEADERS = {
     "Sec-Fetch-Dest": "document",
     "Referer": "https://www.pattersondental.com/Order/ReviewOrder",
     "Accept-Language": "en-US,en;q=0.9,ko;q=0.8,pt;q=0.7",
+}
+
+CLEAR_CART_HEADER = {
+    "Connection": "keep-alive",
+    "Pragma": "no-cache",
+    "Cache-Control": "no-cache",
+    "sec-ch-ua": '" Not A;Brand";v="99", "Chromium";v="98", "Google Chrome";v="98"',
+    "sec-ch-ua-mobile": "?0",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.1"
+    "02 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "X-Requested-With": "XMLHttpRequest",
+    "Content-Type": "application/json;charset=UTF-8",
+    "sec-ch-ua-platform": '"Windows"',
+    "Origin": "https://www.pattersondental.com",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "empty",
+    "Referer": "https://www.pattersondental.com/ShoppingCart",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+GET_CART_ITEMS_HEADER = {
+    "Connection": "keep-alive",
+    "Cache-Control": "no-cache",
+    "sec-ch-ua": '"Google Chrome";v="93", " Not;A Brand";v="99", "Chromium";v="93"',
+    "Pragma": "no-cache",
+    "sec-ch-ua-mobile": "?0",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.8"
+    "2 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "X-Requested-With": "XMLHttpRequest",
+    "If-Modified-Since": "Mon, 26 Jul 1997 05:00:00 GMT",
+    "sec-ch-ua-platform": '"Windows"',
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "empty",
+    "Referer": "https://www.pattersondental.com/ShoppingCart",
+    "Accept-Language": "en-US,en;q=0.9,ko;q=0.8",
 }

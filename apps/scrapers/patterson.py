@@ -15,6 +15,8 @@ from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
 from apps.scrapers.headers.patterson import (
     ADD_CART_HEADERS,
+    CLEAR_CART_HEADER,
+    GET_CART_ITEMS_HEADER,
     HOME_HEADERS,
     LOGIN_HEADERS,
     LOGIN_HOOK_HEADER,
@@ -393,10 +395,7 @@ class PattersonScraper(Scraper):
         if products_dom:
             try:
                 total_size = int(
-                    response_dom.xpath(
-                        "//div[contains(@class, 'productItemFamilyListHeader')]\
-                      //h1//text()"
-                    )
+                    response_dom.xpath("//div[contains(@class, 'productItemFamilyListHeader')]//h1//text()")
                     .get()
                     .split("results", 1)[0]
                     .split("Found")[1]
@@ -489,6 +488,45 @@ class PattersonScraper(Scraper):
             "last_page": page_size * page >= total_size,
         }
 
+    async def get_cart_items(self):
+        async with self.session.get(
+            "https://www.pattersondental.com/ShoppingCart/CartItemQuantities", headers=GET_CART_ITEMS_HEADER
+        ) as resp:
+            return await resp.json()
+
+    async def clear_cart(self):
+        data = list()
+        cart_items = await self.get_cart_items()
+        for cart_item in cart_items:
+            item = {
+                "OrderItemId": cart_item["OrderItemId"],
+                "ParentItemId": None,
+                "PublicItemNumber": cart_item["PublicItemNumber"],
+                "PersistentItemNumber": "",
+                "ItemQuantity": cart_item["ItemQuantity"],
+                "BasePrice": None,
+                "ItemPriceBreaks": None,
+                "UnitPriceOverride": None,
+                "IsLabelItem": False,
+                "IsTagItem": False,
+                "ItemDescription": "",
+                "UseMyCatalogQuantity": False,
+                "UnitPrice": cart_item["UnitPrice"],
+                "ItemSubstitutionReasonModel": None,
+                "NavInkConfigurationId": None,
+                "CanBePersonalized": False,
+                "HasBeenPersonalized": False,
+                "Manufacturer": False,
+            }
+            data.append(item)
+
+        async with self.session.post(
+            "https://www.pattersondental.com/ShoppingCart/RemoveItemsFromShoppingCart",
+            headers=CLEAR_CART_HEADER,
+            json=data,
+        ) as resp:
+            print("Clear Cart:", resp.status)
+
     async def add_to_cart(self, products):
         for product in products:
             product_id = product["product_id"]
@@ -529,11 +567,15 @@ class PattersonScraper(Scraper):
                 data=json.dumps(data),
             )
 
-    async def checkout(self):
+    async def shipping_payment(self):
         response = await self.session.get(
             "https://www.pattersondental.com/Order/ShippingPayment", headers=SHIP_HEADERS
         )
-        response_dom = Selector(text=await response.text())
+        response_text = await response.text()
+        response_dom = Selector(text=response_text)
+        return response_dom
+
+    async def review_checkout(self, response_dom):
         shipping_address = "\n".join(
             [
                 await self.extract_content(it)
@@ -592,26 +634,34 @@ class PattersonScraper(Scraper):
             "shoppingCartButton": shoppingCartButton,
         }
 
-        response = await self.session.post(
+        async with self.session.post(
             "https://www.pattersondental.com/Order/ShippingPayment", headers=SHIP_PAYMENT_HEADERS, data=data
-        )
-        response_dom = Selector(text=await response.text())
+        ) as resp:
+            if not resp.ok:
+                raise ValueError("Review order POST API is failed somehow!")
 
-        subtotal = await self.extract_content(
-            response_dom.xpath('//div[contains(@class, "OrderSummaryBackground")]/div[2]/div[2]')
-        )
-        print("--- subtotal:\n", subtotal.strip() if subtotal else "")
+            async with self.session.get("https://www.pattersondental.com/Order/ReviewOrder") as redirect_resp:
+                if not redirect_resp.ok:
+                    raise ValueError("Redirecting to review order is failed somehow!")
+                print(f"{redirect_resp.url} --- {redirect_resp.status}")
+                response_text = await redirect_resp.text()
+                resp_dom = Selector(text=response_text)
 
-        shipping = await self.extract_content(
-            response_dom.xpath('//div[contains(@class, "OrderSummaryBackground")]/div[3]/div[2]')
-        )
-        print("--- shipping:\n", shipping.strip() if shipping else "")
+            subtotal = await self.extract_content(
+                resp_dom.xpath('//div[contains(@class, "OrderSummaryBackground")]/div[2]/div[2]')
+            )
+            print("--- subtotal:\n", subtotal.strip() if subtotal else "")
 
-        order_total = await self.extract_content(
-            response_dom.xpath('//div[contains(@class, "OrderSummaryBackground")]/following-sibling::div/div[2]')
-        )
-        print("--- order_total:\n", order_total.strip() if order_total else "")
-        return response_dom, subtotal, shipping, order_total, shipping_address
+            shipping = await self.extract_content(
+                resp_dom.xpath('//div[contains(@class, "OrderSummaryBackground")]/div[3]/div[2]')
+            )
+            print("--- shipping:\n", shipping.strip() if shipping else "")
+
+            order_total = await self.extract_content(
+                resp_dom.xpath('//div[contains(@class, "OrderSummaryBackground")]/following-sibling::div/div[2]')
+            )
+            print("--- order_total:\n", order_total.strip() if order_total else "")
+            return resp_dom, subtotal, shipping, order_total, shipping_address
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         print("patterson/create_order")
@@ -658,12 +708,12 @@ class PattersonScraper(Scraper):
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
         print("patterson/confirm_order")
         try:
-            await asyncio.sleep(1)
-            raise Exception()
-            await self.login()
             await self.clear_cart()
             await self.add_to_cart(products)
-            order_dom, subtotal, shipping, order_total, shipping_address = await self.checkout()
+            shipping_payment_dom = await self.shipping_payment()
+            resp_dom, subtotal, shipping, order_total, shipping_address = await self.review_checkout(
+                shipping_payment_dom
+            )
 
             if fake:
                 vendor_order_detail = {
@@ -683,12 +733,12 @@ class PattersonScraper(Scraper):
                     **self.vendor.to_dict(),
                 }
             data = {
-                "__RequestVerificationToken": order_dom.xpath(
+                "__RequestVerificationToken": resp_dom.xpath(
                     "//input[@name='__RequestVerificationToken']/@value"
                 ).get(),
                 "SpecialInstructions": "",
                 "CustomerPurchaseOrder": "",
-                "PaymentMethodId": order_dom.xpath("//input[@name='PaymentMethodId']/@value").get(),
+                "PaymentMethodId": resp_dom.xpath("//input[@name='PaymentMethodId']/@value").get(),
                 "PlaceOrderButton": "Place+Order",
             }
 
@@ -711,8 +761,8 @@ class PattersonScraper(Scraper):
                 **vendor_order_detail,
                 **self.vendor.to_dict(),
             }
-        except Exception:
-            print("patterson/confirm_order except")
+        except Exception as e:
+            print(f"patterson/confirm_order except {e}")
             subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
             vendor_order_detail = {
                 "retail_amount": "",
