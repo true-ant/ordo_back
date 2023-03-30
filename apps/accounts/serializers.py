@@ -257,6 +257,12 @@ class CompanyMemberUpdateSerializer(serializers.Serializer):
     )
 
 
+class ShippingMethodSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.ShippingMethod
+        fields = "__all__"
+
+
 class OfficeVendorSerializer(serializers.ModelSerializer):
     office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), allow_null=True)
     password = serializers.CharField(write_only=True)
@@ -268,7 +274,8 @@ class OfficeVendorSerializer(serializers.ModelSerializer):
 
 class OfficeVendorListSerializer(serializers.ModelSerializer):
     vendor = VendorLiteSerializer()
-    # status = serializers.SerializerMethodField()
+    default_shipping_option = ShippingMethodSerializer(read_only=True)
+    shipping_options = ShippingMethodSerializer(many=True, read_only=True)
 
     class Meta:
         model = m.OfficeVendor
@@ -276,13 +283,6 @@ class OfficeVendorListSerializer(serializers.ModelSerializer):
             "office",
             "password",
         )
-
-    #
-    # def get_status(self, instance):
-    #     if not instance.task_id:
-    #         return "SUCCESS"
-    #     ar: AsyncResult = fetch_orders_from_vendor.AsyncResult(instance.task_id)
-    #     return ar.status
 
 
 class UserSerializer(serializers.ModelSerializer):

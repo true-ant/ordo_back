@@ -177,6 +177,12 @@ class OfficeSetting(TimeStampedModel):
     percentage_threshold = models.DecimalField(default=0, decimal_places=2, max_digits=5)
 
 
+class ShippingMethod(models.Model):
+    name = models.CharField(max_length=255)
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    value = models.CharField(max_length=255, null=True, blank=True)
+
+
 class OfficeVendor(TimeStampedModel):
     vendor = FlexibleForeignKey(Vendor, related_name="connected_offices")
     office = FlexibleForeignKey(Office, related_name="connected_vendors")
@@ -189,6 +195,10 @@ class OfficeVendor(TimeStampedModel):
     representative_full_name = models.CharField(max_length=256, null=True, blank=True)
     representative_email = models.EmailField(null=True, blank=True)
     representative_phone_number = PhoneNumberField(null=True, blank=True)
+    shipping_options = models.ManyToManyField(ShippingMethod, related_name="ov_shipping_options")
+    default_shipping_option = models.ForeignKey(
+        ShippingMethod, related_name="ov_default_shipping_option", on_delete=models.SET_NULL, null=True, blank=True
+    )
 
     class Meta:
         ordering = ("vendor__name",)

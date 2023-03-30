@@ -2,8 +2,8 @@ import glob
 
 from django.core.management import BaseCommand
 
+from apps.accounts.helper import ShippingHelper
 from apps.common.utils import get_file_name_and_ext
-from apps.orders.helpers import ProductHelper
 
 
 class Command(BaseCommand):
@@ -38,7 +38,7 @@ class Command(BaseCommand):
             vendor, _ = get_file_name_and_ext(file_name)
             if vendors and vendor not in vendors:
                 continue
-            ProductHelper.import_shipping_options_from_json(file_path=file_name, vendor_slug=vendor, office_id=office)
+            ShippingHelper.import_shipping_options_from_json(file_path=file_name, vendor_slug=vendor, office_id=office)
 
     def handle(self, *args, **options):
         vendors = options["vendors"]
