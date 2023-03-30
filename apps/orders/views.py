@@ -35,7 +35,13 @@ from rest_framework.status import (
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from apps.accounts.models import Company, Office, OfficeBudget, OfficeVendor
+from apps.accounts.models import (
+    Company,
+    Office,
+    OfficeBudget,
+    OfficeVendor,
+    ShippingMethod,
+)
 from apps.accounts.services.offices import OfficeService
 from apps.accounts.tasks import fetch_order_history
 from apps.common import messages as msgs
@@ -923,7 +929,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
     @sync_to_async
     def _create_order(
-        self, office_vendors, vendor_order_results, cart_products, approval_needed, shippingg_options, fake_order
+        self, office_vendors, vendor_order_results, cart_products, approval_needed, shipping_option_id, fake_order
     ):
         order_date = timezone.now().date()
         office = office_vendors[0].office
@@ -1030,7 +1036,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 )
                 office_budget.save()
 
-        perform_real_order.delay(order.id, vendor_order_ids, cart_product_ids, shippingg_options)
+        perform_real_order.delay(order.id, vendor_order_ids, cart_product_ids, shipping_option_id)
         notify_order_creation.delay(vendor_order_ids, approval_needed)
         return s.OrderSerializer(order).data
 
@@ -1140,7 +1146,8 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
     @action(detail=False, url_path="confirm-order", methods=["post"], permission_classes=[p.OrderCheckoutPermission])
     async def confirm_order(self, request, *args, **kwargs):
-        shipping_options = request.data["shipping_options"]
+        shipping_option_id = request.data.get("shipping_option_id")
+        shipping_method = await ShippingMethod.objects.filter(pk=shipping_option_id).afirst()
 
         cart_products, office_vendors = await sync_to_async(get_cart)(office_pk=self.kwargs["office_pk"])
 
@@ -1197,7 +1204,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                             for cart_product in cart_products
                             if cart_product.product.vendor.id == office_vendor.vendor.id
                         ],
-                        shipping_method=shipping_options.get(office_vendor.vendor.slug),
+                        shipping_method=shipping_method,
                         fake=fake_order,
                         redundancy=redundancy,
                     )
@@ -1205,7 +1212,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
         order_data = await self._create_order(
-            office_vendors, results, cart_products, order_approval_needed, shipping_options, fake_order
+            office_vendors, results, cart_products, order_approval_needed, shipping_option_id, fake_order
         )
 
         await session.close()
