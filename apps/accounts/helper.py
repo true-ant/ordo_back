@@ -1,11 +1,15 @@
+import json
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from typing import Union
+from typing import List, Union
 
 from django.db.models import F, Prefetch, Sum
 from django.utils import timezone
 
 from apps.accounts.models import Office, OfficeBudget
+from apps.accounts.models import OfficeVendor as OfficeVendorModel
+from apps.accounts.models import ShippingMethod as ShippingMethodModel
+from apps.accounts.models import Vendor as VendorModel
 from apps.common.choices import BUDGET_SPEND_TYPE
 from apps.common.month import Month
 from apps.common.utils import bulk_create
@@ -165,3 +169,62 @@ class OfficeBudgetHelper:
         )
         total_order_amount = orders["total_amount"]
         return total_order_amount
+
+
+class ShippingHelper:
+    @staticmethod
+    def get_connected_vendor_ids(office: Union[int, str, Office]) -> List[str]:
+        if not isinstance(office, Office):
+            office = Office.objects.get(id=office)
+
+        return office.connected_vendors.values_list("vendor_id", flat=True)
+
+    @staticmethod
+    def import_shipping_options_from_json(file_path, vendor_slug, office_id=None):
+        if not office_id:
+            office_ids = Office.objects.all().values_list("pk", flat=True).distinct()
+            for office_id in office_ids:
+                ShippingHelper.import_shipping_options_for_one_office(
+                    file_path=file_path, vendor_slug=vendor_slug, office_id=office_id
+                )
+        else:
+            ShippingHelper.import_shipping_options_for_one_office(
+                file_path=file_path, vendor_slug=vendor_slug, office_id=office_id
+            )
+
+    @staticmethod
+    def import_shipping_options_for_one_office(file_path, vendor_slug, office_id):
+        with open(file_path, "r") as file:
+            data = json.loads(file.read())
+        vendor = VendorModel.objects.get(slug=vendor_slug)
+        office = Office.objects.get(id=office_id)
+
+        connected_vendor_ids = ShippingHelper.get_connected_vendor_ids(office_id)
+        if vendor.id in connected_vendor_ids:
+            default_shipping_method = data["default_shipping_method"]
+            shipping_options = data["shipping_options"]
+            default_shipping_option: dict = {}
+
+            shipping_options_to_be_created = []
+            office_vendor = OfficeVendorModel.objects.filter(office=office, vendor=vendor).first()
+            office_vendor.shipping_options.clear()
+
+            for option in shipping_options:
+                price = shipping_options[option]["shipping"].strip("$")
+                name = shipping_options[option]["shipping_method"]
+                value = shipping_options[option]["shipping_value"]
+                if name == default_shipping_method:
+                    default_shipping_option = shipping_options[option]
+                print("Creating new shopping option")
+                shipping_options_to_be_created.append(ShippingMethodModel(name=name, price=price, value=value))
+
+            shipping_options_objs = bulk_create(model_class=ShippingMethodModel, objs=shipping_options_to_be_created)
+            print(f"{vendor}: {len(shipping_options_to_be_created)} shipping options created")
+
+            default_shipping_option_obj = [
+                o for o in shipping_options_objs if o.name == default_shipping_option["shipping_method"]
+            ][0]
+            office_vendor.default_shipping_option = default_shipping_option_obj
+            for obj in shipping_options_objs:
+                office_vendor.shipping_options.add(obj)
+            office_vendor.save()
