@@ -19,7 +19,7 @@ from apps.scrapers.headers.safco import (
 from apps.scrapers.schema import Order, VendorOrderDetail
 from apps.scrapers.utils import semaphore_coroutine
 from apps.types.orders import CartProduct
-from apps.types.scraper import InvoiceType, LoginInformation
+from apps.types.scraper import InvoiceFormat, InvoiceType, LoginInformation
 from apps.vendor_clients import errors
 
 logger = logging.getLogger(__name__)
@@ -36,6 +36,7 @@ def clean_text(xpath, dom):
 class SafcoScraper(Scraper):
     BASE_URL = "https://www.safcodental.com/"
     INVOICE_TYPE = InvoiceType.PDF_INVOICE
+    INVOICE_FORMAT = InvoiceFormat.USE_VENDOR_FORMAT
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])

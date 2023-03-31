@@ -33,6 +33,7 @@ from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct, VendorCartProduct
 from apps.types.scraper import (
     InvoiceFile,
+    InvoiceFormat,
     InvoiceType,
     LoginInformation,
     ProductSearch,
@@ -63,6 +64,7 @@ class BencoScraper(Scraper):
     BASE_URL = "https://shop.benco.com"
     CATEGORY_URL = "https://shop.benco.com/Browse"
     INVOICE_TYPE = InvoiceType.PDF_INVOICE
+    INVOICE_FORMAT = InvoiceFormat.USE_VENDOR_FORMAT
 
     def __init__(self, *args, **kwargs):
         self._ssl_context = ssl.create_default_context(

@@ -316,13 +316,13 @@ def concatenate_strings(text: List[str], delimeter="") -> str:
     return delimeter.join(map(str.strip, text))
 
 
-def concatenate_list_as_string(objs: List[Any], delimiter="") -> str:
-    return delimiter.join(map(str.strip, map(str, objs)))
-
-
 def strip_whitespaces(text: str) -> str:
     """Remove spaces, tabs and new lines"""
-    return re.sub(r"\s+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def concatenate_list_as_string(objs: List[Any], delimiter="") -> str:
+    return delimiter.join(filter(lambda x: x, map(strip_whitespaces, map(str, objs))))
 
 
 def formatStEndDateFromQuery(jsonQuery, st, end):

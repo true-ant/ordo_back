@@ -16,7 +16,7 @@ from apps.scrapers.headers.pearson import (
 )
 from apps.scrapers.schema import Order, VendorOrderDetail
 from apps.types.orders import CartProduct
-from apps.types.scraper import InvoiceType
+from apps.types.scraper import InvoiceFormat, InvoiceType
 from apps.vendor_clients import types
 
 
@@ -30,6 +30,7 @@ def clean_text(xpath, dom):
 
 class PearsonScraper(Scraper):
     INVOICE_TYPE = InvoiceType.HTML_INVOICE
+    INVOICE_FORMAT = InvoiceFormat.USE_VENDOR_FORMAT
 
     async def _get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
         async with self.session.get(url="https://www.pearsondental.com/login.asp", headers=HOME_HEADERS):
