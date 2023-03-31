@@ -10,6 +10,11 @@ from django.utils.dateparse import parse_datetime
 from scrapy import Selector
 
 from apps.common import messages as msgs
+from apps.common.utils import (
+    concatenate_list_as_string,
+    convert_string_to_price,
+    strip_whitespaces,
+)
 from apps.scrapers.base import Scraper
 from apps.scrapers.errors import OrderFetchException
 from apps.scrapers.headers.net32 import (
@@ -28,7 +33,13 @@ from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDet
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct
 from apps.types.scraper import (
+    InvoiceAddress,
+    InvoiceFormat,
+    InvoiceInfo,
+    InvoiceOrderDetail,
+    InvoiceProduct,
     InvoiceType,
+    InvoiceVendorInfo,
     LoginInformation,
     ProductSearch,
     SmartProductID,
@@ -40,6 +51,7 @@ class Net32Scraper(Scraper):
     CATEGORY_URL = "https://www.net32.com/rest/userAndCartSummary/get"
     CATEGORY_HEADERS = LOGIN_HEADERS
     INVOICE_TYPE = InvoiceType.HTML_INVOICE
+    INVOICE_FORMAT = InvoiceFormat.USE_ORDO_FORMAT
 
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         res = await response.json()
@@ -497,3 +509,50 @@ class Net32Scraper(Scraper):
     #
     #     if fedex_tracking_numbers:
     #         return await self.track_product_from_fedex(tracking_number)
+
+    async def extract_info_from_invoice_page(self, invoice_page_dom: Selector) -> InvoiceInfo:
+        # parsing invoice address
+        shipping_address = invoice_page_dom.xpath("(//div[@class='shipping-info'])[1]//text()").extract()
+        address = InvoiceAddress(shipping_address=concatenate_list_as_string(shipping_address), billing_address="")
+
+        # parsing products
+        invoice_products = invoice_page_dom.xpath("//div[@class='product-row1']")
+        products: List[InvoiceProduct] = []
+        for invoice_product in invoice_products:
+            quantity = int(
+                strip_whitespaces(invoice_product.xpath(".//div[@class='product-column']/span/text()").get())
+            )
+            total_price = convert_string_to_price(invoice_product.xpath(".//div[@class='price-column']/text()").get())
+            products.append(
+                InvoiceProduct(
+                    product_url="",
+                    product_name=invoice_product.xpath(".//div[@class='product-title']//text()").get(),
+                    quantity=quantity,
+                    unit_price=total_price / quantity,
+                )
+            )
+
+        # parsing order detail
+        order_id = invoice_page_dom.xpath(".//h1[contains(@class, 'order-number')]/text()").get()
+        order_date = strip_whitespaces(invoice_page_dom.xpath(".//div[@class='order-date']/text()").get())
+        order_amounts = invoice_page_dom.xpath(".//dl[@class='cost-breakdown']/dd/text()").extract()
+        sub_total_amount = convert_string_to_price(order_amounts[0])
+        shipping_amount = convert_string_to_price(order_amounts[1])
+        total_amount = convert_string_to_price(order_amounts[-1])
+        order_detail = InvoiceOrderDetail(
+            order_id=order_id,
+            order_date=datetime.datetime.strptime(order_date, "%B %d, %Y").date(),
+            payment_method=invoice_page_dom.xpath(".//span[@class='card-brand']/text()").get(),
+            total_items=sum([p.quantity for p in products]),
+            sub_total_amount=sub_total_amount,
+            shipping_amount=shipping_amount,
+            tax_amount=total_amount - sub_total_amount - shipping_amount,
+            total_amount=total_amount,
+        )
+
+        return InvoiceInfo(
+            address=address,
+            order_detail=order_detail,
+            products=products,
+            vendor=InvoiceVendorInfo(name="Net 32", logo="https://cdn.joinordo.com/vendors/net_32.jpg"),
+        )

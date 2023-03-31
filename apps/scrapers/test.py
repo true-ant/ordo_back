@@ -4,12 +4,14 @@ from enum import IntEnum, auto
 
 from aiohttp import ClientSession, ClientTimeout
 
+from apps.common.enums import SupportedVendor
+from apps.scrapers.tests.factories import InvoiceInfoFactory
 from apps.types.orders import CartProduct
 
 
 def get_testing_data():
     return {
-        "henry_schein": {
+        SupportedVendor.HenrySchein: {
             "username": os.getenv("HENRY_SCHEIN_USERNAME"),
             "password": os.getenv("HENRY_SCHEIN_PASSWORD"),
             "products": [
@@ -52,7 +54,7 @@ def get_testing_data():
                 "type=inv&invoice_num=heg4aI8Rub%2fAnEirOka%2fd0Tq1OxDkVSdtOP%2bf344g18%3d",
             },
         },
-        "net_32": {
+        SupportedVendor.Net32: {
             "username": os.getenv("NET32_USERNAME"),
             "password": os.getenv("NET32_PASSWORD"),
             "invoice_data": {
@@ -88,7 +90,7 @@ def get_testing_data():
                 },
             ],
         },
-        "darby": {
+        SupportedVendor.Darby: {
             "username": os.getenv("DARBY_USERNAME"),
             "password": os.getenv("DARBY_PASSWORD"),
             "invoice_data": {
@@ -110,7 +112,7 @@ def get_testing_data():
                 },
             ],
         },
-        "patterson": {
+        SupportedVendor.Patterson: {
             "username": os.getenv("PATTERSON_USERNAME"),
             "password": os.getenv("PATTERSON_PASSWORD"),
             "invoice_data": {
@@ -128,7 +130,7 @@ def get_testing_data():
                 },
             ],
         },
-        "ultradent": {
+        SupportedVendor.UltraDent: {
             "username": os.getenv("ULTRADENT_USERNAME"),
             "password": os.getenv("ULTRADENT_PASSWORD"),
             "invoice_data": {"invoice_link": "", "order_id": "11678713"},
@@ -143,7 +145,7 @@ def get_testing_data():
                 )
             ],
         },
-        "benco": {
+        SupportedVendor.Benco: {
             "username": os.getenv("BENCO_USERNAME"),
             "password": os.getenv("BENCO_PASSWORD"),
             "invoice_data": {"invoice_link": "https://shop.benco.com/PurchaseHistory/InvoicePDFByInvoiceNum/1R763393"},
@@ -178,7 +180,7 @@ def get_testing_data():
                 },
             ],
         },
-        "implant_direct": {
+        SupportedVendor.ImplantDirect: {
             "username": os.getenv("IMPLANT_DIRECT_USERNAME"),
             "password": os.getenv("IMPLANT_DIRECT_PASSWORD"),
             "invoice_data": {
@@ -195,7 +197,7 @@ def get_testing_data():
                 )
             ],
         },
-        "edge_endo": {
+        SupportedVendor.EdgeEndo: {
             "username": os.getenv("EDGE_ENDO_USERNAME"),
             "password": os.getenv("EDGE_ENDO_PASSWORD"),
             "invoice_data": {
@@ -203,14 +205,14 @@ def get_testing_data():
                 "order_id": "634931",
             },
         },
-        "dental_city": {
+        SupportedVendor.DentalCity: {
             "username": os.getenv("DENTAL_CITY_USERNAME"),
             "password": os.getenv("DENTAL_CITY_PASSWORD"),
             "invoice_data": {
                 "invoice_link": "https://www.dentalcity.com/profile/invoicedetails?invoiceid=99533480",
             },
         },
-        "dcdental": {
+        SupportedVendor.DcDental: {
             "username": os.getenv("DC_DENTAL_USERNAME"),
             "password": os.getenv("DC_DENTAL_PASSWORD"),
             "invoice_data": {
@@ -218,7 +220,7 @@ def get_testing_data():
                 "?regular=T&sethotprinter=T&printtype=transaction&trantype=salesord&label=Sales%20Order&id=71396563",
             },
         },
-        "crazy_dental": {
+        SupportedVendor.CrazyDental: {
             "username": os.getenv("CRAZY_DENTAL_USERNAME"),
             "password": os.getenv("CRAZY_DENTAL_PASSWORD"),
             "invoice_data": {
@@ -226,14 +228,14 @@ def get_testing_data():
                 "?regular=T&sethotprinter=T&printtype=transaction&trantype=salesord&label=Sales%20Order&id=72444003",
             },
         },
-        "pearson": {
+        SupportedVendor.Pearson: {
             "username": os.getenv("PEARSON_USERNAME"),
             "password": os.getenv("PEARSON_PASSWORD"),
             "invoice_data": {
                 "invoice_link": "https://www.pearsondental.com/order/c-dtllst.asp?no=979494",
             },
         },
-        "safco": {
+        SupportedVendor.Safco: {
             "username": os.getenv("SAFCO_USERNAME"),
             "password": os.getenv("SAFCO_PASSWORD"),
             "invoice_data": {
@@ -247,8 +249,10 @@ class ScraperTestCase(IntEnum):
     TEST_LOGIN = auto()
     TEST_CLEAR_CART = auto()
     TEST_DOWNLOAD_INVOICE = auto()
+    TEST_DOWNLOAD_INVOICE_WITH_FAKE = auto()
     TEST_GET_ORDERS = auto()
     TEST_CONFIRM_ORDER = auto()
+    TEST_MAKE_INVOICE_TEMPLATE = auto()
 
 
 async def test_scraper(test: ScraperTestCase, vendors):
@@ -258,7 +262,7 @@ async def test_scraper(test: ScraperTestCase, vendors):
     tasks = []
     async with ClientSession(timeout=ClientTimeout(30)) as session:
         async for vendor in vendors:
-            scraper_testing_data = testing_data[vendor.slug]
+            scraper_testing_data = testing_data[SupportedVendor(vendor.slug)]
             scraper = ScraperFactory.create_scraper(
                 vendor=vendor,
                 session=session,
@@ -268,7 +272,6 @@ async def test_scraper(test: ScraperTestCase, vendors):
             if test == ScraperTestCase.TEST_LOGIN:
                 tasks.append(scraper.login())
             else:
-                await scraper.login()
                 if test == ScraperTestCase.TEST_CLEAR_CART:
                     tasks.append(scraper.clear_cart())
                 elif test == ScraperTestCase.TEST_DOWNLOAD_INVOICE:
@@ -277,10 +280,19 @@ async def test_scraper(test: ScraperTestCase, vendors):
                     tasks.append(scraper.get_orders(perform_login=True))
                 elif test == ScraperTestCase.TEST_CONFIRM_ORDER:
                     tasks.append(scraper.confirm_order(scraper_testing_data["cart_products"]))
+                elif test == ScraperTestCase.TEST_MAKE_INVOICE_TEMPLATE:
+                    invoice_info = InvoiceInfoFactory()
+                    tasks.append(scraper.make_invoice_template(invoice_info))
+                elif test == ScraperTestCase.TEST_DOWNLOAD_INVOICE_WITH_FAKE:
+                    invoice_info = InvoiceInfoFactory()
+                    invoice_content = await scraper.make_invoice_template(invoice_info)
+                    tasks.append(scraper.html2pdf(invoice_content))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        if test == ScraperTestCase.TEST_DOWNLOAD_INVOICE:
+        if test in [ScraperTestCase.TEST_DOWNLOAD_INVOICE, ScraperTestCase.TEST_DOWNLOAD_INVOICE_WITH_FAKE]:
             for vendor, result in zip(vendors, results):
+                if not isinstance(result, bytes):
+                    continue
                 with open(f"{vendor.slug}.pdf", "wb") as f:
                     f.write(result)
         else:
@@ -300,19 +312,19 @@ if __name__ == "__main__":
     from apps.accounts.models import Vendor
 
     testing_scrapers = [
-        "net_32",
-        # "ultradent",
-        # "benco",
-        # "darby",
-        # "dental_city",
-        "implant_direct",
-        # "edge_endo",
-        # "patterson",
-        # "dcdental",
-        # "crazy_dental",
-        # "pearson",
-        # "safco",
-        # "henry_schein",
+        SupportedVendor.Net32,
+        SupportedVendor.UltraDent,
+        # SupportedVendor.Benco,
+        # SupportedVendor.Darby,
+        SupportedVendor.DentalCity,
+        # SupportedVendor.ImplantDirect,
+        SupportedVendor.EdgeEndo,
+        # SupportedVendor.Patterson,
+        # SupportedVendor.DcDental,
+        # SupportedVendor.CrazyDental,
+        # SupportedVendor.Pearson,
+        # SupportedVendor.Safco,
+        # SupportedVendor.HenrySchein,
     ]
-    vendors = Vendor.objects.filter(slug__in=testing_scrapers)
-    asyncio.run(test_scraper(ScraperTestCase.TEST_LOGIN, vendors))
+    vendors = Vendor.objects.filter(slug__in=[scraper.value for scraper in testing_scrapers])
+    asyncio.run(test_scraper(ScraperTestCase.TEST_DOWNLOAD_INVOICE, vendors))

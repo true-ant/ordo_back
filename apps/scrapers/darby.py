@@ -19,7 +19,12 @@ from apps.scrapers.utils import (
     semaphore_coroutine,
 )
 from apps.types.orders import CartProduct
-from apps.types.scraper import InvoiceType, LoginInformation, ProductSearch
+from apps.types.scraper import (
+    InvoiceFormat,
+    InvoiceType,
+    LoginInformation,
+    ProductSearch,
+)
 
 HEADERS = {
     "Connection": "keep-alive",
@@ -190,6 +195,7 @@ class DarbyScraper(Scraper):
     BASE_URL = "https://www.darbydental.com"
     CATEGORY_URL = "https://www.darbydental.com/scripts/Categories.aspx"
     INVOICE_TYPE = InvoiceType.PDF_INVOICE
+    INVOICE_FORMAT = InvoiceFormat.USE_VENDOR_FORMAT
 
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         res = await response.json()
