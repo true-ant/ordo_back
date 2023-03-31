@@ -26,6 +26,7 @@ from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDet
 from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct, VendorCartProduct
 from apps.types.scraper import (
+    InvoiceFormat,
     InvoiceType,
     LoginInformation,
     ProductSearch,
@@ -49,6 +50,7 @@ class HenryScheinScraper(Scraper):
     CATEGORY_URL = "https://www.henryschein.com/us-en/dental/c/browsesupplies"
     TRACKING_BASE_URL = "https://narvar.com/tracking/itemvisibility/v1/henryschein-dental/orders"
     INVOICE_TYPE = InvoiceType.PDF_INVOICE
+    INVOICE_FORMAT = InvoiceFormat.USE_VENDOR_FORMAT
 
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         res = await response.json()

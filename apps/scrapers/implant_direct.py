@@ -17,7 +17,7 @@ from apps.scrapers.errors import VendorAuthenticationFailed
 from apps.scrapers.schema import Order, VendorOrderDetail
 from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct
-from apps.types.scraper import InvoiceFile, InvoiceType
+from apps.types.scraper import InvoiceFile, InvoiceFormat, InvoiceType
 
 headers = {
     "authority": "store.implantdirect.com",
@@ -41,6 +41,7 @@ class ImplantDirectScraper(Scraper):
     results = list()
     aiohttp_mode = False
     INVOICE_TYPE = InvoiceType.HTML_INVOICE
+    INVOICE_FORMAT = InvoiceFormat.USE_VENDOR_FORMAT
 
     def extractContent(dom, xpath):
         return re.sub(r"\s+", " ", " ".join(dom.xpath(xpath).extract())).strip()
@@ -635,9 +636,9 @@ class ImplantDirectScraper(Scraper):
 
     async def _download_invoice(self, **kwargs) -> InvoiceFile:
         loop = asyncio.get_event_loop()
-        content = await loop.run_in_executor(None, self._download_invoice_proc, kwargs["invoice_link"])
-        return await self.html2pdf(content)
+        return await loop.run_in_executor(None, self._download_invoice_proc, kwargs["invoice_link"])
 
     def _download_invoice_proc(self, invoice_link) -> InvoiceFile:
+        # self.login_proc()
         with self.session.get(invoice_link) as resp:
             return resp.content

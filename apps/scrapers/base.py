@@ -12,6 +12,7 @@ import requests
 from aiohttp import ClientResponse, ClientSession
 from asgiref.sync import sync_to_async
 from django.db.models import F
+from django.template.loader import render_to_string
 from requests import Response
 from scrapy import Selector
 from slugify import slugify
@@ -26,6 +27,8 @@ from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct, VendorCartProduct
 from apps.types.scraper import (
     InvoiceFile,
+    InvoiceFormat,
+    InvoiceInfo,
     InvoiceType,
     LoginInformation,
     ProductSearch,
@@ -220,18 +223,27 @@ class Scraper:
             raise DownloadInvoiceError("Not Found invoice")
 
         invoice_type = getattr(self, "INVOICE_TYPE", None)
-        if invoice_type is None:
+        invoice_format = getattr(self, "INVOICE_FORMAT", None)
+        if invoice_type is None or invoice_format is None:
             raise DownloadInvoiceError(f"{self.vendor} does not implement Downloading Invoice")
 
         await self.login()
         if hasattr(self, "_download_invoice") and callable(self._download_invoice):
-            return await self._download_invoice(**kwargs)
+            content = await self._download_invoice(**kwargs)
+        else:
+            async with self.session.get(invoice_link, headers=HTTP_HEADERS) as resp:
+                content = await resp.content.read()
 
-        async with self.session.get(invoice_link, headers=HTTP_HEADERS) as resp:
-            content = await resp.content.read()
+        if invoice_format == InvoiceFormat.USE_ORDO_FORMAT:
+            if isinstance(content, bytes):
+                content = content.decode("utf-8")
+            invoice_page_dom = Selector(text=content)
+            invoice_info = await self.extract_info_from_invoice_page(invoice_page_dom)
+            content = await self.make_invoice_template(invoice_info)
 
         if invoice_type == InvoiceType.HTML_INVOICE:
             content = await self.html2pdf(content)
+
         return content
 
     @staticmethod
@@ -248,8 +260,17 @@ class Scraper:
         except Exception as e:
             raise e
 
-    async def html2pdf(self, data: bytes):
-        return await self.run_command(cmd="htmldoc --quiet -t pdf --webpage -", data=data)
+    async def extract_info_from_invoice_page(self, invoice_page_dom: Selector) -> InvoiceInfo:
+        raise NotImplementedError(
+            "Scraper that has html format invoice must implement `extract_info_from_invoice_page`"
+        )
+
+    async def make_invoice_template(self, invoice_info: InvoiceInfo) -> InvoiceFile:
+        html_content = render_to_string("invoice-template.html", invoice_info.to_dict())
+        return html_content.encode("utf-8")
+
+    async def html2pdf(self, data: InvoiceFile):
+        return await self.run_command(cmd="wkhtmltopdf --quiet - -", data=data)
 
     def save_single_product_to_db(self, product_data, office=None, is_inventory=False, keyword=None, order_date=None):
         """save product to product table"""

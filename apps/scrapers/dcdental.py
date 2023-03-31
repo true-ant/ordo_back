@@ -11,7 +11,7 @@ from apps.scrapers.base import Scraper
 from apps.scrapers.schema import VendorOrderDetail
 from apps.scrapers.utils import catch_network
 from apps.types.orders import CartProduct
-from apps.types.scraper import InvoiceFile, InvoiceType
+from apps.types.scraper import InvoiceFile, InvoiceFormat, InvoiceType
 
 headers = {
     "authority": "www.dcdental.com",
@@ -36,6 +36,7 @@ headers = {
 class DCDentalScraper(Scraper):
     aiohttp_mode = False
     INVOICE_TYPE = InvoiceType.PDF_INVOICE
+    INVOICE_FORMAT = InvoiceFormat.USE_VENDOR_FORMAT
 
     @catch_network
     async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> SimpleCookie:

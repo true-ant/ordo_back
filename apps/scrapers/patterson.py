@@ -33,7 +33,12 @@ from apps.scrapers.headers.patterson import (
 from apps.scrapers.schema import Order, Product, VendorOrderDetail
 from apps.scrapers.utils import semaphore_coroutine
 from apps.types.orders import CartProduct
-from apps.types.scraper import InvoiceType, LoginInformation, ProductSearch
+from apps.types.scraper import (
+    InvoiceFormat,
+    InvoiceType,
+    LoginInformation,
+    ProductSearch,
+)
 from apps.vendor_clients import errors
 
 logger = logging.getLogger(__name__)
@@ -42,6 +47,7 @@ logger = logging.getLogger(__name__)
 class PattersonScraper(Scraper):
     BASE_URL = "https://www.pattersondental.com"
     INVOICE_TYPE = InvoiceType.PDF_INVOICE
+    INVOICE_FORMAT = InvoiceFormat.USE_VENDOR_FORMAT
 
     async def extract_content(self, ele):
         text = re.sub(r"\s+", " ", " ".join(ele.xpath(".//text()").extract()))
