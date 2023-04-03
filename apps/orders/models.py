@@ -395,7 +395,7 @@ class VendorOrder(TimeStampedModel):
         """
         if self.vendor.slug == "ultradent":
             return self.vendor_order_id.isdigit()
-        return self.invoice_link is not None
+        return bool(self.invoice_link)
 
 
 class VendorOrderProduct(TimeStampedModel):
