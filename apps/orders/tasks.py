@@ -455,13 +455,14 @@ def check_order_status_and_notify_customers(vendor_order_id):
 
 
 @app.task
-def perform_real_order(order_id, vendor_order_ids, cart_product_ids, shipping_option_id):
+def perform_real_order(vendor_order_ids):
+    vendor_order = VendorOrderModel.objects.filter(pk__in=vendor_order_ids).first()
+    order_id = vendor_order.order.id
+
     asyncio.run(
         OrderHelper.perform_orders_in_vendors(
             order_id=order_id,
             vendor_order_ids=vendor_order_ids,
-            cart_product_ids=cart_product_ids,
             fake_order=False,
-            shipping_option_id=shipping_option_id,
         )
     )

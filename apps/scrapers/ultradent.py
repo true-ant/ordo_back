@@ -11,7 +11,6 @@ from asgiref.sync import sync_to_async
 from scrapy import Selector
 
 from apps.common import messages as msgs
-from apps.common.utils import concatenate_list_as_string
 from apps.scrapers.base import Scraper
 from apps.scrapers.headers.ultradent import (
     ADDCART_HEADERS,
@@ -40,18 +39,7 @@ from apps.scrapers.utils import (
     semaphore_coroutine,
 )
 from apps.types.orders import CartProduct
-from apps.types.scraper import (
-    InvoiceAddress,
-    InvoiceFile,
-    InvoiceFormat,
-    InvoiceInfo,
-    InvoiceOrderDetail,
-    InvoiceProduct,
-    InvoiceType,
-    InvoiceVendorInfo,
-    LoginInformation,
-    ProductSearch,
-)
+from apps.types.scraper import InvoiceFile, InvoiceType, LoginInformation, ProductSearch
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +54,6 @@ class UltraDentScraper(Scraper):
     CATEGORY_URL = "https://www.ultradent.com/products/categories"
     CATEGORY_HEADERS = MAIN_HEADERS
     INVOICE_TYPE = InvoiceType.HTML_INVOICE
-    INVOICE_FORMAT = InvoiceFormat.USE_ORDO_FORMAT
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -210,7 +197,6 @@ class UltraDentScraper(Scraper):
             orders_data = (await resp.json())["data"]["orders"]
             tasks = []
             for order_data in orders_data:
-                print("================= #1 ===")
                 order_date = datetime.date.fromisoformat(order_data["orderDate"])
                 print(order_data, from_date, to_date)
                 if from_date and to_date and (order_date < from_date or order_date > to_date):
@@ -220,8 +206,6 @@ class UltraDentScraper(Scraper):
                     continue
 
                 tasks.append(self.get_order(sem, order_data, office))
-            print("================= #2 ===")
-            print(tasks)
             if tasks:
                 orders = await asyncio.gather(*tasks, return_exceptions=True)
                 return [Order.from_dict(order) for order in orders if isinstance(order, dict)]
@@ -361,18 +345,16 @@ class UltraDentScraper(Scraper):
             "https://www.ultradent.com/api/ecommerce", headers=ORDER_HEADERS, json=json_data
         ) as resp:
             order_detail_html = (await resp.json())["data"]["orderHtml"]["orderDetailHtml"]
-            return order_detail_html
+            return await self.html2pdf(order_detail_html.encode("utf-8"))
 
     async def clear_cart(self):
         async with self.session.get("https://www.ultradent.com/checkout/clear-cart", headers=CLEAR_HEADERS) as resp:
-            response_text = await resp.text()
-            logger.debug("Clear cart response text: %s", response_text)
-            print("Clear Cart")
+            print(f"Clear Cart {resp.status}")
 
     async def add_to_cart(self, products):
         items = []
         for product in products:
-            items.append({"sku": product["product_id"], "quantity": product["quantity"]})
+            items.append({"sku": product["sku"], "quantity": product["quantity"]})
         variables = {"input": {"lineItems": items}}
 
         async with self.session.post(
@@ -380,6 +362,7 @@ class UltraDentScraper(Scraper):
             headers=ADDCART_HEADERS,
             json={"query": ADD_CART_QUERY, "variables": variables},
         ) as resp:
+            print(resp.status)
             return Selector(text=await resp.text())
 
     async def getBillingAddress(self):
@@ -483,7 +466,6 @@ class UltraDentScraper(Scraper):
 
     async def submit_order(self, response_dom):
         __RequestVerificationToken = response_dom.xpath("//input[@name='__RequestVerificationToken']/@value").get()
-        print(__RequestVerificationToken)
         data = (
             f"------WebKitFormBoundaryFK2XSoFIILacpl1Z\r\n"
             f'Content-Disposition: form-data; name="SelectedPaymentMethod"\r\n'
@@ -495,12 +477,12 @@ class UltraDentScraper(Scraper):
             f'Content-Disposition: form-data; name="__RequestVerificationToken"\r\n\r\n'
             f"{__RequestVerificationToken}\r\n------WebKitFormBoundaryFK2XSoFIILacpl1Z--\r\n"
         )
-        async with self.session.post(
-            "https://www.ultradent.com/checkout/payment", headers=SUBMIT_HEADERS, data=data
-        ) as resp:
-            print("Place Order Response:", resp.status)
-            dom = Selector(text=await resp.text())
-
+        resp = await self.session.post("https://www.ultradent.com/checkout/payment", headers=SUBMIT_HEADERS, data=data)
+        async with self.session.get(resp.url) as redirect_resp:
+            if not redirect_resp.ok:
+                raise ValueError("Redirecting to review order is failed somehow!")
+            print(f"{redirect_resp.url} --- {redirect_resp.status}")
+            dom = Selector(text=await redirect_resp.text())
             order_num = dom.xpath('//dl[@id="orderDetails"]/dd[1]//text()').get()
             return order_num
 
@@ -549,13 +531,9 @@ class UltraDentScraper(Scraper):
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
         print("ultradent/confirm_order")
         try:
-            await asyncio.sleep(1)
-            raise Exception()
-            await self.login()
             await self.clear_cart()
             await self.add_to_cart(products)
             resp_text, subtotal, shipping, tax, order_total, shipping_address = await self.checkout()
-
             if fake:
                 vendor_order_detail = {
                     "retail_amount": "",
@@ -594,6 +572,7 @@ class UltraDentScraper(Scraper):
                 **self.vendor.to_dict(),
             }
         except:  # noqa
+            print("exept")
             subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
             vendor_order_detail = {
                 "retail_amount": "",
@@ -612,48 +591,3 @@ class UltraDentScraper(Scraper):
                 **vendor_order_detail,
                 **self.vendor.to_dict(),
             }
-
-    async def extract_info_from_invoice_page(self, invoice_page_dom: Selector) -> InvoiceInfo:
-        # parsing invoice address
-        address_dom = invoice_page_dom.xpath("//div[@class='address']")
-        shipping_address = address_dom[1].xpath("./span//text()").extract()
-        billing_address = address_dom[0].xpath("./span//text()").extract()
-        address = InvoiceAddress(
-            shipping_address=concatenate_list_as_string(shipping_address),
-            billing_address=concatenate_list_as_string(billing_address),
-        )
-
-        # parsing products
-        invoice_products = invoice_page_dom.xpath(".//ul[@class='odr-line-list']/li[not(@class)]")
-        products: List[InvoiceProduct] = []
-        for invoice_product in invoice_products:
-            products.append(
-                InvoiceProduct(
-                    product_url="",
-                    product_name=invoice_product.xpath("./span[2]/text()").get(),
-                    quantity=int(invoice_product.xpath("./span[3]/text()").get()),
-                    unit_price=convert_string_to_price(invoice_product.xpath("./span[4]/text()").get()),
-                )
-            )
-
-        # parsing order detail
-        order_id = invoice_page_dom.xpath(".//article/@data-order-number").get()
-        order_date = invoice_page_dom.xpath(".//span[@class='odr-date']/@datetime").get()
-        order_amounts = invoice_page_dom.xpath(".//div[@class='odr-totals']/div/span[2]/text()").extract()
-        order_detail = InvoiceOrderDetail(
-            order_id=order_id,
-            order_date=datetime.datetime.strptime(order_date, "%Y-%m-%d %H:%M:%SZ").date(),
-            payment_method="",
-            total_items=sum([p.quantity for p in products]),
-            sub_total_amount=convert_string_to_price(order_amounts[0]),
-            shipping_amount=convert_string_to_price(order_amounts[1]),
-            tax_amount=convert_string_to_price(order_amounts[2]),
-            total_amount=convert_string_to_price(order_amounts[3]),
-        )
-
-        return InvoiceInfo(
-            address=address,
-            order_detail=order_detail,
-            products=products,
-            vendor=InvoiceVendorInfo(name="Ultradent", logo="https://cdn.joinordo.com/vendors/ultradent.jpg"),
-        )

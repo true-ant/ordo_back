@@ -37,7 +37,6 @@ from slugify import slugify
 
 from apps.accounts.models import Office as OfficeModel
 from apps.accounts.models import OfficeVendor as OfficeVendorModel
-from apps.accounts.models import ShippingMethod as ShippingMethodModel
 from apps.accounts.models import Vendor as VendorModel
 from apps.common import messages as msgs
 from apps.common.choices import ProcedureType
@@ -55,7 +54,6 @@ from apps.common.utils import (
     remove_dash_between_numerics,
     sort_and_write_to_csv,
 )
-from apps.orders.models import Cart as CartModel
 from apps.orders.models import OfficeProduct as OfficeProductModel
 from apps.orders.models import OfficeProductCategory as OfficeProductCategoryModel
 from apps.orders.models import Order as OrderModel
@@ -1480,20 +1478,10 @@ class OrderHelper:
         vendor_order: VendorOrderModel,
         office_vendor: OfficeVendorModel,
         products: List[CartProduct],
-        shipping_option: str = "",
         fake_order: bool = False,
         perform_login: bool = True,
     ):
-        import aiohttp
-
-        async def on_request_start(session, context, params):
-            logging.getLogger("aiohttp.client").debug(f"Starting request <{params}>")
-
-        logging.basicConfig(level=logging.DEBUG)
-        trace_config = aiohttp.TraceConfig()
-        trace_config.on_request_start.append(on_request_start)
-
-        async with ClientSession(timeout=ClientTimeout(30), trace_configs=[trace_config]) as session:
+        async with ClientSession(timeout=ClientTimeout(30)) as session:
             scraper = ScraperFactory.create_scraper(
                 vendor=office_vendor.vendor,
                 session=session,
@@ -1510,7 +1498,7 @@ class OrderHelper:
 
             result = await scraper.confirm_order(
                 products=products,
-                shipping_method=shipping_option,
+                shipping_method=vendor_order.shipping_option.name if vendor_order.shipping_option else "",
                 fake=fake_order,
             )
             if result.get("order_type") is msgs.ORDER_TYPE_ORDO:
@@ -1523,48 +1511,42 @@ class OrderHelper:
     async def perform_orders_in_vendors(
         order_id: int,
         vendor_order_ids: List[int],
-        cart_product_ids: List[int],
-        shipping_option_id: Union[int, str] = None,
         fake_order: bool = False,
     ):
         order = await OrderModel.objects.aget(pk=order_id)
-        all_cart_products = CartModel.objects.filter(id__in=cart_product_ids)
 
         order_tasks = []
 
         for vendor_order_id in vendor_order_ids:
-            vendor_order = await VendorOrderModel.objects.select_related("order", "order__office").aget(
-                pk=vendor_order_id
+            vendor_order = (
+                await VendorOrderModel.objects.select_related("order", "order__office", "shipping_option")
+                .prefetch_related("order_products")
+                .aget(pk=vendor_order_id)
             )
+            vendor_order_products = vendor_order.order_products.select_related("product").all()
             office_vendor = await OfficeVendorModel.objects.select_related("vendor").aget(
                 office_id=vendor_order.order.office.id, vendor_id=vendor_order.vendor_id
             )
-            cart_products = all_cart_products.select_related("product", "product__vendor").filter(
-                product__vendor=vendor_order.vendor_id
-            )
+
             products = [
                 CartProduct(
-                    product_id=cart_product.product.product_id,
-                    product_unit=cart_product.product.product_unit,
-                    product_url=cart_product.product.url,
-                    price=float(cart_product.unit_price) if cart_product.unit_price else 0.0,
-                    quantity=int(cart_product.quantity),
-                    sku=cart_product.product.sku,
+                    product_id=vendor_order_product.product.product_id,
+                    product_unit=vendor_order_product.product.product_unit,
+                    product_url=vendor_order_product.product.url,
+                    price=float(vendor_order_product.unit_price) if vendor_order_product.unit_price else 0.0,
+                    quantity=int(vendor_order_product.quantity),
+                    sku=vendor_order_product.product.sku,
                 )
-                async for cart_product in cart_products
+                async for vendor_order_product in vendor_order_products
             ]
-            shipping_option = await ShippingMethodModel.objects.filter(pk=shipping_option_id).afirst()
             order_tasks.append(
                 OrderHelper.process_order_in_vendor(
                     vendor_order=vendor_order,
                     office_vendor=office_vendor,
                     products=products,
-                    shipping_option=shipping_option.name if shipping_option else "",
                     fake_order=fake_order,
                 )
             )
-
-        await all_cart_products.adelete()
 
         results = await aio.gather(*order_tasks, return_exceptions=True)
         if all(results):

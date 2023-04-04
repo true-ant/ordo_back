@@ -8,9 +8,7 @@ from apps.accounts.models import OfficeVendor
 from apps.common.choices import BUDGET_SPEND_TYPE, ProductStatus
 from apps.common.month import Month
 from apps.orders.models import OrderStatus, VendorOrder, VendorOrderProduct
-from apps.orders.tasks import notify_order_creation
-from apps.scrapers.scraper_factory import ScraperFactory
-from apps.types.orders import CartProduct
+from apps.orders.tasks import notify_order_creation, perform_real_order
 from config.utils import get_client_session
 
 
@@ -56,32 +54,10 @@ class OrderService:
     @staticmethod
     async def approve_vendor_order(approved_by, vendor_order: VendorOrder, validated_data, stage: str):
         session = await get_client_session()
-
         products = await OrderService.get_vendor_order_products(vendor_order, validated_data)
 
         if products:
-            office_vendor = await OrderService.get_office_vendor(vendor_order=vendor_order)
-
-            scraper = ScraperFactory.create_scraper(
-                vendor=office_vendor.vendor,
-                session=session,
-                username=office_vendor.username,
-                password=office_vendor.password,
-            )
-            vendor_order_result = await scraper.confirm_order(
-                [
-                    CartProduct(
-                        product_id=product.product.product_id,
-                        product_unit=product.product.product_unit,
-                        quantity=product.quantity,
-                        price=float(product.unit_price) if product.unit_price else 0,
-                    )
-                    for product in products
-                ],
-                fake=OrderService.is_debug_mode(stage=stage),
-            )
-
-            vendor_order.vendor_order_id = vendor_order_result["order_id"]
+            perform_real_order.delay([vendor_order.id])
             vendor_order.status = OrderStatus.OPEN
         else:
             vendor_order.status = OrderStatus.CLOSED
