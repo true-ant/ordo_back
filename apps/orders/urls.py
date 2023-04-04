@@ -30,6 +30,7 @@ urlpatterns = [
     path("", include(offices_router.urls)),
     path("companies/<int:company_pk>/spending", v.CompanySpendAPIView.as_view(), name="company-spending"),
     path("offices/<int:office_pk>/spending", v.OfficeSpendAPIView.as_view(), name="office-spending"),
+    path("dental-city-products", v.DentalCityProductAPIView.as_view(), name="dental-city-products"),
     path(
         "companies/<int:company_pk>/offices/<int:office_pk>/checkout/status",
         v.CheckoutAvailabilityAPIView.as_view(),
