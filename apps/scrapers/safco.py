@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+import uuid
 from datetime import datetime
 from decimal import Decimal
 from typing import Dict, List, Optional
@@ -11,10 +12,15 @@ from scrapy import Selector
 from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
 from apps.scrapers.headers.safco import (
+    ADD_TO_CART_HEADER,
+    CART_HEADER,
+    CHECKOUT_HEADER,
     HOME_HEADER,
     LOGIN_HEADER,
     LOGIN_HOOK_HEADER,
     ORDER_HISTORY_HEADER,
+    PLACE_ORDER_HEADER,
+    SURVEY_HEADER,
 )
 from apps.scrapers.schema import Order, VendorOrderDetail
 from apps.scrapers.utils import semaphore_coroutine
@@ -38,47 +44,6 @@ class SafcoScraper(Scraper):
     INVOICE_TYPE = InvoiceType.PDF_INVOICE
     INVOICE_FORMAT = InvoiceFormat.USE_VENDOR_FORMAT
 
-    async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
-        subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
-        vendor_order_detail = VendorOrderDetail(
-            retail_amount=(0),
-            savings_amount=(0),
-            subtotal_amount=Decimal(subtotal_manual),
-            shipping_amount=(0),
-            tax_amount=(0),
-            total_amount=Decimal(subtotal_manual),
-            payment_method="",
-            shipping_address="",
-            reduction_amount=Decimal(subtotal_manual),
-        )
-        vendor_slug: str = self.vendor.slug
-        return {
-            vendor_slug: {
-                **vendor_order_detail.to_dict(),
-                **self.vendor.to_dict(),
-            },
-        }
-
-    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
-        subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
-        vendor_order_detail = VendorOrderDetail(
-            retail_amount=(0),
-            savings_amount=(0),
-            subtotal_amount=Decimal(subtotal_manual),
-            shipping_amount=(0),
-            tax_amount=(0),
-            total_amount=Decimal(subtotal_manual),
-            reduction_amount=Decimal(subtotal_manual),
-            payment_method="",
-            shipping_address="",
-        )
-        return {
-            **vendor_order_detail.to_dict(),
-            **self.vendor.to_dict(),
-            "order_id": "invalid",
-            "order_type": msgs.ORDER_TYPE_REDUNDANCY,
-        }
-
     async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
         async with self.session.get(url=f"{self.BASE_URL}/?ref=sir", headers=HOME_HEADER):
             return {
@@ -97,12 +62,6 @@ class SafcoScraper(Scraper):
                     "sourcePage": "https://www.safcodental.com/",
                 },
             }
-
-    async def check_authenticated(self, resp: ClientResponse) -> bool:
-        text = await resp.text()
-        dom = Selector(text=text)
-
-        return True if dom.xpath("//a[@href='/shopping-cart']") else False
 
     async def login(self, username: Optional[str] = None, password: Optional[str] = None):
         login_info = await self._get_login_data()
@@ -142,6 +101,256 @@ class SafcoScraper(Scraper):
                         logger.info("Successfully logged in")
 
                     return resp.cookies
+
+    async def check_authenticated(self, resp: ClientResponse) -> bool:
+        text = await resp.text()
+        dom = Selector(text=text)
+
+        return True if dom.xpath("//a[@href='/shopping-cart']") else False
+
+    async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
+        subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
+        vendor_order_detail = VendorOrderDetail(
+            retail_amount=(0),
+            savings_amount=(0),
+            subtotal_amount=Decimal(subtotal_manual),
+            shipping_amount=(0),
+            tax_amount=(0),
+            total_amount=Decimal(subtotal_manual),
+            payment_method="",
+            shipping_address="",
+            reduction_amount=Decimal(subtotal_manual),
+        )
+        vendor_slug: str = self.vendor.slug
+        return {
+            vendor_slug: {
+                **vendor_order_detail.to_dict(),
+                **self.vendor.to_dict(),
+            },
+        }
+
+    async def add_products_to_cart(self, products):
+        headers = ADD_TO_CART_HEADER
+        data = {
+            "refValue": "ait",
+            "addToCartRedirect": "",
+            "selectedSearchCat": "",
+            "addToCart_qop": "Y",
+            "respondJson": "true",
+            "itemSource": "WEB-CT-PP",
+        }
+
+        for index, product in enumerate(products):
+            data[f"items[{index}][qty]"] = product["quantity"]
+            data[f"items[{index}][itemNumber]"] = product["product_id"]
+
+        response = await self.session.post(
+            "https://www.safcodental.com/ajax/fn_updateQop.html", headers=headers, data=data
+        )
+        if not response.ok:
+            raise ValueError("Adding products to cart is failed somehow")
+        logger.debug("Products are added to cart page successfully!")
+
+    async def clear_cart(self):
+        headers = CART_HEADER
+        cart_get_url = "https://www.safcodental.com/shopping-cart?ref=h"
+        async with self.session.get(cart_get_url, headers=headers) as resp:
+            if not resp.ok:
+                raise ValueError("Failed to reach the cart page")
+
+            cart_dom = Selector(text=await resp.text())
+            data = {
+                "updateOp": "Y",
+                "redirection": "5",
+            }
+            product_rows = cart_dom.xpath(
+                '//div[@class="list-body"]//div[@class="item-details"]//div[@class="item-detail q"]'
+            )
+
+            if not product_rows:
+                logger.debug("Cart is already Empty")
+                return
+
+            for index, product_row in enumerate(product_rows):
+                data[f"items[{index}][itemNumber]"] = product_row.xpath(
+                    './input[contains(@name, "itemNumber")]/@value'
+                ).get()
+                data[f"items[{index}][seqw]"] = product_row.xpath('./input[contains(@name, "seqw")]/@value').get()
+                data[f"items[{index}][qty]"] = product_row.xpath('./input[contains(@name, "qty")]/@value').get()
+                data[f"items[{index}][delete]"] = "Y"
+
+            response = await self.session.post("https://www.safcodental.com/shopping-cart", headers=headers, data=data)
+            logger.debug(f"Cart clean result: {response.ok}")
+
+    async def checkout(self):
+        headers = CHECKOUT_HEADER
+        async with self.session.get(
+            "https://www.safcodental.com/billing-and-shipping-info.html", headers=headers
+        ) as resp:
+            if not resp.ok:
+                raise ValueError("Fetching checkout page is failed!")
+
+            checkout_dom = Selector(text=await resp.text())
+
+            billing_adress = clean_text('//div[@id="shipAddress"]/p//text()', checkout_dom)
+            if "P:" in billing_adress:
+                billing_adress = billing_adress.split("P:")[0]
+            logger.debug("-- BILLING ADDRESS:\n", billing_adress)
+
+            shipping_adress = billing_adress
+            logger.debug("-- SHIPPING ADDRESS:\n", shipping_adress)
+
+            shipping_method = checkout_dom.xpath('//input[@name="shipmentMethod"][@checked="checked"]/@value').get()
+            logger.debug("-- Shipping METHOD:\n", shipping_method)
+
+            payment_info = "Bill me"
+            logger.debug("-- PAYMENT METHOD:\n", payment_info)
+
+            subtotal = clean_text(
+                '//div[@id="orderTotals"]/div[@class="leftOrderTotals"][contains(text(), "Subtotal")]'
+                "/following-sibling::div[1]//text()",
+                checkout_dom,
+            )
+            logger.debug("-- SUBTOTAL:\n", subtotal)
+
+            tax = clean_text(
+                '//div[@id="orderTotals"]/div[@class="leftOrderTotals"][contains(text(), "Tax:")]'
+                "/following-sibling::div[1]//text()",
+                checkout_dom,
+            )
+            logger.debug("-- TAX:\n", tax)
+
+            shipping = clean_text(
+                '//div[@id="orderTotals"]/div[@class="leftOrderTotals"][contains(text(), "Shipping")]'
+                "/following-sibling::div[1]//text()",
+                checkout_dom,
+            )
+            logger.debug("-- SHIPPING:\n", shipping)
+
+            total = clean_text('//span[@id="amountDueTotal"]//text()', checkout_dom)
+            if total:
+                total = f"${total}"
+            logger.debug("-- Grand Total:\n", total)
+
+            return checkout_dom
+
+    async def skip_survey(self):
+        headers = SURVEY_HEADER
+        params = {"ref": "so"}
+        data = {
+            "refValue": "sksb",
+            "updateSurvey": "Y",
+            "survey_question_1": "Do you currently provide patients with giveaways "
+            "(bags, toothbrushes, etc.) with your name and/or "
+            "practice name printed on them?",
+            "survey_question_2": "If so, which types of items do you provide?",
+            "survey_answer_2": "",
+            "survey_question_3": "If Safco were to offer such services, would you be "
+            "interested in purchasing them to help brand "
+            "/ market your practice to patients?",
+            "formSubmit": "Y",
+        }
+        response = await self.session.post(
+            url="https://www.safcodental.com/survey.html", headers=headers, params=params, data=data
+        )
+        if not response.ok:
+            raise ValueError("Skip survey is failed somehow!")
+        return response
+
+    async def place_order(self, checkout_dom):
+        headers = PLACE_ORDER_HEADER
+        billing_form = checkout_dom.xpath('//form[@id="billingInfoForm"]')
+        data = {
+            "formSubmit": billing_form.xpath('.//input[@name="formSubmit"]/@value').get(),
+            "updateAddressInfo": billing_form.xpath('.//input[@name="updateAddressInfo"]/@value').get(),
+            "scr_country": billing_form.xpath('.//input[@name="scr_country"]/@value').get(),
+            "useForShipping": billing_form.xpath('.//input[@name="useForShipping"]/@value').get(),
+            "addressType": billing_form.xpath('.//input[@name="addressType"]/@value').get(),
+            "safco_web_token": billing_form.xpath('.//input[@name="safco_web_token"]/@value').get(),
+            "updateBillingInfo": billing_form.xpath('.//input[@name="updateBillingInfo"]/@value').get(),
+            "scr_billCountry": billing_form.xpath('.//input[@name="scr_billCountry"]/@value').get(),
+            "scr_billDentistType": billing_form.xpath('.//input[@name="scr_billDentistType"]/@value').get(),
+            "scr_billDL": billing_form.xpath('.//input[@name="scr_billDL"]/@value').get(),
+            "scr_billDLExpires": billing_form.xpath('.//input[@name="scr_billDLExpires"]/@value').get(),
+            "scr_billNPI": billing_form.xpath('.//input[@name="scr_billNPI"]/@value').get(),
+            "redirectPage": billing_form.xpath('.//input[@name="redirectPage"]/@value').get(),
+            "validation": billing_form.xpath('.//input[@name="validation"]/@value').get(),
+            "addressList_0_csconr": billing_form.xpath('.//input[@name="addressList_0_csconr"]/@value').get(),
+            "addressList_0_cscsnr": billing_form.xpath('.//input[@name="addressList_0_cscsnr"]/@value').get(),
+            "addressList_0_csnam": billing_form.xpath('.//input[@name="addressList_0_csnam"]/@value').get(),
+            "addressList_0_csnam2": billing_form.xpath('.//input[@name="addressList_0_csnam2"]/@value').get(),
+            "addressList_0_csadr1": billing_form.xpath('.//input[@name="addressList_0_csadr1"]/@value').get(),
+            "addressList_0_csadr2": billing_form.xpath('.//input[@name="addressList_0_csadr2"]/@value').get(),
+            "addressList_0_cscity": billing_form.xpath('.//input[@name="addressList_0_cscity"]/@value').get(),
+            "addressList_0_csst": billing_form.xpath('.//input[@name="addressList_0_csst"]/@value').get(),
+            "addressList_0_cszip": billing_form.xpath('.//input[@name="addressList_0_cszip"]/@value').get(),
+            "addressList_0_csphn1": billing_form.xpath('.//input[@name="addressList_0_csphn1"]/@value').get(),
+            "addressConrCsnr": billing_form.xpath('.//input[@name="addressConrCsnr"]/@value').get(),
+            "maxIndex": billing_form.xpath('.//input[@name="maxIndex"]/@value').get(),
+            "shipmentMethod": billing_form.xpath('.//input[@name="shipmentMethod"][@checked="checked"]/@value').get(),
+            "defaultPayment": billing_form.xpath('.//input[@name="defaultPayment"]/@value').get(),
+            "paymentMethod": "AR",
+            "scr_billEmail": billing_form.xpath('.//input[@name="scr_billEmail"]/@value').get(),
+            "scr_billOrderPlacer": f'Ordo Order ({datetime.datetime.strftime(datetime.datetime.now(), "%m/%d/%Y")})',
+            "scr_orderMessage": "",
+            "codAmount": billing_form.xpath('.//input[@name="codAmount"]/@value').get(),
+            "codThreshold": billing_form.xpath('.//input[@name="codThreshold"]/@value').get(),
+            "standardShippingDefault": billing_form.xpath('.//input[@name="standardShippingDefault"]/@value').get(),
+            "shippingDefault": billing_form.xpath('.//input[@name="shippingDefault"]/@value').get(),
+            "amountTotalDefault": billing_form.xpath('.//input[@name="amountTotalDefault"]/@value').get(),
+            "amountDueMinusShipping": billing_form.xpath('.//input[@name="amountDueMinusShipping"]/@value').get(),
+            "amountDuePlusShipping": billing_form.xpath('.//input[@name="amountDuePlusShipping"]/@value').get(),
+            "submitBnS": billing_form.xpath('.//input[@name="submitBnS"]/@value').get(),
+        }
+        async with self.session.post(
+            "https://www.safcodental.com/billing-and-shipping-info.html", headers=headers, data=data
+        ) as resp:
+            if not resp.ok:
+                raise ValueError("Placing order is failed somehow!")
+            if "survey.html" in resp.url:
+                survey_response = await self.skip_survey()
+                dom = Selector(text=await survey_response.text())
+            else:
+                dom = Selector(text=await resp.text())
+            order_id = clean_text(
+                '//table//td[contains(text(), "Order Number:")]' '/following-sibling::td[@class="c2"]//text()', dom
+            )
+            logger.debug(f"===Order ID: {order_id}")
+            return order_id
+
+    async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False):
+        try:
+            if fake:
+                return {"order_type": msgs.ORDER_TYPE_ORDO}
+
+            await self.clear_cart()
+            await self.add_products_to_cart(products)
+            checkout_dom = await self.checkout()
+            order_id = await self.place_order(checkout_dom)
+            return {
+                "order_id": order_id,
+                "order_type": msgs.ORDER_TYPE_ORDO,
+            }
+        except Exception:
+            print("safco/confirm_order Except")
+            subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
+            vendor_order_detail = VendorOrderDetail(
+                retail_amount=Decimal(0),
+                savings_amount=Decimal(0),
+                subtotal_amount=Decimal(subtotal_manual),
+                shipping_amount=Decimal(0),
+                tax_amount=Decimal(0),
+                total_amount=Decimal(subtotal_manual),
+                reduction_amount=Decimal(subtotal_manual),
+                payment_method="",
+                shipping_address="",
+            )
+            return {
+                **vendor_order_detail.to_dict(),
+                **self.vendor.to_dict(),
+                "order_id": f"{uuid.uuid4()}",
+                "order_type": msgs.ORDER_TYPE_REDUNDANCY,
+            }
 
     async def get_orders(
         self,
