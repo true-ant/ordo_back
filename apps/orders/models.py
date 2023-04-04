@@ -14,7 +14,7 @@ from django.utils import timezone
 from django_extensions.db.fields import AutoSlugField
 from slugify import slugify
 
-from apps.accounts.models import Office, User, Vendor
+from apps.accounts.models import Office, ShippingMethod, User, Vendor
 from apps.common.choices import (
     BUDGET_SPEND_TYPE,
     OrderStatus,
@@ -373,6 +373,9 @@ class VendorOrder(TimeStampedModel):
         blank=True,
     )
     rejected_reason = models.TextField(null=True, blank=True)
+    shipping_option = models.ForeignKey(
+        ShippingMethod, related_name="vo_shipping_option", on_delete=models.SET_NULL, null=True, blank=True
+    )
 
     objects = models.Manager()
     current_months = OrderMonthManager()

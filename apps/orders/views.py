@@ -723,6 +723,7 @@ def get_cart(office_pk):
     cart_products = (
         m.Cart.objects.filter(office_id=office_pk, save_for_later=False, instant_checkout=True)
         .order_by("-updated_at")
+        .select_related("product")
         .select_related("product__vendor")
         .select_related("promotion")
     )
@@ -932,13 +933,13 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
     @sync_to_async
     def _create_order(
-        self, office_vendors, vendor_order_results, cart_products, approval_needed, shipping_option_id, fake_order
+        self, office_vendors, vendor_order_results, cart_products, approval_needed, shipping_options, fake_order
     ):
         order_date = timezone.now().date()
         office = office_vendors[0].office
         vendor_order_ids = []
         office_vendor_ids = []
-        cart_product_ids = list(cart_products.values_list("id", flat=True))
+
         with transaction.atomic():
             order = m.Order.objects.create(
                 office_id=self.kwargs["office_pk"],
@@ -961,6 +962,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                     continue
                 office_vendor_ids.append(office_vendor.id)
                 vendor = office_vendor.vendor
+                shipping_option = shipping_options.get(vendor.slug)
                 vendor_order_id = vendor_order_result.get("order_id", "")
                 if vendor_order_id is None:
                     vendor_order_id = "invalid"
@@ -978,6 +980,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                     currency="USD",
                     order_date=order_date,
                     status=m.OrderStatus.PENDING_APPROVAL if approval_needed else m.OrderStatus.OPEN,
+                    shipping_option=shipping_option,
                 )
                 vendor_order_ids.append(vendor_order.id)
                 objs = []
@@ -1009,8 +1012,9 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                     [office_vendor.vendor.slug, office_vendor.office.id, False], eta=send_date
                 )
 
-                check_date = datetime.datetime.now() + timedelta(days=3)
-                check_order_status_and_notify_customers.apply_async([vendor_order.id], eta=check_date)
+                if not approval_needed:
+                    check_date = datetime.datetime.now() + timedelta(days=3)
+                    check_order_status_and_notify_customers.apply_async([vendor_order.id], eta=check_date)
 
             order.total_amount = total_amount
             order.total_items = total_items
@@ -1039,7 +1043,11 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 )
                 office_budget.save()
 
-        perform_real_order.delay(order.id, vendor_order_ids, cart_product_ids, shipping_option_id)
+            cart_products.delete()
+
+        if not approval_needed:
+            perform_real_order.delay(vendor_order_ids)
+
         notify_order_creation.delay(vendor_order_ids, approval_needed)
         return s.OrderSerializer(order).data
 
@@ -1060,97 +1068,58 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
             user=request.user,
             checkout_status=m.OfficeCheckoutStatus.CHECKOUT_STATUS.IN_PROGRESS,
         )
-        ret = {}
-        try:
-            session = await get_client_session()
-            tasks = []
-            tmp_variables = []
-            reduct_variables = []
-            for office_vendor in office_vendors:
-                scraper = ScraperFactory.create_scraper(
-                    vendor=office_vendor.vendor,
-                    session=session,
-                    username=office_vendor.username,
-                    password=office_vendor.password,
-                )
-                tmp_variables.append(
-                    sum(
-                        [
-                            cart_product.quantity
-                            * (
-                                cart_product.unit_price
-                                if isinstance(cart_product.unit_price, (int, float, Decimal))
-                                else 0
-                            )
-                            for cart_product in cart_products
-                            if cart_product.product.vendor.id == office_vendor.vendor.id
-                        ]
-                    )
-                )
-                red_sum = 0
-                for cart_product in cart_products:
-                    if cart_product.product.vendor.id == office_vendor.vendor.id:
-                        price = 0
-                        if isinstance(cart_product.unit_price, (int, float, Decimal)):
-                            price = cart_product.unit_price
-                            if (
-                                cart_product.promotion is not None
-                                and cart_product.promotion.type == 1
-                                and cart_product.unit_price > cart_product.promotion.reduction_price
-                            ):
-                                price -= max(0, cart_product.promotion.reduction_price)
-                            red_sum += cart_product.quantity * price
-                reduct_variables.append(red_sum)
-                tasks.append(
-                    scraper.create_order(
-                        [
-                            CartProduct(
-                                product_id=cart_product.product.product_id,
-                                product_unit=cart_product.product.product_unit,
-                                quantity=int(cart_product.quantity),
-                                price=cart_product.unit_price
-                                if isinstance(cart_product.unit_price, (int, float, Decimal))
-                                else 0,
-                                product_url=cart_product.product.url,
-                            )
-                            for cart_product in cart_products
-                            if cart_product.product.vendor.id == office_vendor.vendor.id
-                        ]
-                    )
-                )
 
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            for i, result in enumerate(results):
-                vendor_slug = list(result.keys())[0]
-                result[vendor_slug]["reduction_amount"] = reduct_variables[i]
-                if vendor_slug not in (
-                    "henry_schein",
-                    "implant_direct",
-                    "darby",
-                    "benco",
-                    "net_32",
-                    "patterson",
-                    "dental_city",
-                ):
-                    result[vendor_slug]["retail_amount"] = Decimal(0)
-                    result[vendor_slug]["savings_amount"] = Decimal(0)
-                    result[vendor_slug]["subtotal_amount"] = tmp_variables[i]
-                    result[vendor_slug]["shipping_amount"] = Decimal(0)
-                    result[vendor_slug]["tax_amount"] = Decimal(0)
-                    result[vendor_slug]["total_amount"] = tmp_variables[i]
-                ret.update(result)
-            await session.close()
+        result = {}
+
+        try:
+            for office_vendor in office_vendors:
+                vendor_cart_products = cart_products.filter(product__vendor=office_vendor.vendor).select_related(
+                    "promotion"
+                )
+                subtotal_amount = sum(
+                    [
+                        cart_product.quantity
+                        * (
+                            cart_product.unit_price
+                            if isinstance(cart_product.unit_price, (int, float, Decimal))
+                            else 0
+                        )
+                        async for cart_product in vendor_cart_products
+                    ]
+                )
+                reduction_amount = 0
+
+                async for cart_product in vendor_cart_products:
+                    if isinstance(cart_product.unit_price, (int, float, Decimal)):
+                        price = cart_product.unit_price
+                        if (
+                            cart_product.promotion is not None
+                            and cart_product.promotion.type == 1
+                            and cart_product.unit_price > cart_product.promotion.reduction_price
+                        ):
+                            price -= max(0, cart_product.promotion.reduction_price)
+                        reduction_amount += cart_product.quantity * price
+
+                result[office_vendor.vendor.slug] = {
+                    "retail_amount": Decimal(0),
+                    "savings_amount": Decimal(0),
+                    "subtotal_amount": subtotal_amount,
+                    "shipping_amount": Decimal(0),
+                    "tax_amount": Decimal(0),
+                    "total_amount": subtotal_amount,
+                    "payment_method": "",
+                    "shipping_address": "",
+                    "reduction_amount": Decimal(reduction_amount),
+                }
         except Exception as e:
-            await session.close()
             return Response({"message": f"{e}"}, status=HTTP_400_BAD_REQUEST)
 
         products = await sync_to_async(get_serializer_data)(s.CartSerializer, cart_products, many=True)
-        return Response({"products": products, "order_details": ret})
+        return Response({"products": products, "order_details": result})
 
     @action(detail=False, url_path="confirm-order", methods=["post"], permission_classes=[p.OrderCheckoutPermission])
     async def confirm_order(self, request, *args, **kwargs):
-        shipping_option_id = request.data.get("shipping_option_id")
-        shipping_method = await ShippingMethod.objects.filter(pk=shipping_option_id).afirst()
+        shipping_options = request.data.get("shipping_options")
 
         cart_products, office_vendors = await sync_to_async(get_cart)(office_pk=self.kwargs["office_pk"])
 
@@ -1183,7 +1152,9 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         fake_order = debug or order_approval_needed
 
         for office_vendor in office_vendors:
-            # vendor_slug = vendor_data["slug"]
+            shipping_method_pk = shipping_options.get(office_vendor.vendor.slug)
+            shipping_method = await ShippingMethod.objects.filter(pk=shipping_method_pk).afirst()
+            shipping_options[office_vendor.vendor.slug] = shipping_method
             scraper = ScraperFactory.create_scraper(
                 vendor=office_vendor.vendor,
                 session=session,
@@ -1191,31 +1162,30 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 password=office_vendor.password,
             )
 
-            if hasattr(scraper, "redundancy_order"):
-                tasks.append(
-                    scraper.redundancy_order(
-                        [
-                            CartProduct(
-                                product_id=cart_product.product.product_id,
-                                product_unit=cart_product.product.product_unit,
-                                product_url=cart_product.product.url,
-                                price=cart_product.unit_price
-                                if isinstance(cart_product.unit_price, (int, float, Decimal))
-                                else 0,
-                                quantity=int(cart_product.quantity),
-                            )
-                            for cart_product in cart_products
-                            if cart_product.product.vendor.id == office_vendor.vendor.id
-                        ],
-                        shipping_method=shipping_method,
-                        fake=fake_order,
-                        redundancy=redundancy,
-                    )
+            tasks.append(
+                scraper.redundancy_order(
+                    [
+                        CartProduct(
+                            product_id=cart_product.product.product_id,
+                            product_unit=cart_product.product.product_unit,
+                            product_url=cart_product.product.url,
+                            price=cart_product.unit_price
+                            if isinstance(cart_product.unit_price, (int, float, Decimal))
+                            else 0,
+                            quantity=int(cart_product.quantity),
+                        )
+                        for cart_product in cart_products
+                        if cart_product.product.vendor.id == office_vendor.vendor.id
+                    ],
+                    shipping_method=shipping_method,
+                    fake=fake_order,
+                    redundancy=redundancy,
                 )
+            )
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
         order_data = await self._create_order(
-            office_vendors, results, cart_products, order_approval_needed, shipping_option_id, fake_order
+            office_vendors, results, cart_products, order_approval_needed, shipping_options, fake_order
         )
 
         await session.close()

@@ -660,7 +660,7 @@ class HenryScheinScraper(Scraper):
             "ctl00_cpAsideMenu_AsideMenu_SideMenuControl1000txtItemQtyId": "",
             "layout": "on",
             "ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ddlShippingMethod": SHIPPING_METHOD_MAPPING[
-                shipping_method
+                shipping_method if shipping_method else "UPS Standard Delivery"
             ],
             "ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ddlPaymentMethod": "1|{a62154f0-a1cc-47e4-b78b-8"
             "05ed7890527}",
