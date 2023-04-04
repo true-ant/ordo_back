@@ -6,6 +6,7 @@ import operator
 import os
 import tempfile
 import zipfile
+from dataclasses import asdict
 from datetime import timedelta
 from decimal import Decimal
 from functools import reduce
@@ -13,6 +14,7 @@ from typing import Union
 
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
+from django.conf import settings
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.paginator import Paginator
 from django.db import transaction
@@ -65,6 +67,7 @@ from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import CartProduct
 from apps.types.scraper import SmartID
 from config.utils import get_client_session
+from services.api_client.dental_city import DentalCityAPIClient
 from services.opendental import OpenDentalClient
 
 from ..audit.models import SearchHistory
@@ -2002,3 +2005,16 @@ class ProcedureCategoryLink(ModelViewSet):
         if queryset:
             return Response(s.OfficeProductSerializer(queryset, many=True, context={"include_children": True}).data)
         return Response({"message": "No linked products"})
+
+
+class DentalCityProductAPIView(AsyncMixin, APIView):
+    async def get(self, request):
+        try:
+            page_number = int(request.query_params.get("page_number"))
+        except (ValueError, TypeError):
+            page_number = 1
+
+        session = await get_client_session()
+        api_client = DentalCityAPIClient(session=session, auth_key=settings.DENTAL_CITY_AUTH_KEY)
+        page_products = await api_client.get_page_products(page_number)
+        return Response([asdict(product) for product in page_products])
