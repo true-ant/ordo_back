@@ -256,6 +256,8 @@ class Scraper:
         )
         try:
             stdout, stderr = await proc.communicate(data)
+            if stderr:
+                raise Exception(stderr)
             return stdout
         except Exception as e:
             raise e
@@ -270,7 +272,7 @@ class Scraper:
         return html_content.encode("utf-8")
 
     async def html2pdf(self, data: InvoiceFile):
-        return await self.run_command(cmd="wkhtmltopdf --quiet - - | cat", data=data)
+        return await self.run_command(cmd="wkhtmltopdf --quiet - -", data=data)
 
     def save_single_product_to_db(self, product_data, office=None, is_inventory=False, keyword=None, order_date=None):
         """save product to product table"""
