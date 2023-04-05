@@ -10,7 +10,11 @@ from aiohttp import ClientResponse, ClientSession
 from scrapy import Selector
 
 from apps.common import messages as msgs
-from apps.common.utils import convert_string_to_price
+from apps.common.utils import (
+    concatenate_list_as_string,
+    convert_string_to_price,
+    strip_whitespaces,
+)
 from apps.scrapers.base import Scraper
 from apps.scrapers.headers.dental_city import (
     CART_PAGE_HEADERS,
@@ -26,7 +30,17 @@ from apps.scrapers.headers.dental_city import (
 from apps.scrapers.schema import Order, VendorOrderDetail
 from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct
-from apps.types.scraper import InvoiceInfo, InvoiceType, LoginInformation, ProductSearch
+from apps.types.scraper import (
+    InvoiceAddress,
+    InvoiceFormat,
+    InvoiceInfo,
+    InvoiceOrderDetail,
+    InvoiceProduct,
+    InvoiceType,
+    InvoiceVendorInfo,
+    LoginInformation,
+    ProductSearch,
+)
 
 
 def extractContent(dom, xpath):
@@ -38,6 +52,7 @@ class DentalCityScraper(Scraper):
     CATEGORY_URL = "https://www.henryschein.com/us-en/dental/c/browsesupplies"
     TRACKING_BASE_URL = "https://narvar.com/tracking/itemvisibility/v1/henryschein-dental/orders"
     INVOICE_TYPE = InvoiceType.HTML_INVOICE
+    INVOICE_FORMAT = InvoiceFormat.USE_ORDO_FORMAT
 
     async def _check_authenticated(self, response: ClientResponse) -> bool:
         text = await response.text()
@@ -844,4 +859,46 @@ class DentalCityScraper(Scraper):
 
     async def extract_info_from_invoice_page(self, invoice_page_dom: Selector) -> InvoiceInfo:
         # parsing invoice address
-        pass
+        invoice_dom = invoice_page_dom.xpath("//div[@class='invdetails-ctn']")
+        address_dom = invoice_dom.xpath("//table[@class='address']")
+        shipping_address = address_dom[0].xpath(".//th[text()='Address']/following::td[1]//text()").extract()
+        billing_address = address_dom[1].xpath(".//th[text()='Address']/following::td[1]//text()").extract()
+        address = InvoiceAddress(
+            shipping_address=concatenate_list_as_string(shipping_address, delimiter=" "),
+            billing_address=concatenate_list_as_string(billing_address, delimiter=" "),
+        )
+
+        # parsing products
+        invoice_products = invoice_dom.xpath(".//table[@class='invoice-listing']//tr")
+        products: List[InvoiceProduct] = []
+        for invoice_product in invoice_products[1:]:
+            products.append(
+                InvoiceProduct(
+                    product_url=invoice_product.xpath(".//td[3]/a/@href").get(),
+                    product_name=invoice_product.xpath(".//td[3]/a/text()").get(),
+                    quantity=int(strip_whitespaces(invoice_product.xpath(".//td[2]/text()").get())),
+                    unit_price=convert_string_to_price(invoice_product.xpath(".//td[5]/text()").get()),
+                )
+            )
+
+        # parsing order detail
+        order_id = invoice_dom.xpath(".//div[contains(@class, 'orderheader')]/div[1]/span//text()").get()
+        order_date = invoice_dom.xpath(".//div[contains(@class, 'orderheader')]/div[2]/span//text()").get()
+        order_amounts = invoice_dom.xpath(".//table[@class='ordertotal']//td/text()").extract()
+        order_detail = InvoiceOrderDetail(
+            order_id=order_id,
+            order_date=datetime.datetime.strptime(order_date, "%m/%d/%Y").date(),
+            payment_method="",
+            total_items=sum([p.quantity for p in products]),
+            sub_total_amount=convert_string_to_price(order_amounts[0]),
+            shipping_amount=convert_string_to_price(order_amounts[1]),
+            tax_amount=convert_string_to_price(order_amounts[2]),
+            total_amount=convert_string_to_price(order_amounts[5]),
+        )
+
+        return InvoiceInfo(
+            address=address,
+            order_detail=order_detail,
+            products=products,
+            vendor=InvoiceVendorInfo(name="Dental City", logo="https://cdn.joinordo.com/vendors/dental_city.png"),
+        )

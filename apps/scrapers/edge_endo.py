@@ -16,15 +16,27 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
 from apps.common import messages as msgs
+from apps.common.utils import (
+    concatenate_list_as_string,
+    convert_string_to_price,
+    strip_whitespaces,
+)
 from apps.scrapers.base import Scraper
 from apps.scrapers.schema import Order, VendorOrderDetail
-from apps.scrapers.utils import (
-    catch_network,
-    convert_string_to_price,
-    semaphore_coroutine,
-)
+from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct
-from apps.types.scraper import InvoiceFile, InvoiceType, LoginInformation, ProductSearch
+from apps.types.scraper import (
+    InvoiceAddress,
+    InvoiceFile,
+    InvoiceFormat,
+    InvoiceInfo,
+    InvoiceOrderDetail,
+    InvoiceProduct,
+    InvoiceType,
+    InvoiceVendorInfo,
+    LoginInformation,
+    ProductSearch,
+)
 
 LOGIN_PAGE_HEADERS = {
     "Connection": "keep-alive",
@@ -88,6 +100,7 @@ def extractContent(dom, xpath):
 
 class EdgeEndoScraper(Scraper):
     INVOICE_TYPE = InvoiceType.HTML_INVOICE
+    INVOICE_FORMAT = InvoiceFormat.USE_ORDO_FORMAT
     product_skus = dict()
 
     async def get_login_form(self):
@@ -669,6 +682,59 @@ class EdgeEndoScraper(Scraper):
                 **vendor_order_detail,
                 **self.vendor.to_dict(),
             }
+
+    async def extract_info_from_invoice_page(self, invoice_page_dom: Selector) -> InvoiceInfo:
+        # parsing invoice address
+        address_dom = invoice_page_dom.xpath("//table[@id='icItem_rptInvoice_ctl00_tblMain']/tr[2]/td")
+        shipping_address = address_dom[0].xpath(".//tr[2]/td[2]/text()").extract()
+        billing_address = address_dom[1].xpath(".//tr[2]/td[2]/text()").extract()
+        address = InvoiceAddress(
+            shipping_address=concatenate_list_as_string(shipping_address),
+            billing_address=concatenate_list_as_string(billing_address),
+        )
+
+        # parsing products
+        invoice_products = invoice_page_dom.xpath(
+            "//table[@id='icItem_rptInvoice_ctl00_tblMain']/following-sibling::table[1]//tr"
+        )
+        products: List[InvoiceProduct] = []
+        order_amounts = []
+        for invoice_product in invoice_products[1:]:
+            parts = invoice_product.xpath(".//td")
+            if len(parts) == 5:
+                products.append(
+                    InvoiceProduct(
+                        product_url="",
+                        product_name=concatenate_list_as_string(parts[2].xpath(".//text()").extract()),
+                        quantity=int(strip_whitespaces(parts[0].xpath(".//text()").get())),
+                        unit_price=convert_string_to_price(parts[3].xpath(".//text()").get()),
+                    )
+                )
+            else:
+                order_amounts.append(convert_string_to_price(parts[-1].xpath(".//text()").get()))
+
+        # parsing order detail
+        order_detail_dom = invoice_page_dom.xpath("//table[@id='icItem_rptInvoice_ctl00_tblMain']/tr[1]/td[2]//tr")
+        order_id = strip_whitespaces(order_detail_dom[2].xpath("./td/text()").get())
+        order_date = strip_whitespaces(order_detail_dom[1].xpath("./td/text()").get())
+        payment_method = strip_whitespaces(order_detail_dom[3].xpath("./td/text()").get())
+        order_detail = InvoiceOrderDetail(
+            order_id=order_id,
+            order_date=datetime.datetime.strptime(order_date, "%m/%d/%Y").date(),
+            payment_method=payment_method,
+            total_items=sum([p.quantity for p in products]),
+            sub_total_amount=order_amounts[0],
+            shipping_amount=order_amounts[1],
+            tax_amount=order_amounts[2],
+            total_amount=order_amounts[3],
+        )
+
+        return InvoiceInfo(
+            address=address,
+            order_detail=order_detail,
+            products=products,
+            vendor=InvoiceVendorInfo(name="Edge Endo", logo="https://cdn.joinordo.com/vendors/edge_endo.png"),
+        )
 
     async def download_invoice(self, **kwargs) -> InvoiceFile:
         if order_id := kwargs.get("order_id"):
