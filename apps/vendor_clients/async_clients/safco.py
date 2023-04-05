@@ -8,7 +8,6 @@ from apps.common.utils import convert_string_to_price
 from apps.orders.models import OfficeProduct
 from apps.orders.updater import STATUS_ACTIVE, STATUS_UNAVAILABLE
 from apps.types.scraper import LoginInformation
-from apps.vendor_clients import errors
 from apps.vendor_clients.async_clients.base import BaseClient, EmptyResults, PriceInfo
 from apps.vendor_clients.headers.safco import (
     HOME_HEADER,
@@ -75,11 +74,6 @@ class SafcoClient(BaseClient):
                     url="https://forms.hubspot.com/collected-forms/submit/form", headers=LOGIN_HOOK_HEADER, json=data
                 ) as resp:
                     async with self.session.get(url=f"{self.BASE_URL}", headers=HOME_HEADER) as resp:
-                        is_authenticated = await self.check_authenticated(resp)
-                        if not is_authenticated:
-                            logger.debug("Still not authenticated")
-                            raise errors.VendorAuthenticationFailed()
-
                         if hasattr(self, "after_login_hook"):
                             await self.after_login_hook(resp)
 
