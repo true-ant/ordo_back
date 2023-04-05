@@ -6,7 +6,6 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Dict, List, Optional
 
-from aiohttp import ClientResponse
 from scrapy import Selector
 
 from apps.common import messages as msgs
@@ -26,7 +25,6 @@ from apps.scrapers.schema import Order, VendorOrderDetail
 from apps.scrapers.utils import semaphore_coroutine
 from apps.types.orders import CartProduct
 from apps.types.scraper import InvoiceFormat, InvoiceType, LoginInformation
-from apps.vendor_clients import errors
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +64,7 @@ class SafcoScraper(Scraper):
     async def login(self, username: Optional[str] = None, password: Optional[str] = None):
         login_info = await self._get_login_data()
         logger.debug("Got logger data: %s", login_info)
+
         if login_info:
             async with self.session.post(
                 url=login_info["url"], headers=login_info["headers"], data=login_info["data"]
@@ -90,23 +89,10 @@ class SafcoScraper(Scraper):
                     url="https://forms.hubspot.com/collected-forms/submit/form", headers=LOGIN_HOOK_HEADER, json=data
                 ) as resp:
                     async with self.session.get(url=f"{self.BASE_URL}", headers=HOME_HEADER) as resp:
-                        is_authenticated = await self.check_authenticated(resp)
-                        if not is_authenticated:
-                            logger.debug("Still not authenticated")
-                            raise errors.VendorAuthenticationFailed()
-
                         if hasattr(self, "after_login_hook"):
                             await self.after_login_hook(resp)
-
                         logger.info("Successfully logged in")
-
                     return resp.cookies
-
-    async def check_authenticated(self, resp: ClientResponse) -> bool:
-        text = await resp.text()
-        dom = Selector(text=text)
-
-        return True if dom.xpath("//a[@href='/shopping-cart']") else False
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
@@ -184,6 +170,7 @@ class SafcoScraper(Scraper):
 
     async def checkout(self):
         headers = CHECKOUT_HEADER
+
         async with self.session.get(
             "https://www.safcodental.com/billing-and-shipping-info.html", headers=headers
         ) as resp:
@@ -195,42 +182,42 @@ class SafcoScraper(Scraper):
             billing_adress = clean_text('//div[@id="shipAddress"]/p//text()', checkout_dom)
             if "P:" in billing_adress:
                 billing_adress = billing_adress.split("P:")[0]
-            logger.debug("-- BILLING ADDRESS:\n", billing_adress)
+            logger.debug(f"-- BILLING ADDRESS: {billing_adress}\n")
 
             shipping_adress = billing_adress
-            logger.debug("-- SHIPPING ADDRESS:\n", shipping_adress)
+            logger.debug(f"-- SHIPPING ADDRESS: {shipping_adress}\n")
 
             shipping_method = checkout_dom.xpath('//input[@name="shipmentMethod"][@checked="checked"]/@value').get()
-            logger.debug("-- Shipping METHOD:\n", shipping_method)
+            logger.debug(f"-- Shipping METHOD: {shipping_method}\n")
 
             payment_info = "Bill me"
-            logger.debug("-- PAYMENT METHOD:\n", payment_info)
+            logger.debug(f"-- PAYMENT METHOD: {payment_info}\n")
 
             subtotal = clean_text(
                 '//div[@id="orderTotals"]/div[@class="leftOrderTotals"][contains(text(), "Subtotal")]'
                 "/following-sibling::div[1]//text()",
                 checkout_dom,
             )
-            logger.debug("-- SUBTOTAL:\n", subtotal)
+            logger.debug(f"-- SUBTOTAL: {subtotal}\n")
 
             tax = clean_text(
                 '//div[@id="orderTotals"]/div[@class="leftOrderTotals"][contains(text(), "Tax:")]'
                 "/following-sibling::div[1]//text()",
                 checkout_dom,
             )
-            logger.debug("-- TAX:\n", tax)
+            logger.debug(f"-- TAX: {tax}\n")
 
             shipping = clean_text(
                 '//div[@id="orderTotals"]/div[@class="leftOrderTotals"][contains(text(), "Shipping")]'
                 "/following-sibling::div[1]//text()",
                 checkout_dom,
             )
-            logger.debug("-- SHIPPING:\n", shipping)
+            logger.debug(f"-- SHIPPING: {shipping}\n")
 
             total = clean_text('//span[@id="amountDueTotal"]//text()', checkout_dom)
             if total:
                 total = f"${total}"
-            logger.debug("-- Grand Total:\n", total)
+            logger.debug(f"-- Grand Total: {total}\n")
 
             return checkout_dom
 
@@ -291,7 +278,7 @@ class SafcoScraper(Scraper):
             "defaultPayment": billing_form.xpath('.//input[@name="defaultPayment"]/@value').get(),
             "paymentMethod": "AR",
             "scr_billEmail": billing_form.xpath('.//input[@name="scr_billEmail"]/@value').get(),
-            "scr_billOrderPlacer": f'Ordo Order ({datetime.datetime.strftime(datetime.datetime.now(), "%m/%d/%Y")})',
+            "scr_billOrderPlacer": f'Ordo Order ({datetime.strftime(datetime.now(), "%m/%d/%Y")})',
             "scr_orderMessage": "",
             "codAmount": billing_form.xpath('.//input[@name="codAmount"]/@value').get(),
             "codThreshold": billing_form.xpath('.//input[@name="codThreshold"]/@value').get(),
@@ -307,7 +294,7 @@ class SafcoScraper(Scraper):
         ) as resp:
             if not resp.ok:
                 raise ValueError("Placing order is failed somehow!")
-            if "survey.html" in resp.url:
+            if "survey.html" in str(resp.url):
                 survey_response = await self.skip_survey()
                 dom = Selector(text=await survey_response.text())
             else:
@@ -325,8 +312,10 @@ class SafcoScraper(Scraper):
 
             await self.clear_cart()
             await self.add_products_to_cart(products)
+
             checkout_dom = await self.checkout()
             order_id = await self.place_order(checkout_dom)
+
             return {
                 "order_id": order_id,
                 "order_type": msgs.ORDER_TYPE_ORDO,
