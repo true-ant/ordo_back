@@ -1101,6 +1101,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                         reduction_amount += cart_product.quantity * price
 
                 result[office_vendor.vendor.slug] = {
+                    **office_vendor.vendor.to_dict(),
                     "retail_amount": Decimal(0),
                     "savings_amount": Decimal(0),
                     "subtotal_amount": subtotal_amount,
@@ -1110,7 +1111,6 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                     "payment_method": "",
                     "shipping_address": "",
                     "reduction_amount": Decimal(reduction_amount),
-                    **office_vendor.vendor.to_dict(),
                 }
         except Exception as e:
             return Response({"message": f"{e}"}, status=HTTP_400_BAD_REQUEST)
