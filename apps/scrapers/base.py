@@ -272,7 +272,7 @@ class Scraper:
         return html_content.encode("utf-8")
 
     async def html2pdf(self, data: InvoiceFile):
-        return await self.run_command(cmd="xvfb-run -a -s '-screen 0 1024x768x24' wkhtmltopdf --quiet - -", data=data)
+        return await self.run_command(cmd="wkhtmltopdf --quiet - -", data=data)
 
     def save_single_product_to_db(self, product_data, office=None, is_inventory=False, keyword=None, order_date=None):
         """save product to product table"""
