@@ -40,7 +40,7 @@ beat_schedule = {
         "schedule": crontab(minute=0, hour=0),
     },
     "update_net32_vendor_products_prices": {
-        "task": "apps.accounts.tasks.update_vendor_product_prices_by_api_for_all_offices",
+        "task": "apps.accounts.tasks.update_vendor_products_by_api_for_all_offices",
         "args": ("net_32",),
         "schedule": crontab(minute="*/15"),
     },
@@ -60,7 +60,7 @@ beat_schedule = {
         "schedule": crontab(minute="*/10"),
     },
     "update_vendor_product_prices_for_dental_city": {
-        "task": "apps.accounts.tasks.update_vendor_product_prices_by_api_for_all_offices",
+        "task": "apps.accounts.tasks.update_vendor_products_by_api_for_all_offices",
         "args": ("dental_city",),
         "schedule": crontab(hour="7,11,15", minute=30),
     },

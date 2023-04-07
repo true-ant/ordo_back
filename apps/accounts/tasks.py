@@ -27,7 +27,7 @@ from apps.orders.helpers import (
     OrderHelper,
 )
 from apps.orders.models import OfficeProductCategory, OrderStatus, VendorOrder
-from apps.orders.price_updater import update_vendor_products_prices_by_api
+from apps.orders.product_updater import update_vendor_products_by_api
 from apps.orders.updater import fetch_for_vendor
 from apps.types.accounts import CompanyInvite
 from apps.vendor_clients.async_clients import BaseClient
@@ -130,8 +130,8 @@ def update_vendor_product_prices_for_all_offices(vendor_slug):
 
 
 @app.task
-def update_vendor_product_prices_by_api_for_all_offices(vendor_slug):
-    asyncio.run(update_vendor_products_prices_by_api(vendor_slug))
+def update_vendor_products_by_api_for_all_offices(vendor_slug):
+    asyncio.run(update_vendor_products_by_api(vendor_slug))
 
 
 @app.task

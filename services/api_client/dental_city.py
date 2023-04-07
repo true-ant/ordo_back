@@ -1,12 +1,11 @@
 import asyncio
 import os
-from decimal import Decimal
 from enum import Enum
 from typing import List
 
 from aiohttp.client import ClientSession
 
-from services.api_client.vendor_api_types import DentalCityProduct, ProductPrice
+from services.api_client.vendor_api_types import DentalCityProduct
 
 
 class Stage(Enum):
@@ -29,33 +28,17 @@ class DentalCityAPIClient:
         }
         async with self.session.get(url, params=params) as resp:
             products = await resp.json()
-            return [
-                DentalCityProduct(
-                    list_price=Decimal(product.pop("list_price", 0)),
-                    partner_price=Decimal(product.pop("partner_price", 0)),
-                    web_price=Decimal(product.pop("web_price", 0)),
-                    **product,
-                )
-                for product in products
-            ]
 
-    async def get_products(self) -> List[ProductPrice]:
-        products: List[ProductPrice] = []
+            return [DentalCityProduct.from_dict(product) for product in products]
+
+    async def get_products(self) -> List[DentalCityProduct]:
+        products: List[DentalCityProduct] = []
         start_page = 1
         while True:
             end_page = start_page + 10
             tasks = (self.get_page_products(page) for page in range(start_page, end_page))
             results = await asyncio.gather(*tasks)
-            products.extend(
-                [
-                    ProductPrice(
-                        product_identifier=product.product_sku,
-                        price=product.partner_price,
-                    )
-                    for result in results
-                    for product in result
-                ]
-            )
+            products.extend([product for result in results for product in result])
             if len(products) < self.page_size * (end_page - 1):
                 break
             start_page = end_page
@@ -65,8 +48,9 @@ class DentalCityAPIClient:
 async def main():
     async with ClientSession() as session:
         api_client = DentalCityAPIClient(session, stage=Stage.TEST, auth_key=os.environ.get("DENTAL_CITY_AUTH_KEY"))
-        await api_client.get_products()
+        return await api_client.get_products()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    ret = asyncio.run(main())
+    print(ret)
