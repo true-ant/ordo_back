@@ -39,7 +39,7 @@ from apps.accounts.models import Office as OfficeModel
 from apps.accounts.models import OfficeVendor as OfficeVendorModel
 from apps.accounts.models import Vendor as VendorModel
 from apps.common import messages as msgs
-from apps.common.choices import ProcedureType
+from apps.common.choices import ProcedureType, ProductStatus
 from apps.common.query import Replacer
 from apps.common.utils import (
     batched,
@@ -1523,7 +1523,9 @@ class OrderHelper:
                 .prefetch_related("order_products")
                 .aget(pk=vendor_order_id)
             )
-            vendor_order_products = vendor_order.order_products.select_related("product").all()
+            vendor_order_products = (
+                vendor_order.order_products.select_related("product").filter(status=ProductStatus.PROCESSING).all()
+            )
             office_vendor = await OfficeVendorModel.objects.select_related("vendor").aget(
                 office_id=vendor_order.order.office.id, vendor_id=vendor_order.vendor_id
             )
