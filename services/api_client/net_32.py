@@ -6,14 +6,14 @@ from typing import List
 
 from aiohttp.client import ClientSession
 
-from services.api_client.vendor_api_types import ProductPrice
+from services.api_client.vendor_api_types import Net32Product
 
 
 class Net32APIClient:
     def __init__(self, session: ClientSession):
         self.session = session
 
-    async def get_products(self) -> List[ProductPrice]:
+    async def get_products(self) -> List[Net32Product]:
         url = "https://www.net32.com/feeds/feedonomics/dental_delta_products.xml"
         products = []
         async with self.session.get(url) as resp:
@@ -23,9 +23,10 @@ class Net32APIClient:
                 price_string = product_element.find("price").text
                 price_string = re.search(r"[,\d]+.?\d*", price_string).group(0)
                 products.append(
-                    ProductPrice(
-                        product_identifier=product_element.find("mp_id").text,
+                    Net32Product(
+                        mp_id=product_element.find("mp_id").text,
                         price=Decimal(price_string),
+                        inventory_quantity=int(product_element.find("inventory_quantity").text),
                     )
                 )
             return products
@@ -34,8 +35,9 @@ class Net32APIClient:
 async def main():
     async with ClientSession() as session:
         api_client = Net32APIClient(session)
-        await api_client.get_products()
+        return await api_client.get_products()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    ret = asyncio.run(main())
+    print(ret)
