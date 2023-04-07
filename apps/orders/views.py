@@ -1003,7 +1003,6 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                         )
                     )
                     OfficeProduct.objects.filter(office=office, product=product).update(
-                        last_order_date=vendor_order.order_date,
                         last_order_price=vendor_order_product.unit_price,
                     )
                 m.VendorOrderProduct.objects.bulk_create(objs)

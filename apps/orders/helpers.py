@@ -1529,18 +1529,23 @@ class OrderHelper:
             office_vendor = await OfficeVendorModel.objects.select_related("vendor").aget(
                 office_id=vendor_order.order.office.id, vendor_id=vendor_order.vendor_id
             )
+            products = []
 
-            products = [
-                CartProduct(
-                    product_id=vendor_order_product.product.product_id,
-                    product_unit=vendor_order_product.product.product_unit,
-                    product_url=vendor_order_product.product.url,
-                    price=float(vendor_order_product.unit_price) if vendor_order_product.unit_price else 0.0,
-                    quantity=int(vendor_order_product.quantity),
-                    sku=vendor_order_product.product.sku,
+            async for vendor_order_product in vendor_order_products:
+                products.append(
+                    CartProduct(
+                        product_id=vendor_order_product.product.product_id,
+                        product_unit=vendor_order_product.product.product_unit,
+                        product_url=vendor_order_product.product.url,
+                        price=float(vendor_order_product.unit_price) if vendor_order_product.unit_price else 0.0,
+                        quantity=int(vendor_order_product.quantity),
+                        sku=vendor_order_product.product.sku,
+                    )
                 )
-                async for vendor_order_product in vendor_order_products
-            ]
+                await OfficeProductModel.objects.filter(
+                    office=vendor_order.order.office, product=vendor_order_product.product
+                ).aupdate(last_order_date=vendor_order.order_date)
+
             order_tasks.append(
                 OrderHelper.process_order_in_vendor(
                     vendor_order=vendor_order,
