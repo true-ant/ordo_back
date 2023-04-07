@@ -396,6 +396,9 @@ class VendorOrder(TimeStampedModel):
         """
         - ultradent: we use order_id to download invoice, orders with digit-format vendor_order_id have invoices
         """
+        if self.total_amount == 0:
+            return False
+
         if self.vendor.slug == "ultradent":
             return self.vendor_order_id.isdigit()
         return bool(self.invoice_link)

@@ -219,7 +219,8 @@ class Scraper:
 
     async def download_invoice(self, **kwargs) -> InvoiceFile:
         invoice_link = kwargs.get("invoice_link")
-        if invoice_link is None:
+        order_id = kwargs.get("order_id")
+        if invoice_link is None and order_id is None:
             raise DownloadInvoiceError("Not Found invoice")
 
         invoice_type = getattr(self, "INVOICE_TYPE", None)
@@ -272,7 +273,9 @@ class Scraper:
         return html_content.encode("utf-8")
 
     async def html2pdf(self, data: InvoiceFile):
-        return await self.run_command(cmd="wkhtmltopdf --quiet - -", data=data)
+        return await self.run_command(
+            cmd="xvfb-run -a -s '-screen 0 1024x768x24' wkhtmltopdf --quiet - - | cat", data=data
+        )
 
     def save_single_product_to_db(self, product_data, office=None, is_inventory=False, keyword=None, order_date=None):
         """save product to product table"""

@@ -260,6 +260,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
             "order_date": vendor_order.order_date,
             "invoice_link": vendor_order.invoice_link,
             "vendor": vendor_order.vendor,
+            "is_invoice_available": vendor_order.is_invoice_available,
             "username": office_vendor.username,
             "password": office_vendor.password,
         }
@@ -293,7 +294,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
     @action(detail=True, methods=["get"], url_path="invoice-download")
     async def download_invoice(self, request, *args, **kwargs):
         vendor_order = await self.get_office_vendor()
-        if vendor_order["invoice_link"] is None:
+        if vendor_order["is_invoice_available"] is None:
             return Response({"message": msgs.NO_INVOICE})
 
         session = await get_client_session()
