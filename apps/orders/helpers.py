@@ -39,7 +39,7 @@ from apps.accounts.models import Office as OfficeModel
 from apps.accounts.models import OfficeVendor as OfficeVendorModel
 from apps.accounts.models import Vendor as VendorModel
 from apps.common import messages as msgs
-from apps.common.choices import ProcedureType, ProductStatus
+from apps.common.choices import OrderStatus, ProcedureType, ProductStatus
 from apps.common.query import Replacer
 from apps.common.utils import (
     batched,
@@ -1559,3 +1559,20 @@ class OrderHelper:
         if all(results):
             order.order_type = msgs.ORDER_TYPE_ORDO
             await sync_to_async(order.save)()
+
+    @staticmethod
+    def update_vendor_order_product_price(vendor_slug):
+        pending_vendor_orders = VendorOrderModel.objects.filter(
+            vendor__slug=vendor_slug, status=OrderStatus.PENDING_APPROVAL
+        )
+        for vendor_order in pending_vendor_orders:
+            vendor_order_total_delta = 0
+            for vendor_order_product in vendor_order.order_products:
+                updated_product_price = OfficeProductModel.objects.get(
+                    office_id=vendor_order.order.office_id, product_id=vendor_order_product.product_id
+                ).price
+                vendor_order_total_delta += updated_product_price - vendor_order_product.unit_price
+            vendor_order.total_amount += vendor_order_total_delta
+            vendor_order.order.total_amount += vendor_order_total_delta
+            vendor_order.save()
+            vendor_order.order.save()

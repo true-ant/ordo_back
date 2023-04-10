@@ -127,11 +127,13 @@ def update_vendor_products_prices(vendor_slug, office_id=None):
 def update_vendor_product_prices_for_all_offices(vendor_slug):
     for ov in OfficeVendor.objects.filter(vendor__slug=vendor_slug):
         update_vendor_products_prices.delay(vendor_slug, ov.office_id)
+    OrderHelper.update_vendor_order_product_price(vendor_slug)
 
 
 @app.task
 def update_vendor_products_by_api_for_all_offices(vendor_slug):
     asyncio.run(update_vendor_products_by_api(vendor_slug))
+    OrderHelper.update_vendor_order_product_price(vendor_slug)
 
 
 @app.task

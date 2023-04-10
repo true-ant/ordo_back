@@ -290,6 +290,14 @@ class VendorOrderProductSerializer(serializers.ModelSerializer):
 
             return instance
 
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        office_product = m.OfficeProduct.objects.filter(
+            product_id=instance.product_id, office_id=instance.vendor_order.order.office_id
+        ).first()
+        ret["updated_unit_price"] = office_product.price
+        return ret
+
 
 class VendorOrderSerializer(serializers.ModelSerializer):
     products = VendorOrderProductSerializer(many=True, source="order_products")
@@ -383,12 +391,23 @@ class CartSerializer(serializers.ModelSerializer):
     # office_product = OfficeProductReadSerializer(write_only=True)
     product = ProductSerializer(read_only=True, required=False)
     promotion = PromotionSerializer(read_only=True, required=False)
+    updated_unit_price = serializers.DecimalField(decimal_places=2, max_digits=10)
     # same_products = serializers.SerializerMethodField()
     # office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
 
     class Meta:
         model = m.Cart
-        fields = "__all__"
+        fields = (
+            "office",
+            "product",
+            "quantity",
+            "unit_price",
+            "updated_unit_price",
+            "save_for_later",
+            "instant_checkout",
+            "promotion",
+            "budget_spend_type",
+        )
 
     # def validate(self, attrs):
     #     if not self.instance:
