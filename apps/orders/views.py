@@ -18,7 +18,18 @@ from django.conf import settings
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Case, Count, Exists, F, OuterRef, Q, Sum, Value, When
+from django.db.models import (
+    Case,
+    Count,
+    Exists,
+    F,
+    OuterRef,
+    Q,
+    Subquery,
+    Sum,
+    Value,
+    When,
+)
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -784,10 +795,15 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         # orders_product table
         queryset = self.queryset.filter(office_id=self.kwargs["office_pk"])
         order_by = self.request.query_params.get("by", "vendor")
+        office_product_subquery = OfficeProduct.objects.filter(
+            office_id=OuterRef("office_id"), product_id=OuterRef("product_id")
+        ).values("price")[:1]
         if order_by == "time":
-            return queryset.order_by("-updated_at")
+            return queryset.annotate(updated_unit_price=Subquery(office_product_subquery)).order_by("-updated_at")
         else:
-            return queryset.order_by("product__vendor", "created_at", "-save_for_later")
+            return queryset.annotate(updated_unit_price=Subquery(office_product_subquery)).order_by(
+                "product__vendor", "created_at", "-save_for_later"
+            )
 
     def get_serializer_class(self):
         if self.request.method in ["GET"]:
