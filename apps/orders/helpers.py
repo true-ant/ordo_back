@@ -1567,11 +1567,15 @@ class OrderHelper:
         )
         for vendor_order in pending_vendor_orders:
             vendor_order_total_delta = 0
-            for vendor_order_product in vendor_order.order_products:
-                updated_product_price = OfficeProductModel.objects.get(
-                    office_id=vendor_order.order.office_id, product_id=vendor_order_product.product_id
-                ).price
-                vendor_order_total_delta += updated_product_price - vendor_order_product.unit_price
+            for vendor_order_product in vendor_order.products.all():
+                updated_product_price = OfficeProductModel.objects.filter(
+                    office_id=vendor_order.order.office_id, product_id=vendor_order_product.id
+                ).values("price")[:1]
+                if not updated_product_price:
+                    updated_product_price = ProductModel.objects.filter(id=vendor_order_product.id).values("price")[:1]
+                if not updated_product_price:
+                    continue
+                vendor_order_total_delta += updated_product_price[0]["price"] - vendor_order_product.price
             vendor_order.total_amount += vendor_order_total_delta
             vendor_order.order.total_amount += vendor_order_total_delta
             vendor_order.save()
