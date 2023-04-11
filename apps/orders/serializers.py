@@ -398,6 +398,7 @@ class CartSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.Cart
         fields = (
+            "id",
             "office",
             "product",
             "quantity",
