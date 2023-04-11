@@ -15,12 +15,7 @@ from django_extensions.db.fields import AutoSlugField
 from slugify import slugify
 
 from apps.accounts.models import Office, ShippingMethod, User, Vendor
-from apps.common.choices import (
-    BUDGET_SPEND_TYPE,
-    OrderStatus,
-    ProcedureType,
-    ProductStatus,
-)
+from apps.common.choices import BUDGET_SPEND_TYPE, OrderStatus, ProductStatus
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
 from apps.common.utils import remove_dash_between_numerics
 from apps.scrapers.schema import Product as ProductDataClass
@@ -555,7 +550,6 @@ class Procedure(models.Model):
     totfee = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     procedurecode = models.ForeignKey(ProcedureCode, on_delete=models.CASCADE)
     office = models.ForeignKey(Office, on_delete=models.CASCADE)
-    type = models.CharField(max_length=100, choices=ProcedureType.choices, null=True, blank=True)
 
     objects = ProcedureManager()
 
@@ -563,5 +557,5 @@ class Procedure(models.Model):
         return f"{self.procedurecode.proccode}_{self.count}"
 
     class Meta:
-        unique_together = ["office", "procedurecode", "start_date", "type"]
+        unique_together = ["office", "procedurecode", "start_date"]
         ordering = ["start_date"]

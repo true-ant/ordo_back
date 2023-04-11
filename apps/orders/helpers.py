@@ -39,7 +39,7 @@ from apps.accounts.models import Office as OfficeModel
 from apps.accounts.models import OfficeVendor as OfficeVendorModel
 from apps.accounts.models import Vendor as VendorModel
 from apps.common import messages as msgs
-from apps.common.choices import OrderStatus, ProcedureType, ProductStatus
+from apps.common.choices import OrderStatus, ProductStatus
 from apps.common.query import Replacer
 from apps.common.utils import (
     batched,
@@ -1311,8 +1311,8 @@ class OfficeVendorHelper:
 
 class ProcedureHelper:
     @staticmethod
-    def fetch_procedure_period(day_from, office_id, type):
-        if day_from is None or type is None or office_id is None:
+    def fetch_procedure_period(day_from, office_id):
+        if day_from is None or office_id is None:
             print("Wrong argument(s)")
             return
 
@@ -1324,41 +1324,29 @@ class ProcedureHelper:
             return
 
         date_now = datetime.datetime.now()
-        if type == ProcedureType.PROCEDURE_MONTH:
-            for dt in rrule.rrule(rrule.MONTHLY, dtstart=day_from, until=date_now):
-                ProcedureHelper.fetch_procedures(
-                    dt,
-                    (dt + datetime.timedelta(days=31)).replace(day=1) - datetime.timedelta(days=1),
-                    office.id,
-                    type,
-                    dental_api,
-                    dt.year == date_now.year and dt.month == date_now.month,
-                )
 
-        elif type == ProcedureType.PROCEDURE_WEEK:
-            week_startday = day_from - datetime.timedelta(days=day_from.weekday())
-            last_week_startday = date_now - datetime.timedelta(days=date_now.weekday())
-            for dt in rrule.rrule(rrule.WEEKLY, dtstart=week_startday, until=date_now):
-                ProcedureHelper.fetch_procedures(
-                    dt,
-                    dt + datetime.timedelta(days=5),
-                    office.id,
-                    type,
-                    dental_api,
-                    dt.date() == last_week_startday.date(),
-                )
+        week_startday = day_from - datetime.timedelta(days=day_from.weekday())
+        last_week_startday = date_now - datetime.timedelta(days=date_now.weekday())
+        for dt in rrule.rrule(rrule.WEEKLY, dtstart=week_startday, until=date_now):
+            ProcedureHelper.fetch_procedures(
+                dt,
+                dt + datetime.timedelta(days=5),
+                office.id,
+                dental_api,
+                dt.date() == last_week_startday.date(),
+            )
 
     @staticmethod
-    def fetch_procedures(day_from, day_to, office_id, type, dental_api, force_update=False):
-        if day_from is None or day_to is None or type is None:
+    def fetch_procedures(day_from, day_to, office_id, dental_api, force_update=False):
+        if day_from is None or day_to is None:
             print("Wrong argument(s)")
             return
 
-        old_procs = ProcedureModel.objects.filter(office=office_id, start_date=day_from, type=type)
+        old_procs = ProcedureModel.objects.filter(office=office_id, start_date=day_from)
         bExists = len(old_procs) > 0
 
         if not force_update and bExists:
-            print(f"Already exists with day_from={day_from}, type={type}")
+            print(f"Already exists with day_from={day_from}")
             return
 
         with open("query/procedure.sql") as f:
@@ -1389,7 +1377,6 @@ class ProcedureHelper:
                                 totfee=str(procedure["TotFee"]).replace(",", ""),
                                 procedurecode=procedure_code,
                                 office_id=office_id,
-                                type=type,
                             )
                         )
 

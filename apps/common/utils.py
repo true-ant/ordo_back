@@ -194,8 +194,26 @@ def group_products_by_str():
         print(i)
 
 
+def get_week_count(date_range: str):
+    if date_range in ["thisWeek", "nextWeek"]:
+        return 1
+    if date_range == "next2Weeks":
+        return 2
+    if date_range == "next3Weeks":
+        return 3
+    if date_range == "next4Weeks":
+        return 4
+
+
 def get_date_range(date_range: str):
     today = timezone.now().date()
+    first_day_of_this_week = today - datetime.timedelta(days=today.weekday())
+    first_day_of_next_week = first_day_of_this_week + relativedelta(weeks=1)
+    last_day_of_this_week = first_day_of_this_week + datetime.timedelta(days=6)
+    last_day_of_next_week = last_day_of_this_week + relativedelta(weeks=1)
+    last_day_of_next_2weeks = last_day_of_this_week + relativedelta(weeks=2)
+    last_day_of_next_3weeks = last_day_of_this_week + relativedelta(weeks=3)
+    last_day_of_next_4weeks = last_day_of_this_week + relativedelta(weeks=4)
     first_day_of_this_month = today.replace(day=1)
     first_day_of_this_year = datetime.date(year=today.year, month=1, day=1)
     first_day_of_this_quarter = datetime.date(
@@ -212,6 +230,11 @@ def get_date_range(date_range: str):
     last_day_of_last_year = datetime.date(year=today.year - 1, month=12, day=31)
 
     ret = {
+        "thisWeek": (first_day_of_this_week, last_day_of_this_week),
+        "nextWeek": (first_day_of_next_week, last_day_of_next_week),
+        "next2Weeks": (first_day_of_next_week, last_day_of_next_2weeks),
+        "next3Weeks": (first_day_of_next_week, last_day_of_next_3weeks),
+        "next4Weeks": (first_day_of_next_week, last_day_of_next_4weeks),
         "thisMonth": (first_day_of_this_month, today),
         "thisQuarter": (first_day_of_this_quarter, today),
         "lastQuarter": (first_day_of_last_quarter, today),

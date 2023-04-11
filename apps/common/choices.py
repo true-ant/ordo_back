@@ -25,7 +25,3 @@ class ProductStatus(models.TextChoices):
     DELIVERED = "delivered", "Delivered"
     CREDITED = "credited", "Credited"
     REPAIR_OR_MAINTENANCE = "maintenance", "Repair/Maintenance"
-
-class ProcedureType(models.TextChoices):
-    PROCEDURE_WEEK = "week"
-    PROCEDURE_MONTH = "month"
