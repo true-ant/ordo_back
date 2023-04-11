@@ -391,7 +391,7 @@ class CartSerializer(serializers.ModelSerializer):
     # office_product = OfficeProductReadSerializer(write_only=True)
     product = ProductSerializer(read_only=True, required=False)
     promotion = PromotionSerializer(read_only=True, required=False)
-    updated_unit_price = serializers.DecimalField(decimal_places=2, max_digits=10)
+    updated_unit_price = serializers.SerializerMethodField("get_updated_unit_price")
     # same_products = serializers.SerializerMethodField()
     # office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
 
@@ -441,6 +441,17 @@ class CartSerializer(serializers.ModelSerializer):
     #             return m.Cart.objects.create(product=product, **validated_data)
     #         except IntegrityError:
     #             raise serializers.ValidationError({"message": "This product is already in your cart"})
+
+    def get_updated_unit_price(self, cart_product):
+        """
+        Return the updated product price
+        """
+        updated_product_price = m.OfficeProduct.objects.filter(
+            office_id=cart_product.office_id, product_id=cart_product.product_id
+        ).values("price")[:1]
+        if not updated_product_price:
+            updated_product_price = m.Product.objects.filter(id=cart_product.product_id).values("price")[:1]
+        return updated_product_price[0]["price"] if updated_product_price else 0
 
     def to_representation(self, instance):
         # TODO: return sibling products from linked vendor
