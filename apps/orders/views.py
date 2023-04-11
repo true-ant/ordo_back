@@ -66,7 +66,11 @@ from apps.common.pagination import (
     SearchProductV2Pagination,
     StandardResultsSetPagination,
 )
-from apps.common.utils import get_date_range, group_products_from_search_result
+from apps.common.utils import (
+    get_date_range,
+    get_week_count,
+    group_products_from_search_result,
+)
 from apps.orders.helpers import OfficeProductHelper, ProcedureHelper, ProductHelper
 from apps.orders.services.order import OrderService
 from apps.orders.services.product import ProductService
@@ -1783,41 +1787,21 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             return m.Procedure.objects.search(query)
         return m.Procedure.objects.all()
 
-    @action(detail=False, url_path="category")
-    def get_category(self, request, *args, **kwargs):
-        date_type = self.request.query_params.get("type", "month")
-        office_pk = self.kwargs["office_pk"]
-        date_range = self.request.query_params.get("date_range", "thisQuarter")
-        start_end_date = get_date_range(date_range)
-        day_from = datetime.date(start_end_date[0].year, start_end_date[0].month, start_end_date[0].day)
-        day_to = datetime.date(start_end_date[1].year, start_end_date[1].month, start_end_date[1].day)
-
-        ProcedureHelper.fetch_procedure_period(day_from, office_pk, date_type)
-        ret = (
-            m.Procedure.objects.select_related("procedurecode", "procedurecode__sumary_category")
-            .filter(type=date_type, start_date__gte=day_from, start_date__lte=day_to)
-            .values_list("procedurecode__category", "procedurecode__summary_category__summary_slug")
-            .annotate(dcount=Count("procedurecode__category"))
-            .order_by("-dcount")
-            .filter(dcount__gt=0)
-        )
-        return Response(ret)
-
     @action(detail=False)
     def summary_category(self, request, *args, **kwargs):
-        date_type = self.request.query_params.get("type", "month")
+        today = timezone.now().date()
         office_pk = self.kwargs["office_pk"]
         office = m.Office.objects.get(id=office_pk)
         dental_api = office.dental_api
-        day_from = self.request.query_params.get("from")
-        day_to = self.request.query_params.get("to")
-        format = "%Y-%m-%d"
-        day_from = datetime.datetime.strptime(day_from, format).date()
-        day_to = datetime.datetime.strptime(day_to, format).date()
-        day_prev_3months_from = day_from + relativedelta(months=-3)
-        day_prev_3months_to = day_from - datetime.timedelta(days=1)
+        day_range = self.request.query_params.get("date_range")
+        start_end_date = get_date_range(day_range)
+        day_from = start_end_date[0]
+        day_to = start_end_date[1]
+        first_day_of_this_week = today - datetime.timedelta(days=today.weekday())
+        day_prev_12weeks_from = first_day_of_this_week + relativedelta(weeks=-12)
+        day_prev_12weeks_to = first_day_of_this_week - datetime.timedelta(days=1)
 
-        ProcedureHelper.fetch_procedure_period(day_from, office_pk, date_type)
+        ProcedureHelper.fetch_procedure_period(day_from, office_pk)
 
         summary_category_all = m.ProcedureCategoryLink.objects.all()
         proc_total = {
@@ -1845,7 +1829,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
 
         ret_current = (
             self.get_queryset()
-            .filter(office=office, type=date_type, start_date__gte=day_from, start_date__lte=day_to)
+            .filter(office=office, start_date__gte=day_from, start_date__lte=day_to)
             .order_by(
                 "procedurecode__summary_category__category_order", "-procedurecode__summary_category__is_favorite"
             )
@@ -1867,9 +1851,8 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             self.get_queryset()
             .filter(
                 office=office,
-                type="month",
-                start_date__gte=day_prev_3months_from,
-                start_date__lte=day_prev_3months_to,
+                start_date__gte=day_prev_12weeks_from,
+                start_date__lte=day_prev_12weeks_to,
             )
             .order_by(
                 "procedurecode__summary_category__category_order", "-procedurecode__summary_category__is_favorite"
@@ -1880,7 +1863,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         )
         for _, slug, total_count in ret_trailing:
             if slug in proc_total:
-                proc_total[slug]["avg_count"] = math.floor(total_count / 3)
+                proc_total[slug]["avg_count"] = math.floor(total_count * get_week_count(day_range) / 12)
 
         ret_schedule = []
         try:
@@ -1901,15 +1884,16 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=False)
     def summary_detail(self, request, *args, **kwargs):
+        today = timezone.now().date()
         summary_category = self.request.query_params.get("summary_category")
         office_pk = self.kwargs["office_pk"]
-        day_from = self.request.query_params.get("from")
-        day_to = self.request.query_params.get("to")
-        format = "%Y-%m-%d"
-        day_from = datetime.datetime.strptime(day_from, format).date()
-        day_to = datetime.datetime.strptime(day_to, format).date()
-        day_prev_3months_from = day_from + relativedelta(months=-3)
-        day_prev_3months_to = day_from - datetime.timedelta(days=1)
+        day_range = self.request.query_params.get("date_range")
+        start_end_date = get_date_range(day_range)
+        day_from = start_end_date[0]
+        day_to = start_end_date[1]
+        first_day_of_this_week = today - datetime.timedelta(days=today.weekday())
+        day_prev_12weeks_from = first_day_of_this_week + relativedelta(weeks=-12)
+        day_prev_12weeks_to = first_day_of_this_week - datetime.timedelta(days=1)
 
         summary_query = m.ProcedureCategoryLink.objects.filter(summary_slug=summary_category).first()
         if not summary_query:
@@ -1940,9 +1924,8 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             self.get_queryset()
             .filter(
                 office=office,
-                type="month",
-                start_date__gte=day_prev_3months_from,
-                start_date__lte=day_prev_3months_to,
+                start_date__gte=day_prev_12weeks_from,
+                start_date__lte=day_prev_12weeks_to,
                 procedurecode__summary_category=summary_query,
             )
             .values_list("procedurecode__proccode")
@@ -1950,7 +1933,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         )
         for code, count in ret_trailing:
             if code in proc_total:
-                proc_total[code]["avg_count"] = math.floor(count / 3)
+                proc_total[code]["avg_count"] = math.floor(count * get_week_count(day_range) / 12)
 
         try:
             od_client = OpenDentalClient(dental_api)
