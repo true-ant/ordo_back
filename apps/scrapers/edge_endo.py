@@ -2,18 +2,23 @@ import asyncio
 import datetime
 import re
 import time
+import traceback
 import uuid
 from decimal import Decimal
 from typing import Dict, List, Optional
 
 import scrapy
 from aiohttp import ClientResponse
+from asgiref.sync import sync_to_async
 from scrapy import Selector
+from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
+from webdriver_manager.chrome import ChromeDriverManager
 
 from apps.common import messages as msgs
 from apps.common.utils import (
@@ -102,6 +107,69 @@ class EdgeEndoScraper(Scraper):
     INVOICE_TYPE = InvoiceType.HTML_INVOICE
     INVOICE_FORMAT = InvoiceFormat.USE_ORDO_FORMAT
     product_skus = dict()
+    sleepAmount = 10
+    driver = None
+
+    @sync_to_async
+    def setup_driver(self):
+        user_agent = (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/80.0.3987.132 Safari/537.36"
+        )
+
+        caps = DesiredCapabilities.CHROME
+        caps["pageLoadStrategy"] = "eager"
+        chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument(f"user-agent={user_agent}")
+        chrome_options.add_argument("--log-level=3")
+        driver = webdriver.Chrome(
+            ChromeDriverManager().install(),
+            options=chrome_options,
+            desired_capabilities=caps,
+        )
+        driver.set_window_size(1920, 1080)
+        return driver
+
+    @sync_to_async
+    def login(self):
+        try:
+            if not self.driver:
+                self.driver = await self.setup_driver()
+
+            self.driver.get("https://store.edgeendo.com/login.aspx")
+            emailInput = WebDriverWait(self.driver, self.sleepAmount).until(
+                EC.element_to_be_clickable(
+                    (By.XPATH, '//input[@name="ctl00$ctl00$cphMain$cphMain$lfBtoC$emlLogin$txtEmail"]')
+                )
+            )
+            emailInput.clear()
+            emailInput.send_keys(self.username)
+            time.sleep(0.5)
+
+            passInput = WebDriverWait(self.driver, self.sleepAmount).until(
+                EC.element_to_be_clickable(
+                    (
+                        By.XPATH,
+                        '//input[@name="ctl00$ctl00$cphMain$cphMain$lfBtoC$pwdLogin$rtbPassword$txtRestricted"]',
+                    )
+                )
+            )
+            passInput.clear()
+            passInput.send_keys(self.password)
+            time.sleep(0.5)
+
+            loginBtn = WebDriverWait(self.driver, self.sleepAmount).until(
+                EC.element_to_be_clickable(
+                    (By.XPATH, '//input[@name="ctl00$ctl00$cphMain$cphMain$lfBtoC$btnCustomerLogin"]')
+                )
+            )
+
+            self.scroll_and_click_element(loginBtn)
+            time.sleep(6)
+        except Exception:
+            traceback.print_exc()
 
     async def get_login_form(self):
         async with self.session.get(url="https://store.edgeendo.com/login.aspx", headers=LOGIN_PAGE_HEADERS) as resp:
@@ -382,6 +450,7 @@ class EdgeEndoScraper(Scraper):
                 time.sleep(3)
                 break
 
+    @sync_to_async
     def add_to_cart(self, products):
         for product in products:
             self.driver.get(product["product_url"])
@@ -479,6 +548,7 @@ class EdgeEndoScraper(Scraper):
                         self.scroll_and_click_element(plus_quantity_ele)
         print("edge_endo/add_to_cart done")
 
+    @sync_to_async
     def clear_cart(self):
         try:
             self.driver.get("https://store.edgeendo.com/storefront.aspx")
@@ -498,6 +568,7 @@ class EdgeEndoScraper(Scraper):
         except TimeoutException:
             pass
 
+    @sync_to_async
     def checkout(self):
         checkoutBtn = None
         try:
@@ -520,6 +591,7 @@ class EdgeEndoScraper(Scraper):
         time.sleep(1.5)
         print("edge_endo/checkout done")
 
+    @sync_to_async
     def secure_payment(self):
         securepaymentBtn = WebDriverWait(self.driver, self.sleepAmount).until(
             EC.element_to_be_clickable((By.XPATH, '//input[contains(@name, "$cphMain$dbSubmit$btnSubmit")]'))
@@ -528,6 +600,7 @@ class EdgeEndoScraper(Scraper):
         time.sleep(1)
         print("edge_endo/secure_payment done")
 
+    @sync_to_async
     def real_order(self):
         shipping_address_ele = WebDriverWait(self.driver, self.sleepAmount).until(
             EC.element_to_be_clickable((By.XPATH, '//td[@class="nextInvoiceShipToAddress"]'))
@@ -615,15 +688,10 @@ class EdgeEndoScraper(Scraper):
     async def confirm_order(self, products: List[CartProduct], shipping_method=None, fake=False, redundancy=False):
         print("edge_endo/confirm_order")
         try:
-            await asyncio.sleep(1)
-            raise Exception()
-
-            loop = asyncio.get_event_loop()
-            self.driver = await loop.run_in_executor(None, self.setDriver)
             await self.login()
-            await loop.run_in_executor(None, self.clear_cart)
-            await loop.run_in_executor(None, self.add_to_cart, products)
-            await loop.run_in_executor(None, self.checkout)
+            await self.clear_cart()
+            await self.add_to_cart(products)
+            await self.checkout()
 
             if fake:
                 vendor_order_detail = {
@@ -640,13 +708,8 @@ class EdgeEndoScraper(Scraper):
                     **vendor_order_detail,
                     "order_id": f"{uuid.uuid4()}",
                 }
-            await loop.run_in_executor(None, self.secure_payment)
-            shipping_address, shipping, tax, subtotal, order_total, orderNumber = await loop.run_in_executor(
-                None, self.real_order
-            )
-
-            self.secure_payment()
-            shipping_address, shipping, tax, subtotal, order_total, orderNumber = self.real_order()
+            await self.secure_payment()
+            shipping_address, shipping, tax, subtotal, order_total, orderNumber = await self.real_order()
 
             vendor_order_detail = {
                 "retail_amount": "",
@@ -661,6 +724,7 @@ class EdgeEndoScraper(Scraper):
             return {
                 **vendor_order_detail,
                 "order_id": orderNumber,
+                "order_type": msgs.ORDER_TYPE_ORDO,
             }
         except Exception:
             print("edge_endo/confirm_order except")
