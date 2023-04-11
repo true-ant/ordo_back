@@ -110,7 +110,6 @@ class EdgeEndoScraper(Scraper):
     sleepAmount = 10
     driver = None
 
-    @sync_to_async
     def setup_driver(self):
         user_agent = (
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -136,7 +135,7 @@ class EdgeEndoScraper(Scraper):
     def login(self):
         try:
             if not self.driver:
-                self.driver = await self.setup_driver()
+                self.driver = self.setup_driver()
 
             self.driver.get("https://store.edgeendo.com/login.aspx")
             emailInput = WebDriverWait(self.driver, self.sleepAmount).until(
