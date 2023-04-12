@@ -139,3 +139,6 @@ init.sql
 install-pyenv-win.ps1
 .vscode/*
 *.pdf
+node_modules/*
+static/*
+templates/*
