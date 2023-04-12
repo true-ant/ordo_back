@@ -1,7 +1,7 @@
 import requests
 
 QUERY_URL = "https://api.opendental.com/api/v1/queries/ShortQuery"
-DEVELOPOER_KEY = "ODFHIR 8VHR0kOxeq13SXEX"
+DEVELOPOER_KEY = "ODFHIR Qh3A7zcjmr7TGg4Z"
 
 
 class OpenDentalClient:
