@@ -39,6 +39,10 @@ beat_schedule = {
         "task": "apps.orders.tasks.sync_with_vendors",
         "schedule": crontab(minute=0, hour=0),
     },
+    "update_net32_vendor_products": {
+        "task": "apps.accounts.tasks.task_update_net32_products",
+        "schedule": crontab(minute=0, hour=0),
+    },
     "update_net32_vendor_products_prices": {
         "task": "apps.accounts.tasks.update_vendor_products_by_api_for_all_offices",
         "args": ("net_32",),

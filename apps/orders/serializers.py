@@ -137,7 +137,7 @@ class ProductV2Serializer(serializers.ModelSerializer):
         ordering = ("name",)
 
     def get_childen(self, product):
-        children_ids = product.children.values_list("id", flat=True)
+        children_ids = product.children.available_products().values_list("id", flat=True)
         office_id = self.context.get("office_pk")
         price_from = self.context.get("price_from")
         price_to = self.context.get("price_to")
