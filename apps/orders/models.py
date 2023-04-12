@@ -3,13 +3,9 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
-from django.contrib.postgres.search import (  # TrigramSimilarity,
-    SearchQuery,
-    SearchVectorField,
-)
+from django.contrib.postgres.search import SearchVectorField  # TrigramSimilarity,
 from django.db import models
 from django.db.models import Q
-from django.db.models.expressions import RawSQL
 from django.utils import timezone
 from django_extensions.db.fields import AutoSlugField
 from slugify import slugify
@@ -17,7 +13,7 @@ from slugify import slugify
 from apps.accounts.models import Office, ShippingMethod, User, Vendor
 from apps.common.choices import BUDGET_SPEND_TYPE, OrderStatus, ProductStatus
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
-from apps.common.utils import remove_dash_between_numerics
+from apps.orders.managers import Net32ProductManager, ProcedureManager, ProductManager
 from apps.scrapers.schema import Product as ProductDataClass
 from apps.scrapers.schema import ProductImage as ProductImageDataClass
 from apps.scrapers.schema import Vendor as VendorDataClass
@@ -43,29 +39,6 @@ class Keyword(TimeStampedModel):
 
     def __str__(self):
         return self.keyword
-
-
-class ProductQuerySet(models.QuerySet):
-    def search(self, text):
-        # this is for search for henry schein product id
-        text = remove_dash_between_numerics(text)
-        # trigram_similarity = TrigramSimilarity("name", text)
-        q = SearchQuery(text, config="english")
-        return (
-            self
-            # .annotate(similarity=trigram_similarity)
-            .filter(Q(search_vector=q))
-        )
-
-    def with_inventory_refs(self):
-        return self.annotate(_inventory_refs=RawSQL("inventory_refs", (), output_field=models.IntegerField()))
-
-
-class ProductManager(models.Manager):
-    _queryset_class = ProductQuerySet
-
-    def search(self, text):
-        return self.get_queryset().search(text)
 
 
 class Promotion(models.Model):
@@ -115,8 +88,10 @@ class Product(TimeStampedModel):
     promotion_description = models.TextField(null=True, blank=True)
     search_vector = SearchVectorField(null=True, blank=True, help_text="Search vector")
     price_expiration = models.DateTimeField(null=True, blank=True, help_text="Price expiration")
+    is_available_on_vendor = models.BooleanField(default=True)
 
     objects = ProductManager()
+    net32 = Net32ProductManager()
 
     class Meta:
         unique_together = [
@@ -515,20 +490,6 @@ class ProcedureCategoryLink(models.Model):
     linked_slugs = ArrayField(models.CharField(max_length=100), null=True, blank=True)
     category_order = models.IntegerField(default=0)
     is_favorite = models.BooleanField(default=False)
-
-
-class ProcedureQuerySet(models.QuerySet):
-    def search(self, text):
-        text = remove_dash_between_numerics(text)
-        q = SearchQuery(text, config="english")
-        return self.filter(Q(procedurecode__search_vector=q))
-
-
-class ProcedureManager(models.Manager):
-    _queryset_class = ProcedureQuerySet
-
-    def search(self, text):
-        return self.get_queryset().search(text)
 
 
 class ProcedureCode(models.Model):

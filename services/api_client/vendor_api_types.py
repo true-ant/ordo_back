@@ -14,6 +14,16 @@ class Net32Product:
 
 
 @dataclass(frozen=True)
+class Net32ProductInfo(Net32Product):
+    name: str
+    manufacturer_number: str
+    category: str
+    url: str
+    retail_price: Decimal
+    availability: str
+
+
+@dataclass(frozen=True)
 class DentalCityProduct:
     product_sku: str
     list_price: Decimal

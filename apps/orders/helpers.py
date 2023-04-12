@@ -1201,7 +1201,8 @@ class ProductHelper:
         # products = products.annotate(nickname=Subquery(office_product_nickname[:1])).search(query)
         # Make result set more narrow - filter those products whose name & id is equals to keyword
         products = (
-            ProductModel.objects.search(query)
+            ProductModel.objects.available_products()
+            .search(query)
             .filter(Q(vendor_id__in=connected_vendor_ids) | Q(vendor_id__isnull=True))
             .filter(parent=None)
         )
@@ -1216,11 +1217,14 @@ class ProductHelper:
             .values_list("product_id", flat=True)
         )
         office_nickname_product_parents = (
-            ProductModel.objects.filter(id__in=office_nickname_products)
+            ProductModel.objects.available_products()
+            .filter(id__in=office_nickname_products)
             .annotate(pid=Coalesce(F("parent_id"), F("id")))
             .values_list("pid", flat=True)
         )
-        office_nickname_products = ProductModel.objects.filter(id__in=office_nickname_product_parents)
+        office_nickname_products = ProductModel.objects.available_products().filter(
+            id__in=office_nickname_product_parents
+        )
 
         # Unify with the above
         products = products | office_nickname_products
@@ -1303,10 +1307,13 @@ class ProductHelper:
 class OfficeVendorHelper:
     @staticmethod
     def get_connected_vendor_ids(office: Union[int, str, OfficeModel]) -> List[str]:
-        if not isinstance(office, OfficeModel):
-            office = OfficeModel.objects.get(id=office)
-
-        return office.connected_vendors.values_list("vendor_id", flat=True)
+        if isinstance(office, OfficeModel):
+            office_id = office.id
+        else:
+            office_id = office
+        office_vendors = OfficeVendorModel.objects.filter(office_id=office_id)
+        office_vendors.query.clear_ordering()
+        return office_vendors.values_list("vendor_id", flat=True)
 
 
 class ProcedureHelper:
