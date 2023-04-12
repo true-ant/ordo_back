@@ -211,6 +211,7 @@ class ShippingHelper:
 
             for option in shipping_options:
                 price = shipping_options[option]["shipping"].strip("$")
+                price = price if price else None
                 name = shipping_options[option]["shipping_method"]
                 value = shipping_options[option]["shipping_value"]
                 if name == default_shipping_method:

@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('orders', '0067_vendororder_shipping_option'),
+        ('orders', '0068_alter_procedure_unique_together_and_more'),
     ]
 
     operations = [
