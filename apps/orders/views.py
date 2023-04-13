@@ -30,6 +30,7 @@ from rest_framework.filters import OrderingFilter
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.status import (
+    HTTP_200_OK,
     HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
@@ -1811,26 +1812,6 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         for slug, _, codes in ret_proccodes:
             proc_total[slug]["codes"] = codes
 
-        ret_current = (
-            self.get_queryset()
-            .filter(office=office, start_date__gte=day_from, start_date__lte=day_to)
-            .order_by(
-                "procedurecode__summary_category__category_order", "-procedurecode__summary_category__is_favorite"
-            )
-            .values_list(
-                "procedurecode__summary_category",
-                "procedurecode__summary_category__summary_slug",
-                "procedurecode__summary_category__category_order",
-                "procedurecode__summary_category__is_favorite",
-            )
-            .annotate(dcount=Sum("count"))
-            .filter(procedurecode__summary_category__isnull=False)
-            .order_by("-dcount")
-        )
-
-        for _, slug, _, _, count in ret_current:
-            proc_total[slug]["count"] = count
-
         ret_trailing = (
             self.get_queryset()
             .filter(
@@ -1853,16 +1834,18 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         try:
             with open("query/proc_schedule.sql", "r") as f:
                 raw_sql = f.read()
-            query = raw_sql.format(day_from=day_from, day_to=day_to, codes="")
+            query = raw_sql.format(day_from=(day_from if day_from > today else today), day_to=day_to, codes="")
             od_client = OpenDentalClient(dental_api)
-            ret_schedule = od_client.query(query)[0]
+            ret_schedule, status = od_client.query(query)
+            if status != HTTP_200_OK:
+                return Response(status=status, data={"message": f"{ret_schedule}"})
         except Exception as e:
             return Response(status=HTTP_400_BAD_REQUEST, data={"message": f"{e}"})
 
         for proc in ret_schedule:
             for slug, cate in proc_total.items():
                 if "codes" in cate and proc["ProcCode"] in cate["codes"]:
-                    proc_total[slug]["count"] += proc["Count"]
+                    proc_total[slug]["count"] = proc["Count"]
 
         return Response(proc_total)
 
@@ -1901,8 +1884,25 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
                 "Abbr_Desc": abbr_desc,
                 "avg_count": 0,
                 "schedule": 0,
+                "complete": 0,
+                "total": 0,
             }
         proccodes_dash = "|".join(proc_total.keys())
+
+        ret_complete = (
+            self.get_queryset()
+            .filter(
+                office=office,
+                start_date__gte=day_from,
+                start_date__lte=day_to,
+                procedurecode__summary_category=summary_query,
+            )
+            .values_list("procedurecode__proccode")
+            .annotate(sum_count=Sum("count"))
+        )
+        for code, completed_count in ret_complete:
+            proc_total[code]["complete"] = completed_count
+            proc_total[code]["total"] = completed_count
 
         ret_trailing = (
             self.get_queryset()
@@ -1929,11 +1929,16 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
 
             with open("query/proc_schedule.sql", "r") as f:
                 raw_sql = f.read()
-            query = raw_sql.format(day_from=day_from, day_to=day_to, codes=proccodes_dash)
-            ret_schedule = od_client.query(query)[0]
+            query = raw_sql.format(
+                day_from=(day_from if day_from > today else today), day_to=day_to, codes=proccodes_dash
+            )
+            ret_schedule, status = od_client.query(query)
+            if status != HTTP_200_OK:
+                return Response(status=status, data={"message": f"{ret_schedule}"})
             for item in ret_schedule:
                 if item["ProcCode"] in proc_total:
                     proc_total[item["ProcCode"]]["schedule"] = item["Count"]
+                    proc_total[item["ProcCode"]]["total"] += item["Count"]
 
             return Response(data=proc_total)
 
