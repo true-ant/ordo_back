@@ -1786,7 +1786,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         day_prev_12weeks_from = first_day_of_this_week + relativedelta(weeks=-12)
         day_prev_12weeks_to = first_day_of_this_week - datetime.timedelta(days=1)
 
-        ProcedureHelper.fetch_procedure_period(day_from, office_pk)
+        ProcedureHelper.fetch_procedure_period(day_prev_12weeks_from, office_pk)
 
         summary_category_all = m.ProcedureCategoryLink.objects.all()
         proc_total = {
@@ -1845,7 +1845,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         for proc in ret_schedule:
             for slug, cate in proc_total.items():
                 if "codes" in cate and proc["ProcCode"] in cate["codes"]:
-                    proc_total[slug]["count"] = proc["Count"]
+                    proc_total[slug]["count"] += proc["Count"]
 
         return Response(proc_total)
 

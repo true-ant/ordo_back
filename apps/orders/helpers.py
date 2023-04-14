@@ -1337,7 +1337,7 @@ class ProcedureHelper:
         for dt in rrule.rrule(rrule.WEEKLY, dtstart=week_startday, until=date_now):
             ProcedureHelper.fetch_procedures(
                 dt,
-                dt + datetime.timedelta(days=5),
+                dt + datetime.timedelta(days=6),
                 office.id,
                 dental_api,
                 dt.date() == last_week_startday.date(),
