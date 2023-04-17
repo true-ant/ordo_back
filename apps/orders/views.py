@@ -1631,6 +1631,7 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
         SearchHistory.objects.create(user=self.request.user, query=query)
         office_pk = self.request.query_params.get("office_pk")
         selected_products = self.request.query_params.get("selected_products")
+        vendors = self.request.query_params.get("vendors")
         selected_products = selected_products.split(",") if selected_products else []
 
         products, available_vendors = ProductHelper.get_products_v3(
@@ -1638,6 +1639,7 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
             office=office_pk,
             fetch_parents=True,
             selected_products=selected_products,
+            vendors=vendors,
         )
         self.available_vendors = available_vendors
 
