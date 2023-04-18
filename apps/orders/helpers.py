@@ -1182,7 +1182,7 @@ class ProductHelper:
         selected_products: Optional[List[SmartID]] = None,
         price_from: float = -1,
         price_to: float = -1,
-        vendors: Optional[list[str]] = None,
+        vendors: Optional[List[str]] = None,
     ):
         replacer = Replacer()
         query = replacer.replace(query)
