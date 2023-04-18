@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import json
+import logging
 import textwrap
 from typing import Dict, Optional, Union
 
@@ -14,13 +15,18 @@ from apps.common.utils import (
     find_numerics_from_string,
     strip_whitespaces,
 )
+from apps.orders.models import OfficeProduct
+from apps.orders.updater import STATUS_ACTIVE, STATUS_UNAVAILABLE
 from apps.vendor_clients import types
-from apps.vendor_clients.async_clients.base import BaseClient
+from apps.vendor_clients.async_clients.base import BaseClient, PriceInfo
 from apps.vendor_clients.headers import implant_direct as hdrs
+
+logger = logging.getLogger(__name__)
 
 
 class ImplantDirectClient(BaseClient):
     VENDOR_SLUG = "implant_direct"
+    aiohttp_mode = False
 
     async def get_login_link(self):
         home_dom = await self.get_response_as_dom(
@@ -271,3 +277,25 @@ class ImplantDirectClient(BaseClient):
             "invoice_link": "https://store.implantdirect.com/sales"
             f"/order/printInvoice/order_id/{order_data['order_id']}/",
         }
+
+    def get_product_dom(self, product_url):
+        with self.session.get(product_url) as resp:
+            return resp
+
+    async def get_product_price_v2(self, product: OfficeProduct) -> PriceInfo:
+        loop = asyncio.get_event_loop()
+        if product.product.url:
+            resp = await loop.run_in_executor(None, self.get_product_dom, product.product.url)
+            response_dom = Selector(text=resp.text)
+
+            price = response_dom.xpath(".//meta[@itemprop='price']/@content").get()
+            sku = response_dom.xpath(".//div[@itemprop='sku']/text()").get()
+            if product.product.product_id == sku:
+                product_vendor_status = STATUS_ACTIVE
+                return PriceInfo(price=price, product_vendor_status=product_vendor_status)
+            else:
+                product_vendor_status = STATUS_UNAVAILABLE
+                return PriceInfo(price=0, product_vendor_status=product_vendor_status)
+        else:
+            product_vendor_status = STATUS_UNAVAILABLE
+            return PriceInfo(price=0, product_vendor_status=product_vendor_status)
