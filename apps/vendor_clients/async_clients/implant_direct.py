@@ -283,12 +283,6 @@ class ImplantDirectClient(BaseClient):
             return resp
 
     async def get_product_price_v2(self, product: OfficeProduct) -> PriceInfo:
-        print("=" * 100)
-        print(product.product.url)
-        if product.product.url == "https://store.implantdirect.com/855210.html":
-            import pdb
-
-            pdb.set_trace()
         loop = asyncio.get_event_loop()
         if product.product.url:
             resp = await loop.run_in_executor(None, self.get_product_dom, product.product.url)
