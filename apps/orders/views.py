@@ -1,7 +1,6 @@
 import asyncio
 import datetime
 import decimal
-import math
 import operator
 import os
 import tempfile
@@ -1830,7 +1829,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         )
         for _, slug, total_count in ret_trailing:
             if slug in proc_total:
-                proc_total[slug]["avg_count"] = math.floor(total_count * get_week_count(day_range) / 12)
+                proc_total[slug]["avg_count"] = round(total_count * get_week_count(day_range) / 12)
 
         ret_schedule = []
         try:
@@ -1919,7 +1918,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         )
         for code, count in ret_trailing:
             if code in proc_total:
-                proc_total[code]["avg_count"] = math.floor(count * get_week_count(day_range) / 12)
+                proc_total[code]["avg_count"] = round(count * get_week_count(day_range) / 12)
 
         try:
             od_client = OpenDentalClient(dental_api)
