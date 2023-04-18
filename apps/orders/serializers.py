@@ -7,7 +7,7 @@ from apps.accounts.helper import OfficeBudgetHelper
 from apps.accounts.serializers import VendorLiteSerializer
 from apps.common.choices import OrderStatus
 from apps.common.serializers import Base64ImageField
-from apps.orders.helpers import OfficeProductHelper, ProductHelper
+from apps.orders.helpers import OfficeProductHelper
 
 from . import models as m
 
@@ -92,7 +92,7 @@ class SimpleProductSerializer(serializers.ModelSerializer):
             return image.image
 
 
-class ProductV2Serializer(serializers.ModelSerializer):
+class ChildProductV2Serializer(serializers.ModelSerializer):
     vendor = VendorLiteSerializer()
     category = ProductCategorySerializer()
     images = ProductImageSerializer(many=True, required=False)
@@ -105,8 +105,6 @@ class ProductV2Serializer(serializers.ModelSerializer):
     # image_url = Base64ImageField()
 
     last_order_price = serializers.DecimalField(decimal_places=2, max_digits=10, read_only=True)
-
-    children = serializers.SerializerMethodField("get_childen")
 
     class Meta:
         model = m.Product
@@ -131,31 +129,9 @@ class ProductV2Serializer(serializers.ModelSerializer):
             "last_order_date",
             "last_order_price",
             "last_order_vendor",
-            "children",
             "sku",
         )
         ordering = ("name",)
-
-    def get_childen(self, product):
-        children_ids = product.children.available_products().values_list("id", flat=True)
-        office_id = self.context.get("office_pk")
-        price_from = self.context.get("price_from")
-        price_to = self.context.get("price_to")
-        vendors = self.context.get("vendors")
-
-        if children_ids:
-            children_products = ProductHelper.get_products(
-                office=office_id, fetch_parents=False, product_ids=children_ids
-            )
-
-            if price_from:
-                children_products = children_products.filter(product_price__gte=price_from)
-            if price_to:
-                children_products = children_products.filter(product_price__lte=price_to)
-            if vendors:
-                children_products = children_products.filter(vendor__slug__in=vendors)
-            return self.__class__(children_products, many=True, context={"office_pk": office_id}).data
-        return []
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
@@ -168,18 +144,62 @@ class ProductV2Serializer(serializers.ModelSerializer):
             ret["nickname"] = instance.office_product[0].nickname
             # ret["image_url"] = instance.office_product[0].image_url
 
-        # if instance.vendor and instance.vendor.slug in settings.NON_FORMULA_VENDORS:
-        #     ret["product_price"] = instance.price
-        if instance.parent is None:
-            ret["description"] = instance.description
+        return ret
 
-        childrens = ret["children"]
 
-        if childrens:
+class ProductV2Serializer(serializers.ModelSerializer):
+    vendor = VendorLiteSerializer()
+    category = ProductCategorySerializer()
+    images = ProductImageSerializer(many=True, required=False)
+    is_inventory = serializers.BooleanField(default=False, read_only=True)
+    product_vendor_status = serializers.CharField(read_only=True)
+    last_order_date = serializers.DateField(read_only=True)
+    last_order_vendor = serializers.DecimalField(decimal_places=2, max_digits=10, read_only=True)
+    nickname = serializers.CharField(max_length=128, allow_null=True)
+    # image_url = Base64ImageField()
+
+    last_order_price = serializers.DecimalField(decimal_places=2, max_digits=10, read_only=True)
+
+    children = ChildProductV2Serializer(many=True)
+
+    class Meta:
+        model = m.Product
+        fields = (
+            "id",
+            "vendor",
+            "name",
+            "nickname",
+            # "image_url",
+            "product_id",
+            "manufacturer_number",
+            "category",
+            "product_unit",
+            "url",
+            "images",
+            "is_special_offer",
+            "special_price",
+            "promotion_description",
+            "is_inventory",
+            "product_vendor_status",
+            "last_order_date",
+            "last_order_price",
+            "last_order_vendor",
+            "children",
+            "sku",
+        )
+        ordering = ("name",)
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        ret["description"] = instance.description
+
+        children = ret["children"]
+
+        if children:
             last_order_dates = sorted(
                 [
                     (child["last_order_date"], child["last_order_price"], child["last_order_vendor"])
-                    for child in childrens
+                    for child in children
                     if child["is_inventory"]
                 ],
                 key=lambda x: x[0],
