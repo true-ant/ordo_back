@@ -98,6 +98,11 @@ beat_schedule = {
         "args": ("midwest_dental",),
         "schedule": crontab(minute="*/5"),
     },
+    "update_vendor_product_prices_for_implant_direct": {
+        "task": "apps.accounts.tasks.update_vendor_product_prices_for_all_offices",
+        "args": ("implant_direct",),
+        "schedule": crontab(minute="*/5"),
+    },
     "update_order_history_for_net_32": {
         "task": "apps.accounts.tasks.update_order_history_for_all_offices",
         "args": ("net_32",),

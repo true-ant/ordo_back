@@ -8,6 +8,7 @@ from asyncio import Semaphore
 from collections import ChainMap
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 
+import requests
 from aiohttp import ClientResponse, ClientSession
 from result import Err, Ok, Result
 from scrapy import Selector
@@ -59,6 +60,7 @@ class BaseClient:
     VENDOR_SLUG = "base"
     MULTI_CONNECTIONS = 10
     subclasses = []
+    aiohttp_mode = True
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__()
@@ -78,7 +80,7 @@ class BaseClient:
     def __init__(
         self, session: Optional[ClientSession] = None, username: Optional[str] = None, password: Optional[str] = None
     ):
-        self.session = session
+        self.session = session if self.aiohttp_mode else requests.Session()
         self.username = username
         self.password = password
         self.orders = {}
