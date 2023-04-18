@@ -42,6 +42,7 @@ class ImplantDirectScraper(Scraper):
     aiohttp_mode = False
     INVOICE_TYPE = InvoiceType.HTML_INVOICE
     INVOICE_FORMAT = InvoiceFormat.USE_VENDOR_FORMAT
+    is_authenticated = 0
 
     def extractContent(dom, xpath):
         return re.sub(r"\s+", " ", " ".join(dom.xpath(xpath).extract())).strip()
@@ -168,6 +169,9 @@ class ImplantDirectScraper(Scraper):
             order_history["order_date"] = order_item["creation_date"]
             order_history["status"] = order_item["state"]
             order_history["total_amount"] = order_item["grand_total"]
+            order_history[
+                "order_detail_link"
+            ] = f'https://store.implantdirect.com/us/en/customer/order/view/id/{order_item["entity_id"]}'
             # order_history["order_subtotal"] = order_item["subtotal_amount"]
             # order_history["order_tax"] = order_item["tax_amount"]
             # order_history["order_shipping"] = order_item["shipping_amount"]
@@ -228,25 +232,30 @@ class ImplantDirectScraper(Scraper):
         return page_title != "Customer Login"
 
     def login_proc(self):
-        home_resp = self.getHomePage()
-        home_dom = scrapy.Selector(text=home_resp.text)
-        login_link = home_dom.xpath('//ul/li[contains(@class, "authorization-link")]/a/@href').get()
-        login_resp = self.getLoginPage(login_link)
-        login_dom = scrapy.Selector(text=login_resp.text)
-        if login_dom.css("title::text").get() != "Customer Login":
-            return True
-        form_key = login_dom.xpath('//form[@id="login-form"]/input[@name="form_key"]/@value').get()
-        form_action = login_dom.xpath('//form[@id="login-form"]/@action').get()
-        data = {"form_key": form_key, "login[username]": self.username, "login[password]": self.password, "send": ""}
-        response = self.session.post(form_action, data=data, headers=headers)
+        if not self.is_authenticated:
+            home_resp = self.getHomePage()
+            home_dom = scrapy.Selector(text=home_resp.text)
+            login_link = home_dom.xpath('//ul/li[contains(@class, "authorization-link")]/a/@href').get()
+            login_resp = self.getLoginPage(login_link)
+            login_dom = scrapy.Selector(text=login_resp.text)
+            form_key = login_dom.xpath('//form[@id="login-form"]/input[@name="form_key"]/@value').get()
+            form_action = login_dom.xpath('//form[@id="login-form"]/@action').get()
+            data = {
+                "form_key": form_key,
+                "login[username]": self.username,
+                "login[password]": self.password,
+                "send": "",
+            }
+            response = self.session.post(form_action, data=data, headers=headers)
 
-        is_authenticated = self._check_authenticated(response)
-        if not is_authenticated:
-            raise VendorAuthenticationFailed()
+            is_authenticated = self._check_authenticated(response)
+            self.is_authenticated = is_authenticated
+            if not is_authenticated:
+                raise VendorAuthenticationFailed()
 
-        print(response.url)
-        print("Log In POST:", response.status_code)
-        return response.cookies
+            print(response.url)
+            print("Log In POST:", response.status_code)
+            return response.cookies
 
     def clear_cart(self):
         cart_page = self.getCartPage()
