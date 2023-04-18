@@ -1,14 +1,10 @@
 import datetime
 
-from django.db.models import (
-    Q,
-    Exists,
-    OuterRef
-)
+from django.db.models import Exists, OuterRef, Q
 from django_filters import rest_framework as filters
 
-from apps.common.utils import get_date_range
 from apps.common.choices import ProductStatus
+from apps.common.utils import get_date_range
 
 from .models import OfficeProduct, Order, Product, VendorOrder, VendorOrderProduct
 
@@ -39,11 +35,7 @@ class VendorOrderFilter(filters.FilterSet):
     def filter_by_status(self, queryset, name, value):
         if value == ProductStatus.BACK_ORDERED.value:
             return queryset.filter(
-                Exists(
-                    VendorOrderProduct.objects.filter(
-                        vendor_order=OuterRef("pk"), status=value
-                    )
-                )
+                Exists(VendorOrderProduct.objects.filter(vendor_order=OuterRef("pk"), status=value))
             )
         return queryset.filter(**{name: value})
 
@@ -107,28 +99,20 @@ class ProductFilter(filters.FilterSet):
 
 
 class ProductV2Filter(filters.FilterSet):
-    vendors = filters.CharFilter(method="filter_by_vendors")
-    price_from = filters.NumberFilter(method="filter_by_price_range", lookup_expr='gte')
-    price_to = filters.NumberFilter(method="filter_by_price_range", lookup_expr='lte')
+    price_from = filters.NumberFilter(method="filter_by_price_range", lookup_expr="gte")
+    price_to = filters.NumberFilter(method="filter_by_price_range", lookup_expr="lte")
 
     @staticmethod
     def filter_by_price_range(queryset, name, value):
         query = Q(child__isnull=False)
 
-        if name == 'price_from':
+        if name == "price_from":
             query |= Q(child__isnull=True) & Q(product_price__gte=value)
         else:
             query |= Q(child__isnull=True) & Q(product_price__lte=value)
         queryset = queryset.filter(query)
 
         return queryset
-
-    @staticmethod
-    def filter_by_vendors(queryset, name, value):
-        vendor_slugs = value.split(",")
-        q = Q(vendor__slug__in=vendor_slugs) | (Q(vendor__isnull=True) & (Q(child__vendor__slug__in=vendor_slugs)))
-
-        return queryset.filter(q).distinct()
 
     # def filter_by_name(self, queryset, name, value):
     #     product_id_value = value.replace("-", "")
@@ -154,7 +138,9 @@ class OfficeProductFilter(filters.FilterSet):
 
     def filter_product(self, queryset, name, value):
         products = Product.objects.search(value)
-        office_product_ids = OfficeProduct.objects.filter(Q(nickname__contains=value)).values_list("product_id", flat=True)
+        office_product_ids = OfficeProduct.objects.filter(Q(nickname__contains=value)).values_list(
+            "product_id", flat=True
+        )
         office_nickname_products = Product.objects.filter(Q(Q(id__in=office_product_ids)))
         products = products | office_nickname_products
         product_ids = products.values_list("id", flat=True)

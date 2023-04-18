@@ -89,6 +89,8 @@ class Product(TimeStampedModel):
     search_vector = SearchVectorField(null=True, blank=True, help_text="Search vector")
     price_expiration = models.DateTimeField(null=True, blank=True, help_text="Price expiration")
     is_available_on_vendor = models.BooleanField(default=True)
+    vendors = ArrayField(models.IntegerField(), default=list, help_text="Child vendors")
+    child_count = models.IntegerField(default=0, help_text="Child count")
 
     objects = ProductManager()
     net32 = Net32ProductManager()
@@ -100,6 +102,7 @@ class Product(TimeStampedModel):
         ]
         indexes = [
             GinIndex(name="product_name_gin_idx", fields=["name"], opclasses=["gin_trgm_ops"]),
+            GinIndex(name="child_vendors_gin_idx", fields=["vendors"], condition=Q(parent_id=None)),
         ]
 
     def __str__(self):

@@ -1182,6 +1182,7 @@ class ProductHelper:
         selected_products: Optional[List[SmartID]] = None,
         price_from: float = -1,
         price_to: float = -1,
+        vendors: Optional[list[str]] = None,
     ):
         replacer = Replacer()
         query = replacer.replace(query)
@@ -1192,7 +1193,11 @@ class ProductHelper:
 
         office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk))
 
-        connected_vendor_ids = OfficeVendorHelper.get_connected_vendor_ids(office_pk)
+        connected_vendor_ids = list(OfficeVendorHelper.get_connected_vendor_ids(office_pk))
+        vendor_slugs = vendors.split(",") if vendors else []
+        if vendor_slugs:
+            selected_vendors = VendorModel.objects.filter(slug__in=vendor_slugs).values_list("id", flat=True)
+            connected_vendor_ids = list(set(connected_vendor_ids) & set(selected_vendors))
 
         # office_product_nickname = OfficeProductModel.objects.filter(
         #     Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(nickname__isnull=False)
@@ -1203,7 +1208,7 @@ class ProductHelper:
         products = (
             ProductModel.objects.available_products()
             .search(query)
-            .filter(Q(vendor_id__in=connected_vendor_ids) | Q(vendor_id__isnull=True))
+            .filter(Q(vendors__overlap=connected_vendor_ids))
             .filter(parent=None)
         )
 
@@ -1216,11 +1221,8 @@ class ProductHelper:
             .filter(office_id=office_pk, nn_vector=q)
             .values_list("product_id", flat=True)
         )
-        office_nickname_product_parents = (
-            ProductModel.objects.available_products()
-            .filter(id__in=office_nickname_products)
-            .annotate(pid=Coalesce(F("parent_id"), F("id")))
-            .values_list("pid", flat=True)
+        office_nickname_product_parents = list(
+            ProductModel.objects.filter(id__in=office_nickname_products).values_list("parent_id", flat=True)
         )
         office_nickname_products = ProductModel.objects.available_products().filter(
             id__in=office_nickname_product_parents
@@ -1246,7 +1248,7 @@ class ProductHelper:
         # we treat parent product as inventory product if it has inventory children product
         inventory_office_product = (
             OfficeProductModel.objects.filter(Q(office_id=office_pk) & Q(is_inventory=True))
-            .annotate(pid=Coalesce(F("product__parent_id"), F("product_id")))
+            .annotate(pid=F("product__parent_id"))
             .values("pid")
             .filter(pid=OuterRef("pk"))
         )
@@ -1270,11 +1272,11 @@ class ProductHelper:
             )
             .annotate(
                 group=Case(
-                    When(vendor__isnull=True, then=Value(0)),
-                    default=Value(1),
+                    When(child_count__gt=1, then=Value(1)),
+                    default=Value(0),
                 )
             )
-            .order_by("selected_product", "-is_inventory", "group", "product_price")
+            .order_by("selected_product", "-is_inventory", "-child_count", "product_price")
         )
 
         return products, available_vendors
