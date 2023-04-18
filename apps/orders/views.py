@@ -1622,7 +1622,7 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
     queryset = m.Product.objects.all()
     serializer_class = s.ProductV2Serializer
     pagination_class = SearchProductV2Pagination
-    filterset_class = f.ProductV2Filter
+    # filterset_class = f.ProductV2Filter
     http_method_names = ["get"]
 
     def get_queryset(self):

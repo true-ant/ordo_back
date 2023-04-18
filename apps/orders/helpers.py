@@ -1191,20 +1191,12 @@ class ProductHelper:
         else:
             office_pk = office
 
-        office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk))
-
         connected_vendor_ids = list(OfficeVendorHelper.get_connected_vendor_ids(office_pk))
         vendor_slugs = vendors.split(",") if vendors else []
         if vendor_slugs:
             selected_vendors = VendorModel.objects.filter(slug__in=vendor_slugs).values_list("id", flat=True)
             connected_vendor_ids = list(set(connected_vendor_ids) & set(selected_vendors))
 
-        # office_product_nickname = OfficeProductModel.objects.filter(
-        #     Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(nickname__isnull=False)
-        # ).values("nickname")
-
-        # products = products.annotate(nickname=Subquery(office_product_nickname[:1])).search(query)
-        # Make result set more narrow - filter those products whose name & id is equals to keyword
         products = (
             ProductModel.objects.available_products()
             .search(query)
@@ -1231,6 +1223,8 @@ class ProductHelper:
         # Unify with the above
         products = products | office_nickname_products
 
+        # TODO: why don't we remove this one? How is it being used?
+        #       Let's change it to office enabled vendors, this query is expensive
         available_vendors = [
             vendor
             for vendor in products.values_list("vendor__slug", flat=True).order_by("vendor__slug").distinct()
@@ -1253,11 +1247,25 @@ class ProductHelper:
             .filter(pid=OuterRef("pk"))
         )
 
-        products = (
-            products.prefetch_related(Prefetch("office_products", queryset=office_products, to_attr="office_product"))
+        price_least_update_date = timezone.now() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
+        office_product_price = OfficeProductModel.objects.filter(
+            Q(office=office) & Q(product_id=OuterRef("pk")) & Q(last_price_updated__gte=price_least_update_date)
+        ).values("price")
+        child_products_prefetch = (
+            ProductModel.objects.available_products()
+            .select_related("vendor", "category")
+            .filter(vendor_id__in=connected_vendor_ids)
+            .prefetch_related(
+                "images", Prefetch("office_products", OfficeProductModel.objects.filter(Q(office=office)))
+            )
             .annotate(office_product_price=Subquery(office_product_price[:1]))
             .annotate(product_price=Coalesce(F("office_product_price"), F("price")))
+            .order_by("product_price")
         )
+        if price_from != -1:
+            child_products_prefetch = child_products_prefetch.filter(product_price__gte=price_from)
+        if price_to != -1:
+            child_products_prefetch = child_products_prefetch.filter(product_price__lte=price_to)
 
         products = (
             products.annotate(is_inventory=Exists(inventory_office_product))
@@ -1276,7 +1284,12 @@ class ProductHelper:
                     default=Value(0),
                 )
             )
-            .order_by("selected_product", "-is_inventory", "-child_count", "product_price")
+            .order_by(
+                "selected_product",
+                "-is_inventory",
+                "-child_count",
+            )
+            .prefetch_related(Prefetch("children", child_products_prefetch))
         )
 
         return products, available_vendors
