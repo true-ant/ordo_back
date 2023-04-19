@@ -168,6 +168,9 @@ class ImplantDirectScraper(Scraper):
             order_history["order_date"] = order_item["creation_date"]
             order_history["status"] = order_item["state"]
             order_history["total_amount"] = order_item["grand_total"]
+            order_history[
+                "order_detail_link"
+            ] = f'https://store.implantdirect.com/us/en/customer/order/view/id/{order_item["entity_id"]}'
             # order_history["order_subtotal"] = order_item["subtotal_amount"]
             # order_history["order_tax"] = order_item["tax_amount"]
             # order_history["order_shipping"] = order_item["shipping_amount"]
@@ -233,11 +236,17 @@ class ImplantDirectScraper(Scraper):
         login_link = home_dom.xpath('//ul/li[contains(@class, "authorization-link")]/a/@href').get()
         login_resp = self.getLoginPage(login_link)
         login_dom = scrapy.Selector(text=login_resp.text)
-        if login_dom.css("title::text").get() != "Customer Login":
+        is_authenticated = self._check_authenticated(login_resp)
+        if is_authenticated:
             return True
         form_key = login_dom.xpath('//form[@id="login-form"]/input[@name="form_key"]/@value').get()
         form_action = login_dom.xpath('//form[@id="login-form"]/@action').get()
-        data = {"form_key": form_key, "login[username]": self.username, "login[password]": self.password, "send": ""}
+        data = {
+            "form_key": form_key,
+            "login[username]": self.username,
+            "login[password]": self.password,
+            "send": "",
+        }
         response = self.session.post(form_action, data=data, headers=headers)
 
         is_authenticated = self._check_authenticated(response)
