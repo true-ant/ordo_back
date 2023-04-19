@@ -315,7 +315,11 @@ class VendorOrderProductSerializer(serializers.ModelSerializer):
         office_product = m.OfficeProduct.objects.filter(
             product_id=instance.product_id, office_id=instance.vendor_order.order.office_id
         ).first()
-        ret["updated_unit_price"] = office_product.price
+
+        if office_product:
+            ret["updated_unit_price"] = office_product.price
+        else:
+            ret["updated_unit_price"] = instance.product.price
         return ret
 
 
