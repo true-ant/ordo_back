@@ -42,7 +42,6 @@ class ImplantDirectScraper(Scraper):
     aiohttp_mode = False
     INVOICE_TYPE = InvoiceType.HTML_INVOICE
     INVOICE_FORMAT = InvoiceFormat.USE_VENDOR_FORMAT
-    is_authenticated = 0
 
     def extractContent(dom, xpath):
         return re.sub(r"\s+", " ", " ".join(dom.xpath(xpath).extract())).strip()
