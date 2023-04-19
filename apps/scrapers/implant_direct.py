@@ -232,30 +232,28 @@ class ImplantDirectScraper(Scraper):
         return page_title != "Customer Login"
 
     def login_proc(self):
-        if not self.is_authenticated:
-            home_resp = self.getHomePage()
-            home_dom = scrapy.Selector(text=home_resp.text)
-            login_link = home_dom.xpath('//ul/li[contains(@class, "authorization-link")]/a/@href').get()
-            login_resp = self.getLoginPage(login_link)
-            login_dom = scrapy.Selector(text=login_resp.text)
-            form_key = login_dom.xpath('//form[@id="login-form"]/input[@name="form_key"]/@value').get()
-            form_action = login_dom.xpath('//form[@id="login-form"]/@action').get()
-            data = {
-                "form_key": form_key,
-                "login[username]": self.username,
-                "login[password]": self.password,
-                "send": "",
-            }
-            response = self.session.post(form_action, data=data, headers=headers)
+        home_resp = self.getHomePage()
+        home_dom = scrapy.Selector(text=home_resp.text)
+        login_link = home_dom.xpath('//ul/li[contains(@class, "authorization-link")]/a/@href').get()
+        login_resp = self.getLoginPage(login_link)
+        login_dom = scrapy.Selector(text=login_resp.text)
+        form_key = login_dom.xpath('//form[@id="login-form"]/input[@name="form_key"]/@value').get()
+        form_action = login_dom.xpath('//form[@id="login-form"]/@action').get()
+        data = {
+            "form_key": form_key,
+            "login[username]": self.username,
+            "login[password]": self.password,
+            "send": "",
+        }
+        response = self.session.post(form_action, data=data, headers=headers)
 
-            is_authenticated = self._check_authenticated(response)
-            self.is_authenticated = is_authenticated
-            if not is_authenticated:
-                raise VendorAuthenticationFailed()
+        is_authenticated = self._check_authenticated(response)
+        if not is_authenticated:
+            raise VendorAuthenticationFailed()
 
-            print(response.url)
-            print("Log In POST:", response.status_code)
-            return response.cookies
+        print(response.url)
+        print("Log In POST:", response.status_code)
+        return response.cookies
 
     def clear_cart(self):
         cart_page = self.getCartPage()
