@@ -70,6 +70,7 @@ class OrderService:
         else:
             vendor_order.status = OrderStatus.CLOSED
 
+        vendor_order.order_date = timezone.now()
         vendor_order.approved_at = timezone.now()
         vendor_order.approved_by = approved_by
         await sync_to_async(vendor_order.save)()
