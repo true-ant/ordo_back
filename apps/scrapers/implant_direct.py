@@ -236,6 +236,9 @@ class ImplantDirectScraper(Scraper):
         login_link = home_dom.xpath('//ul/li[contains(@class, "authorization-link")]/a/@href').get()
         login_resp = self.getLoginPage(login_link)
         login_dom = scrapy.Selector(text=login_resp.text)
+        is_authenticated = self._check_authenticated(login_resp)
+        if is_authenticated:
+            return True
         form_key = login_dom.xpath('//form[@id="login-form"]/input[@name="form_key"]/@value').get()
         form_action = login_dom.xpath('//form[@id="login-form"]/@action').get()
         data = {
