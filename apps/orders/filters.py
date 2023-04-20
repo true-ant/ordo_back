@@ -5,7 +5,7 @@ from django.db.models import Exists, OuterRef, Q
 from django.db.models.expressions import RawSQL
 from django_filters import rest_framework as filters
 
-from apps.common.choices import ProductStatus
+from apps.common.choices import OrderStatus, ProductStatus
 from apps.common.utils import get_date_range
 
 from .models import OfficeProduct, Order, Product, VendorOrder, VendorOrderProduct
@@ -28,26 +28,34 @@ class VendorOrderFilter(filters.FilterSet):
     budget_type = filters.CharFilter(method="filter_by_budget_type")
     date_range = filters.CharFilter(method="filter_by_range")
     status = filters.CharFilter(method="filter_by_status")
+    disable_approval = filters.BooleanFilter(method="filter_by_disable_approval")
     q = filters.CharFilter(method="filter_orders")
 
     class Meta:
         model = VendorOrder
         fields = ["status", "start_date", "end_date"]
 
-    def filter_by_status(self, queryset, name, value):
+    @staticmethod
+    def filter_by_disable_approval(queryset, name, value):
+        return queryset.exclude(status=OrderStatus.PENDING_APPROVAL)
+
+    @staticmethod
+    def filter_by_status(queryset, name, value):
         if value == ProductStatus.BACK_ORDERED.value:
             return queryset.filter(
                 Exists(VendorOrderProduct.objects.filter(vendor_order=OuterRef("pk"), status=value))
             )
         return queryset.filter(**{name: value})
 
-    def filter_by_ids(self, queryset, name, value):
+    @staticmethod
+    def filter_by_ids(queryset, name, value):
         ids = value.split(",")
         q = Q(id__in=ids)
 
         return queryset.filter(q)
 
-    def filter_by_budget_type(self, queryset, name, value):
+    @staticmethod
+    def filter_by_budget_type(queryset, name, value):
         q = Q()
         if value == "dental":
             q = ~Q(vendor__slug="amazon")
@@ -56,7 +64,8 @@ class VendorOrderFilter(filters.FilterSet):
 
         return queryset.filter(q)
 
-    def filter_by_range(self, queryset, name, value):
+    @staticmethod
+    def filter_by_range(queryset, name, value):
         start_end_date = get_date_range(value)
         if start_end_date:
             q = Q(order_date__gte=start_end_date[0]) & Q(order_date__lte=start_end_date[1])
@@ -64,7 +73,8 @@ class VendorOrderFilter(filters.FilterSet):
         else:
             return queryset
 
-    def filter_orders(self, queryset, name, value):
+    @staticmethod
+    def filter_orders(queryset, name, value):
         q = (
             Q(products__name__icontains=value)
             | Q(products__category__name__icontains=value)
