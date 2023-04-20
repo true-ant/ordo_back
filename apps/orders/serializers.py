@@ -600,7 +600,7 @@ class OfficeProductSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         ret["office_product_category"] = OfficeProductCategorySerializer(instance.office_product_category).data
-        ret["product"] = ProductV2Serializer(instance.product, context=self.context).data
+        ret["product"] = ProductV2Serializer(instance.product.parent, context=self.context).data
 
         if ret["is_inventory"]:
             if ret["product"]["vendor"]:
