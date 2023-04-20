@@ -1,6 +1,8 @@
 import datetime
 
+from django.contrib.postgres.search import SearchVectorField
 from django.db.models import Exists, OuterRef, Q
+from django.db.models.expressions import RawSQL
 from django_filters import rest_framework as filters
 
 from apps.common.choices import ProductStatus
@@ -138,13 +140,15 @@ class OfficeProductFilter(filters.FilterSet):
 
     def filter_product(self, queryset, name, value):
         products = Product.objects.search(value)
-        office_product_ids = OfficeProduct.objects.filter(Q(nickname__contains=value)).values_list(
-            "product_id", flat=True
+        office_product_ids = (
+            OfficeProduct.objects.annotate(nn_vector=RawSQL("nn_vector", params=[], output_field=SearchVectorField()))
+            .filter(nn_vector=value)
+            .values_list("product_id", flat=True)
         )
-        office_nickname_products = Product.objects.filter(Q(Q(id__in=office_product_ids)))
+        office_nickname_products = Product.objects.filter(id__in=office_product_ids)
         products = products | office_nickname_products
         product_ids = products.values_list("id", flat=True)
-        return queryset.filter(Q(product_id__in=product_ids) | Q(product__child__id__in=product_ids)).distinct()
+        return queryset.filter(product_id__in=product_ids).distinct()
         # q = (
         #     Q(product__product_id=value)
         #     | Q(product__name__icontains=value)
@@ -158,5 +162,5 @@ class OfficeProductFilter(filters.FilterSet):
     def filter_by_vendors(self, queryset, name, value):
         vendors = value.split(",")
         if vendors:
-            return queryset.filter(product__vendor__slug__in=vendors)
+            return queryset.filter(vendor__slug__in=vendors)
         return queryset
