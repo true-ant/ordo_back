@@ -97,9 +97,9 @@ class OfficeBudgetHelper:
         ).exclude(budgets__month=current_month)
         office_budgets_to_created = []
         for office in offices:
-            dental_api_key = office.dental_api
+            dental_api = office.dental_api
             prev_month_office_budget = office.previous_budget
-            if dental_api_key is None:
+            if not dental_api:
                 if not prev_month_office_budget:
                     continue
                 prev_month_office_budget[0].id = None
@@ -109,6 +109,7 @@ class OfficeBudgetHelper:
                 office_budgets_to_created.append(prev_month_office_budget[0])
                 print(f"{office.name} from previous month")
             else:
+                dental_api_key = dental_api.key
                 new_budget = OfficeBudget()
                 prev_adjusted_production, prev_collections = OfficeBudgetHelper.load_prev_month_production_collection(
                     start_day_of_prev_month, last_day_of_prev_month, dental_api_key

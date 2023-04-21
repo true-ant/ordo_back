@@ -1343,8 +1343,7 @@ class ProcedureHelper:
 
         office = OfficeModel.objects.get(id=office_id)
         dental_api = office.dental_api
-        print(f"dental_api={dental_api}")
-        if dental_api is None or len(dental_api) < 5:
+        if not dental_api:
             print("Invalid dental api key")
             return
 
@@ -1357,7 +1356,7 @@ class ProcedureHelper:
                 dt,
                 dt + datetime.timedelta(days=6),
                 office.id,
-                dental_api,
+                dental_api.key,
                 dt.date() == last_week_startday.date(),
             )
 

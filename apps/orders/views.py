@@ -1814,6 +1814,8 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         office_pk = self.kwargs["office_pk"]
         office = m.Office.objects.get(id=office_pk)
         dental_api = office.dental_api
+        if not dental_api:
+            return Response(status=HTTP_400_BAD_REQUEST, data={"message": "No Open Dental key"})
         day_range = self.request.query_params.get("date_range")
         start_end_date = get_date_range(day_range)
         day_from = start_end_date[0]
@@ -1871,7 +1873,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             with open("query/proc_schedule.sql", "r") as f:
                 raw_sql = f.read()
             query = raw_sql.format(day_from=(day_from if day_from > today else today), day_to=day_to, codes="")
-            od_client = OpenDentalClient(dental_api)
+            od_client = OpenDentalClient(dental_api.key)
             ret_schedule, status = od_client.query(query)
             if status != HTTP_200_OK:
                 return Response(status=status, data={"message": f"{ret_schedule}"})
@@ -1904,9 +1906,8 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
 
         office = m.Office.objects.get(id=office_pk)
         dental_api = office.dental_api
-        if dental_api is None or len(dental_api) < 5:
-            print("Invalid dental api key")
-            return Response(status=HTTP_400_BAD_REQUEST, data={"message": "Invalid dental api"})
+        if not dental_api:
+            return Response(status=HTTP_400_BAD_REQUEST, data={"message": "No Open Dental key"})
 
         ret_proccodes = m.ProcedureCode.objects.filter(summary_category=summary_query).values_list(
             "summary_category__summary_slug", "proccode", "descript", "abbr_desc"

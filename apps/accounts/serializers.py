@@ -31,6 +31,12 @@ class VendorSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class OpenDentalKeySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.OpenDentalKey
+        fields = "__all__"
+
+
 class OfficeBudgetSerializer(serializers.ModelSerializer):
     office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), required=False)
     # spend = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
@@ -84,7 +90,7 @@ class OfficeSerializer(serializers.ModelSerializer):
     budget = OfficeBudgetSerializer()
     settings = OfficeSettingSerializer(read_only=True)
     name = serializers.CharField()
-    dental_api = serializers.CharField(allow_null=True, allow_blank=True, max_length=128)
+    dental_api = OpenDentalKeySerializer()
 
     class Meta:
         model = m.Office

@@ -12,12 +12,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.serializers import ValidationError
-from rest_framework.status import (
-    HTTP_200_OK,
-    HTTP_201_CREATED,
-    HTTP_400_BAD_REQUEST,
-    HTTP_401_UNAUTHORIZED,
-)
+from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_REQUEST
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet, ModelViewSet
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -31,7 +26,6 @@ from apps.scrapers.errors import (
     VendorAuthenticationFailed,
     VendorNotSupported,
 )
-from services.opendental import OpenDentalClient
 
 from . import filters as f
 from . import models as m
@@ -192,23 +186,24 @@ class OfficeViewSet(ModelViewSet):
     @action(detail=True, methods=["post"], url_path="dental_api")
     def set_dental_api(self, request, *args, **kwargs):
         instance = self.get_object()
-        if "dental_key" in request.data:
-            od_client = OpenDentalClient(request.data["dental_key"])
-            _, status = od_client.query("")
-            is_connected = status != HTTP_401_UNAUTHORIZED
-            if is_connected:
-                instance.dental_api = request.data["dental_key"]
-                instance.save()
-                if "budget_type" in request.data and len(request.data["budget_type"]) > 0:
-                    resp = self.update_budget_from_dental(request, *args, **kwargs)
-                    return Response(status=HTTP_200_OK, data=resp.data)
-                return Response({"message": "Dental API key is set. Invalid budget type."}, status=HTTP_200_OK)
-        return Response({"message": "Invalid key"}, status=HTTP_400_BAD_REQUEST)
+        available_key = m.OpenDentalKey.objects.filter(office__isnull=True).first()
+        if available_key:
+            instance.dental_api = available_key
+            instance.save()
+            if "budget_type" in request.data and len(request.data["budget_type"]) > 0:
+                resp = self.update_budget_from_dental(request, *args, **kwargs)
+                return Response(status=HTTP_200_OK, data={"key": available_key.key, "dental": resp.data})
+            return Response(
+                {"message": "Dental API key is set. Invalid budget type."},
+                data={"key": available_key.key},
+                status=HTTP_200_OK,
+            )
+        return Response({"message": "No available key. Please contact admin."}, status=HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=["post"])
     def unlink_open_dental(self, request, *args, **kwargs):
         instance = self.get_object()
-        instance.dental_api = ""
+        instance.dental_api = None
         instance.save()
         return Response({"message": "Removed Open Dental API key"}, status=HTTP_200_OK)
 
@@ -216,8 +211,7 @@ class OfficeViewSet(ModelViewSet):
     def open_dental_connect_status(self, request, *args, **kwargs):
         instance = self.get_object()
         api_key = instance.dental_api
-        is_connected = bool(api_key)
-        return Response(status=HTTP_200_OK, data={"connected": is_connected})
+        return Response(status=HTTP_200_OK, data={"connected": api_key is not None})
 
     @action(detail=True, methods=["post"], url_path="update_budget")
     def update_budget_from_dental(self, request, *args, **kwargs):
@@ -225,8 +219,8 @@ class OfficeViewSet(ModelViewSet):
         if not budget_type or budget_type not in ["collection", "production"]:
             return Response({"message": "Invalid budget type."}, status=HTTP_400_BAD_REQUEST)
         instance = self.get_object()
-        dental_api_key = instance.dental_api
-        if dental_api_key is None:
+        dental_api_key = instance.dental_api.key if instance.dental_api else None
+        if not dental_api_key:
             return Response({"message": "No api key"}, HTTP_400_BAD_REQUEST)
         now_date = timezone.now().date()
         first_day_of_month = now_date.replace(day=1)
