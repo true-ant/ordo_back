@@ -45,6 +45,13 @@ class Vendor(models.Model):
         return {k: v for k, v in self.__dict__.items() if "_" not in k}
 
 
+class OpenDentalKey(models.Model):
+    key = models.CharField(max_length=30)
+
+    def __str__(self):
+        return self.key
+
+
 class Company(TimeStampedModel):
     name = models.CharField(max_length=100)
     slug = AutoSlugField(populate_from=["name"])
@@ -72,7 +79,7 @@ class Office(TimeStampedModel):
     phone_number = PhoneNumberField(null=True, blank=True)
     website = models.URLField(max_length=100, null=True, blank=True)
     logo = models.ImageField(null=True, blank=True, upload_to="offices")
-    dental_api = models.CharField(null=True, max_length=128)
+    dental_api = models.OneToOneField(OpenDentalKey, on_delete=models.SET_NULL, null=True)
     # Budget & Card Information
 
     objects = managers.CompanyMemeberActiveManager()
