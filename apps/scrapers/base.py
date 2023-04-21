@@ -107,7 +107,7 @@ class Scraper:
             for status in ("delivered", "shipped", "complete", "order shipped", "cancelled", "closed")
         ):
             return "closed"
-        elif any([status in order_status for status in ("open", "in progress", "processing", "pending")]):
+        elif any([status in order_status for status in ("open", "in progress", "processing", "pending", "partial")]):
             return "open"
         else:
             return order_status
