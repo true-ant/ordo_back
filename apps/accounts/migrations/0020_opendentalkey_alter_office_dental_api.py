@@ -6,7 +6,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("accounts", "0018_shippingmethod_officevendor_default_shipping_option_and_more"),
+        ("accounts", "0019_officesetting_enable_order_approval"),
     ]
 
     operations = [
