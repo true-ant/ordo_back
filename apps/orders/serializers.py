@@ -137,11 +137,18 @@ class ChildProductV2Serializer(serializers.ModelSerializer):
         ret = super().to_representation(instance)
 
         if hasattr(instance, "office_product") and instance.office_product:
-            ret["product_vendor_status"] = instance.office_product[0].product_vendor_status
-            ret["last_order_date"] = instance.office_product[0].last_order_date
-            ret["last_order_price"] = instance.office_product[0].last_order_price
-            ret["last_order_vendor"] = instance.office_product[0].product.vendor_id
-            ret["nickname"] = instance.office_product[0].nickname
+            office_product = instance.office_product[0]
+        elif "office_pk" in self.context:
+            office_product = instance.office_products.filter(office_id=self.context["office_pk"]).first()
+        else:
+            office_product = None
+        if office_product:
+            ret["is_inventory"] = office_product.is_inventory
+            ret["product_vendor_status"] = office_product.product_vendor_status
+            ret["last_order_date"] = office_product.last_order_date
+            ret["last_order_price"] = office_product.last_order_price
+            ret["last_order_vendor"] = office_product.product.vendor_id
+            ret["nickname"] = office_product.nickname
             # ret["image_url"] = instance.office_product[0].image_url
 
         return ret
@@ -610,7 +617,7 @@ class OfficeProductSerializer(serializers.ModelSerializer):
                     [
                         (child["last_order_date"], child["last_order_price"], child["vendor"]["id"], child["id"])
                         for child in ret["product"]["children"]
-                        if child["is_inventory"] is True
+                        if child["is_inventory"]
                     ],
                     key=lambda x: x[0],
                     reverse=True,

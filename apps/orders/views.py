@@ -17,7 +17,18 @@ from django.conf import settings
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Case, Count, Exists, F, OuterRef, Q, Sum, Value, When
+from django.db.models import (
+    Case,
+    Count,
+    Exists,
+    F,
+    OuterRef,
+    Prefetch,
+    Q,
+    Sum,
+    Value,
+    When,
+)
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -1300,10 +1311,11 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
         category_or_price = self.request.query_params.get("category_or_price", "price")
         price_from = self.request.query_params.get("price_from", -1)
         price_to = self.request.query_params.get("price_to", -1)
+        office_pk = self.kwargs["office_pk"]
         queryset = (
             super()
             .get_queryset()
-            .filter(Q(office__id=self.kwargs["office_pk"]))
+            .filter(Q(office__id=office_pk))
             .annotate(
                 category_order=Case(
                     When(office_product_category__slug=category_ordering, then=Value(0)),
@@ -1311,7 +1323,16 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
                     default=Value(1),
                 )
             )
-        ).distinct()
+            .annotate(parent_id=F("product__parent_id"))
+            .prefetch_related(
+                Prefetch(
+                    "product",
+                    Product.objects.prefetch_related(
+                        Prefetch("parent", Product.objects.all().annotate(is_inventory=Value(True)))
+                    ),
+                ),
+            )
+        ).distinct("parent_id")
 
         if price_from != -1:
             queryset = queryset.filter(price__gte=price_from)
@@ -1319,9 +1340,23 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
             queryset = queryset.filter(price__lte=price_to)
 
         if category_or_price == "category":
-            return queryset.order_by("category_order", "office_product_category__slug", "price", "-updated_at")
+            return queryset.order_by(
+                "parent_id",
+                "-last_order_date",
+                "category_order",
+                "office_product_category__slug",
+                "price",
+                "-updated_at",
+            )
         else:
-            return queryset.order_by("price", "category_order", "office_product_category__slug", "-updated_at")
+            return queryset.order_by(
+                "parent_id",
+                "-last_order_date",
+                "price",
+                "category_order",
+                "office_product_category__slug",
+                "-updated_at",
+            )
 
     def update(self, request, *args, **kwargs):
         kwargs["partial"] = True
