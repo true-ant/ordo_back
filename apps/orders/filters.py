@@ -158,7 +158,7 @@ class OfficeProductFilter(filters.FilterSet):
         office_nickname_products = Product.objects.filter(id__in=office_product_ids)
         products = products | office_nickname_products
         product_ids = products.values_list("id", flat=True)
-        return queryset.filter(product_id__in=product_ids).distinct()
+        return queryset.filter(product_id__in=product_ids)
         # q = (
         #     Q(product__product_id=value)
         #     | Q(product__name__icontains=value)

@@ -1256,7 +1256,10 @@ class ProductHelper:
             .select_related("vendor", "category")
             .filter(vendor_id__in=connected_vendor_ids)
             .prefetch_related(
-                "images", Prefetch("office_products", OfficeProductModel.objects.filter(Q(office=office)))
+                "images",
+                Prefetch(
+                    "office_products", OfficeProductModel.objects.filter(office=office), to_attr="office_product"
+                ),
             )
             .annotate(office_product_price=Subquery(office_product_price[:1]))
             .annotate(product_price=Coalesce(F("office_product_price"), F("price")))
