@@ -1297,7 +1297,6 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
     serializer_class = s.OfficeProductSerializer
     pagination_class = StandardResultsSetPagination
     permission_classes = [p.OfficeSubscriptionPermission]
-    filterset_class = f.OfficeProductFilter
 
     def get_serializer_context(self):
         ret = super().get_serializer_context()
@@ -1312,37 +1311,38 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
         price_from = self.request.query_params.get("price_from", -1)
         price_to = self.request.query_params.get("price_to", -1)
         office_pk = self.kwargs["office_pk"]
-        queryset = (
-            super()
-            .get_queryset()
-            .filter(Q(office__id=office_pk))
-            .annotate(
-                category_order=Case(
-                    When(office_product_category__slug=category_ordering, then=Value(0)),
-                    When(office_product_category__slug="other", then=Value(2)),
-                    default=Value(1),
-                )
-            )
-            .annotate(parent_id=F("product__parent_id"))
-            .prefetch_related(
-                Prefetch(
-                    "product",
-                    Product.objects.prefetch_related(
-                        Prefetch("parent", Product.objects.all().annotate(is_inventory=Value(True)))
-                    ),
-                ),
-            )
-        ).distinct("parent_id")
+        queryset = OfficeProduct.objects.filter(office__id=office_pk)
 
         if price_from != -1:
             queryset = queryset.filter(price__gte=price_from)
         if price_to != -1:
             queryset = queryset.filter(price__lte=price_to)
 
+        # We need to filter queryset before making distinct and reordering
+        filterset = f.OfficeProductFilter(data=self.request.query_params, queryset=queryset)
+
+        queryset = filterset.qs
+        queryset = queryset.collapse_by_parent_products()
+
+        queryset = queryset.annotate(
+            category_order=Case(
+                When(office_product_category__slug=category_ordering, then=Value(0)),
+                When(office_product_category__slug="other", then=Value(2)),
+                default=Value(1),
+            )
+        )
+
+        queryset = queryset.prefetch_related(
+            Prefetch(
+                "product",
+                Product.objects.prefetch_related(
+                    Prefetch("parent", Product.objects.all().annotate(is_inventory=Value(True)))
+                ),
+            ),
+        )
+
         if category_or_price == "category":
             return queryset.order_by(
-                "parent_id",
-                "-last_order_date",
                 "category_order",
                 "office_product_category__slug",
                 "price",
@@ -1350,8 +1350,6 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
             )
         else:
             return queryset.order_by(
-                "parent_id",
-                "-last_order_date",
                 "price",
                 "category_order",
                 "office_product_category__slug",
