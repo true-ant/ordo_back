@@ -22,8 +22,10 @@ class OfficeProductCategorySerializer(serializers.ModelSerializer):
         ret = super().to_representation(instance)
 
         if self.context.get("with_inventory_count"):
-            office_inventory_products = instance.products.filter(is_inventory=True).exclude(
-                product__vendor__isnull=True
+            office_inventory_products = (
+                instance.products.filter(is_inventory=True)
+                .exclude(product__vendor__isnull=True)
+                .collapse_by_parent_products()
             )
             ret["vendor_ids"] = set(office_inventory_products.values_list("product__vendor__id", flat=True))
             ret["count"] = office_inventory_products.count()

@@ -5,7 +5,7 @@ from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField  # TrigramSimilarity,
 from django.db import models
-from django.db.models import Q
+from django.db.models import Q, Subquery
 from django.utils import timezone
 from django_extensions.db.fields import AutoSlugField
 from slugify import slugify
@@ -216,6 +216,16 @@ class OfficeProductCategory(TimeStampedModel):
         return {product_category["slug"]: product_category["id"] for product_category in objs.values("id", "slug")}
 
 
+class OfficeProductQuerySet(models.QuerySet):
+    def collapse_by_parent_products(self):
+        queryset = self.order_by("product__parent_id", "-last_order_date").distinct("product__parent_id").values("pk")
+        return self.model.objects.filter(pk__in=Subquery(queryset))
+
+
+class OfficeProductManager(models.Manager):
+    _queryset_class = OfficeProductQuerySet
+
+
 class OfficeProduct(TimeStampedModel):
     """
     This model is actually used for storing products fetched from search result.
@@ -247,6 +257,8 @@ class OfficeProduct(TimeStampedModel):
     # is merged in Django codebase and released:
     # https://github.com/django/django/pull/16417
     # nn_vector = SearchVectorField(null=True, blank=True, help_text="Nickname search vector")
+
+    objects = OfficeProductManager()
 
     def __str__(self):
         return f"{self.product} for {self.office}"
