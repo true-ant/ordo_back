@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('accounts', '0019_officesetting_enable_order_approval'),
     ]
@@ -18,9 +17,15 @@ class Migration(migrations.Migration):
                 ('key', models.CharField(max_length=30)),
             ],
         ),
-        migrations.AlterField(
+        migrations.RemoveField(
             model_name='office',
             name='dental_api',
-            field=models.OneToOneField(null=True, on_delete=django.db.models.deletion.SET_NULL, to='accounts.opendentalkey'),
         ),
+        migrations.AddField(
+            model_name="office",
+            name="dental_api",
+            field=models.OneToOneField(
+                null=True, on_delete=django.db.models.deletion.SET_NULL, to="accounts.opendentalkey"
+            )
+        )
     ]
