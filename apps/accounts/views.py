@@ -21,6 +21,7 @@ from apps.accounts.helper import OfficeBudgetHelper
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
 from apps.common.month import Month
+from apps.orders.models import OfficeCheckoutStatus
 from apps.scrapers.errors import (
     NetworkConnectionException,
     VendorAuthenticationFailed,
@@ -182,6 +183,21 @@ class OfficeViewSet(ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def mark_checkout_status_as_ready(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.checkout_status.user != request.user:
+            return Response(
+                data={"message": "You're not the owner of items added to checkout page"}, status=HTTP_400_BAD_REQUEST
+            )
+        if instance.checkout_status.checkout_status != OfficeCheckoutStatus.CHECKOUT_STATUS.IN_PROGRESS:
+            return Response(data={"message": "Checkout status is already marked as ready"}, status=HTTP_200_OK)
+        instance.checkout_status.checkout_status = OfficeCheckoutStatus.CHECKOUT_STATUS.COMPLETE
+        instance.checkout_status.order_status = OfficeCheckoutStatus.ORDER_STATUS.COMPLETE
+        instance.checkout_status.save()
+
+        return Response(status=HTTP_200_OK, data={"message": "Successfully marked checkout status as ready"})
 
     @action(detail=True, methods=["get"], url_path="available_dental_key")
     def get_available_dental_key(self, request, *args, **kwargs):
