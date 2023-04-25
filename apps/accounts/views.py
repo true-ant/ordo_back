@@ -183,22 +183,25 @@ class OfficeViewSet(ModelViewSet):
         serializer.save()
         return Response(serializer.data)
 
+    @action(detail=True, methods=["get"], url_path="available_dental_key")
+    def get_available_dental_key(self, request, *args, **kwargs):
+        available_key = m.OpenDentalKey.objects.filter(office__isnull=True).order_by("?")[0]
+        if available_key:
+            return Response(status=HTTP_200_OK, data={"key": available_key.key})
+        return Response({"message": "No available key. Please contact admin."}, status=HTTP_400_BAD_REQUEST)
+
     @action(detail=True, methods=["post"], url_path="dental_api")
     def set_dental_api(self, request, *args, **kwargs):
         instance = self.get_object()
-        available_key = m.OpenDentalKey.objects.filter(office__isnull=True).first()
-        if available_key:
-            instance.dental_api = available_key
+        if "dental_key" in request.data:
+            key = m.OpenDentalKey.objects.get(key=request.data["dental_key"])
+            instance.dental_api = key
             instance.save()
             if "budget_type" in request.data and len(request.data["budget_type"]) > 0:
                 resp = self.update_budget_from_dental(request, *args, **kwargs)
-                return Response(status=HTTP_200_OK, data={"key": available_key.key, "dental": resp.data})
-            return Response(
-                {"message": "Dental API key is set. Invalid budget type."},
-                data={"key": available_key.key},
-                status=HTTP_200_OK,
-            )
-        return Response({"message": "No available key. Please contact admin."}, status=HTTP_400_BAD_REQUEST)
+                return Response(status=HTTP_200_OK, data=resp.data)
+            return Response({"message": "Dental API key is set. Invalid budget type."}, status=HTTP_200_OK)
+        return Response({"message": "Invalid key"}, status=HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=["post"])
     def unlink_open_dental(self, request, *args, **kwargs):
