@@ -123,7 +123,7 @@ class Product(TimeStampedModel):
         # TODO: let's get rid of this code in favor of either cleaning up, updating
         #       more frequently or returning `oudated` flag
         if self.vendor.slug in settings.NON_FORMULA_VENDORS:
-            if self.vendor.slug in ["net_32", "dental_city"] and self.last_price_updated:
+            if self.vendor.slug == "dental_city" and self.last_price_updated:
                 ages_in_days = (timezone.now() - self.last_price_updated).days
                 life_span_in_days = (
                     settings.NET32_PRODUCT_PRICE_UPDATE_CYCLE
