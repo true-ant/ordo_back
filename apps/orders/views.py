@@ -1664,14 +1664,20 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
         office_pk = self.request.query_params.get("office_pk")
         selected_products = self.request.query_params.get("selected_products")
         vendors = self.request.query_params.get("vendors")
-        selected_products = selected_products.split(",") if selected_products else []
+        price_from = self.request.query_params.get("price_from", "")
+        price_from = Decimal(price_from) if price_from.strip() else -1
+        price_to = self.request.query_params.get("price_to", "")
+        price_to = Decimal(price_to) if price_to.strip() else -1
 
+        selected_products = selected_products.split(",") if selected_products else []
         products, available_vendors = ProductHelper.get_products_v3(
             query=query,
             office=office_pk,
             fetch_parents=True,
             selected_products=selected_products,
             vendors=vendors,
+            price_from=price_from,
+            price_to=price_to,
         )
         self.available_vendors = available_vendors
 
