@@ -339,7 +339,7 @@ class CompanyMemberViewSet(ModelViewSet):
                 {
                     "company_id": self.kwargs["company_pk"],
                     "email": serializer.validated_data["email"],
-                    "office_id": office_.id if (office_ := serializer.validated_data.get("office", None)) else None,
+                    "office_id": serializer.validated_data["office"].id,
                 }
             ]
         )
