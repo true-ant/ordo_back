@@ -6,6 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 from phonenumber_field.serializerfields import PhoneNumberField
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 
 from apps.accounts.services.stripe import (
     add_customer_to_stripe,
@@ -105,8 +106,20 @@ class OfficeSerializer(serializers.ModelSerializer):
 
 class CompanyMemberSerializer(serializers.ModelSerializer):
     company = serializers.PrimaryKeyRelatedField(queryset=m.Company.objects.all(), allow_null=True)
-    office = OfficeSerializer(allow_null=True)
+    office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
     role_name = serializers.CharField(source="get_role_display", required=False)
+
+    def validate(self, attrs):
+        company = attrs["company"]
+        office = attrs["office"]
+        if office.company_id != company.id:
+            raise ValidationError("Office must belong to company")
+        return attrs
+
+    def to_representation(self, instance: m.CompanyMember):
+        ret = super().to_representation(instance)
+        ret["office"] = OfficeSerializer(instance=instance.office).data
+        return ret
 
     class Meta:
         model = m.CompanyMember
