@@ -576,7 +576,9 @@ class OfficeProductCategoryViewSet(ModelViewSet):
             office_products = instance.products.all()
 
             # move products to original uncategorized category
-            other_product_category = m.OfficeProductCategory.objects.filter(slug="other", office=instance.office)
+            other_product_category = m.OfficeProductCategory.objects.filter(
+                slug="other", office=instance.office
+            ).first()
             for office_product in office_products:
                 office_product.office_product_category = other_product_category
 
