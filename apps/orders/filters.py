@@ -5,7 +5,7 @@ from django.db.models import Exists, OuterRef, Q
 from django.db.models.expressions import RawSQL
 from django_filters import rest_framework as filters
 
-from apps.common.choices import OrderStatus, ProductStatus
+from apps.common.choices import BUDGET_SPEND_TYPE, OrderStatus, ProductStatus
 from apps.common.utils import get_date_range
 
 from .models import OfficeProduct, Order, Product, VendorOrder, VendorOrderProduct
@@ -92,10 +92,13 @@ class VendorOrderFilter(filters.FilterSet):
 class VendorOrderProductFilter(filters.FilterSet):
     product_name = filters.CharFilter(field_name="product__name", lookup_expr="icontains")
     category = filters.CharFilter(field_name="product__category__slug", lookup_expr="exact")
+    start_date = filters.DateFilter(field_name="vendor_order__order_date", lookup_expr="gte")
+    end_date = filters.DateFilter(field_name="vendor_order__order_date", lookup_expr="lte")
+    budget_type = filters.ChoiceFilter(choices=BUDGET_SPEND_TYPE.choices, field_name="budget_spend_type")
 
     class Meta:
         model = VendorOrderProduct
-        fields = ["product_name", "category"]
+        fields = ["product_name", "category", "budget_type", "start_date", "end_date"]
 
 
 class ProductFilter(filters.FilterSet):
