@@ -263,7 +263,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
         return (
             self.queryset.filter(order__office_id=self.kwargs["office_pk"])
             .select_related("order", "vendor", "order__office")
-            .order_by("-order_date", "order")
+            .order_by("-order_date", "-order_id")
         )
 
     @sync_to_async
