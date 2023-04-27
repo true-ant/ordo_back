@@ -1581,10 +1581,12 @@ class OrderHelper:
             new_total_amount = 0
             for vendor_order_product in VendorOrderProductModel.objects.filter(vendor_order=vendor_order):
                 updated_product_price = OfficeProductModel.objects.filter(
-                    office_id=vendor_order.order.office_id, product_id=vendor_order_product.id
+                    office_id=vendor_order.order.office_id, product_id=vendor_order_product.product_id
                 ).values("price")[:1]
                 if not updated_product_price:
-                    updated_product_price = ProductModel.objects.filter(id=vendor_order_product.id).values("price")[:1]
+                    updated_product_price = ProductModel.objects.filter(id=vendor_order_product.product_id).values(
+                        "price"
+                    )[:1]
                 if not updated_product_price:
                     logger.warning(
                         "Vendor order product %s does not have update price information", vendor_order_product.id
