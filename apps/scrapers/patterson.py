@@ -25,9 +25,11 @@ from apps.scrapers.headers.patterson import (
     ORDER_HISTORY_POST_HEADERS,
     PLACE_ORDER_HEADERS,
     PRE_LOGIN_HEADERS,
+    REVIEW_ORDER_HEADERS,
     SEARCH_HEADERS,
     SHIP_HEADERS,
     SHIP_PAYMENT_HEADERS,
+    SHOPPING_CART_HEADERS,
     VALIDATE_CART_HEADERS,
 )
 from apps.scrapers.schema import Order, Product, VendorOrderDetail
@@ -42,6 +44,13 @@ from apps.types.scraper import (
 from apps.vendor_clients import errors
 
 logger = logging.getLogger(__name__)
+
+
+def textParser(element):
+    if element:
+        text = re.sub(r"\s+", " ", " ".join(element.xpath(".//text()").extract()))
+        return text.strip() if text else ""
+    return ""
 
 
 class PattersonScraper(Scraper):
@@ -787,3 +796,98 @@ class PattersonScraper(Scraper):
                 **vendor_order_detail,
                 **self.vendor.to_dict(),
             }
+
+    async def get_shipping_options(self):
+        async with self.session.get(
+            "https://www.pattersondental.com/Order/ShippingPayment", headers=SHIP_HEADERS
+        ) as response:
+            response_dom = Selector(text=await response.text())
+            checkout_info = dict()
+            shipping_options = dict()
+            shipping_option_eles = response_dom.xpath('//input[@name="shippingMethod"]')
+            logger.info(">>>>> Shipping Options:")
+            for shipping_option_ele in shipping_option_eles:
+                ele_id = shipping_option_ele.xpath("./@id").get()
+                _label = textParser(response_dom.xpath(f'//label[@for="{ele_id}"][@class="labelInstruct"]'))
+                _val = shipping_option_ele.xpath("./@value").get()
+                _selected = shipping_option_ele.xpath("./@checked")
+                if _selected:
+                    checkout_info["default_shipping_method"] = _label
+                logger.info(f"-- {_label}: {_val}")
+                shipping_options[_label] = _val
+            checkout_info["shipping_options"] = dict()
+
+            return response_dom, shipping_options, checkout_info
+
+    async def get_shipping_option_detail(self, checkout_dom, shipping_option_label, shipping_option_val):
+        review_data = dict()
+        SHIPPING_OPTIONS_XPATHS = [
+            ("__RequestVerificationToken", "//input[@name='__RequestVerificationToken']/@value"),
+            ("SpecialInstructions", "//input[@name='SpecialInstructions']/@value"),
+            ("shippingAddressNumber", "//input[@name='shippingAddressNumber']/@value"),
+            ("paymentMethod", "//input[@name='paymentMethod'][@checked='checked']/@value"),
+            ("CardTypeId", "//select[@name='CardTypeId']/option[@selected='selected']/@value"),
+            ("CardNumber", "//input[@name='CardNumber']/@value"),
+            ("ExpirationMonth", "//select[@name='ExpirationMonth']/option[@selected='selected']/@value"),
+            ("ExpirationYear", "//select[@name='ExpirationYear']/option[@selected='selected']/@value"),
+            ("CardHolderName", "//input[@name='CardHolderName']/@value"),
+            ("StatementPostalCode", "//input[@name='StatementPostalCode']/@value"),
+            ("Token", "//input[@name='Token']/@value"),
+            ("poNumber", "//input[@name='poNumber']/@value"),
+            ("purchaseOrderRequired", "//input[@name='purchaseOrderRequired']/@value"),
+            ("isZeroOrderTotal", "//input[@name='isZeroOrderTotal']/@value"),
+            ("cardNumberLastFour", "//input[@name='cardNumberLastFour']/@value"),
+            ("encryptedCardNumber", "//input[@name='encryptedCardNumber']/@value"),
+            ("ShippingInfo.DefaultCharges", "//input[@name='ShippingInfo.DefaultCharges']/@value"),
+            ("UserIsTerritoryRep", "//input[@name='UserIsTerritoryRep']/@value"),
+            ("CustomerRefNumber", "//input[@name='UserIsTerritoryRep']/@value"),
+            ("shoppingCartButton", "//input[@name='shoppingCartButton']/@value"),
+        ]
+
+        shipping_address = "\n".join(
+            [
+                textParser(it)
+                for it in checkout_dom.xpath('//div[@class="shippingPayment__address"]/div[@class="columns"]/div')
+            ]
+        )
+
+        data = {name: checkout_dom.xpath(xpath).get() for name, xpath in SHIPPING_OPTIONS_XPATHS}
+        data["shippingMethod"] = shipping_option_val
+
+        async with self.session.get("https://www.pattersondental.com/ShoppingCart", headers=SHOPPING_CART_HEADERS):
+            async with self.session.post(
+                "https://www.pattersondental.com/Order/ShippingPayment", headers=SHIP_PAYMENT_HEADERS, data=data
+            ) as response:
+                async with self.session.get(
+                    "https://www.pattersondental.com/Order/ReviewOrder", headers=REVIEW_ORDER_HEADERS
+                ) as response:
+                    response_dom = Selector(text=await response.text())
+
+                    review_data["shipping_address"] = shipping_address
+
+                    shipping_method = textParser(response_dom.xpath('//div[@data-auto="shipping-method-section"]'))
+                    review_data["shipping_method"] = shipping_method
+
+                    shipping = textParser(
+                        response_dom.xpath('//div[contains(@class, "OrderSummaryBackground")]/div[3]/div[2]')
+                    )
+                    if shipping == "TBD":
+                        shipping = re.search(r"\((\$[\d\.\,]+)\)", shipping_option_label).group(1)
+                    review_data["shipping"] = shipping
+
+                    return review_data
+
+    async def fetch_shipping_options(self, products: List[CartProduct]):
+        await self.clear_cart()
+        await self.add_to_cart(products)
+        checkout_dom, shipping_options, checkout_info = await self.get_shipping_options()
+
+        for shipping_option_label, shipping_option_val in shipping_options.items():
+            logger.info(f'----- Checkout in "{shipping_option_label}" Shipping Option...')
+            review_data = await self.get_shipping_option_detail(
+                checkout_dom, shipping_option_label, shipping_option_val
+            )
+            review_data["shipping_value"] = shipping_option_val
+            checkout_info["shipping_options"][shipping_option_label] = review_data
+
+        return checkout_info
