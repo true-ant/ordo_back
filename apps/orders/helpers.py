@@ -63,6 +63,7 @@ from apps.orders.models import Product as ProductModel
 from apps.orders.models import ProductCategory as ProductCategoryModel
 from apps.orders.models import ProductImage as ProductImageModel
 from apps.orders.models import VendorOrder as VendorOrderModel
+from apps.orders.models import VendorOrderProduct as VendorOrderProductModel
 from apps.scrapers.errors import VendorAuthenticationFailed as VendorAuthFailed
 from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import CartProduct
@@ -1577,17 +1578,22 @@ class OrderHelper:
             vendor__slug=vendor_slug, status=OrderStatus.PENDING_APPROVAL
         )
         for vendor_order in pending_vendor_orders:
-            vendor_order_total_delta = 0
-            for vendor_order_product in vendor_order.products.all():
+            new_total_amount = 0
+            for vendor_order_product in VendorOrderProductModel.objects.filter(vendor_order=vendor_order):
                 updated_product_price = OfficeProductModel.objects.filter(
                     office_id=vendor_order.order.office_id, product_id=vendor_order_product.id
                 ).values("price")[:1]
                 if not updated_product_price:
                     updated_product_price = ProductModel.objects.filter(id=vendor_order_product.id).values("price")[:1]
                 if not updated_product_price:
+                    logger.warning(
+                        "Vendor order product %s does not have update price information", vendor_order_product.id
+                    )
                     continue
-                vendor_order_total_delta += updated_product_price[0]["price"] - vendor_order_product.price
-            vendor_order.total_amount += vendor_order_total_delta
-            vendor_order.order.total_amount += vendor_order_total_delta
-            vendor_order.save()
-            vendor_order.order.save()
+                new_total_amount += updated_product_price * vendor_order_product.quantity
+            if vendor_order.total_amount != new_total_amount:
+                total_amount_delta = new_total_amount - vendor_order.total_amount
+                vendor_order.total_amount = new_total_amount
+                vendor_order.save(update_fields=["total_amount"])
+                vendor_order.order.total_amount += total_amount_delta
+                vendor_order.order.save(update_fields=["total_amount"])
