@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import json
+import logging
 import os
 import re
 import ssl
@@ -27,6 +28,7 @@ from apps.scrapers.headers.benco import (
     PRICE_SEARCH_HEADERS,
     REMOVE_PRODUCT_CART_HEADERS,
     SEARCH_HEADERS,
+    SHIPPING_OPTION_DETAIL_HEADERS,
 )
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
 from apps.scrapers.utils import catch_network, semaphore_coroutine
@@ -41,6 +43,7 @@ from apps.types.scraper import (
 )
 
 CERTIFICATE_BASE_PATH = Path(__file__).parent.resolve()
+logger = logging.getLogger(__name__)
 
 
 def textParser(element):
@@ -671,3 +674,92 @@ class BencoScraper(Scraper):
     async def _download_invoice(self, **kwargs) -> InvoiceFile:
         async with self.session.get(kwargs["invoice_link"], ssl=self._ssl_context) as resp:
             return await resp.content.read()
+
+    async def shipping_info(self, CartId):
+        async with self.session.get(f"https://shop.benco.com/Cart/TaxesAndFeesEdit/{CartId}") as resp:
+            cart_dom = Selector(text=await resp.text())
+            shipping = textParser(cart_dom.xpath('//td[contains(text(), "Shipping")]/following-sibling::td[1]'))
+            return shipping
+
+    async def get_shipping_option_detail(self, checkout_dom, cart_id, shipping_option_val):
+        review_data = {}
+
+        data = {
+            "HeaderUpdated": "true",
+            "OrderId": checkout_dom.xpath('//input[@name="OrderId"]/@value').get(),
+            "ShipToNum": checkout_dom.xpath('//select[@name="ShipToNum"]/option[@selected]/@value').get(),
+            "ShipViaNum": shipping_option_val,
+            "PONum": "",
+            "OrderMessage": "",
+            "ProcessingDate": checkout_dom.xpath('//input[@name="ProcessingDate"]/@value').get(),
+            "__RequestVerificationToken": checkout_dom.xpath(
+                '//input[@name="__RequestVerificationToken"]/@value'
+            ).get(),
+            "__ncforminfo": checkout_dom.xpath('//input[@name="__ncforminfo"]/@value').get(),
+        }
+
+        async with self.session.post(
+            "https://shop.benco.com/Checkout/OrderDetails", headers=SHIPPING_OPTION_DETAIL_HEADERS, data=data
+        ) as resp:
+            response_dom = Selector(text=await resp.text())
+
+            SHIPPING_OPTIONS_DETAIL_XPATHS = [
+                ("shipping_address", '//fieldset[contains(@class, "ship-to")]'),
+                ("shipping_method", '//fieldset[contains(@class, "shipping-method")]'),
+            ]
+
+            for key, xpath in SHIPPING_OPTIONS_DETAIL_XPATHS:
+                review_data[key] = textParser(response_dom.xpath(xpath))
+                if "(change)" in review_data[key]:
+                    review_data[key] = review_data[key].split("(change)")[1].strip()
+
+            shipping = await self.shipping_info(cart_id)
+            review_data["shipping"] = shipping
+
+            return review_data
+
+    async def get_shipping_options(self):
+        cart_id, request_verification_token, cart_products = await self.get_cart()
+        params = {
+            "cartId": cart_id,
+        }
+
+        async with self.session.get(
+            "https://shop.benco.com/Checkout/BeginCheckout",
+            params=params,
+            headers=CREATE_ORDER_HEADERS,
+            ssl=self._ssl_context,
+        ) as resp:
+            async with self.session.get(
+                "https://shop.benco.com/Checkout/OrderDetails",
+            ) as resp:
+                options_dom = Selector(text=await resp.text())
+
+                shipping_options = dict()
+                shipping_option_eles = options_dom.xpath('//select[@name="ShipViaNum"]/option')
+                checkout_info = dict()
+                for shipping_option_ele in shipping_option_eles:
+                    _label = textParser(shipping_option_ele)
+                    _val = shipping_option_ele.xpath("./@value").get()
+                    if "2DayGrnd" in _label:
+                        checkout_info["default_shipping_method"] = _label
+                    if _label not in shipping_options:
+                        logger.info(f"-- {_label}: {_val}")
+                        shipping_options[_label] = _val
+                checkout_info["shipping_options"] = dict()
+
+                return options_dom, shipping_options, checkout_info, cart_id
+
+    async def fetch_shipping_options(self, products: List[CartProduct]):
+        await self.clear_cart()
+        await self.add_products_to_cart(products)
+        checkout_dom, shipping_options, checkout_info, cart_id = await self.get_shipping_options()
+
+        for shipping_option_label, shipping_option_val in shipping_options.items():
+            if "2DayGrnd" in shipping_option_label or shipping_option_label in ["UPS 2nd Day Air", "UPS Ground"]:
+                logger.info(f'----- Checkout in "{shipping_option_label}" Shipping Option...')
+                review_data = await self.get_shipping_option_detail(checkout_dom, cart_id, shipping_option_val)
+                review_data["shipping_value"] = shipping_option_val
+                checkout_info["shipping_options"][shipping_option_label] = review_data
+
+        return checkout_info

@@ -45,6 +45,13 @@ SHIPPING_METHOD_MAPPING = {
 }
 
 
+def extract_text(element):
+    if element:
+        text = re.sub(r"\s+", " ", " ".join(element.xpath(".//text()").extract()))
+        return text.strip() if text else ""
+    return ""
+
+
 class HenryScheinScraper(Scraper):
     BASE_URL = "https://www.henryschein.com"
     CATEGORY_URL = "https://www.henryschein.com/us-en/dental/c/browsesupplies"
@@ -855,3 +862,58 @@ class HenryScheinScraper(Scraper):
             return {
                 "order_type": msgs.ORDER_TYPE_REDUNDANCY,
             }
+
+    def get_shipping_options(self, response_dom):
+        shipping_options = {}
+        shipping_option_eles = response_dom.xpath(
+            '//select[@name="ctl00$cphMainContentHarmony$ucOrderPaymentAndOptionsShop$ddlShippingMethod"]/option'
+        )
+        checkout_info = {}
+        for shipping_option_ele in shipping_option_eles:
+            _label = extract_text(shipping_option_ele)
+            _val = shipping_option_ele.xpath("./@value").get()
+            _selected = shipping_option_ele.xpath("./@selected").get()
+            if _selected:
+                checkout_info["default_shipping_method"] = _label
+            shipping_options[_label] = _val
+        checkout_info["shipping_options"] = {}
+
+        return shipping_options, response_dom, checkout_info
+
+    def get_shipping_option_detail(self, response_dom):
+        review_data = {}
+
+        SHIPPING_OPTIONS_DETAIL_XPATHS = [
+            ("shipping", "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryShipping']/strong"),
+            ("shipping_method", "//div[@id='ctl00_cphMainContentHarmony_divOrderSummaryShippingMethod']/strong"),
+            (
+                "shipping_address",
+                "//section[contains(@class, 'order-details')]//section[contains(@class, 'half')]/"
+                "div[@class='half'][1]//address//text()",
+            ),
+        ]
+
+        for key, xpath in SHIPPING_OPTIONS_DETAIL_XPATHS:
+            if key == "shipping_address":
+                review_data[key] = "\n".join(
+                    [item.strip() for item in response_dom.xpath(xpath).extract() if item.strip()]
+                ).strip()
+            else:
+                review_data[key] = extract_text(response_dom.xpath(xpath))
+
+        return review_data
+
+    async def fetch_shipping_options(self, products: List[CartProduct]):
+        await self.clear_cart()
+        await self.add_products_to_cart(products)
+        checkout_dom = await self.checkout(products)
+
+        shipping_options, checkout_response, checkout_info = self.get_shipping_options(checkout_dom)
+        for shipping_option_label, shipping_option_val in shipping_options.items():
+            review_checkout_response = await self.review_checkout(checkout_response, shipping_option_label)
+
+            review_data = self.get_shipping_option_detail(review_checkout_response)
+            review_data["shipping_value"] = shipping_option_val
+            checkout_info["shipping_options"][shipping_option_label] = review_data
+
+        return checkout_info

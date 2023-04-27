@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import logging
+import re
 import traceback
 import uuid
 from decimal import Decimal
@@ -59,6 +60,13 @@ ALL_PRODUCTS_VARIABLE = {
     "includeAllSkus": True,
     "withImages": True,
 }
+
+
+def textParser(element):
+    if element:
+        text = re.sub(r"\s+", " ", " ".join(element.xpath(".//text()").extract()))
+        return text.strip() if text else ""
+    return ""
 
 
 class UltraDentScraper(Scraper):
@@ -604,6 +612,111 @@ class UltraDentScraper(Scraper):
                 **vendor_order_detail,
                 **self.vendor.to_dict(),
             }
+
+    async def update_cart(self, checkout_dom, shipping_option_val):
+        SHIPPING_OPTIONS_XPATHS = [
+            ("PromoCode_TextBox", "//input[@name='PromoCode_TextBox']/@value"),
+            ("ShippingAddress.Value", "//input[@name='ShippingAddress.Value']/@value"),
+            ("ShippingAddress.Original", "//input[@name='ShippingAddress.Original']/@value"),
+            ("shippingMethod.Original", "//input[@name='shippingMethod.Original']/@value"),
+            ("__RequestVerificationToken", "//input[@name='__RequestVerificationToken']/@value"),
+        ]
+        data = {name: checkout_dom.xpath(xpath).get() for name, xpath in SHIPPING_OPTIONS_XPATHS}
+        data["shippingMethod.Value"] = shipping_option_val
+
+        for index, line_item in enumerate(
+            checkout_dom.xpath(
+                "//div[@class='paddedBoxContent']/ul[@class='lineItemCollection']/li[@class='lineItem']"
+            )
+        ):
+            value_key = f"lineItems[{index}].Value"
+            original_key = f"lineItems[{index}].Original"
+            key_key = f"lineItems[{index}].Key"
+            xpaths = [
+                (value_key, f"lineItems[{index}].Value"),
+                (original_key, f".//input[@name='{original_key}']/@value"),
+                (key_key, f".//input[@name='{key_key}']/@value"),
+            ]
+            for key, xpath in xpaths:
+                data[key] = line_item.xpath(xpath).get()
+
+        async with self.session.post(
+            "https://www.ultradent.com/Cart/UpdateCart", headers=UPDATECART_HEADERS, data=data
+        ) as response:
+            response_dom = Selector(text=await response.text())
+            return response_dom
+
+    async def get_shipping_option_detail(
+        self, checkout_dom, shipping_option_label, shipping_option_val, checkout_info
+    ):
+        review_data = {}
+        if shipping_option_label == checkout_info["default_shipping_method"]:
+            response_dom = checkout_dom
+        else:
+            response_dom = await self.update_cart(checkout_dom, shipping_option_val)
+
+        shipping_address = "\n".join(
+            [
+                it.strip()
+                for it in response_dom.xpath('//address[@id="shippingAddress"]/span//text()').extract()
+                if it.strip()
+            ]
+        )
+        review_data["shipping_address"] = shipping_address
+
+        shipping_method = textParser(
+            response_dom.xpath(
+                '//fieldset[contains(@class, "shippingOptions")]//input[@name="shippingMethod.Value"]'
+                "[@checked]/following-sibling::label"
+            )
+        )
+        review_data["shipping_method"] = shipping_method
+
+        shipping = textParser(
+            response_dom.xpath('//div[@id="orderTotals"]/div[@class="shipping"]/span[@class="value"]')
+        )
+        review_data["shipping"] = shipping
+
+        return review_data
+
+    async def get_shipping_options(self):
+        async with self.session.get(
+            "https://www.ultradent.com/checkout", headers=CHECKOUT_HEADERS
+        ) as checkout_page_response:
+            checkout_page_response_dom = Selector(text=await checkout_page_response.text())
+
+            shipping_options = {}
+            shipping_option_eles = checkout_page_response_dom.xpath(
+                '//fieldset[contains(@class, "shippingOptions")]/div'
+            )
+            logger.info(">>>>> Shipping Options:")
+            checkout_info = {}
+            for shipping_option_ele in shipping_option_eles:
+                _label = textParser(shipping_option_ele.xpath("./label"))
+                _val = shipping_option_ele.xpath('.//input[@name="shippingMethod.Value"]/@value').get()
+                _selected = shipping_option_ele.xpath('.//input[@name="shippingMethod.Value"][@checked]')
+                if _selected:
+                    checkout_info["default_shipping_method"] = _label
+                logger.info(f"-- {_label}: {_val}")
+                shipping_options[_label] = _val
+            checkout_info["shipping_options"] = {}
+
+            return checkout_page_response_dom, shipping_options, checkout_info
+
+    async def fetch_shipping_options(self, products: List[CartProduct]):
+        await self.clear_cart()
+        await self.add_to_cart(products)
+        checkout_dom, shipping_options, checkout_info = await self.get_shipping_options()
+
+        for shipping_option_label, shipping_option_val in shipping_options.items():
+            logger.info(f'----- Checkout in "{shipping_option_label}" Shipping Option...')
+            review_data = await self.get_shipping_option_detail(
+                checkout_dom, shipping_option_label, shipping_option_val, checkout_info
+            )
+            review_data["shipping_value"] = shipping_option_val
+            checkout_info["shipping_options"][shipping_option_label] = review_data
+
+        return checkout_info
 
     async def extract_info_from_invoice_page(self, invoice_page_dom: Selector) -> InvoiceInfo:
         # parsing invoice address
