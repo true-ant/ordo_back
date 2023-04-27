@@ -1307,7 +1307,7 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
         ret["filter_inventory"] = self.request.query_params.get("inventory", False)
         return ret
 
-    def get_queryset(self):
+    def get_list_queryset(self):
         category_ordering = self.request.query_params.get("category_ordering")
         category_or_price = self.request.query_params.get("category_or_price", "price")
         price_from = self.request.query_params.get("price_from", -1)
@@ -1357,6 +1357,12 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
                 "office_product_category__slug",
                 "-updated_at",
             )
+
+    def get_queryset(self):
+        if self.action == "list":
+            return self.get_list_queryset()
+        office_pk = self.kwargs["office_pk"]
+        return OfficeProduct.objects.filter(office__id=office_pk)
 
     def update(self, request, *args, **kwargs):
         kwargs["partial"] = True
