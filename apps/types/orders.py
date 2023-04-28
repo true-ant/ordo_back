@@ -17,6 +17,7 @@ class CartProduct(TypedDict):
     quantity: int
     price: float
     sku: str
+    manufacturer_number: str
 
 
 class VendorCartProduct(TypedDict):

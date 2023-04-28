@@ -4,7 +4,8 @@ from aiohttp import ClientSession
 from django.utils import timezone
 
 from apps.orders.models import Product
-from services.api_client import Net32APIClient, Net32ProductInfo
+from services.api_client import Net32APIClient
+from services.api_client.vendor_api_types import Net32ProductInfo
 
 BATCH_SIZE = 1000
 
