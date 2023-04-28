@@ -83,7 +83,7 @@ async def update_prices(products_from_api: List[Net32ProductInfo]):
     product_instances = Product.net32.available_products().filter(
         Q(last_price_updated__lt=datetime_from) | Q(last_price_updated=None)
     )
-    for product_instance in product_instances:
+    async for product_instance in product_instances:
         if product_instance.product_id not in product_prices:
             continue
         product_instance.price = product_prices[product_instance.product_id]
