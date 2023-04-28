@@ -1,5 +1,10 @@
+import datetime
 from dataclasses import dataclass, fields
 from decimal import Decimal
+from typing import List
+
+DENTAL_CITY_SHIPPING_AMOUNT = Decimal("12.99")
+DENTAL_CITY_SHIPPING_SUBTOTAL_THRESHOLD = Decimal("250")
 
 
 @dataclass(frozen=True)
@@ -61,3 +66,113 @@ class DentalCityProduct:
             web_price=Decimal(data.pop("web_price", 0)),
             **data
         )
+
+
+@dataclass(frozen=True)
+class DentalCityAddress:
+    name: str
+    address: str
+    street: str
+    city: str
+    state: str
+    postal_code: str
+    country_code: str
+    country_name: str
+
+
+@dataclass(frozen=True)
+class DentalCityBillingAddress(DentalCityAddress):
+    pass
+
+
+@dataclass(frozen=True)
+class DentalCityShippingAddress(DentalCityAddress):
+    email: str
+    phone_number: str
+
+
+@dataclass(frozen=True)
+class DentalCityOrderProduct:
+    product_sku: str
+    unit_price: Decimal
+    quantity: int
+    manufacturer_part_number: str
+    product_description: str
+
+
+@dataclass(frozen=True)
+class DentalCityOrderInfo:
+    order_id: str
+    order_datetime: datetime.datetime
+    shipping_address: DentalCityShippingAddress
+    billing_address: DentalCityBillingAddress
+    order_products: List[DentalCityOrderProduct]
+
+    @property
+    def order_datetime_string(self):
+        return self.order_datetime.isoformat()
+
+    @property
+    def sub_total(self) -> Decimal:
+        return sum([product.unit_price * product.quantity for product in self.order_products])
+
+    @property
+    def shipping_amount(self) -> Decimal:
+        if self.sub_total < DENTAL_CITY_SHIPPING_SUBTOTAL_THRESHOLD:
+            return DENTAL_CITY_SHIPPING_AMOUNT
+        else:
+            return Decimal("0")
+
+    @property
+    def total_amount(self) -> Decimal:
+        return self.sub_total + self.shipping_amount
+
+
+@dataclass(frozen=True)
+class DentalCityPartnerInfo:
+    partner_name: str
+    shared_secret: str
+    customer_id: str
+
+
+@dataclass(frozen=True)
+class DentalCityOrderDetail:
+    payload_id: str
+    order_id: str
+    total_amount: Decimal
+    tax_amount: Decimal
+    shipping_amount: Decimal
+    order_products: List[DentalCityOrderProduct]
+
+
+@dataclass(frozen=True)
+class DentalCityShippingProduct:
+    product_sku: str
+    quantity: int
+
+
+@dataclass(frozen=True)
+class DentalCityShippingInfo:
+    order_id: str
+    payload_id: str
+    carrier: str
+    shipment_identifier: str
+    shipping_products: List[DentalCityShippingProduct]
+
+
+@dataclass(frozen=True)
+class DentalCityInvoiceProduct:
+    product_sku: str
+    unit_price: Decimal
+    total_price: Decimal
+
+
+@dataclass(frozen=True)
+class DentalCityInvoiceDetail:
+    payload_id: str
+    order_id: str
+    invoice_id: str
+    total_amount: Decimal
+    tax_amount: Decimal
+    shipping_amount: Decimal
+    invoice_products: List[DentalCityInvoiceProduct]

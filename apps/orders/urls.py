@@ -32,6 +32,24 @@ urlpatterns = [
     path("offices/<int:office_pk>/spending", v.OfficeSpendAPIView.as_view(), name="office-spending"),
     path("dental-city-products", v.DentalCityProductAPIView.as_view(), name="dental-city-products"),
     path(
+        "dental-city/order-response", v.DentalCityOrderFlowOrderResponse.as_view(), name="dental-city-order-response"
+    ),
+    path(
+        "dental-city/confirmation-request",
+        v.DentalCityOrderFlowConfirmationRequest.as_view(),
+        name="dental-city-confirmation-request",
+    ),
+    path(
+        "dental-city/shipment-notice-request",
+        v.DentalCityOrderFlowShipmentNoticeRequest.as_view(),
+        name="dental-city-shipment-notice-request",
+    ),
+    path(
+        "dental-city/invoice-detail-request",
+        v.DentalCityOrderFlowInvoiceDetailRequest.as_view(),
+        name="invoice-detail-request",
+    ),
+    path(
         "companies/<int:company_pk>/offices/<int:office_pk>/checkout/status",
         v.CheckoutAvailabilityAPIView.as_view(),
         name="get-checkout-status",

@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import decimal
+import logging
 import operator
 import os
 import tempfile
@@ -47,6 +48,7 @@ from rest_framework.status import (
 )
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
+from sentry_sdk import capture_message
 
 from apps.accounts.models import (
     Company,
@@ -60,6 +62,7 @@ from apps.accounts.tasks import fetch_order_history
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncCreateModelMixin, AsyncMixin
 from apps.common.choices import BUDGET_SPEND_TYPE, ProductStatus
+from apps.common.enums import SupportedVendor
 from apps.common.month import Month
 from apps.common.pagination import (
     SearchProductPagination,
@@ -82,7 +85,12 @@ from apps.scrapers.scraper_factory import ScraperFactory
 from apps.types.orders import CartProduct
 from apps.types.scraper import SmartID
 from config.utils import get_client_session
-from services.api_client.dental_city import DentalCityAPIClient
+from services.api_client import (
+    DentalCityAPIClient,
+    DentalCityCXMLParser,
+    DentalCityOrderDetail,
+    DentalCityShippingInfo,
+)
 from services.opendental import OpenDentalClient
 
 from ..audit.models import SearchHistory
@@ -92,7 +100,10 @@ from . import permissions as p
 from . import serializers as s
 from .actions.product_management import attach_to_parent, unlink_from_parent
 from .models import OfficeProduct, Product
+from .parsers import XMLParser
 from .tasks import notify_order_creation, perform_real_order, search_and_group_products
+
+logger = logging.getLogger(__name__)
 
 
 class OrderViewSet(AsyncMixin, ModelViewSet):
@@ -2026,3 +2037,80 @@ class DentalCityProductAPIView(AsyncMixin, APIView):
         api_client = DentalCityAPIClient(session=session, auth_key=settings.DENTAL_CITY_AUTH_KEY)
         page_products = await api_client.get_page_products(page_number)
         return Response([asdict(product) for product in page_products])
+
+
+class DentalCityOrderFlowOrderResponse(APIView):
+    permission_classes = [p.DentalCityOrderFlowPermission]
+    parser_classes = [XMLParser]
+
+    def post(self, request):
+        # TODO: should be deleted in the near future, when we are good
+        logger.error(request.data)
+        capture_message(request.data)
+
+        order_id = DentalCityCXMLParser.parse_order_response(request.data)
+        order = m.VendorOrder.objects.filter(
+            vendor__slug=SupportedVendor.DentalCity.value, vendor_order_id=order_id
+        ).first()
+        if order is not None:
+            order.vendor_status = "pending"
+            order.status = m.OrderStatus.OPEN
+            order.save()
+        return Response({"message": msgs.SUCCESS})
+
+
+class DentalCityOrderFlowConfirmationRequest(APIView):
+    permission_classes = [p.DentalCityOrderFlowPermission]
+    parser_classes = [XMLParser]
+
+    def post(self, request):
+        # TODO: should be deleted in the near future, when we are good
+        logger.error(request.data)
+        capture_message(request.data)
+
+        order_detail: DentalCityOrderDetail = DentalCityCXMLParser.parse_confirm_request(request.data)
+        order_id = order_detail.order_id
+        order = m.VendorOrder.objects.filter(
+            vendor__slug=SupportedVendor.DentalCity.value, vendor_order_id=order_id
+        ).first()
+        if order is not None:
+            order.vendor_status = "in progress"
+            order.status = m.OrderStatus.OPEN
+            order.save()
+
+        return Response({"message": msgs.SUCCESS})
+
+
+class DentalCityOrderFlowShipmentNoticeRequest(APIView):
+    permission_classes = [p.DentalCityOrderFlowPermission]
+    parser_classes = [XMLParser]
+
+    def post(self, request):
+        # TODO: should be deleted in the near future, when we are good
+        logger.error(request.data)
+        capture_message(request.data)
+
+        shipping_info: DentalCityShippingInfo = DentalCityCXMLParser.parse_shipment_notice_request(request.data)
+        order_id = shipping_info.order_id
+        order = m.VendorOrder.objects.filter(
+            vendor__slug=SupportedVendor.DentalCity.value, vendor_order_id=order_id
+        ).first()
+        if order is not None:
+            order.vendor_status = "shipped"
+            order.status = m.OrderStatus.CLOSED
+            order.save()
+
+        return Response({"message": msgs.SUCCESS})
+
+
+class DentalCityOrderFlowInvoiceDetailRequest(APIView):
+    permission_classes = [p.DentalCityOrderFlowPermission]
+    parser_classes = [XMLParser]
+
+    def post(self, request):
+        # TODO: should be deleted in the near future, when we are good
+        capture_message(request.data)
+
+        DentalCityCXMLParser.parse_invoice_detail_request(request.data)
+
+        return Response({"message": msgs.SUCCESS})

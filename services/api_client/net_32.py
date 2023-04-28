@@ -27,8 +27,6 @@ class Net32APIClient:
         products = []
         async with self.session.get(url) as resp:
             content = await resp.read()
-            with open("net32_simple.xml", "wb") as f:
-                f.write(content)
             tree = etree.fromstring(content)
             product_list = tree.findall(".//entry")
             for product_element in product_list:

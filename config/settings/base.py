@@ -258,7 +258,7 @@ NON_FORMULA_VENDORS = [
     "orthoarch",
     "office_depot",
 ]
-
+API_AVAILABLE_VENDORS = ["dental_city"]
 
 RUNSERVER_PLUS_PRINT_SQL_TRUNCATE = None
 

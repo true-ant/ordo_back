@@ -38,6 +38,7 @@ from slugify import slugify
 from apps.accounts.models import Office as OfficeModel
 from apps.accounts.models import OfficeVendor as OfficeVendorModel
 from apps.accounts.models import Vendor as VendorModel
+from apps.api_clients.factory import APIClientFactory
 from apps.common import messages as msgs
 from apps.common.choices import OrderStatus, ProductStatus
 from apps.common.query import Replacer
@@ -1494,29 +1495,34 @@ class OrderHelper:
         perform_login: bool = True,
     ):
         async with ClientSession(timeout=ClientTimeout(30)) as session:
-            scraper = ScraperFactory.create_scraper(
-                vendor=office_vendor.vendor,
-                session=session,
-                username=office_vendor.username,
-                password=office_vendor.password,
-            )
-
-            if perform_login:
-                try:
-                    await scraper.login()
-                except Exception:
-                    logger.debug(f"Authentication is failed for {office_vendor.vendor.name} vendor")
-                    return False
-
-            result = await scraper.confirm_order(
-                products=products,
-                shipping_method=vendor_order.shipping_option.name if vendor_order.shipping_option else "",
-                fake=fake_order,
-            )
-            if result.get("order_type") is msgs.ORDER_TYPE_ORDO:
-                vendor_order.vendor_order_id = result.get("order_id")
-                await sync_to_async(vendor_order.save)()
+            if vendor_order.vendor.slug in settings.API_AVAILABLE_VENDORS:
+                api_client = APIClientFactory.get_api_client(vendor=vendor_order.vendor, session=session)
+                await api_client.place_order(office_vendor, vendor_order, products)
                 return True
+            else:
+                scraper = ScraperFactory.create_scraper(
+                    vendor=office_vendor.vendor,
+                    session=session,
+                    username=office_vendor.username,
+                    password=office_vendor.password,
+                )
+
+                if perform_login:
+                    try:
+                        await scraper.login()
+                    except Exception:
+                        logger.debug(f"Authentication is failed for {office_vendor.vendor.name} vendor")
+                        return False
+
+                result = await scraper.confirm_order(
+                    products=products,
+                    shipping_method=vendor_order.shipping_option.name if vendor_order.shipping_option else "",
+                    fake=fake_order,
+                )
+                if result.get("order_type") is msgs.ORDER_TYPE_ORDO:
+                    vendor_order.vendor_order_id = result.get("order_id")
+                    await sync_to_async(vendor_order.save)()
+                    return True
         return False
 
     @staticmethod
@@ -1531,15 +1537,17 @@ class OrderHelper:
 
         for vendor_order_id in vendor_order_ids:
             vendor_order = (
-                await VendorOrderModel.objects.select_related("order", "order__office", "shipping_option")
+                await VendorOrderModel.objects.select_related("order", "order__office", "shipping_option", "vendor")
                 .prefetch_related("order_products")
                 .aget(pk=vendor_order_id)
             )
             vendor_order_products = (
                 vendor_order.order_products.select_related("product").filter(status=ProductStatus.PROCESSING).all()
             )
-            office_vendor = await OfficeVendorModel.objects.select_related("vendor").aget(
-                office_id=vendor_order.order.office.id, vendor_id=vendor_order.vendor_id
+            office_vendor = (
+                await OfficeVendorModel.objects.select_related("vendor", "office", "office__company")
+                .prefetch_related("office__addresses")
+                .aget(office_id=vendor_order.order.office_id, vendor_id=vendor_order.vendor_id)
             )
             products = []
 
@@ -1552,6 +1560,7 @@ class OrderHelper:
                         price=float(vendor_order_product.unit_price) if vendor_order_product.unit_price else 0.0,
                         quantity=int(vendor_order_product.quantity),
                         sku=vendor_order_product.product.sku,
+                        manufacturer_number=vendor_order_product.product.manufacturer_number,
                     )
                 )
                 await OfficeProductModel.objects.filter(

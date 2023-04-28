@@ -9,11 +9,14 @@ https://docs.djangoproject.com/en/3.2/howto/deployment/asgi/
 
 import asyncio
 import os
+import pathlib
 from logging.config import dictConfig
 
 import django
 import dotenv
 from django.core.handlers.asgi import ASGIHandler
+
+BASE_DIR = pathlib.Path(__file__).parent.parent
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
@@ -28,9 +31,14 @@ WEB_LOGGING = {
     },
     "handlers": {
         "console": {"class": "logging.StreamHandler", "formatter": "default"},
+        "file": {
+            "class": "logging.FileHandler",
+            "formatter": "default",
+            "filename": os.path.join(BASE_DIR, "django-web.log"),
+        },
     },
     "root": {
-        "handlers": ["console"],
+        "handlers": ["console", "file"],
         "level": os.getenv("LOG_LEVEL", "WARNING"),
     },
 }

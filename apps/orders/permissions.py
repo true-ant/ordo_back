@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework.permissions import BasePermission, IsAuthenticated
 
 from apps.accounts.models import Company, CompanyMember, Office, Subscription, User
@@ -44,3 +45,9 @@ class OrderApprovalPermission(BasePermission):
         return CompanyMember.objects.filter(
             user=request.user, company_id=company_pk, role__in=[User.Role.ADMIN, User.Role.OWNER]
         ).exists()
+
+
+class DentalCityOrderFlowPermission(BasePermission):
+    def has_permission(self, request, view):
+        header = request.META.get("HTTP_AUTHORIZATION")
+        return header == settings.DENTAL_CITY_AUTH_KEY
