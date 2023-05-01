@@ -3,7 +3,7 @@
 from django.db import migrations
 
 FILL_VENDOR_IDS_SQL = """
-WITH parent_vendors AS (SELECT op2.parent_id, array_agg(vendor_id) as parent_vendors, count(*) as calc_child_count
+WITH parent_vendors AS (SELECT op2.parent_id, array_agg(DISTINCT vendor_id) as parent_vendors, count(*) as calc_child_count
                         FROM orders_product op2
                         GROUP BY op2.parent_id)
 UPDATE orders_product op
