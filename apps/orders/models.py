@@ -5,7 +5,7 @@ from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField  # TrigramSimilarity,
 from django.db import models
-from django.db.models import Q, Subquery
+from django.db.models import Index, Q, Subquery
 from django.utils import timezone
 from django_extensions.db.fields import AutoSlugField
 from slugify import slugify
@@ -103,6 +103,7 @@ class Product(TimeStampedModel):
         indexes = [
             GinIndex(name="product_name_gin_idx", fields=["name"], opclasses=["gin_trgm_ops"]),
             GinIndex(name="child_vendors_gin_idx", fields=["vendors"], condition=Q(parent_id=None)),
+            Index(name="product_manufacturer_idx", fields=["manufacturer_number"]),
         ]
 
     def __str__(self):
