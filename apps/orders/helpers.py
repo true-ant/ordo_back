@@ -1582,29 +1582,33 @@ class OrderHelper:
             await sync_to_async(order.save)()
 
     @staticmethod
-    def update_vendor_order_product_price(vendor_slug):
+    def update_vendor_order_totals(vendor_order: VendorOrderModel):
+        new_total_amount = 0
+        for vendor_order_product in VendorOrderProductModel.objects.filter(vendor_order=vendor_order):
+            updated_product_price = OfficeProductModel.objects.filter(
+                office_id=vendor_order.order.office_id, product_id=vendor_order_product.product_id
+            ).values("price")[:1]
+            if not updated_product_price:
+                updated_product_price = ProductModel.objects.filter(id=vendor_order_product.product_id).values(
+                    "price"
+                )[:1]
+            if not updated_product_price:
+                logger.warning(
+                    "Vendor order product %s does not have update price information", vendor_order_product.id
+                )
+                continue
+            new_total_amount += updated_product_price * vendor_order_product.quantity
+        if vendor_order.total_amount != new_total_amount:
+            total_amount_delta = new_total_amount - vendor_order.total_amount
+            vendor_order.total_amount = new_total_amount
+            vendor_order.save(update_fields=["total_amount"])
+            vendor_order.order.total_amount += total_amount_delta
+            vendor_order.order.save(update_fields=["total_amount"])
+
+    @classmethod
+    def update_vendor_order_product_price(cls, vendor_slug):
         pending_vendor_orders = VendorOrderModel.objects.filter(
             vendor__slug=vendor_slug, status=OrderStatus.PENDING_APPROVAL
         )
         for vendor_order in pending_vendor_orders:
-            new_total_amount = 0
-            for vendor_order_product in VendorOrderProductModel.objects.filter(vendor_order=vendor_order):
-                updated_product_price = OfficeProductModel.objects.filter(
-                    office_id=vendor_order.order.office_id, product_id=vendor_order_product.product_id
-                ).values("price")[:1]
-                if not updated_product_price:
-                    updated_product_price = ProductModel.objects.filter(id=vendor_order_product.product_id).values(
-                        "price"
-                    )[:1]
-                if not updated_product_price:
-                    logger.warning(
-                        "Vendor order product %s does not have update price information", vendor_order_product.id
-                    )
-                    continue
-                new_total_amount += updated_product_price * vendor_order_product.quantity
-            if vendor_order.total_amount != new_total_amount:
-                total_amount_delta = new_total_amount - vendor_order.total_amount
-                vendor_order.total_amount = new_total_amount
-                vendor_order.save(update_fields=["total_amount"])
-                vendor_order.order.total_amount += total_amount_delta
-                vendor_order.order.save(update_fields=["total_amount"])
+            cls.update_vendor_order_totals(vendor_order)

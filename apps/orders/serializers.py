@@ -7,7 +7,7 @@ from apps.accounts.helper import OfficeBudgetHelper
 from apps.accounts.serializers import VendorLiteSerializer
 from apps.common.choices import OrderStatus
 from apps.common.serializers import Base64ImageField
-from apps.orders.helpers import OfficeProductHelper
+from apps.orders.helpers import OfficeProductHelper, OrderHelper
 
 from . import models as m
 
@@ -316,6 +316,7 @@ class VendorOrderProductSerializer(serializers.ModelSerializer):
             else:
                 order.status = OrderStatus.OPEN
                 order.save()
+            OrderHelper.update_vendor_order_totals(vendor_order)
 
             return instance
 

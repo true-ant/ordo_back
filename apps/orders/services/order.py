@@ -9,6 +9,7 @@ from django.utils import timezone
 from apps.accounts.models import OfficeVendor
 from apps.common.choices import BUDGET_SPEND_TYPE, ProductStatus
 from apps.common.month import Month
+from apps.orders.helpers import OrderHelper
 from apps.orders.models import OrderStatus, VendorOrder, VendorOrderProduct
 from apps.orders.tasks import (
     check_order_status_and_notify_customers,
@@ -97,6 +98,7 @@ class OrderService:
                 vendor_order_product.rejected_reason = VendorOrderProduct.RejectReason.NOT_NEEDED
 
             VendorOrderProduct.objects.bulk_update(vendor_order_products, ["rejected_reason", "status"])
+            OrderHelper.update_vendor_order_totals(vendor_order)
 
     @staticmethod
     def update_vendor_order_spent(vendor_order: VendorOrder, validated_data):
