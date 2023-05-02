@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, IntEnum
 
 
 class SupportedVendor(Enum):
@@ -29,3 +29,12 @@ class SupportedVendor(Enum):
     OfficeDepot = "office_depot"
     EBay = "ebay"
     Safco = "safco"
+
+
+class OnboardingStep(IntEnum):
+    ACCOUNT_SETUP = 0
+    OFFICE_DETAILS = 1
+    BILLING_INFORMATION = 2
+    OFFICE_BUDGET = 3
+    INVITE_TEAM = 4
+    LINK_VENDOR = 5
