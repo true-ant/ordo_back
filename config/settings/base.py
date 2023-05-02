@@ -235,12 +235,9 @@ FORMULA_VENDORS = [
     "patterson",
     "amazon",
     "benco",
-]
-NON_FORMULA_VENDORS = [
     "ultradent",
     "implant_direct",
     "edge_endo",
-    "net_32",
     "dental_city",
     "dcdental",
     "crazy_dental",
@@ -257,6 +254,9 @@ NON_FORMULA_VENDORS = [
     "atomo",
     "orthoarch",
     "office_depot",
+]
+NON_FORMULA_VENDORS = [
+    "net_32",
 ]
 API_AVAILABLE_VENDORS = ["dental_city"]
 
