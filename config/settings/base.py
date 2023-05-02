@@ -254,6 +254,7 @@ FORMULA_VENDORS = [
     "atomo",
     "orthoarch",
     "office_depot",
+    "safco",
 ]
 NON_FORMULA_VENDORS = [
     "net_32",
