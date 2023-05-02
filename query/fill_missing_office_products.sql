@@ -1,4 +1,4 @@
-CREATE FUNCTION fill_missing_office_products(office integer, vendor integer) RETURNS void AS $$
+CREATE OR REPLACE FUNCTION fill_missing_office_products(office integer, vendor integer) RETURNS void AS $$
 WITH office_products AS (SELECT *
                          FROM orders_officeproduct
                          WHERE office_id = office
@@ -66,7 +66,8 @@ SELECT created_at,
        nickname,
        price_expiration,
        vendor_id
-FROM to_be_inserted;
+FROM to_be_inserted
+ON CONFLICT DO NOTHING ;
 $$ LANGUAGE SQL;
 
 

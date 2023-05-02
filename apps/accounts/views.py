@@ -20,6 +20,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.accounts.helper import OfficeBudgetHelper
 from apps.common import messages as msgs
 from apps.common.asyncdrf import AsyncMixin
+from apps.common.enums import OnboardingStep
 from apps.common.month import Month
 from apps.orders.models import OfficeCheckoutStatus
 from apps.scrapers.errors import (
@@ -36,6 +37,7 @@ from .services.offices import OfficeService
 from .tasks import (
     fetch_order_history,
     fetch_vendor_products_prices,
+    link_vendor,
     send_company_invite_email,
     send_welcome_email,
 )
@@ -76,7 +78,7 @@ class UserSignupAPIView(APIView):
 
                 company = company_member.company
             else:
-                company = m.Company.objects.create(name=company_name, on_boarding_step=0)
+                company = m.Company.objects.create(name=company_name, on_boarding_step=OnboardingStep.ACCOUNT_SETUP)
                 m.CompanyMember.objects.create(
                     company=company,
                     user=user,
@@ -432,7 +434,7 @@ class CompanyMemberInvitationCheckAPIView(APIView):
         company = invite.company
 
         # 4 is the minimum last step.
-        if company.on_boarding_step < 4:
+        if company.on_boarding_step < OnboardingStep.INVITE_TEAM:
             return Response({"message": msgs.INVITE_NOT_ACCEPTABLE}, status=HTTP_400_BAD_REQUEST)
 
         now = timezone.now()
@@ -498,15 +500,18 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
     def _validate(self, data):
         office = get_object_or_404(m.Office, id=data["office"])
         company = office.company
-        if company.on_boarding_step == 4:
-            company.on_boarding_step = 5
-            company.save()
-        elif company.on_boarding_step < 4:
+        if company.on_boarding_step < OnboardingStep.BILLING_INFORMATION:
             raise ValidationError({"message": msgs.VENDOR_IMPOSSIBLE_LINK})
+        company.on_boarding_step = OnboardingStep.LINK_VENDOR
+        company.save()
 
         serializer = s.OfficeVendorSerializer(data=data)
         serializer.is_valid()
         return serializer
+
+    @sync_to_async
+    def serializer_data(self, serializer):
+        return serializer.data
 
     async def create(self, request, *args, **kwargs):
         serializer = await self._validate({**request.data, "office": kwargs["office_pk"]})
@@ -529,7 +534,7 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
 
                 # All scrapers work with login_cookies,
                 # but henryschein doesn't work with login_cookies...
-                fetch_order_history.delay(
+                link_vendor.delay(
                     vendor_slug=office_vendor.vendor.slug,
                     office_id=office_vendor.office.id,
                 )
@@ -551,9 +556,10 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
         except NetworkConnectionException:
             return Response({"message": msgs.VENDOR_BAD_NETWORK_CONNECTION}, status=HTTP_400_BAD_REQUEST)
         except Exception:  # noqa
-            return Response({"message": msgs.UNKNOWN_ISSUE, **serializer.data})
+            return Response({"message": msgs.UNKNOWN_ISSUE, **serializer.data}, status=HTTP_400_BAD_REQUEST)
 
-        return Response({"message": msgs.VENDOR_CONNECTED, **serializer.data})
+        data = await self.serializer_data(serializer)
+        return Response({"message": msgs.VENDOR_CONNECTED, **data})
 
     @action(detail=True, methods=["post"])
     def relink_office_vendor(self, request, *args, **kwargs):

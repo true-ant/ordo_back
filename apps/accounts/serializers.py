@@ -289,6 +289,7 @@ class OfficeVendorSerializer(serializers.ModelSerializer):
     class Meta:
         model = m.OfficeVendor
         fields = "__all__"
+        extra_kwargs = {"shipping_options": {"read_only": True}}
 
 
 class OfficeVendorListSerializer(serializers.ModelSerializer):

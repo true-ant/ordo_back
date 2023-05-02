@@ -143,6 +143,12 @@ def task_update_net32_products():
 
 
 @app.task
+def link_vendor(vendor_slug: str, office_id: int, consider_recent=False):
+    call_command("fill_office_products", office=office_id, vendor=vendor_slug)
+    fetch_order_history(vendor_slug, office_id, consider_recent)
+
+
+@app.task
 def fetch_order_history(vendor_slug, office_id, consider_recent=False):
     """
     NOTE: Passed vendor_slug and office_id as params instead of OfficeVendor object
