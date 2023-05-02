@@ -245,7 +245,7 @@ FORMULA_VENDORS = [
     "skydental",
     "top_glove",
     "bluesky_bio",
-    "praction",
+    "practicon",
     "midwest_dental",
     "pearson",
     "salvin",
