@@ -105,14 +105,14 @@ class DentalCityOrderRequestBuilder:
                         "#text": self.order_info.shipping_address.country_code,
                     },
                 },
-            },
-            "Email": self.order_info.shipping_address.email,
-            "Phone": {
-                "@name": "work",
-                "TelephoneNumber": {
-                    "CountryCode": {"@isoCountryCode": "US", "#text": "1"},
-                    "AreaOrCityCode": "",
-                    "Number": self.order_info.shipping_address.phone_number,
+                "Email": self.order_info.shipping_address.email,
+                "Phone": {
+                    "@name": "work",
+                    "TelephoneNumber": {
+                        "CountryCode": {"@isoCountryCode": "US", "#text": "1"},
+                        "AreaOrCityCode": "",
+                        "Number": self.order_info.shipping_address.phone_number,
+                    },
                 },
             },
         }
