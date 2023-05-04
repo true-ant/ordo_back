@@ -168,7 +168,7 @@ class OfficeBudgetHelper:
         orders = Order.objects.filter(office=office, order_date__gte=first_day_current_month).aggregate(
             total_amount=Sum("total_amount")
         )
-        total_order_amount = orders["total_amount"]
+        total_order_amount = orders["total_amount"] if orders["total_amount"] else 0.0
         return total_order_amount
 
 
