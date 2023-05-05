@@ -332,6 +332,9 @@ class VendorOrderProductSerializer(serializers.ModelSerializer):
             ret["updated_unit_price"] = office_product.price
         else:
             ret["updated_unit_price"] = instance.product.price
+
+        if not ret["status_display_text"]:
+            ret["status_display_text"] = "N/A"
         return ret
 
 
