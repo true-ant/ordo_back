@@ -1597,7 +1597,7 @@ class OrderHelper:
                     "Vendor order product %s does not have update price information", vendor_order_product.id
                 )
                 continue
-            new_total_amount += updated_product_price * vendor_order_product.quantity
+            new_total_amount += updated_product_price[0]["price"] * vendor_order_product.quantity
         if vendor_order.total_amount != new_total_amount:
             total_amount_delta = new_total_amount - vendor_order.total_amount
             vendor_order.total_amount = new_total_amount
