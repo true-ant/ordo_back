@@ -15,6 +15,7 @@ ALLOWED_HOSTS = [
     "joinordo.com",
     "api.joinordo.com",
     "localhost",
+    "127.0.0.1",
 ]
 # CORS_ALLOWED_ORIGINS = [
 #     "https://staging.joinordo.com",
@@ -22,7 +23,6 @@ ALLOWED_HOSTS = [
 #     "http://local.joinordo.com:8080",
 # ]
 CORS_ALLOW_ALL_ORIGINS = True
-
 # CELERY_RESULT_BACKEND = None
 # BROKER_TRANSPORT_OPTIONS = {
 #     "polling_interval": 2,

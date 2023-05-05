@@ -138,8 +138,8 @@ dmypy.json
 init.sql
 install-pyenv-win.ps1
 .vscode/*
+node_modules
 *.pdf
 services/xmls/*
 node_modules/*
 static/*
-templates/*

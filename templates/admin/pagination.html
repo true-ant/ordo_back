@@ -1,0 +1,41 @@
+{% load admin_list %}
+{% load i18n %}
+{% load static %}
+{% load custom_tags %}
+
+{% if pagination_required %}
+<div class="row">
+    <div class="col-md-6">
+        {% widthratio cl.list_per_page 1 cl.page_num|add:"-1" as val %}
+        Showing {{ val|add:"1" }} to {% widthratio cl.list_per_page 1 cl.page_num %}
+        of {{ cl.result_count }} {% if cl.result_count == 1 %}{{ cl.opts.verbose_name }}{% else %}{{ cl.opts.verbose_name_plural }}{% endif %}
+    </div>
+    <div class="col-md-6">
+        <div class="dataTables_paginate paging_simple_numbers">
+            <ul class="pagination">
+                {% if cl.page_num > 1 %}
+                <li class="page-item page-prev">
+                    <a class="page-link" tabindex="-1" href='?p={{cl.page_num|add:"-1"}}'>
+                        Previous
+                    </a>
+                </li>
+                {% endif%}
+                {% for i in page_range %}
+                {% paginator_number cl i %}
+                {% endfor %}
+                {% if cl.page_num < cl.paginator.num_pages %}
+                <li class="page-item page-next">
+                    <a class="page-link" href='?p={{cl.page_num|add:"1"}}'>
+                        Next
+                    </a>
+                </li>
+
+                {% endif%}
+            </ul>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+<!-- {% if show_all_url %}<a href="{{ show_all_url }}" class="showall">{% translate 'Show all' %}</a>{% endif %}
+{% if cl.formset and cl.result_count %}<input type="submit" name="_save" class="default" value="{% translate 'Save' %}">{% endif %} -->

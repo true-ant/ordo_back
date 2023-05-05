@@ -11,10 +11,11 @@ from apps.common.admins import ReadOnlyAdminMixin
 
 from . import models as m
 
+admin.ModelAdmin.list_per_page = 10
+
 
 class ExportCsvMixin:
     def export_as_csv(self, request, queryset):
-
         meta = self.model._meta
         field_names = [field.name for field in meta.fields]
 
@@ -123,9 +124,6 @@ class OrderAdmin(NestedModelAdmin):
         return objs.total_amount
 
 
-    
-
-
 class ProductPriceFilter(SimpleListFilter):
     title = "Price Range"
     parameter_name = "price"
@@ -177,7 +175,6 @@ class ProductImageInline(ReadOnlyAdminMixin, admin.TabularInline):
 
 @admin.register(m.Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_per_page = 20
     list_display = (
         "id",
         "product_thumb",
@@ -196,7 +193,7 @@ class ProductAdmin(admin.ModelAdmin):
         "vendor",
         "category",
     )
-    exclude= ('parent', )
+    exclude = ("parent",)
     inlines = (ProductImageInline,)
 
     @admin.display(description="url")
@@ -219,7 +216,6 @@ class KeywordAdmin(admin.ModelAdmin):
 
 @admin.register(m.OfficeKeyword)
 class OfficeKeywordAdmin(admin.ModelAdmin):
-    list_per_page = 20
     list_display = (
         "keyword",
         "office",
