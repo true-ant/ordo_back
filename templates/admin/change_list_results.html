@@ -1,0 +1,43 @@
+{% load i18n %}
+{% load static %}
+{% load custom_tags %}
+
+{% if hidden_fields %}
+<div class="hiddenfields">{# DIV for HTML validation #}
+{% for item in result_hidden_fields %}{{ item }}{% endfor %}
+</div>
+{% endif %}
+
+{% if results %}
+<table id="project-table" class="table text-nowrap mb-0 table-bordered border-top border-bottom project-list-main">
+  <thead class="table-head">
+    <tr>
+      {% for header in result_headers %}
+      <th class="bg-transparent border-bottom-0">{{ header.text|capfirst }}</th>
+      {% endfor %}
+      <th class="bg-transparent border-bottom-0">Action</th>
+    </tr>
+  </thead>
+  <tbody class="table-body">
+    {% for result in results %}
+    {% if result.form and result.form.non_field_errors %}
+    <tr><td class="fs-15 fw-semibold">{{ result.form.non_field_errors }}</td></tr>
+    {% endif %}
+    <tr>
+      {% for item in result %}{{ item }}{% endfor %}
+      <td>
+        <div class="d-flex align-items-stretch">
+          <span data-bs-target="#modal_confirm_delete" data-bs-toggle="modal">
+            <a class="btn btn-sm btn-outline-secondary border me-2 pop_del_obj" data-bs-toggle="tooltip" data-bs-original-title="Delete">
+              <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="16"><path d="M0 0h24v24H0V0z" fill="none" /><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4h-3.5z" /></svg>
+            </a>
+          </span>
+
+          {% edit_link_for_result cl cl.result_list forloop.counter0 %}
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}

@@ -11,7 +11,7 @@ from django_extensions.db.fields import AutoSlugField
 from slugify import slugify
 
 from apps.accounts.models import Office, ShippingMethod, User, Vendor
-from apps.common.choices import BUDGET_SPEND_TYPE, OrderStatus, ProductStatus
+from apps.common.choices import BUDGET_SPEND_TYPE, OrderStatus, OrderType, ProductStatus
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
 from apps.orders.managers import Net32ProductManager, ProcedureManager, ProductManager
 from apps.scrapers.schema import Product as ProductDataClass
@@ -324,7 +324,7 @@ class Order(TimeStampedModel):
     total_items = models.IntegerField(default=1)
     total_amount = models.DecimalField(decimal_places=2, max_digits=10, default=0)
     status = models.CharField(max_length=100, choices=OrderStatus.choices, default=OrderStatus.OPEN)
-    order_type = models.CharField(max_length=100)
+    order_type = models.CharField(max_length=100, choices=OrderType.choices, default=OrderType.ORDER_REDUNDANCY)
 
     objects = models.Manager()
     current_months = OrderMonthManager()

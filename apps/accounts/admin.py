@@ -1,15 +1,19 @@
 from dateutil.relativedelta import relativedelta
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
+from django.db.models import Sum
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
 from apps.common.admins import ReadOnlyAdminMixin
+from apps.common.choices import OrderType
 from apps.common.month import Month
 from apps.orders import models as om
 
 from . import models as m
+
+admin.ModelAdmin.list_per_page = 10
 
 
 @admin.register(m.User)
@@ -83,6 +87,7 @@ class OfficeBudgetInline(NestedTabularInline):
 class OfficeOrdersInline(NestedTabularInline):
     model = om.Order
     readonly_fields = ("id", "company", "office", "vendors", "total_price", "order_date", "order_type", "status")
+    fields = ("vendors", "order_date", "total_items", "total_amount", "company", "order_type", "status")
 
     @admin.display(description="Company")
     def company(self, obj):
@@ -130,12 +135,31 @@ class CompanyAdmin(NestedModelAdmin):
     list_display = (
         "name",
         "on_boarding_step",
+        "ordo_order_count",
+        "vendor_order_count",
+        "ordo_order_volume",
         "is_active",
     )
     inlines = (
         CompanyMemberInline,
         OfficeInline,
     )
+
+    @admin.display(description="Total Ordo Order Count")
+    def ordo_order_count(self, obj):
+        return om.Order.objects.filter(order_type=OrderType.ORDO_ORDER.label, office__in=obj.offices.all()).count()
+
+    @admin.display(description="Total Vendor Order Count")
+    def vendor_order_count(self, obj):
+        return om.Order.objects.filter(order_type=OrderType.VENDOR_DIRECT.label, office__in=obj.offices.all()).count()
+
+    @admin.display(description="Ordo Order Volume")
+    def ordo_order_volume(self, obj):
+        queryset = om.Order.objects.filter(order_type=OrderType.ORDO_ORDER.label, office__in=obj.offices.all())
+        if queryset.count():
+            total_amount = queryset.aggregate(order_total_amount=Sum("total_amount"))["order_total_amount"]
+            return f"${total_amount}"
+        return "$0"
 
 
 @admin.register(m.Vendor)
@@ -145,7 +169,8 @@ class VendorAdmin(admin.ModelAdmin):
         "logo_thumb",
         "name",
         "slug",
-        "order_count",
+        "ordo_order_count",
+        "vendor_order_count",
         "url",
     )
 
@@ -155,6 +180,12 @@ class VendorAdmin(admin.ModelAdmin):
 
     @admin.display(description="Order Count")
     def order_count(self, obj):
-        from apps.orders import models as om
-
         return om.VendorOrder.objects.filter(vendor=obj.id).count()
+
+    @admin.display(description="Ordo Order Count")
+    def ordo_order_count(self, obj):
+        return om.VendorOrder.objects.filter(vendor=obj.id, order__order_type=OrderType.ORDO_ORDER.label).count()
+
+    @admin.display(description="Vendor Order Count")
+    def vendor_order_count(self, obj):
+        return om.VendorOrder.objects.filter(vendor=obj.id, order__order_type=OrderType.VENDOR_DIRECT.label).count()

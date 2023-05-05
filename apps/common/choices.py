@@ -25,3 +25,9 @@ class ProductStatus(models.TextChoices):
     DELIVERED = "delivered", "Delivered"
     CREDITED = "credited", "Credited"
     REPAIR_OR_MAINTENANCE = "maintenance", "Repair/Maintenance"
+
+
+class OrderType(models.TextChoices):
+    ORDER_REDUNDANCY = "redundancy", "Ordo Order - Redundancy"
+    ORDO_ORDER = "normal", "Ordo Order"
+    VENDOR_DIRECT = "vendor", "Vendor Direct"
