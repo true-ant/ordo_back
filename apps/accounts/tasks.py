@@ -38,6 +38,7 @@ from apps.types.accounts import CompanyInvite
 from apps.vendor_clients.async_clients import BaseClient
 from apps.vendor_clients.errors import VendorClientException
 from config.celery import app
+from services.api_client.errors import APIClientError
 
 if platform.system() == "Windows":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -140,9 +141,14 @@ def update_vendor_product_prices_for_all_offices(vendor_slug):
     OrderHelper.update_vendor_order_product_price(vendor_slug)
 
 
-@app.task
-def update_vendor_products_by_api_for_all_offices(vendor_slug):
-    asyncio.run(update_vendor_products_by_api(vendor_slug))
+@app.task(bind=True)
+def update_vendor_products_by_api_for_all_offices(self, vendor_slug):
+    try:
+        asyncio.run(update_vendor_products_by_api(vendor_slug))
+    except APIClientError as e:
+        self.update_state(state=states.FAILURE, meta=traceback.format_exc())
+        raise Ignore() from e
+
     OrderHelper.update_vendor_order_product_price(vendor_slug)
 
 
