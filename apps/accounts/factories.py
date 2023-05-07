@@ -22,11 +22,17 @@ class VendorFactory(DjangoModelFactory):
         model = m.Vendor
 
 
+class OpenDentalKeyFactory(DjangoModelFactory):
+    class Meta:
+        model = m.OpenDentalKey
+
+
 class OfficeFactory(DjangoModelFactory):
     class Meta:
         model = m.Office
 
     company = factory.SubFactory(CompanyFactory)
+    dental_api = factory.SubFactory(OpenDentalKeyFactory)
 
 
 class OfficeVendorFactory(DjangoModelFactory):
