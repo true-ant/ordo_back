@@ -1375,7 +1375,7 @@ class ProcedureHelper:
             print(f"Already exists with day_from={day_from}")
             return
 
-        with open("query/procedure.sql") as f:
+        with open(settings.BASE_DIR / "query/procedure.sql") as f:
             queryProcedure = f.read()
 
         query = queryProcedure.format(day_from=day_from, day_to=day_to)
