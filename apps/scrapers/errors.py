@@ -1,28 +1,32 @@
-class VendorSiteError(Exception):
+class ScraperException(Exception):
     pass
 
 
-class VendorNotSupported(Exception):
+class VendorSiteError(ScraperException):
     pass
 
 
-class VendorAuthenticationFailed(Exception):
+class VendorNotSupported(ScraperException):
     pass
 
 
-class OrderFetchException(Exception):
+class VendorAuthenticationFailed(ScraperException):
     pass
 
 
-class NetworkConnectionException(Exception):
+class OrderFetchException(ScraperException):
     pass
 
 
-class VendorNotConnected(Exception):
+class NetworkConnectionException(ScraperException):
     pass
 
 
-class DownloadInvoiceError(Exception):
+class VendorNotConnected(ScraperException):
+    pass
+
+
+class DownloadInvoiceError(ScraperException):
     def __init__(self, message):
         self.message = message
         super().__init__(message)
