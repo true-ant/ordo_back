@@ -48,7 +48,7 @@ pytest-django = "^4.5.2"
 flashtext = "^2.7"
 djangorestframework-simplejwt = "^5.2.2"
 coverage = "^7.1.0"
-result = "^0.9.0"
+result = "^0.10.0"
 pysftp = "^0.2.9"
 xmltodict = "^0.13.0"
 
