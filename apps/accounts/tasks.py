@@ -4,11 +4,14 @@ import logging
 import operator
 import os
 import platform
+import traceback
 from functools import reduce
 from typing import List
 
 import pysftp
 from aiohttp import ClientSession, ClientTimeout
+from celery import states
+from celery.exceptions import Ignore
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -30,6 +33,7 @@ from apps.orders.models import OfficeProductCategory, OrderStatus, VendorOrder
 from apps.orders.product_updater import update_vendor_products_by_api
 from apps.orders.products_updater.net32_updater import update_net32_products
 from apps.orders.updater import fetch_for_vendor
+from apps.scrapers.errors import ScraperException
 from apps.types.accounts import CompanyInvite
 from apps.vendor_clients.async_clients import BaseClient
 from config.celery import app
@@ -119,9 +123,13 @@ def fetch_vendor_products_prices(office_vendor_id):
     print("fetch_vendor_products_prices DONE")
 
 
-@app.task
-def update_vendor_products_prices(vendor_slug, office_id=None):
-    asyncio.run(fetch_for_vendor(vendor_slug, office_id))
+@app.task(bind=True)
+def update_vendor_products_prices(self, vendor_slug, office_id=None):
+    try:
+        asyncio.run(fetch_for_vendor(vendor_slug, office_id))
+    except ScraperException as e:
+        self.update_state(state=states.FAILURE, meta=traceback.format_exc())
+        raise Ignore() from e
 
 
 @app.task
