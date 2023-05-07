@@ -1585,19 +1585,23 @@ class OrderHelper:
     def update_vendor_order_totals(vendor_order: VendorOrderModel):
         new_total_amount = 0
         for vendor_order_product in VendorOrderProductModel.objects.filter(vendor_order=vendor_order):
-            updated_product_price = OfficeProductModel.objects.filter(
-                office_id=vendor_order.order.office_id, product_id=vendor_order_product.product_id
-            ).values("price")[:1]
+            updated_product_price = (
+                OfficeProductModel.objects.filter(
+                    office_id=vendor_order.order.office_id, product_id=vendor_order_product.product_id
+                )
+                .values("price")
+                .first()
+            )
             if not updated_product_price:
-                updated_product_price = ProductModel.objects.filter(id=vendor_order_product.product_id).values(
-                    "price"
-                )[:1]
+                updated_product_price = (
+                    ProductModel.objects.filter(id=vendor_order_product.product_id).values("price").first()
+                )
             if not updated_product_price:
                 logger.warning(
                     "Vendor order product %s does not have update price information", vendor_order_product.id
                 )
                 continue
-            new_total_amount += updated_product_price[0]["price"] * vendor_order_product.quantity
+            new_total_amount += updated_product_price["price"] * vendor_order_product.quantity
         if vendor_order.total_amount != new_total_amount:
             total_amount_delta = new_total_amount - vendor_order.total_amount
             vendor_order.total_amount = new_total_amount
