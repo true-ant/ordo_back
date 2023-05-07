@@ -36,6 +36,7 @@ from apps.orders.updater import fetch_for_vendor
 from apps.scrapers.errors import ScraperException
 from apps.types.accounts import CompanyInvite
 from apps.vendor_clients.async_clients import BaseClient
+from apps.vendor_clients.errors import VendorClientException
 from config.celery import app
 
 if platform.system() == "Windows":
@@ -127,7 +128,7 @@ def fetch_vendor_products_prices(office_vendor_id):
 def update_vendor_products_prices(self, vendor_slug, office_id=None):
     try:
         asyncio.run(fetch_for_vendor(vendor_slug, office_id))
-    except ScraperException as e:
+    except (ScraperException, VendorClientException) as e:
         self.update_state(state=states.FAILURE, meta=traceback.format_exc())
         raise Ignore() from e
 
