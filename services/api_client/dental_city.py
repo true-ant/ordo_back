@@ -8,6 +8,7 @@ import xmltodict
 from aiohttp.client import ClientSession
 from lxml import etree
 
+from services.api_client.errors import APIForbiddenError
 from services.api_client.vendor_api_types import (
     DentalCityInvoiceDetail,
     DentalCityInvoiceProduct,
@@ -208,6 +209,8 @@ class DentalCityAPIClient:
             "page_number": page_number,
         }
         async with self.session.get(url, params=params) as resp:
+            if resp.status == 403:
+                raise APIForbiddenError()
             products = await resp.json()
 
             return [DentalCityProduct.from_dict(product) for product in products]
