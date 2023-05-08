@@ -1550,7 +1550,7 @@ class OrderHelper:
             vendor_order_products = (
                 vendor_order.order_products.select_related("product").filter(status=ProductStatus.PROCESSING).all()
             )
-            logger.error(f"Got VendorOrderProductModel {vendor_order_products}")
+            logger.error("Got VendorOrderProductModel")
             office_vendor = (
                 await OfficeVendorModel.objects.select_related("vendor", "office", "office__company")
                 .prefetch_related("office__addresses")

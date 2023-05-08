@@ -236,7 +236,7 @@ class DentalCityAPIClient:
         builder = DentalCityOrderRequestBuilder(partner_info, order_info)
         body = builder.build()
         # TODO: remove logs
-        logger.error("Creating Dental City Order Request")
+        logger.error(f"Creating Dental City Order Request {body}")
         async with self.session.post(url, data=body) as resp:
             message = f"{url} Response {resp.status}"
             logger.error(message)
