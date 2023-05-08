@@ -1,10 +1,12 @@
+import uuid
+
 from django.db import models
 
 from apps.accounts.models import User
 
 
 class ProductParentHistory(models.Model):
-    operation_id = models.UUIDField()
+    operation_id = models.UUIDField(default=uuid.uuid4)
     product = models.IntegerField()
     old_parent = models.IntegerField(null=True)
     new_parent = models.IntegerField(null=True)

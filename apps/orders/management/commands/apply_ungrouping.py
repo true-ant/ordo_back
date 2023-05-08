@@ -179,3 +179,4 @@ class Command(BaseCommand):
             last_inserted_parent_id=last_inserted_parent_id,
             max_parent_id_before=max_parent_id_before,
         )
+        print(operation_id)

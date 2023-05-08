@@ -16,6 +16,8 @@ ALLOWED_HOSTS = [
     "api.joinordo.com",
     "localhost",
     "127.0.0.1",
+    "172.31.93.12",
+    "44.215.221.7",
 ]
 CSRF_TRUSTED_ORIGINS = ["https://*.joinordo.com"]
 # CORS_ALLOWED_ORIGINS = [

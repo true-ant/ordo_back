@@ -3,7 +3,7 @@ from rest_framework.reverse import reverse
 from rest_framework.test import APIClient, APITestCase
 
 from apps.accounts.tests.factories import AdminUserFactory, UserFactory
-from apps.audit.models import ProductRelationHistory
+from apps.audit.models import ProductParentHistory
 from apps.orders.factories import ProductFactory
 from apps.orders.models import Product
 
@@ -39,32 +39,32 @@ class ProductManagementTestCase(APITestCase):
         assert resp.status_code == 204
         c = Product.objects.get(pk=self.child.pk)
         assert c.parent_id is None
-        assert ProductRelationHistory.objects.count() == 1
+        assert ProductParentHistory.objects.count() == 1
 
     def test_unlink_orphan(self):
         resp = self._manage({"product": self.orphan.pk})
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
         c = Product.objects.get(pk=self.orphan.pk)
         assert c.parent_id is None
-        assert ProductRelationHistory.objects.count() == 0
+        assert ProductParentHistory.objects.count() == 0
 
     def test_move(self):
         resp = self._manage({"product": self.child.pk, "new_parent": self.parent2.pk})
         assert resp.status_code == 204
         c = Product.objects.get(pk=self.child.pk)
         assert c.parent_id is self.parent2.pk
-        assert ProductRelationHistory.objects.count() == 2
+        assert ProductParentHistory.objects.count() == 2
 
     def test_moving_to_same_parent(self):
         resp = self._manage({"product": self.child.pk, "new_parent": self.parent1.pk})
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
         c = Product.objects.get(pk=self.child.pk)
         assert c.parent_id is self.parent1.pk
-        assert ProductRelationHistory.objects.count() == 0
+        assert ProductParentHistory.objects.count() == 0
 
     def test_moving_to_child(self):
         resp = self._manage({"product": self.child.pk, "new_parent": self.child2.pk})
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
         c = Product.objects.get(pk=self.child.pk)
         assert c.parent_id is self.parent1.pk
-        assert ProductRelationHistory.objects.count() == 0
+        assert ProductParentHistory.objects.count() == 0

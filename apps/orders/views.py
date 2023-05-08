@@ -1907,8 +1907,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
         office_pk = self.kwargs["office_pk"]
         day_range = self.request.query_params.get("date_range")
         start_end_date = get_date_range(day_range)
-        day_from = start_end_date[0]
-        day_to = start_end_date[1]
+        day_from, day_to = start_end_date
         first_day_of_this_week = today - datetime.timedelta(days=today.weekday())
         day_prev_12weeks_from = first_day_of_this_week + relativedelta(weeks=-12)
         day_prev_12weeks_to = first_day_of_this_week - datetime.timedelta(days=1)
@@ -1977,7 +1976,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
             # query = raw_sql.format(day_from=day_from, day_to=day_to, proc_codes=proccodes_comma)
             # json_procedure = od_client.query(query)[0]
 
-            with open("query/proc_schedule.sql", "r") as f:
+            with open(settings.BASE_DIR / "query/proc_schedule.sql", "r") as f:
                 raw_sql = f.read()
             query = raw_sql.format(
                 day_from=(day_from if day_from > today else today), day_to=day_to, codes=proccodes_dash
