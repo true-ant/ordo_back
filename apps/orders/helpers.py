@@ -1495,7 +1495,9 @@ class OrderHelper:
         perform_login: bool = True,
     ):
         async with ClientSession(timeout=ClientTimeout(30)) as session:
+            logger.error(f"Handling {vendor_order.vendor.slug} API Client")
             if vendor_order.vendor.slug in settings.API_AVAILABLE_VENDORS:
+                logger.error(f"Placing Order on {vendor_order.vendor.slug}")
                 api_client = APIClientFactory.get_api_client(vendor=vendor_order.vendor, session=session)
                 await api_client.place_order(office_vendor, vendor_order, products)
                 return True
@@ -1531,27 +1533,34 @@ class OrderHelper:
         vendor_order_ids: List[int],
         fake_order: bool = False,
     ):
+        logger.error(f"Running perform_orders_in_vendors {order_id} - {vendor_order_ids}")
         order = await OrderModel.objects.aget(pk=order_id)
 
         order_tasks = []
 
         for vendor_order_id in vendor_order_ids:
+            logger.error(f"Processing {vendor_order_id} Vendor Order ID")
             vendor_order = (
                 await VendorOrderModel.objects.select_related("order", "order__office", "shipping_option", "vendor")
                 .prefetch_related("order_products")
                 .aget(pk=vendor_order_id)
             )
+            logger.error(f"VendorOrderModel {vendor_order}")
+            logger.error(f"Processing {vendor_order_id} Vendor Order Product")
             vendor_order_products = (
                 vendor_order.order_products.select_related("product").filter(status=ProductStatus.PROCESSING).all()
             )
+            logger.error(f"Got VendorOrderProductModel {vendor_order_products}")
             office_vendor = (
                 await OfficeVendorModel.objects.select_related("vendor", "office", "office__company")
                 .prefetch_related("office__addresses")
                 .aget(office_id=vendor_order.order.office_id, vendor_id=vendor_order.vendor_id)
             )
+            logger.error(f"Got OfficeVendorModel {office_vendor}")
             products = []
 
             async for vendor_order_product in vendor_order_products:
+                logger.error(f"Processing Card Product {vendor_order_product}")
                 products.append(
                     CartProduct(
                         product_id=vendor_order_product.product.product_id,
@@ -1563,10 +1572,12 @@ class OrderHelper:
                         manufacturer_number=vendor_order_product.product.manufacturer_number,
                     )
                 )
+                logger.error("Updating OfficeProductModel")
                 await OfficeProductModel.objects.filter(
                     office=vendor_order.order.office, product=vendor_order_product.product
                 ).aupdate(last_order_date=vendor_order.order_date)
 
+            logger.error("Handling Order in vendor")
             order_tasks.append(
                 OrderHelper.process_order_in_vendor(
                     vendor_order=vendor_order,

@@ -456,9 +456,12 @@ def check_order_status_and_notify_customers(vendor_order_id):
 
 @app.task
 def perform_real_order(vendor_order_ids):
+    # TODO: Remove Logs
+    logger.error("Running perform_real_order")
     vendor_order = VendorOrderModel.objects.filter(pk__in=vendor_order_ids).first()
     order_id = vendor_order.order.id
 
+    logger.error(f"Handling {order_id} Orders")
     asyncio.run(
         OrderHelper.perform_orders_in_vendors(
             order_id=order_id,
