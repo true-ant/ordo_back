@@ -7,6 +7,7 @@ from typing import List, Union
 import xmltodict
 from aiohttp.client import ClientSession
 from lxml import etree
+from sentry_sdk import capture_message
 
 from services.api_client.errors import APIForbiddenError
 from services.api_client.vendor_api_types import (
@@ -232,7 +233,11 @@ class DentalCityAPIClient:
         url = f"{self.stage.value}/api/OrderRequest"
         builder = DentalCityOrderRequestBuilder(partner_info, order_info)
         body = builder.build()
+        # TODO: remove capture message
+        capture_message(body)
         async with self.session.post(url, data=body) as resp:
+            message = f"{url} Response {resp.status}"
+            capture_message(message)
             return resp.status == 200
 
 
