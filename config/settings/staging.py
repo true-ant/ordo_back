@@ -17,6 +17,7 @@ ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
     "172.31.93.12",
+    "44.215.221.7",
 ]
 # CORS_ALLOWED_ORIGINS = [
 #     "https://staging.joinordo.com",
