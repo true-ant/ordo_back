@@ -17,6 +17,7 @@ ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
 ]
+CSRF_TRUSTED_ORIGINS = ["https://*.joinordo.com"]
 # CORS_ALLOWED_ORIGINS = [
 #     "https://staging.joinordo.com",
 #     "https://local.joinordo.com:8080",
