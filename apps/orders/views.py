@@ -1730,7 +1730,13 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
             if products_fly["products"]:
                 ProductService.generate_products_from_data(products=products_fly["products"], vendor_slug="amazon")
 
-        queryset = self.filter_queryset(self.get_queryset())
+        queryset = self.get_queryset()
+        count_per_page = int(self.request.query_params.get("per_page", 10))
+        current_page = int(self.request.query_params.get("page", 1))
+        # TODO: return offset (db record based, some logic will be required here)
+        #       to frontend and ask frontend to pass db offset back so that we
+        #       fetch queryset[offset:offset + count_per_page]
+        queryset = queryset[: current_page * count_per_page]
         product_list = list(queryset)
 
         if "ebay" in vendors:
@@ -1743,8 +1749,6 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
             except Exception:  # noqa
                 print("Ebay search exception")
 
-        count_per_page = int(self.request.query_params.get("per_page", 10))
-        current_page = int(self.request.query_params.get("page", 1))
         pagination_obj = Paginator(product_list, count_per_page)
 
         ret = {
