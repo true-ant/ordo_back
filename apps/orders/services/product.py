@@ -5,6 +5,7 @@ from collections import defaultdict
 from itertools import chain
 from typing import List, Optional, Union
 
+from django.contrib.postgres.search import SearchQuery, SearchRank
 from django.db import transaction
 from django.db.models import Model
 from django.db.models.query import QuerySet
@@ -14,13 +15,37 @@ from apps.common.utils import (
     find_numeric_values_from_string,
     find_words_from_string,
 )
-from apps.orders.models import Product, ProductCategory, Vendor, ProductImage
+from apps.orders.models import Product, ProductCategory, ProductImage, Vendor
 
 ProductID = Union[int, str]
 ProductIDs = List[ProductID]
 
 
 class ProductService:
+    @staticmethod
+    def get_or_create_parent_id(product: Product) -> int:
+        manufacturer_number = product.manufacturer_number
+        if not manufacturer_number:
+            return None
+
+        query = SearchQuery(product.name, config="english")
+        most_similar_product = (
+            Product.objects.filter(manufacturer_number=manufacturer_number, parent_id__isnull=False)
+            .annotate(rank=SearchRank("search_vector", query))
+            .filter(rank__gt=0.1)
+            .only("parent_id")
+            .first()
+        )
+        if most_similar_product:
+            return most_similar_product.parent_id
+
+        # Similar not found, let's create new one
+        parent = Product.objects.create(
+            name=product.name,
+            category_id=product.category_id,
+        )
+        return parent.id
+
     @staticmethod
     def group_products(product_ids: Optional[ProductID] = None):
         """Group products"""
@@ -278,7 +303,7 @@ class ProductService:
                     image_products_to_create.append(
                         ProductImage(
                             product=update_products_map[product["product_id"]],
-                            image=image_data[product["product_id"]][0]["image"]
+                            image=image_data[product["product_id"]][0]["image"],
                         )
                     )
             else:
@@ -294,13 +319,11 @@ class ProductService:
 
                 for cp in created_products:
                     image_products_to_create.append(
-                        ProductImage(product=cp, image=image_data[cp.product_id][0]['image'])
+                        ProductImage(product=cp, image=image_data[cp.product_id][0]["image"])
                     )
                 ProductImage.objects.bulk_create(
                     image_products_to_create,
                 )
-                Product.objects.bulk_update(
-                    products_to_update, ["price", "url", "name", "description"]
-                )
+                Product.objects.bulk_update(products_to_update, ["price", "url", "name", "description"])
         except Exception as err:
             raise ValueError(err)

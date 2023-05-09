@@ -20,6 +20,7 @@ from slugify import slugify
 from apps.common import messages as msgs
 from apps.common.choices import OrderStatus, ProductStatus
 from apps.common.month import Month
+from apps.orders.services.product import ProductService
 from apps.scrapers.errors import DownloadInvoiceError, VendorAuthenticationFailed
 from apps.scrapers.headers.base import HTTP_HEADERS
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
@@ -326,6 +327,8 @@ class Scraper:
                 product.tags.add(keyword)
 
             if created:
+                product.parent_id = ProductService.get_or_create_parent_id(product)
+                product.save(update_fields=["parent_id"])
                 product_images = [
                     ProductImageModel(
                         product=product,
