@@ -1736,7 +1736,9 @@ class ProductV2ViewSet(AsyncMixin, ModelViewSet):
         # TODO: return offset (db record based, some logic will be required here)
         #       to frontend and ask frontend to pass db offset back so that we
         #       fetch queryset[offset:offset + count_per_page]
-        queryset = queryset[: current_page * count_per_page]
+
+        # Fetching one more item to make sure if there is some more
+        queryset = queryset[: current_page * count_per_page + 1]
         product_list = list(queryset)
 
         if "ebay" in vendors:
