@@ -295,9 +295,7 @@ def fetch_orders_v2(office_vendor_id):
 @app.task
 def notify_vendor_auth_issue_to_admins(office_vendor_id):
     office_vendor = OfficeVendor.objects.get(pk=office_vendor_id)
-    company_members = CompanyMember.objects.filter(office=office_vendor.office, role=User.Role.ADMIN).values_list(
-        "user"
-    )
+    company_members = CompanyMember.objects.filter(office=office_vendor.office, role=User.Role.ADMIN)
 
     for company_member in company_members:
         user = company_member.user
