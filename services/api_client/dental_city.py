@@ -99,7 +99,7 @@ class DentalCityOrderRequestBuilder:
                     "#text": self.order_info.billing_address.name,
                 },
                 "PostalAddress": {
-                    "DeliverTo": self.order_info.shipping_address.address,
+                    "DeliverTo": self.order_info.shipping_address.deliver_to,
                     "Street": self.order_info.shipping_address.street,
                     "City": self.order_info.shipping_address.city,
                     "State": self.order_info.shipping_address.state,
@@ -129,7 +129,7 @@ class DentalCityOrderRequestBuilder:
                     "#text": self.order_info.billing_address.name,
                 },
                 "PostalAddress": {
-                    "DeliverTo": self.order_info.billing_address.address,
+                    "DeliverTo": self.order_info.billing_address.deliver_to,
                     "Street": self.order_info.billing_address.street,
                     "City": self.order_info.billing_address.city,
                     "State": self.order_info.billing_address.state,

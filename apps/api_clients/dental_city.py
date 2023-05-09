@@ -34,8 +34,8 @@ class DentalCityClient:
         partner_info = DentalCityPartnerInfo(partner_name="Ordo", shared_secret="a4GTFG2a5", customer_id="O00001")
         dental_city_shipping_address = DentalCityShippingAddress(
             name=office_address.office.name,
-            address=office_address.address,
-            street="",
+            deliver_to=office_address.office.name,
+            street=office_address.address,
             city=office_address.city,
             state=office_address.state,
             postal_code=office_address.zip_code,
@@ -44,10 +44,10 @@ class DentalCityClient:
             email=office_admin.email,
             phone_number=str(office_vendor.office.phone_number),
         )
-        dental_city_billing_addresss = DentalCityBillingAddress(
+        dental_city_billing_address = DentalCityBillingAddress(
             name=office_address.office.name,
-            address=office_address.address,
-            street="",
+            deliver_to=office_address.office.name,
+            street=office_address.address,
             city=office_address.city,
             state=office_address.state,
             postal_code=office_address.zip_code,
@@ -58,7 +58,7 @@ class DentalCityClient:
             order_id=vendor_order.vendor_order_id,
             order_datetime=datetime.datetime.now(),
             shipping_address=dental_city_shipping_address,
-            billing_address=dental_city_billing_addresss,
+            billing_address=dental_city_billing_address,
             order_products=[
                 DentalCityOrderProduct(
                     product_sku=product["sku"],
