@@ -413,6 +413,7 @@ class Scraper:
                 logger.debug("Update existing vendor order status")
                 vendor_order.vendor_order_id = order_id
                 vendor_order.status = order_data["status"]
+                vendor_order.total_amount = Decimal(order_data.get("total_amount", 0.0))
                 vendor_order.save()
             else:
                 # Try to find the vendor order using products and order date
@@ -433,6 +434,7 @@ class Scraper:
                             v_order.vendor_order_id = order_id
                             v_order.status = order_data["status"]
                             v_order.vendor_order_reference = vendor_order_reference if vendor_order_reference else ""
+                            v_order.total_amount = Decimal(order_data.get("total_amount", 0.0))
                             v_order.save()
                             order_found = True
                             break
