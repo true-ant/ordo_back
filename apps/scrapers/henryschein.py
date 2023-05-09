@@ -201,6 +201,7 @@ class HenryScheinScraper(Scraper):
                 "images",
                 "category",
                 "product_unit",
+                "manufacturer_number",
             ),
         )
         if office:
@@ -209,6 +210,14 @@ class HenryScheinScraper(Scraper):
             await self.save_order_to_db(office, order=Order.from_dict(order))
             logger.debug(f"stored order {order['order_id']} to db")
         return order
+
+    def parse_manufacturer_number(self, manufacturer_data):
+        if manufacturer_data:
+            parts = manufacturer_data.split("-")
+            if parts:
+                return parts[-1].strip()
+        else:
+            return None
 
     async def get_product_as_dict(self, product_id, product_url, perform_login=False) -> dict:
         print("henryschein/get_product_as_dict")
@@ -219,6 +228,10 @@ class HenryScheinScraper(Scraper):
             res = Selector(text=await resp.text())
             product_detail = res.xpath(".//ul[@id='ctl00_cphMainContentHarmony_ucProductSummary_ulProductSummary']")
             product_name = self.extract_first(product_detail, ".//h2[contains(@class, 'product-title')]/text()")
+            manufacturer_data = self.extract_first(
+                product_detail, ".//h2[contains(@class, 'product-title')]/small/text()"
+            )
+            manufacturer_number = self.parse_manufacturer_number(manufacturer_data)
             product_description = self.extract_first(res, ".//li[@class='customer-notes']/div[@class='value']/text()")
             product_images = res.xpath(
                 ".//div[@id='ctl00_cphMainContentHarmony_ucProductAssets_divImgProduct']/img/@src"
@@ -248,6 +261,7 @@ class HenryScheinScraper(Scraper):
                 "price": product_price,
                 "product_unit": product_unit,
                 "vendor": self.vendor.to_dict(),
+                "manufacturer_number": manufacturer_number,
             }
 
     @catch_network
