@@ -1564,6 +1564,7 @@ class OrderHelper:
                 products.append(
                     CartProduct(
                         product_id=vendor_order_product.product.product_id,
+                        product_description=vendor_order_product.product.description,
                         product_unit=vendor_order_product.product.product_unit,
                         product_url=vendor_order_product.product.url,
                         price=float(vendor_order_product.unit_price) if vendor_order_product.unit_price else 0.0,

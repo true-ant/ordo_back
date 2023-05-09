@@ -71,6 +71,7 @@ class DentalCityProduct:
 @dataclass(frozen=True)
 class DentalCityAddress:
     name: str
+    address_id: str
     deliver_to: str
     street: str
     city: str

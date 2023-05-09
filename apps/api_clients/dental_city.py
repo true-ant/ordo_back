@@ -34,6 +34,7 @@ class DentalCityClient:
         partner_info = DentalCityPartnerInfo(partner_name="Ordo", shared_secret="a4GTFG2a5", customer_id="O00001")
         dental_city_shipping_address = DentalCityShippingAddress(
             name=office_address.office.name,
+            address_id=office_address.id,
             deliver_to=office_address.office.name,
             street=office_address.address,
             city=office_address.city,
@@ -46,6 +47,7 @@ class DentalCityClient:
         )
         dental_city_billing_address = DentalCityBillingAddress(
             name=office_address.office.name,
+            address_id=office_address.id,
             deliver_to=office_address.office.name,
             street=office_address.address,
             city=office_address.city,
@@ -65,7 +67,7 @@ class DentalCityClient:
                     unit_price=Decimal(str(product["price"])) if product["price"] else Decimal(0),
                     quantity=product["quantity"],
                     manufacturer_part_number=product["manufacturer_number"],
-                    product_description="",
+                    product_description=product["product_description"],
                 )
                 for product in products
             ],
