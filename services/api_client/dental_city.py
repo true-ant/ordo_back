@@ -94,9 +94,10 @@ class DentalCityOrderRequestBuilder:
     def build_shipping_address(self) -> dict:
         return {
             "Address": {
+                "@addressID": self.order_info.shipping_address.address_id,
                 "Name": {
                     "@xml:lang": "en-US",
-                    "#text": self.order_info.billing_address.name,
+                    "#text": self.order_info.shipping_address.name,
                 },
                 "PostalAddress": {
                     "DeliverTo": self.order_info.shipping_address.deliver_to,
@@ -124,6 +125,7 @@ class DentalCityOrderRequestBuilder:
     def build_billing_address(self) -> dict:
         return {
             "Address": {
+                "@addressID": self.order_info.billing_address.address_id,
                 "Name": {
                     "@xml:lang": "en-US",
                     "#text": self.order_info.billing_address.name,
