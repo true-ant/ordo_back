@@ -21,7 +21,8 @@ from services.api_client.vendor_api_types import (
     DentalCityShippingInfo,
     DentalCityShippingProduct,
 )
-from services.utils import dict2xml
+from services.utils.secrets import get_secret_value
+from services.utils.xml import dict2xml
 
 logger = logging.getLogger(__name__)
 
@@ -363,7 +364,7 @@ async def main():
     from tests.factories import DentalCityOrderInfoFactory, DentalCityPartnerInfoFactory
 
     async with ClientSession() as session:
-        api_client = DentalCityAPIClient(session, stage=Stage.TEST, auth_key=os.environ.get("DENTAL_CITY_AUTH_KEY"))
+        api_client = DentalCityAPIClient(session, stage=Stage.TEST, auth_key=get_secret_value("DENTAL_CITY_AUTH_KEY"))
         # return await api_client.get_products()
         partner_info = DentalCityPartnerInfoFactory()
         order_info = DentalCityOrderInfoFactory()
