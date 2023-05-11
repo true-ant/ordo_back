@@ -1604,11 +1604,11 @@ class OrderHelper:
                 .values("price")
                 .first()
             )
-            if not updated_product_price:
+            if not updated_product_price or updated_product_price["price"] is None:
                 updated_product_price = (
                     ProductModel.objects.filter(id=vendor_order_product.product_id).values("price").first()
                 )
-            if not updated_product_price:
+            if not updated_product_price or updated_product_price["price"] is None:
                 logger.warning(
                     "Vendor order product %s does not have update price information", vendor_order_product.id
                 )
