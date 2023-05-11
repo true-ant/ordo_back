@@ -87,6 +87,7 @@ class OfficeSerializer(serializers.ModelSerializer):
     cc_expiry = serializers.DateField(
         validators=[ExpiryDateValidator()], input_formats=["%m/%y"], format="%m/%y", write_only=True
     )
+    coupon = serializers.CharField(write_only=True, required=False)
     cc_code = serializers.CharField(validators=[CSCValidator()], write_only=True)
     budget = OfficeBudgetSerializer()
     settings = OfficeSettingSerializer(read_only=True)
@@ -139,6 +140,7 @@ class CompanySerializer(serializers.ModelSerializer):
                 card_number = office_data.get("cc_number", None)
                 expiry = office_data.get("cc_expiry", None)
                 cvc = office_data.get("cc_code", None)
+                coupon = office_data.get("coupon", None)
 
                 if card_number or expiry or cvc:
                     card_token = get_payment_method_token(card_number=card_number, expiry=expiry, cvc=cvc)
@@ -151,7 +153,7 @@ class CompanySerializer(serializers.ModelSerializer):
                         payment_method_token=card_token,
                     )
 
-                    subscription = create_subscription(customer_id=customer.id)
+                    subscription = create_subscription(customer_id=customer.id, promocode=coupon)
 
                     with transaction.atomic():
                         m.Card.objects.create(
@@ -165,8 +167,7 @@ class CompanySerializer(serializers.ModelSerializer):
                         )
 
         except Exception as e:
-            print(e)
-            raise serializers.ValidationError({"message": "Invalid Card Information"})
+            raise serializers.ValidationError({"message": e})
 
     def _create_or_update_office(self, company, **kwargs):
         office_id = kwargs.pop("id", None)
