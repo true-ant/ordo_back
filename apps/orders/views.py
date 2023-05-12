@@ -2055,8 +2055,10 @@ class DentalCityOrderFlowConfirmationRequest(APIView):
         logger.info(f"ConfirmationRequest: {request.data}")
         order_detail: DentalCityOrderDetail = DentalCityCXMLParser.parse_confirm_request(request.data)
         order_id = order_detail.order_id
+        vendor_order_id = order_detail.vendor_order_id
         order = m.VendorOrder.objects.filter(vendor__slug=SupportedVendor.DentalCity.value, id=order_id).first()
         if order is not None:
+            order.vendor_order_id = vendor_order_id
             order.vendor_status = "in progress"
             order.status = m.OrderStatus.OPEN
             order.save()

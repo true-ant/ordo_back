@@ -139,8 +139,8 @@ class DentalCityPartnerInfo:
 
 @dataclass(frozen=True)
 class DentalCityOrderDetail:
-    payload_id: str
     order_id: str
+    vendor_order_id: str
     total_amount: Decimal
     tax_amount: Decimal
     shipping_amount: Decimal

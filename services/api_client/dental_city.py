@@ -265,10 +265,10 @@ class DentalCityCXMLParser:
     @staticmethod
     def parse_confirm_request(xml_content) -> DentalCityOrderDetail:
         xml_dict = DentalCityCXMLParser.xml2dict(xml_content)
-        payload_id = xml_dict["cXML"]["@payloadID"]
         confirmation_request = xml_dict["cXML"]["Request"]["ConfirmationRequest"]
         order_id = confirmation_request["OrderReference"]["@orderID"]
         confirmation_header = confirmation_request["ConfirmationHeader"]
+        vendor_order_id = confirmation_header["@confirmID"]
         total_amount = Decimal(confirmation_header["Total"]["Money"]["#text"])
         tax_amount = Decimal(confirmation_header["Tax"]["Money"]["#text"])
         shipping_amount = Decimal(confirmation_header["Shipping"]["Money"]["#text"])
@@ -289,8 +289,8 @@ class DentalCityCXMLParser:
             )
 
         return DentalCityOrderDetail(
-            payload_id=payload_id,
             order_id=order_id,
+            vendor_order_id=vendor_order_id,
             total_amount=total_amount,
             tax_amount=tax_amount,
             shipping_amount=shipping_amount,
