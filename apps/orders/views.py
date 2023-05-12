@@ -2038,6 +2038,7 @@ class DentalCityOrderFlowOrderResponse(APIView):
     parser_classes = [XMLParser]
 
     def post(self, request):
+        logger.info(f"OrderResponse: {request.data}")
         order_id = DentalCityCXMLParser.parse_order_response(request.data)
         order = m.VendorOrder.objects.filter(vendor__slug=SupportedVendor.DentalCity.value, id=order_id).first()
         if order is not None:
