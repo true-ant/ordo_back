@@ -1,13 +1,13 @@
 from dateutil.relativedelta import relativedelta
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
-from django.db.models import Sum
+from django.db.models import Sum, Count, Q
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
-from apps.common.admins import ReadOnlyAdminMixin
-from apps.common.choices import OrderType
+from apps.common.admins import ReadOnlyAdminMixin, AdminDynamicPaginationMixin
+from apps.common.choices import OrderType, OrderStatus
 from apps.common.month import Month
 from apps.orders import models as om
 
@@ -18,7 +18,7 @@ admin.ModelAdmin.list_per_page = 10
 
 @admin.register(m.User)
 # class UserAdmin(admin.ModelAdmin):
-class UserAdmin(DefaultUserAdmin):
+class UserAdmin(AdminDynamicPaginationMixin, DefaultUserAdmin):
     list_display = (
         "username",
         "first_name",
@@ -131,7 +131,7 @@ class OfficeInline(NestedTabularInline):
 
 
 @admin.register(m.Company)
-class CompanyAdmin(NestedModelAdmin):
+class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
     list_display = (
         "name",
         "on_boarding_step",
@@ -144,18 +144,28 @@ class CompanyAdmin(NestedModelAdmin):
         CompanyMemberInline,
         OfficeInline,
     )
+    ordering = ("-on_boarding_step",)
 
     @admin.display(description="Total Ordo Order Count")
     def ordo_order_count(self, obj):
-        return om.Order.objects.filter(order_type=OrderType.ORDO_ORDER.label, office__in=obj.offices.all()).count()
+        return om.Order.objects.filter(
+            order_type__in=[OrderType.ORDO_ORDER, OrderType.ORDER_REDUNDANCY],
+            office__in=obj.offices.all()
+        ).count()
 
     @admin.display(description="Total Vendor Order Count")
     def vendor_order_count(self, obj):
-        return om.Order.objects.filter(order_type=OrderType.VENDOR_DIRECT.label, office__in=obj.offices.all()).count()
+        return om.VendorOrder.objects.filter(
+            status__in=[OrderStatus.OPEN, OrderStatus.CLOSED],
+            ordo__office_pk__in=obj.offices.all()
+        ).count()
 
     @admin.display(description="Ordo Order Volume")
     def ordo_order_volume(self, obj):
-        queryset = om.Order.objects.filter(order_type=OrderType.ORDO_ORDER.label, office__in=obj.offices.all())
+        queryset = om.Order.objects.filter(
+            order_type__in=[OrderType.ORDO_ORDER, OrderType.ORDER_REDUNDANCY],
+            office__in=obj.offices.all()
+        )
         if queryset.count():
             total_amount = queryset.aggregate(order_total_amount=Sum("total_amount"))["order_total_amount"]
             return f"${total_amount}"
@@ -163,29 +173,32 @@ class CompanyAdmin(NestedModelAdmin):
 
 
 @admin.register(m.Vendor)
-class VendorAdmin(admin.ModelAdmin):
+class VendorAdmin(AdminDynamicPaginationMixin, admin.ModelAdmin):
     list_display = (
         "__str__",
         "logo_thumb",
         "name",
         "slug",
-        "ordo_order_count",
         "vendor_order_count",
         "url",
     )
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        queryset = (
+            queryset.annotate(
+                _vendor_order_count=Count(
+                    "vendororder",
+                    filter=Q(vendororder__status__in=[OrderStatus.OPEN, OrderStatus.CLOSED])
+                )
+            ).order_by("-_vendor_order_count")
+        )
+        return queryset
 
     @admin.display(description="Logo")
     def logo_thumb(self, obj):
         return mark_safe("<img src='{}'  width='30' height='30' />".format(obj.logo))
 
-    @admin.display(description="Order Count")
-    def order_count(self, obj):
-        return om.VendorOrder.objects.filter(vendor=obj.id).count()
-
-    @admin.display(description="Ordo Order Count")
-    def ordo_order_count(self, obj):
-        return om.VendorOrder.objects.filter(vendor=obj.id, order__order_type=OrderType.ORDO_ORDER.label).count()
-
     @admin.display(description="Vendor Order Count")
     def vendor_order_count(self, obj):
-        return om.VendorOrder.objects.filter(vendor=obj.id, order__order_type=OrderType.VENDOR_DIRECT.label).count()
+        return obj._vendor_order_count

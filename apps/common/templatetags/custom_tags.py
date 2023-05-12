@@ -1,4 +1,5 @@
 import time
+import dateutil.relativedelta
 
 from django.contrib.admin.views.main import PAGE_VAR
 from django.db.models import Sum
@@ -10,8 +11,8 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 from apps.accounts.models import Company, Office, User, Vendor
-from apps.common.choices import OrderType
-from apps.orders.models import Order, Product
+from apps.common.choices import OrderType, OrderStatus
+from apps.orders.models import Order, Product, VendorOrder
 
 register = Library()
 
@@ -101,75 +102,70 @@ def dashboard_user_card():
 
 @register.simple_tag
 def dashboard_ordo_order_card():
-    month_date = timezone.now().date().replace(day=1)
-    count_ordo_order_all = Order.objects.filter(
-        order_type__in=[OrderType.ORDER_REDUNDANCY.label, OrderType.ORDO_ORDER.label]
-    ).count()
-    count_order_before = Order.objects.filter(order_date__lt=month_date).count()
-    count_ordo_order_before = Order.objects.filter(
-        order_date__lt=month_date, order_type__in=[OrderType.ORDER_REDUNDANCY.label, OrderType.ORDO_ORDER.label]
-    ).count()
-    count_order_this_month = Order.objects.filter(order_date__gte=month_date).count()
-    count_ordo_order_this_month = Order.objects.filter(
-        order_date__gte=month_date, order_type__in=[OrderType.ORDER_REDUNDANCY.label, OrderType.ORDO_ORDER.label]
-    ).count()
-    ordo_order_percent_before = int(count_ordo_order_before * 100 / count_order_before) if count_order_before else 0
-    ordo_order_percent_this_month = (
-        int(count_ordo_order_this_month * 100 / count_order_this_month) if count_order_this_month else 0
+    this_month_first_date = timezone.now().date().replace(day=1)
+    last_month_first_date = this_month_first_date + dateutil.relativedelta.relativedelta(months=-1)
+    order_objects = Order.objects.filter(
+        order_type__in=[OrderType.ORDO_ORDER, OrderType.ORDER_REDUNDANCY]
     )
-    ordo_order_grow = ordo_order_percent_this_month - ordo_order_percent_before
-    span_arrow = format_html(
+    total_count = order_objects.count()
+    last_month_count = (
+        order_objects.filter(order_date__gte=last_month_first_date, order_date__lt=this_month_first_date).count()
+    )
+    this_month_count = order_objects.filter(order_date__gte=this_month_first_date).count()
+    before_this_month_count = order_objects.filter(order_date__lt=this_month_first_date).count()
+    last_month_percentage = round(last_month_count * 100 / before_this_month_count, 2) if before_this_month_count else 0
+    this_month_percentage = round(this_month_count * 100 / total_count, 2) if total_count else 0
+    growth_rate = round(this_month_percentage - last_month_percentage, 2)
+    arrow_status_class_name = "fa-long-arrow-up"
+    color_status_class_name = "text-success"
+
+    if growth_rate < 0:
+        arrow_status_class_name = "fa-long-arrow-down"
+        color_status_class_name = "text-danger"
+
+    value = format_html(
+        f"""
+            <span class="icn-box {color_status_class_name} fw-semibold fs-13 me-1">
+                <i class='fa {arrow_status_class_name}'></i> {"{:,} %".format(growth_rate)}
+            </span>
         """
-        <span class="icn-box text-success fw-semibold fs-13 me-1"><i class='fa fa-long-arrow-up'></i> {}</span>
-        """,
-        "{:,} %".format(ordo_order_grow),
     )
-    if ordo_order_grow < 0:
-        span_arrow = format_html(
-            """
-            <span class="icn-box text-danger fw-semibold fs-13 me-1"><i class='fa fa-long-arrow-down'></i> {}</span>
-            """,
-            "{:,} %".format(ordo_order_grow),
-        )
     return render_to_string(
-        "admin/dashboard/ordo_order.html", {"title": "{:,}".format(count_ordo_order_all), "value": span_arrow}
+        "admin/dashboard/ordo_order.html", {"title": "{:,}".format(total_count), "value": value}
     )
 
 
 @register.simple_tag
 def dashboard_vendor_order_card():
-    month_date = timezone.now().date().replace(day=1)
-    count_vendor_order_all = Order.objects.filter(order_type=OrderType.VENDOR_DIRECT.label).count()
-    count_order_before = Order.objects.filter(order_date__lt=month_date).count()
-    count_vendor_order_before = Order.objects.filter(
-        order_date__lt=month_date, order_type=OrderType.VENDOR_DIRECT.label
-    ).count()
-    count_order_this_month = Order.objects.filter(order_date__gte=month_date).count()
-    count_vendor_order_this_month = Order.objects.filter(
-        order_date__gte=month_date, order_type=OrderType.VENDOR_DIRECT.label
-    ).count()
-    vendor_order_percent_before = (
-        int(count_vendor_order_before * 100 / count_order_before) if count_order_before else 0
+    this_month_first_date = timezone.now().date().replace(day=1)
+    last_month_first_date = this_month_first_date + dateutil.relativedelta.relativedelta(months=-1)
+    vendor_order_objects = VendorOrder.objects.filter(status__in=[OrderStatus.OPEN, OrderStatus.CLOSED])
+    total_count = vendor_order_objects.count()
+    last_month_count = (
+        vendor_order_objects.filter(order_date__gte=last_month_first_date, order_date__lt=this_month_first_date).count()
     )
-    vendor_order_percent_this_month = (
-        int(count_vendor_order_this_month * 100 / count_order_this_month) if count_order_this_month else 0
-    )
-    vendor_order_grow = vendor_order_percent_this_month - vendor_order_percent_before
-    span_arrow = format_html(
+    this_month_count = vendor_order_objects.filter(order_date__gte=this_month_first_date).count()
+    before_this_month_count = vendor_order_objects.filter(order_date__lt=this_month_first_date).count()
+    last_month_percentage = round(last_month_count * 100 / before_this_month_count, 2) if before_this_month_count else 0
+    this_month_percentage = round(this_month_count * 100 / total_count, 2) if total_count else 0
+    growth_rate = round(this_month_percentage - last_month_percentage, 2)
+    arrow_status_class_name = "fa-long-arrow-up"
+    color_status_class_name = "text-success"
+
+    if growth_rate < 0:
+        arrow_status_class_name = "fa-long-arrow-down"
+        color_status_class_name = "text-danger"
+
+    value = format_html(
+        f"""
+            <span class="icn-box {color_status_class_name} fw-semibold fs-13 me-1">
+                <i class='fa {arrow_status_class_name}'></i> {"{:,} %".format(growth_rate)}
+            </span>
         """
-        <span class="icn-box text-success fw-semibold fs-13 me-1"><i class='fa fa-long-arrow-up'></i> {}</span>
-        """,
-        "{:,} %".format(vendor_order_grow),
     )
-    if vendor_order_grow < 0:
-        span_arrow = format_html(
-            """
-            <span class="icn-box text-danger fw-semibold fs-13 me-1"><i class='fa fa-long-arrow-down'></i> {}</span>
-            """,
-            "{:,} %".format(vendor_order_grow),
-        )
+
     return render_to_string(
-        "admin/dashboard/vendor_order.html", {"title": "{:,}".format(count_vendor_order_all), "value": span_arrow}
+        "admin/dashboard/vendor_order.html", {"title": "{:,}".format(total_count), "value": value}
     )
 
 

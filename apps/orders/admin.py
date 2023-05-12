@@ -7,7 +7,7 @@ from django.http import HttpResponse
 from django.utils.safestring import mark_safe
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
-from apps.common.admins import ReadOnlyAdminMixin
+from apps.common.admins import ReadOnlyAdminMixin, AdminDynamicPaginationMixin
 
 from . import models as m
 
@@ -102,7 +102,7 @@ class OrderVendorFilter(SimpleListFilter):
 
 
 @admin.register(m.Order)
-class OrderAdmin(NestedModelAdmin):
+class OrderAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
     list_display = ("id", "company", "office", "vendors", "total_price", "order_date", "order_type", "status")
     search_fields = ("vendor_orders__vendor_order_id",)
     list_filter = (
@@ -146,12 +146,12 @@ class ProductPriceFilter(SimpleListFilter):
 
 
 @admin.register(m.ProductCategory)
-class ProductCategoryAdmin(admin.ModelAdmin):
+class ProductCategoryAdmin(AdminDynamicPaginationMixin, admin.ModelAdmin):
     list_display = ("__str__", "name", "parent")
 
 
 @admin.register(m.OfficeProductCategory)
-class OfficeProductCategoryAdmin(admin.ModelAdmin):
+class OfficeProductCategoryAdmin(AdminDynamicPaginationMixin, admin.ModelAdmin):
     list_display = ("id", "office", "name", "slug", "predefined")
     search_fields = (
         "office__name",
@@ -174,7 +174,7 @@ class ProductImageInline(ReadOnlyAdminMixin, admin.TabularInline):
 
 
 @admin.register(m.Product)
-class ProductAdmin(admin.ModelAdmin):
+class ProductAdmin(AdminDynamicPaginationMixin, admin.ModelAdmin):
     list_display = (
         "id",
         "product_thumb",
@@ -210,12 +210,12 @@ class ProductAdmin(admin.ModelAdmin):
 
 
 @admin.register(m.Keyword)
-class KeywordAdmin(admin.ModelAdmin):
+class KeywordAdmin(AdminDynamicPaginationMixin, admin.ModelAdmin):
     search_fields = ("keyword",)
 
 
 @admin.register(m.OfficeKeyword)
-class OfficeKeywordAdmin(admin.ModelAdmin):
+class OfficeKeywordAdmin(AdminDynamicPaginationMixin, admin.ModelAdmin):
     list_display = (
         "keyword",
         "office",
@@ -227,7 +227,7 @@ class OfficeKeywordAdmin(admin.ModelAdmin):
 
 
 @admin.register(m.OfficeProduct)
-class OfficeProductAdmin(admin.ModelAdmin):
+class OfficeProductAdmin(AdminDynamicPaginationMixin, admin.ModelAdmin):
     actions = ["export_as_csv"]
     list_display = (
         "id",
