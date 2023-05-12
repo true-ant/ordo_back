@@ -38,7 +38,7 @@ class DentalCityProduct:
     manufacturer_part_number: str
     manufacturer_special: str
     # partner_code: str
-    # product_desc: str
+    product_desc: str
     # product_long_desc: str
     # product_image_url: str
     # available_quantity: int
@@ -89,7 +89,8 @@ class DentalCityBillingAddress(DentalCityAddress):
 @dataclass(frozen=True)
 class DentalCityShippingAddress(DentalCityAddress):
     email: str
-    phone_number: str
+    phone_number_country_code: str
+    phone_number_national_number: str
 
 
 @dataclass(frozen=True)
@@ -138,8 +139,8 @@ class DentalCityPartnerInfo:
 
 @dataclass(frozen=True)
 class DentalCityOrderDetail:
-    payload_id: str
     order_id: str
+    vendor_order_id: str
     total_amount: Decimal
     tax_amount: Decimal
     shipping_amount: Decimal

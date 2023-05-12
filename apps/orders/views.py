@@ -48,7 +48,6 @@ from rest_framework.status import (
 )
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from sentry_sdk import capture_message
 
 from apps.accounts.models import (
     Company,
@@ -2039,14 +2038,8 @@ class DentalCityOrderFlowOrderResponse(APIView):
     parser_classes = [XMLParser]
 
     def post(self, request):
-        # TODO: should be deleted in the near future, when we are good
-        logger.error(request.data)
-        capture_message(request.data)
-
         order_id = DentalCityCXMLParser.parse_order_response(request.data)
-        order = m.VendorOrder.objects.filter(
-            vendor__slug=SupportedVendor.DentalCity.value, vendor_order_id=order_id
-        ).first()
+        order = m.VendorOrder.objects.filter(vendor__slug=SupportedVendor.DentalCity.value, id=order_id).first()
         if order is not None:
             order.vendor_status = "pending"
             order.status = m.OrderStatus.OPEN
@@ -2059,16 +2052,13 @@ class DentalCityOrderFlowConfirmationRequest(APIView):
     parser_classes = [XMLParser]
 
     def post(self, request):
-        # TODO: should be deleted in the near future, when we are good
-        logger.error(request.data)
-        capture_message(request.data)
-
+        logger.info(f"ConfirmationRequest: {request.data}")
         order_detail: DentalCityOrderDetail = DentalCityCXMLParser.parse_confirm_request(request.data)
         order_id = order_detail.order_id
-        order = m.VendorOrder.objects.filter(
-            vendor__slug=SupportedVendor.DentalCity.value, vendor_order_id=order_id
-        ).first()
+        vendor_order_id = order_detail.vendor_order_id
+        order = m.VendorOrder.objects.filter(vendor__slug=SupportedVendor.DentalCity.value, id=order_id).first()
         if order is not None:
+            order.vendor_order_id = vendor_order_id
             order.vendor_status = "in progress"
             order.status = m.OrderStatus.OPEN
             order.save()
@@ -2081,10 +2071,7 @@ class DentalCityOrderFlowShipmentNoticeRequest(APIView):
     parser_classes = [XMLParser]
 
     def post(self, request):
-        # TODO: should be deleted in the near future, when we are good
-        logger.error(request.data)
-        capture_message(request.data)
-
+        logger.info(f"ShipmentNoticeRequest: {request.data}")
         shipping_info: DentalCityShippingInfo = DentalCityCXMLParser.parse_shipment_notice_request(request.data)
         order_id = shipping_info.order_id
         order = m.VendorOrder.objects.filter(
@@ -2103,8 +2090,7 @@ class DentalCityOrderFlowInvoiceDetailRequest(APIView):
     parser_classes = [XMLParser]
 
     def post(self, request):
-        # TODO: should be deleted in the near future, when we are good
-        capture_message(request.data)
+        logger.info(f"InvoiceDetailRequest: {request.data}")
 
         DentalCityCXMLParser.parse_invoice_detail_request(request.data)
 

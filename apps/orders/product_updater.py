@@ -72,6 +72,10 @@ def update_products(vendor: SupportedVendor, products: Union[List[DentalCityProd
         product_instance.last_price_updated = update_time
         product_instance.updated_at = update_time
 
+        product_description = getattr(vendor_product, "product_desc", None)
+        if product_description:
+            product_instance.vendor_description = product_description
+
         # In case of dental city, we update manufacturer promotion
         dental_city_manufacturer_special = getattr(vendor_product, "manufacturer_special", None)
         if dental_city_manufacturer_special:
@@ -97,14 +101,13 @@ def update_products(vendor: SupportedVendor, products: Union[List[DentalCityProd
             office_product.updated_at = update_time
             office_product_instances.append(office_product)
 
-    updated_fields = ("price", "last_price_updated", "updated_at")
-
     with transaction.atomic():
-        Product.objects.bulk_update(product_instances, fields=updated_fields)
         Product.objects.bulk_update(
-            manufacturer_promotion_products, fields=["promotion_description", "is_special_offer", "updated_at"]
+            manufacturer_promotion_products, fields=("promotion_description", "is_special_offer", "updated_at")
         )
-        OfficeProduct.objects.bulk_update(office_product_instances, fields=updated_fields)
+        common_fields = ["price", "last_price_updated", "updated_at"]
+        Product.objects.bulk_update(product_instances, fields=common_fields + ["vendor_description"])
+        OfficeProduct.objects.bulk_update(office_product_instances, fields=common_fields)
 
     if mismatch_manufacturer_numbers:
         logger.debug(f"Manufacturer Number Mismatches: {mismatch_manufacturer_numbers}")
