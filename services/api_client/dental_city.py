@@ -362,22 +362,10 @@ class DentalCityCXMLParser:
 
 
 async def main():
-    # from tests.factories import DentalCityOrderInfoFactory, DentalCityPartnerInfoFactory
-
     async with ClientSession() as session:
         api_client = DentalCityAPIClient(session, stage=Stage.TEST, auth_key=os.environ.get("DENTAL_CITY_AUTH_KEY"))
         return await api_client.get_products()
-        # partner_info = DentalCityPartnerInfoFactory()
-        # order_info = DentalCityOrderInfoFactory()
-        #
-        # return await api_client.create_order_request(partner_info, order_info)
 
 
 if __name__ == "__main__":
-    with open("/home/dev/Projects/axe/ordo-backend/services/xmls/invoice_detail_request.xml", "r") as f:
-        xml_content = f.read()
-        ret = DentalCityCXMLParser.parse_invoice_detail_request(xml_content)
-        print(ret)
-
-    ret = asyncio.run(main())
-    print([product for product in ret if product.product_sku == "65-17642"])
+    asyncio.run(main())
