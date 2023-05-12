@@ -68,7 +68,10 @@ class Product(TimeStampedModel):
     category = models.ForeignKey(ProductCategory, null=True, blank=True, on_delete=models.SET_NULL, db_index=True)
     name = models.CharField(max_length=512)
     product_unit = models.CharField(max_length=16, null=True, blank=True)
+    # Product description that we fetched using scraper
     description = models.TextField(null=True, blank=True)
+    # Product description that we fetched using api client
+    vendor_description = models.TextField(null=True, blank=True)
     url = models.URLField(null=True, blank=True, max_length=1024)
     tags = models.ManyToManyField(Keyword)
     parent = models.ForeignKey(
