@@ -22,3 +22,9 @@ class SearchHistory(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     query = models.CharField(max_length=1024)
     user = models.ForeignKey(User, on_delete=models.PROTECT)
+
+
+class BadImageUrl(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    image_url = models.URLField(max_length=1024)
+    user = models.ForeignKey(User, on_delete=models.PROTECT)
