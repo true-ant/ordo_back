@@ -1,4 +1,3 @@
-import datetime
 import logging
 import os
 from decimal import Decimal
@@ -26,12 +25,10 @@ class DentalCityClient:
         self.api_client = DentalCityAPIClient(session=session, auth_key=DENTAL_CITY_AUTH_KEY)
 
     async def place_order(self, office_vendor: OfficeVendor, vendor_order: VendorOrder, products: List[CartProduct]):
-        logger.error(f"Placing Order {office_vendor} - {vendor_order} - {products}")
         office_address = office_vendor.office.addresses.first()
         office_admin = await CompanyMember.objects.filter(
             company=office_vendor.office.company, role=User.Role.ADMIN
         ).afirst()
-        logger.error("Building Dental City Request")
         partner_info = DentalCityPartnerInfo(partner_name="Ordo", shared_secret="a4GTFG2a5", customer_id="O00001")
         dental_city_shipping_address = DentalCityShippingAddress(
             name=office_address.office.name,
@@ -44,7 +41,8 @@ class DentalCityClient:
             country_code="US",
             country_name="United States",
             email=office_admin.email,
-            phone_number=str(office_vendor.office.phone_number),
+            phone_number_country_code=office_vendor.office.phone_number.country_code,
+            phone_number_national_number=office_vendor.office.phone_number.national_number,
         )
         dental_city_billing_address = DentalCityBillingAddress(
             name=office_address.office.name,
@@ -58,8 +56,8 @@ class DentalCityClient:
             country_name="United States",
         )
         order_info = DentalCityOrderInfo(
-            order_id=vendor_order.vendor_order_id,
-            order_datetime=datetime.datetime.now(),
+            order_id=str(vendor_order.id),
+            order_datetime=vendor_order.created_at.replace(microsecond=0),
             shipping_address=dental_city_shipping_address,
             billing_address=dental_city_billing_address,
             order_products=[
@@ -76,5 +74,4 @@ class DentalCityClient:
         # Just send the order request using the dental city API
         # We assume that they always process our order request successfully.
         # So, we're always returning true. We will see how it works...
-        logger.error("Creating Dental City Order Request")
         await self.api_client.create_order_request(partner_info, order_info)

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import time
 from decimal import Decimal
 from enum import Enum
 from typing import List, Union
@@ -9,7 +10,6 @@ import xmltodict
 from aiohttp.client import ClientSession
 from lxml import etree
 
-from services.api_client.errors import APIForbiddenError
 from services.api_client.vendor_api_types import (
     DentalCityInvoiceDetail,
     DentalCityInvoiceProduct,
@@ -108,16 +108,19 @@ class DentalCityOrderRequestBuilder:
                     "PostalCode": self.order_info.shipping_address.postal_code,
                     "Country": {
                         "@isoCountryCode": self.order_info.shipping_address.country_code,
-                        "#text": self.order_info.shipping_address.country_code,
+                        "#text": self.order_info.shipping_address.country_name,
                     },
                 },
                 "Email": self.order_info.shipping_address.email,
                 "Phone": {
                     "@name": "work",
                     "TelephoneNumber": {
-                        "CountryCode": {"@isoCountryCode": "US", "#text": "1"},
+                        "CountryCode": {
+                            "@isoCountryCode": "US",
+                            "#text": self.order_info.shipping_address.phone_number_country_code,
+                        },
                         "AreaOrCityCode": "",
-                        "Number": self.order_info.shipping_address.phone_number,
+                        "Number": self.order_info.shipping_address.phone_number_national_number,
                     },
                 },
             },
@@ -184,7 +187,7 @@ class DentalCityOrderRequestBuilder:
 
     def build(self):
         dict_object = {
-            "@payloadID": f"{self.order_info.order_id}@joinordo.com",
+            "@payloadID": self.order_info.order_id,
             "@timestamp": f"{self.order_info.order_datetime_string}",
             "@xml:lang": XML_LANG,
             "@version": "1.2.011",
@@ -215,11 +218,10 @@ class DentalCityAPIClient:
             "page_number": page_number,
         }
         async with self.session.get(url, params=params) as resp:
-            if resp.status == 403:
-                raise APIForbiddenError()
-            products = await resp.json()
-
-            return [DentalCityProduct.from_dict(product) for product in products]
+            if resp.status == 200:
+                products = await resp.json()
+                if products:
+                    return [DentalCityProduct.from_dict(product) for product in products]
 
     async def get_products(self) -> List[DentalCityProduct]:
         products: List[DentalCityProduct] = []
@@ -228,21 +230,23 @@ class DentalCityAPIClient:
             end_page = start_page + 10
             tasks = (self.get_page_products(page) for page in range(start_page, end_page))
             results = await asyncio.gather(*tasks)
-            products.extend([product for result in results for product in result])
+            for result in results:
+                if result is None:
+                    continue
+                products.extend(result)
             if len(products) < self.page_size * (end_page - 1):
                 break
             start_page = end_page
+            # TODO: asyncio.sleep(10)
+            time.sleep(10)
         return products
 
     async def create_order_request(self, partner_info: DentalCityPartnerInfo, order_info: DentalCityOrderInfo) -> bool:
         url = f"{self.stage.value}/api/OrderRequest"
         builder = DentalCityOrderRequestBuilder(partner_info, order_info)
         body = builder.build()
-        # TODO: remove logs
-        logger.error(f"Creating Dental City Order Request {body}")
+        logger.debug(body)
         async with self.session.post(url, data=body) as resp:
-            message = f"{url} Response {resp.status}"
-            logger.error(message)
             return resp.status == 200
 
 
@@ -258,16 +262,15 @@ class DentalCityCXMLParser:
     @staticmethod
     def parse_order_response(xml_content: Union[str, dict]) -> str:
         xml_dict = DentalCityCXMLParser.xml2dict(xml_content)
-        payload_id = xml_dict["cXML"]["@payloadID"]
-        return payload_id.split("@")[0]
+        return xml_dict["cXML"]["@payloadID"]
 
     @staticmethod
     def parse_confirm_request(xml_content) -> DentalCityOrderDetail:
         xml_dict = DentalCityCXMLParser.xml2dict(xml_content)
-        payload_id = xml_dict["cXML"]["@payloadID"]
         confirmation_request = xml_dict["cXML"]["Request"]["ConfirmationRequest"]
         order_id = confirmation_request["OrderReference"]["@orderID"]
         confirmation_header = confirmation_request["ConfirmationHeader"]
+        vendor_order_id = confirmation_header["@confirmID"]
         total_amount = Decimal(confirmation_header["Total"]["Money"]["#text"])
         tax_amount = Decimal(confirmation_header["Tax"]["Money"]["#text"])
         shipping_amount = Decimal(confirmation_header["Shipping"]["Money"]["#text"])
@@ -288,8 +291,8 @@ class DentalCityCXMLParser:
             )
 
         return DentalCityOrderDetail(
-            payload_id=payload_id,
             order_id=order_id,
+            vendor_order_id=vendor_order_id,
             total_amount=total_amount,
             tax_amount=tax_amount,
             shipping_amount=shipping_amount,
@@ -361,22 +364,10 @@ class DentalCityCXMLParser:
 
 
 async def main():
-    from tests.factories import DentalCityOrderInfoFactory, DentalCityPartnerInfoFactory
-
     async with ClientSession() as session:
-        api_client = DentalCityAPIClient(session, stage=Stage.TEST, auth_key=get_secret_value("DENTAL_CITY_AUTH_KEY"))
-        # return await api_client.get_products()
-        partner_info = DentalCityPartnerInfoFactory()
-        order_info = DentalCityOrderInfoFactory()
-
-        return await api_client.create_order_request(partner_info, order_info)
+        api_client = DentalCityAPIClient(session, stage=Stage.TEST, auth_key=os.environ.get("DENTAL_CITY_AUTH_KEY"))
+        return await api_client.get_products()
 
 
 if __name__ == "__main__":
-    with open("/home/dev/Projects/axe/ordo-backend/services/xmls/invoice_detail_request.xml", "r") as f:
-        xml_content = f.read()
-        ret = DentalCityCXMLParser.parse_invoice_detail_request(xml_content)
-        print(ret)
-
-    # ret = asyncio.run(main())
-    # print(ret)
+    asyncio.run(main())
