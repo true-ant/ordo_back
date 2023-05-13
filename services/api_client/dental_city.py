@@ -21,7 +21,8 @@ from services.api_client.vendor_api_types import (
     DentalCityShippingInfo,
     DentalCityShippingProduct,
 )
-from services.utils import dict2xml
+from services.utils.secrets import get_secret_value
+from services.utils.xml import dict2xml
 
 logger = logging.getLogger(__name__)
 
@@ -236,6 +237,7 @@ class DentalCityAPIClient:
             if len(products) < self.page_size * (end_page - 1):
                 break
             start_page = end_page
+            # TODO: asyncio.sleep(10)
             time.sleep(10)
         return products
 

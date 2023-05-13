@@ -39,6 +39,7 @@ from apps.vendor_clients.async_clients import BaseClient
 from apps.vendor_clients.errors import VendorClientException
 from config.celery import app
 from services.api_client.errors import APIClientError
+from services.utils.secrets import get_secret_value
 
 if platform.system() == "Windows":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -355,7 +356,7 @@ def generate_csv_for_salesforce():
     dict_columns = {i: i.title() for i in target_columns}
     host = os.getenv("SFTP_HOST")
     username = os.getenv("SFTP_USERNAME")
-    password = os.getenv("SFTP_PASSWORD")
+    password = get_secret_value("SFTP_PASSWORD")
     port = os.getenv("SFTP_PORT")
     connection_options = pysftp.CnOpts()
     connection_options.hostkeys = None

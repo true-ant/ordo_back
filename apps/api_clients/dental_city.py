@@ -14,9 +14,10 @@ from services.api_client.vendor_api_types import (
     DentalCityPartnerInfo,
     DentalCityShippingAddress,
 )
+from services.utils.secrets import get_secret_value
 
 logger = logging.getLogger(__name__)
-DENTAL_CITY_AUTH_KEY = os.environ.get("DENTAL_CITY_AUTH_KEY")
+DENTAL_CITY_AUTH_KEY = get_secret_value("DENTAL_CITY_AUTH_KEY")
 
 
 class DentalCityClient:
