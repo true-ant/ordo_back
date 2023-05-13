@@ -17,4 +17,4 @@ else:
     cache = SecretCache(config=cache_config, client=client)
 
     def get_secret_value(secret_value):
-        return cache.get_secret_string(f"{STAGE}/{secret_value.lower()}")
+        return cache.get_secret_string(f"{STAGE}/{secret_value}")
