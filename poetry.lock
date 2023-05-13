@@ -306,6 +306,21 @@ six = "*"
 visualize = ["Twisted (>=16.1.1)", "graphviz (>0.5.1)"]
 
 [[package]]
+name = "aws-secretsmanager-caching"
+version = "1.1.1.5"
+description = "Client-side AWS Secrets Manager caching library"
+category = "main"
+optional = false
+python-versions = ">3.5"
+files = [
+    {file = "aws_secretsmanager_caching-1.1.1.5-py3-none-any.whl", hash = "sha256:6afb0233b6ae0183b518138e79b3a53f26432f3a71b03df99801e02e2456adc0"},
+    {file = "aws_secretsmanager_caching-1.1.1.5.tar.gz", hash = "sha256:5cee2762bb89b72f3e5123feee8e45fbe44ffe163bfca08b28f27b2e2b7772e1"},
+]
+
+[package.dependencies]
+botocore = "*"
+
+[[package]]
 name = "backports-zoneinfo"
 version = "0.2.1"
 description = "Backport of the standard library zoneinfo module"
@@ -3616,4 +3631,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "579b29e722c67effc268d7d20bb411d2b2338073283bcc9d8136c6f048fa012e"
+content-hash = "109f499d3f7bd511e165a38193c29e8d1837066e88b6e9ebefce992e24f06804"

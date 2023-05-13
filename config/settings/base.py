@@ -18,6 +18,8 @@ from dotenv import load_dotenv
 from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk.integrations.django import DjangoIntegration
 
+from services.utils.secrets import get_secret_value
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -167,8 +169,6 @@ STAGE = os.environ.get("STAGE")
 
 
 # AWS
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_SES_REGION_NAME = os.getenv("AWS_SES_REGION_NAME")
 AWS_SES_REGION_ENDPOINT = os.getenv("AWS_SES_REGION_ENDPOINT")
 AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
@@ -179,7 +179,7 @@ AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
 # Email Settings
 DEFAULT_FROM_EMAIL = "Gordo from Ordo <noreply@joinordo.com>"
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
+EMAIL_HOST_PASSWORD = get_secret_value("EMAIL_HOST_PASSWORD")
 
 # Frontend Settings
 SITE_URL = os.getenv("SITE_URL", "http://localhost:8000")
@@ -225,7 +225,7 @@ if SENTRY_DSN:
     )
 
 # Stripe
-STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
+STRIPE_API_KEY = get_secret_value("STRIPE_API_KEY")
 STRIPE_SUBSCRIPTION_PRICE_ID = os.getenv("STRIPE_SUBSCRIPTION_PRICE_ID")
 MAKE_FAKE_ORDER = os.getenv("MAKE_FAKE_ORDER", True)
 PRODUCT_PRICE_UPDATE_CYCLE = 14
@@ -265,4 +265,4 @@ API_AVAILABLE_VENDORS = ["dental_city"]
 RUNSERVER_PLUS_PRINT_SQL_TRUNCATE = None
 
 # Vendor API Keys
-DENTAL_CITY_AUTH_KEY = os.getenv("DENTAL_CITY_AUTH_KEY")
+DENTAL_CITY_AUTH_KEY = get_secret_value("DENTAL_CITY_AUTH_KEY")
