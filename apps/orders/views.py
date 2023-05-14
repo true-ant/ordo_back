@@ -28,7 +28,7 @@ from django.db.models import (
     Q,
     Sum,
     Value,
-    When,
+    When, Subquery,
 )
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -98,7 +98,7 @@ from . import models as m
 from . import permissions as p
 from . import serializers as s
 from .actions.product_management import attach_to_parent, unlink_from_parent
-from .models import OfficeProduct, Product
+from .models import OfficeProduct, Product, VendorOrderProduct
 from .parsers import XMLParser
 from .tasks import notify_order_creation, perform_real_order, search_and_group_products
 
@@ -2014,10 +2014,26 @@ class ProcedureCategoryLink(ModelViewSet):
         slugs = self.queryset.get(summary_slug=summary_category).linked_slugs
         queryset = m.OfficeProduct.objects.filter(
             office__id=self.kwargs["office_pk"], is_inventory=True, office_product_category__slug__in=slugs
+        ).annotate(
+            last_quantity_ordered=Subquery(VendorOrderProduct.objects.filter(product_id=OuterRef("product_id")).order_by("-updated_at").values("quantity")[:1])
+        ).prefetch_related(
+            "office_product_category",
+            "vendor",
+            Prefetch("product", Product.objects.all().prefetch_related(
+                "vendor",
+                Prefetch("parent", Product.objects.all().prefetch_related(
+                    Prefetch("children", Product.objects.all().prefetch_related(
+                        "images",
+                        "category",
+                        "vendor"
+                    )),
+                    "images",
+                    "vendor",
+                    "category"
+                ))
+            ))
         )
-        if queryset:
-            return Response(s.OfficeProductSerializer(queryset, many=True, context={"include_children": True}).data)
-        return Response({"message": "No linked products"})
+        return Response(s.OfficeProductSerializer(queryset, many=True, context={"include_children": True}).data)
 
 
 class DentalCityProductAPIView(AsyncMixin, APIView):
