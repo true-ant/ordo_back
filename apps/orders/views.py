@@ -2028,7 +2028,6 @@ class ProcedureCategoryLink(ModelViewSet):
                         "vendor"
                     )),
                     "images",
-                    "vendor",
                     "category"
                 ))
             ))
