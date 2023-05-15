@@ -204,7 +204,6 @@ class CompanySerializer(serializers.ModelSerializer):
             for office in offices_data:
                 offices.append(self._create_or_update_office(instance, **office))
 
-        # TODO: deprecate this
         self._update_subscription(offices, offices_data)
         return instance
 
