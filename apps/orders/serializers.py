@@ -544,8 +544,11 @@ class OfficeProductSerializer(serializers.ModelSerializer):
         """
         Return the empty data temporary...
         """
-        quantity_ordered = office_product.product.vendororderproduct_set.order_by("-updated_at").first()
-        return quantity_ordered.quantity if quantity_ordered else 0
+        if hasattr(office_product, "last_quantity_ordered"):
+            return office_product.last_quantity_ordered
+        else:
+            quantity_ordered = office_product.product.vendororderproduct_set.order_by("-updated_at").first()
+            return quantity_ordered.quantity if quantity_ordered else 0
 
     def custom_quantity_on_hand(self, office_product):
         """
