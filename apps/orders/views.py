@@ -1405,8 +1405,12 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
     @action(detail=False, methods=["post"], url_path="prices")
     async def get_product_prices(self, request, *args, **kwargs):
         serializer = s.ProductPriceRequestSerializer(data=request.data)
-        await sync_to_async(serializer.is_valid)(raise_exception=True)
-        products = {product.id: product for product in serializer.validated_data["products"]}
+        serializer.is_valid(raise_exception=True)
+        product_ids = serializer.validated_data["products"]
+        products = {
+            product.id: product
+            async for product in m.Product.objects.select_related("vendor", "category").filter(id__in=product_ids)
+        }
         response = await OfficeProductHelper.get_product_prices(
             products=products, office=self.kwargs["office_pk"], from_api=True
         )
