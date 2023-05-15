@@ -139,31 +139,36 @@ class Product(TimeStampedModel):
             else:
                 return self.price
 
-    def to_dict(self) -> ProductDict:
-        return {
+    def to_dict(self, include_images=True) -> ProductDict:
+        result = {
             "vendor": self.vendor.slug,
             "product_id": self.product_id if self.product_id else "",
             "sku": "",
             "name": self.name,
             "url": self.url if self.url else "",
-            "images": [image.image for image in self.images.all()],
             "price": self.price,
             "category": self.category.slug if self.category else "",
             "unit": self.product_unit,
         }
+        if include_images:
+            result["images"] = [image.image for image in self.images.all()]
+        return result
 
-    async def ato_dict(self) -> ProductDict:
-        return {
+    async def ato_dict(self, include_images=True) -> ProductDict:
+        result = {
             "vendor": self.vendor.slug,
             "product_id": self.product_id if self.product_id else "",
             "sku": "",
             "name": self.name,
             "url": self.url if self.url else "",
-            "images": [image.image async for image in self.images.all()],
+
             "price": self.price,
             "category": self.category.slug if self.category else "",
             "unit": self.product_unit,
         }
+        if include_images:
+            result["images"] = [image.image async for image in self.images.all()],
+        return result
 
     def to_dataclass(self):
         return ProductDataClass(

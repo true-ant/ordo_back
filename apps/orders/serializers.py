@@ -711,9 +711,7 @@ class VendorProductSearchSerializer(serializers.Serializer):
 
 
 class ProductPriceRequestSerializer(serializers.Serializer):
-    products = serializers.PrimaryKeyRelatedField(
-        queryset=m.Product.objects.select_related("vendor", "category"), many=True
-    )
+    products = serializers.ListField(child=serializers.IntegerField())
 
 
 class VendorOrderReturnSerializer(serializers.Serializer):
