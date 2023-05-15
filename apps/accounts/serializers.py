@@ -16,6 +16,8 @@ from apps.accounts.services.stripe import (
 from apps.common.serializers import Base64ImageField, OptionalSchemeURLValidator
 
 from . import models as m
+from .services import billing
+
 
 # from .tasks import fetch_orders_from_vendor
 
@@ -135,39 +137,12 @@ class CompanySerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def _update_subscription(self, offices, offices_data):
-        try:
-            for office, office_data in zip(offices, offices_data):
-                card_number = office_data.get("cc_number", None)
-                expiry = office_data.get("cc_expiry", None)
-                cvc = office_data.get("cc_code", None)
-                coupon = office_data.get("coupon", None)
-
-                if card_number or expiry or cvc:
-                    card_token = get_payment_method_token(card_number=card_number, expiry=expiry, cvc=cvc)
-                    if office.cards.filter(card_token=card_token.id).exists():
-                        continue
-
-                    _, customer = add_customer_to_stripe(
-                        email=self.context["request"].user.email,
-                        customer_name=office.name,
-                        payment_method_token=card_token,
-                    )
-
-                    subscription = create_subscription(customer_id=customer.id, promocode=coupon)
-
-                    with transaction.atomic():
-                        m.Card.objects.create(
-                            last4=card_token.card.last4,
-                            customer_id=customer.id,
-                            card_token=card_token.id,
-                            office=office,
-                        )
-                        m.Subscription.objects.create(
-                            subscription_id=subscription.id, office=office, start_on=timezone.now().date()
-                        )
-
-        except Exception as e:
-            raise serializers.ValidationError({"message": e})
+        for office, office_data in zip(offices, offices_data):
+            billing.update_subscription(
+                user=self.context["request"].user,
+                office=office,
+                data=offices_data
+            )
 
     def _create_or_update_office(self, company, **kwargs):
         office_id = kwargs.pop("id", None)
@@ -229,6 +204,7 @@ class CompanySerializer(serializers.ModelSerializer):
             for office in offices_data:
                 offices.append(self._create_or_update_office(instance, **office))
 
+        # TODO: deprecate this
         self._update_subscription(offices, offices_data)
         return instance
 
