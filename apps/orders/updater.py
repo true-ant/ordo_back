@@ -225,7 +225,7 @@ class Updater:
     async def producer(self):
         logger.debug("Started producer...")
         products = await sync_to_async(self.get_products)()
-        async for product in products:
+        for product in products:
             await self.to_process.put(ProcessTask(product))
             self.producer_started.set()
         else:
