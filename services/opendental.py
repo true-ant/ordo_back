@@ -1,13 +1,15 @@
 import requests
 
+from services.utils.secrets import get_secret_value
+
 QUERY_URL = "https://api.opendental.com/api/v1/queries/ShortQuery"
-DEVELOPOER_KEY = "ODFHIR Qh3A7zcjmr7TGg4Z"
 
 
 class OpenDentalClient:
     def __init__(self, office_key):
         self.session = requests.Session()
-        self.session.headers = {"Authorization": f"{DEVELOPOER_KEY}/{office_key}"}
+        developer_key = get_secret_value("OPENDENTAL_DEVELOPER_KEY")
+        self.session.headers = {"Authorization": f"{developer_key}/{office_key}"}
 
     def query(self, query, offset=None):
         params = {"Offset": offset} if offset else None

@@ -13,8 +13,6 @@ result_backend = os.getenv("REDIS_URL")
 #    "polling_interval": 2,
 #    "region": "us-east-1",
 # }
-# BROKER_URL = f"sqs://{AWS_ACCESS_KEY_ID}:{AWS_SECRET_ACCESS_KEY}@"  # noqa
-# BROKER_URL = f"sqs://{AWS_ACCESS_KEY_ID}:{AWS_SECRET_ACCESS_KEY}@"
 # RESULT_BACKEND = None
 accept_content = ["application/json"]
 task_serializer = "json"
