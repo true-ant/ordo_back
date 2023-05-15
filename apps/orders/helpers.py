@@ -1557,7 +1557,7 @@ class OrderHelper:
                 product_description = (
                     vendor_description
                     if (vendor_description := vendor_order_product.product.vendor_description)
-                    else vendor_order_product.description
+                    else vendor_order_product.product.description
                 )
                 products.append(
                     CartProduct(
