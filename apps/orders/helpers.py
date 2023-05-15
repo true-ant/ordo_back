@@ -144,8 +144,10 @@ class OfficeProductHelper:
 
     @staticmethod
     async def get_office_vendors(office_id: str, vendor_slugs: List[str]) -> Dict[str, VendorCredential]:
-        q = [Q(office_id=office_id) & Q(vendor__slug=vendor_slug) for vendor_slug in vendor_slugs]
-        office_vendors = OfficeVendorModel.objects.filter(reduce(or_, q)).values(
+        office_vendors = OfficeVendorModel.objects.filter(
+            office_id=office_id,
+            vendor__slug__in=vendor_slugs
+        ).values(
             "vendor__slug", "username", "password"
         )
         return {
@@ -239,7 +241,7 @@ class OfficeProductHelper:
         products_to_be_fetched = {}
 
         for product_id, product in products.items():
-            products_to_be_fetched[product_id] = await product.ato_dict()
+            products_to_be_fetched[product_id] = product.to_dict(include_images=False)
 
         print(f"==== Number of products to fetch from their sites: {len(products_to_be_fetched)} ====")
         if not from_api and products_to_be_fetched:
@@ -292,17 +294,17 @@ class OfficeProductHelper:
     @staticmethod
     async def get_product_prices_from_vendors(products: Dict[str, Product], office_id: str) -> Dict[str, ProductPrice]:
         print("get_product_prices_from_vendors")
-        product_prices_from_vendors = {}
-        if products:
-            vendor_slugs = list(set([product["vendor"] for product_id, product in products.items()]))
-            vendors_credentials = await OfficeProductHelper.get_office_vendors(
-                vendor_slugs=vendor_slugs, office_id=office_id
-            )
-            product_prices_from_vendors = await VendorHelper.get_products_prices(
-                products=products, vendors_credentials=vendors_credentials, use_async_client=True
-            )
-            print("============== update ==============")
-            await OfficeProductHelper.update_products_prices(product_prices_from_vendors, office_id)
+        if not products:
+            return {}
+        vendor_slugs = list(set([product["vendor"] for product_id, product in products.items()]))
+        vendors_credentials = await OfficeProductHelper.get_office_vendors(
+            vendor_slugs=vendor_slugs, office_id=office_id
+        )
+        product_prices_from_vendors = await VendorHelper.get_products_prices(
+            products=products, vendors_credentials=vendors_credentials, use_async_client=True
+        )
+        print("============== update ==============")
+        await OfficeProductHelper.update_products_prices(product_prices_from_vendors, office_id)
 
         return product_prices_from_vendors
 

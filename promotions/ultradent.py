@@ -74,7 +74,7 @@ class UltradentSpider:
             logger.debug("Processing %s", product_info)
             mo = SKUS.search(product_info["promo"])
             skus = mo.groupdict()["skus"]
-            skus = [f"{item}-" for item in skus.replace(" ", "").split(",")]
+            skus = [f"{item}" for item in skus.replace(" ", "").split(",")]
             logger.info("Updating product with SKUs %s", skus)
 
             for p in Product.objects.filter(vendor__slug=self.vendor_slug, product_id__in=skus):

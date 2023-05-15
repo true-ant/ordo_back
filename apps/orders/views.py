@@ -28,8 +28,9 @@ from django.db.models import (
     Q,
     Sum,
     Value,
-    When,
+    When, Subquery,
 )
+from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -98,7 +99,7 @@ from . import models as m
 from . import permissions as p
 from . import serializers as s
 from .actions.product_management import attach_to_parent, unlink_from_parent
-from .models import OfficeProduct, Product
+from .models import OfficeProduct, Product, VendorOrderProduct
 from .parsers import XMLParser
 from .tasks import notify_order_creation, perform_real_order, search_and_group_products
 
@@ -1404,8 +1405,12 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
     @action(detail=False, methods=["post"], url_path="prices")
     async def get_product_prices(self, request, *args, **kwargs):
         serializer = s.ProductPriceRequestSerializer(data=request.data)
-        await sync_to_async(serializer.is_valid)(raise_exception=True)
-        products = {product.id: product for product in serializer.validated_data["products"]}
+        serializer.is_valid(raise_exception=True)
+        product_ids = serializer.validated_data["products"]
+        products = {
+            product.id: product
+            async for product in m.Product.objects.select_related("vendor", "category").filter(id__in=product_ids)
+        }
         response = await OfficeProductHelper.get_product_prices(
             products=products, office=self.kwargs["office_pk"], from_api=True
         )
@@ -2010,14 +2015,40 @@ class ProcedureCategoryLink(ModelViewSet):
 
     @action(detail=False, url_path="linked-products")
     def get_linked_inventory_products(self, request, *args, **kwargs):
+        office_pk = self.kwargs["office_pk"]
         summary_category = self.request.query_params.get("summary_category", "all")
         slugs = self.queryset.get(summary_slug=summary_category).linked_slugs
-        queryset = m.OfficeProduct.objects.filter(
-            office__id=self.kwargs["office_pk"], is_inventory=True, office_product_category__slug__in=slugs
+
+        office_product_price = OfficeProduct.objects.filter(
+            office_id=office_pk, product_id=OuterRef("pk")
+        ).values("price")
+        child_prefetch_queryset = Product.objects.annotate(
+            office_product_price=Subquery(office_product_price[:1])
+        ).annotate(
+            product_price=Coalesce(F("office_product_price"), F("price"))
+        ).prefetch_related(
+            "images",
+            "category",
+            "vendor"
         )
-        if queryset:
-            return Response(s.OfficeProductSerializer(queryset, many=True, context={"include_children": True}).data)
-        return Response({"message": "No linked products"})
+
+        queryset = m.OfficeProduct.objects.filter(
+            office_id=office_pk, is_inventory=True, office_product_category__slug__in=slugs
+        ).annotate(
+            last_quantity_ordered=Subquery(VendorOrderProduct.objects.filter(product_id=OuterRef("product_id")).order_by("-updated_at").values("quantity")[:1])
+        ).prefetch_related(
+            "office_product_category",
+            "vendor",
+            Prefetch("product", Product.objects.all().prefetch_related(
+                "vendor",
+                Prefetch("parent", Product.objects.all().prefetch_related(
+                    Prefetch("children", child_prefetch_queryset),
+                    "images",
+                    "category"
+                ))
+            ))
+        )
+        return Response(s.OfficeProductSerializer(queryset, many=True, context={"include_children": True}).data)
 
 
 class DentalCityProductAPIView(AsyncMixin, APIView):
@@ -2038,6 +2069,7 @@ class DentalCityOrderFlowOrderResponse(APIView):
     parser_classes = [XMLParser]
 
     def post(self, request):
+        logger.info(f"OrderResponse: {request.data}")
         order_id = DentalCityCXMLParser.parse_order_response(request.data)
         order = m.VendorOrder.objects.filter(vendor__slug=SupportedVendor.DentalCity.value, id=order_id).first()
         if order is not None:
