@@ -7,6 +7,7 @@ from dateutil.relativedelta import relativedelta
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import mixins
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -462,6 +463,8 @@ class VendorViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = s.VendorSerializer
     queryset = m.Vendor.objects.all()
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['enabled']
 
     def update(self, request, *args, **kwargs):
         kwargs.setdefault("partial", True)
