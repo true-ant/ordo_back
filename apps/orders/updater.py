@@ -8,6 +8,7 @@ from collections import deque
 from typing import Deque, Dict, List, Union
 
 from aiohttp import ClientSession
+from asgiref.sync import sync_to_async
 from django.db.models.functions import Now
 from django.utils import timezone
 
@@ -182,7 +183,7 @@ class StatBuffer:
 class Updater:
     attempt_threshold = 3
 
-    def __init__(self, vendor: Vendor, office: Office = None):
+    def __init__(self, vendor: Vendor, office_id: str = None):
         self.producer_started = asyncio.Event()
         self.vendor = vendor
         self.vendor_params = VENDOR_PARAMS[vendor.slug]
@@ -193,22 +194,21 @@ class Updater:
         self.target_rate = self.vendor_params.request_rate
         self.last_check: float = time.monotonic()
         self.errors = 0
-        self.office = office
+        self.office_id = office_id
 
     async def get_credentials(self):
         if not self._crendentials:
             qs = OfficeVendor.objects.filter(vendor=self.vendor)
-            if self.office:
-                qs = qs.filter(office=self.office)
+            if self.office_id:
+                qs = qs.filter(office_id=self.office_id)
             self._crendentials = await qs.values("username", "password").afirst()
         return self._crendentials
 
-    async def producer(self):
-        logger.debug("Started producer...")
-        if self.office:
+    def get_products(self):
+        if self.office_id:
             products = (
                 OfficeProduct.objects.select_related("product")
-                .filter(office=self.office, vendor=self.vendor, price_expiration__lt=Now())
+                .filter(office_id=self.office_id, vendor=self.vendor, price_expiration__lt=Now())
                 .exclude(product_vendor_status__in=(STATUS_EXHAUSTED,))
                 .order_by("-is_inventory", "price_expiration")
             )
@@ -220,8 +220,12 @@ class Updater:
                 .exclude(product_vendor_status__in=(STATUS_EXHAUSTED,))
                 .order_by("-_inventory_refs", "price_expiration")
             )
-        products = products[:BULK_SIZE]
-        async for product in products:
+        return list(products[:BULK_SIZE])
+
+    async def producer(self):
+        logger.debug("Started producer...")
+        products = await sync_to_async(self.get_products)()
+        for product in products:
             await self.to_process.put(ProcessTask(product))
             self.producer_started.set()
         else:
@@ -233,10 +237,9 @@ class Updater:
         task_mapping = {pt.product.id: pt for pt in tasks}
         for process_result in results:
             product = process_result.product
-            r = process_result.result
-            if r.is_ok():
+            if process_result.result.is_ok():
                 self.statbuffer.add_item(True)
-                await self.update_price(product, r.value)
+                await self.update_price(product, process_result.result.value)
             else:
                 exc = process_result.result.value
                 if isinstance(exc, TooManyRequests):
@@ -359,6 +362,5 @@ class Updater:
 
 async def fetch_for_vendor(slug, office_id):
     vendor = await Vendor.objects.aget(slug=slug)
-    office = await Office.objects.aget(pk=office_id)
-    updater = Updater(vendor=vendor, office=office)
+    updater = Updater(vendor=vendor, office=office_id)
     await updater.fetch()
