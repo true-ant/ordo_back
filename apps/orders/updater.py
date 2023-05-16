@@ -362,5 +362,5 @@ class Updater:
 
 async def fetch_for_vendor(slug, office_id):
     vendor = await Vendor.objects.aget(slug=slug)
-    updater = Updater(vendor=vendor, office=office_id)
+    updater = Updater(vendor=vendor, office_id=office_id)
     await updater.fetch()

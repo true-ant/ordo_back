@@ -37,6 +37,7 @@ class Vendor(models.Model):
     slug = models.SlugField(max_length=100)
     url = models.CharField(max_length=100)
     logo = models.URLField(null=True, blank=True)
+    enabled = models.BooleanField(default=True)
 
     def __str__(self):
         return self.name
