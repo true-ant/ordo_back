@@ -3,7 +3,7 @@ from dateutil.relativedelta import relativedelta
 
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, OuterRef, Subquery, Func, F
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.safestring import mark_safe
@@ -149,30 +149,58 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
     )
     ordering = ("-on_boarding_step",)
 
+    def get_queryset(self, request):
+        orders = (
+            om.Order.objects.filter(
+                order_type__in=[OrderType.ORDO_ORDER, OrderType.ORDER_REDUNDANCY], office__company_id=OuterRef("pk")
+            )
+            .order_by()
+            .annotate(count=Func(F("id"), function="Count"))
+            .values("count")
+        )
+
+        vendor_orders = (
+            om.VendorOrder.objects.filter(
+                status__in=[OrderStatus.OPEN, OrderStatus.CLOSED], order__office__company_id=OuterRef("pk")
+            )
+            .order_by()
+            .annotate(count=Func(F("id"), function="Count"))
+            .values("count")
+        )
+
+        total_amount = (
+            om.Order.objects.filter(
+                order_type__in=[OrderType.ORDO_ORDER, OrderType.ORDER_REDUNDANCY], office__company_id=OuterRef("pk")
+            )
+            .order_by()
+            .annotate(
+                sum_total_amount=Func(Func(F("total_amount"), function="Sum"), Decimal(0), function="Coalesce"),
+            )
+            .values("sum_total_amount")
+        )
+
+        qs = m.Company.objects.annotate(
+            order_count=Subquery(orders),
+            vendor_order_count=Subquery(vendor_orders),
+            ordo_order_volume=Subquery(total_amount)
+        )
+
+        ordering = self.get_ordering(request)
+        if ordering:
+            qs = qs.order_by(*ordering)
+        return qs
+
     @admin.display(description="Order Count")
     def ordo_order_count(self, obj):
-        return om.Order.objects.filter(
-            order_type__in=[OrderType.ORDO_ORDER, OrderType.ORDER_REDUNDANCY],
-            office__in=obj.offices.all()
-        ).count()
+        return obj.order_count
 
     @admin.display(description="Vendor Order Count")
     def vendor_order_count(self, obj):
-        return om.VendorOrder.objects.filter(
-            status__in=[OrderStatus.OPEN, OrderStatus.CLOSED],
-            order__office__in=obj.offices.all()
-        ).count()
+        return obj.vendor_order_count
 
     @admin.display(description="Order Volume")
     def ordo_order_volume(self, obj):
-        total_amount = om.Order.objects.filter(
-            order_type__in=[OrderType.ORDO_ORDER, OrderType.ORDER_REDUNDANCY],
-            office__in=obj.offices.all()
-        ).aggregate(
-            order_total_amount=Coalesce(Sum("total_amount"), Decimal(0))
-        )["order_total_amount"]
-
-        return f"${total_amount}"
+        return f"${obj.ordo_order_volume}"
 
 
 @admin.register(m.Vendor)
@@ -188,14 +216,11 @@ class VendorAdmin(AdminDynamicPaginationMixin, admin.ModelAdmin):
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
-        queryset = (
-            queryset.annotate(
-                _vendor_order_count=Count(
-                    "vendororder",
-                    filter=Q(vendororder__status__in=[OrderStatus.OPEN, OrderStatus.CLOSED])
-                )
-            ).order_by("-_vendor_order_count")
-        )
+        queryset = queryset.annotate(
+            _vendor_order_count=Count(
+                "vendororder", filter=Q(vendororder__status__in=[OrderStatus.OPEN, OrderStatus.CLOSED])
+            )
+        ).order_by("-_vendor_order_count")
         return queryset
 
     @admin.display(description="Logo")
