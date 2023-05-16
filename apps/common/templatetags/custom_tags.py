@@ -1,5 +1,4 @@
 import time
-import dateutil.relativedelta
 
 from django.contrib.admin.views.main import PAGE_VAR
 from django.db.models import Sum
@@ -12,6 +11,7 @@ from django.utils.safestring import mark_safe
 
 from apps.accounts.models import Company, Office, User, Vendor
 from apps.common.choices import OrderType, OrderStatus
+from apps.common.helper import CustomTagHelper
 from apps.orders.models import Order, Product, VendorOrder
 
 register = Library()
@@ -102,33 +102,11 @@ def dashboard_user_card():
 
 @register.simple_tag
 def dashboard_ordo_order_card():
-    this_month_first_date = timezone.now().date().replace(day=1)
-    last_month_first_date = this_month_first_date + dateutil.relativedelta.relativedelta(months=-1)
     order_objects = Order.objects.filter(
         order_type__in=[OrderType.ORDO_ORDER, OrderType.ORDER_REDUNDANCY]
     )
-    total_count = order_objects.count()
-    last_month_count = (
-        order_objects.filter(order_date__gte=last_month_first_date, order_date__lt=this_month_first_date).count()
-    )
-    this_month_count = order_objects.filter(order_date__gte=this_month_first_date).count()
-    before_this_month_count = order_objects.filter(order_date__lt=this_month_first_date).count()
-    last_month_percentage = round(last_month_count * 100 / before_this_month_count, 2) if before_this_month_count else 0
-    this_month_percentage = round(this_month_count * 100 / total_count, 2) if total_count else 0
-    growth_rate = round(this_month_percentage - last_month_percentage, 2)
-    arrow_status_class_name = "fa-long-arrow-up"
-    color_status_class_name = "text-success"
-
-    if growth_rate < 0:
-        arrow_status_class_name = "fa-long-arrow-down"
-        color_status_class_name = "text-danger"
-
-    value = format_html(
-        f"""
-            <span class="icn-box {color_status_class_name} fw-semibold fs-13 me-1">
-                <i class='fa {arrow_status_class_name}'></i> {"{:,} %".format(growth_rate)}
-            </span>
-        """
+    total_count, value = (
+        CustomTagHelper.calculate_growth_rate_and_get_payload(order_queryset=order_objects)
     )
     return render_to_string(
         "admin/dashboard/ordo_order.html", {"title": "{:,}".format(total_count), "value": value}
@@ -137,33 +115,10 @@ def dashboard_ordo_order_card():
 
 @register.simple_tag
 def dashboard_vendor_order_card():
-    this_month_first_date = timezone.now().date().replace(day=1)
-    last_month_first_date = this_month_first_date + dateutil.relativedelta.relativedelta(months=-1)
     vendor_order_objects = VendorOrder.objects.filter(status__in=[OrderStatus.OPEN, OrderStatus.CLOSED])
-    total_count = vendor_order_objects.count()
-    last_month_count = (
-        vendor_order_objects.filter(order_date__gte=last_month_first_date, order_date__lt=this_month_first_date).count()
+    total_count, value = (
+        CustomTagHelper.calculate_growth_rate_and_get_payload(order_queryset=vendor_order_objects)
     )
-    this_month_count = vendor_order_objects.filter(order_date__gte=this_month_first_date).count()
-    before_this_month_count = vendor_order_objects.filter(order_date__lt=this_month_first_date).count()
-    last_month_percentage = round(last_month_count * 100 / before_this_month_count, 2) if before_this_month_count else 0
-    this_month_percentage = round(this_month_count * 100 / total_count, 2) if total_count else 0
-    growth_rate = round(this_month_percentage - last_month_percentage, 2)
-    arrow_status_class_name = "fa-long-arrow-up"
-    color_status_class_name = "text-success"
-
-    if growth_rate < 0:
-        arrow_status_class_name = "fa-long-arrow-down"
-        color_status_class_name = "text-danger"
-
-    value = format_html(
-        f"""
-            <span class="icn-box {color_status_class_name} fw-semibold fs-13 me-1">
-                <i class='fa {arrow_status_class_name}'></i> {"{:,} %".format(growth_rate)}
-            </span>
-        """
-    )
-
     return render_to_string(
         "admin/dashboard/vendor_order.html", {"title": "{:,}".format(total_count), "value": value}
     )

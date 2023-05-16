@@ -1,7 +1,10 @@
+from decimal import Decimal
 from dateutil.relativedelta import relativedelta
+
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
 from django.db.models import Sum, Count, Q
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
@@ -146,30 +149,30 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
     )
     ordering = ("-on_boarding_step",)
 
-    @admin.display(description="Total Ordo Order Count")
+    @admin.display(description="Order Count")
     def ordo_order_count(self, obj):
         return om.Order.objects.filter(
             order_type__in=[OrderType.ORDO_ORDER, OrderType.ORDER_REDUNDANCY],
             office__in=obj.offices.all()
         ).count()
 
-    @admin.display(description="Total Vendor Order Count")
+    @admin.display(description="Vendor Order Count")
     def vendor_order_count(self, obj):
         return om.VendorOrder.objects.filter(
             status__in=[OrderStatus.OPEN, OrderStatus.CLOSED],
-            ordo__office_pk__in=obj.offices.all()
+            order__office__in=obj.offices.all()
         ).count()
 
-    @admin.display(description="Ordo Order Volume")
+    @admin.display(description="Order Volume")
     def ordo_order_volume(self, obj):
-        queryset = om.Order.objects.filter(
+        total_amount = om.Order.objects.filter(
             order_type__in=[OrderType.ORDO_ORDER, OrderType.ORDER_REDUNDANCY],
             office__in=obj.offices.all()
-        )
-        if queryset.count():
-            total_amount = queryset.aggregate(order_total_amount=Sum("total_amount"))["order_total_amount"]
-            return f"${total_amount}"
-        return "$0"
+        ).aggregate(
+            order_total_amount=Coalesce(Sum("total_amount"), Decimal(0))
+        )["order_total_amount"]
+
+        return f"${total_amount}"
 
 
 @admin.register(m.Vendor)
