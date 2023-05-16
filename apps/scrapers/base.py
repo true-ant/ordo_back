@@ -104,15 +104,7 @@ class Scraper:
         order_status = order_status.lower()
         if any(status in order_status for status in ("delivered", "complete", "cancelled", "closed")):
             return "closed"
-        elif any(
-            [
-                status in order_status
-                for status in ("open", "shipped", "order shipped", "in progress", "processing", "pending", "partial")
-            ]
-        ):
-            return "open"
-        else:
-            return order_status
+        return "open"
 
     @staticmethod
     def normalize_order_product_status(order_product_status):
