@@ -59,49 +59,50 @@ def update_products(vendor: SupportedVendor, products: Union[List[DentalCityProd
     filters = Q(vendor__slug=vendor.value) & Q(
         **{f"{product_identifier_name_in_table}__in": products_by_identifier.keys()}
     )
-    product_instances = Product.objects.select_related("parent").filter(filters)
+    product_instances = Product.objects.filter(filters)
 
     manufacturer_promotion_products = []
     mismatch_manufacturer_numbers = []
     no_comparison_products = []
-    for product_instance in product_instances:
-        # update the product price
-        product_identifier_in_table = getattr(product_instance, product_identifier_name_in_table)
-        vendor_product = products_by_identifier[product_identifier_in_table]
-        product_instance.price = vendor_product.price
-        product_instance.last_price_updated = update_time
-        product_instance.updated_at = update_time
-
-        product_description = getattr(vendor_product, "product_desc", None)
-        if product_description:
-            product_instance.vendor_description = product_description
-
-        # In case of dental city, we update manufacturer promotion
-        dental_city_manufacturer_special = getattr(vendor_product, "manufacturer_special", None)
-        if dental_city_manufacturer_special:
-            manufacturer_number = getattr(vendor_product, "manufacturer_part_number", None)
-            if manufacturer_number and manufacturer_number.replace("-", "") != product_instance.manufacturer_number:
-                mismatch_manufacturer_numbers.append(vendor_product)
-                continue
-
-            if product_instance.parent is None:
-                no_comparison_products.append(vendor_product)
-                continue
-
-            manufacturer_promotion_product = product_instance.parent
-            manufacturer_promotion_product.promotion_description = dental_city_manufacturer_special
-            manufacturer_promotion_product.is_special_offer = True
-            manufacturer_promotion_product.updated_at = update_time
-            manufacturer_promotion_products.append(manufacturer_promotion_product)
-
-        office_products = OfficeProduct.objects.filter(product=product_instance)
-        for office_product in office_products:
-            office_product.price = vendor_product.price
-            office_product.last_price_updated = update_time
-            office_product.updated_at = update_time
-            office_product_instances.append(office_product)
-
     with transaction.atomic():
+        for product_instance in product_instances:
+            # update the product price
+            product_identifier_in_table = getattr(product_instance, product_identifier_name_in_table)
+            vendor_product = products_by_identifier[product_identifier_in_table]
+            product_instance.price = vendor_product.price
+            product_instance.last_price_updated = update_time
+            product_instance.updated_at = update_time
+
+            product_description = getattr(vendor_product, "product_desc", None)
+            if product_description:
+                product_instance.vendor_description = product_description
+
+            # In case of dental city, we update manufacturer promotion
+            dental_city_manufacturer_special = getattr(vendor_product, "manufacturer_special", None)
+            if dental_city_manufacturer_special:
+                manufacturer_number = getattr(vendor_product, "manufacturer_part_number", None)
+                if manufacturer_number and manufacturer_number.replace("-", "") != product_instance.manufacturer_number:
+                    mismatch_manufacturer_numbers.append(vendor_product)
+                    continue
+
+                if product_instance.parent_id is None:
+                    no_comparison_products.append(vendor_product)
+                    continue
+
+                # Avoid loading parent from db, simulate product with id field.
+                manufacturer_promotion_product = Product(id=product_instance.parent_id)
+                manufacturer_promotion_product.promotion_description = dental_city_manufacturer_special
+                manufacturer_promotion_product.is_special_offer = True
+                manufacturer_promotion_product.updated_at = update_time
+                manufacturer_promotion_products.append(manufacturer_promotion_product)
+
+        OfficeProduct.objects.filter(product=product_instance).update(
+            price=vendor_product.price,
+            last_price_updated=update_time,
+            updated_at=update_time,
+        )
+
+
         Product.objects.bulk_update(
             manufacturer_promotion_products, fields=("promotion_description", "is_special_offer", "updated_at")
         )
