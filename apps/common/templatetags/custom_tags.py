@@ -10,8 +10,9 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 from apps.accounts.models import Company, Office, User, Vendor
-from apps.common.choices import OrderType
-from apps.orders.models import Order, Product
+from apps.common.choices import OrderType, OrderStatus
+from apps.common.helper import CustomTagHelper
+from apps.orders.models import Order, Product, VendorOrder
 
 register = Library()
 
@@ -101,75 +102,25 @@ def dashboard_user_card():
 
 @register.simple_tag
 def dashboard_ordo_order_card():
-    month_date = timezone.now().date().replace(day=1)
-    count_ordo_order_all = Order.objects.filter(
-        order_type__in=[OrderType.ORDER_REDUNDANCY.label, OrderType.ORDO_ORDER.label]
-    ).count()
-    count_order_before = Order.objects.filter(order_date__lt=month_date).count()
-    count_ordo_order_before = Order.objects.filter(
-        order_date__lt=month_date, order_type__in=[OrderType.ORDER_REDUNDANCY.label, OrderType.ORDO_ORDER.label]
-    ).count()
-    count_order_this_month = Order.objects.filter(order_date__gte=month_date).count()
-    count_ordo_order_this_month = Order.objects.filter(
-        order_date__gte=month_date, order_type__in=[OrderType.ORDER_REDUNDANCY.label, OrderType.ORDO_ORDER.label]
-    ).count()
-    ordo_order_percent_before = int(count_ordo_order_before * 100 / count_order_before) if count_order_before else 0
-    ordo_order_percent_this_month = (
-        int(count_ordo_order_this_month * 100 / count_order_this_month) if count_order_this_month else 0
+    order_objects = Order.objects.filter(
+        order_type__in=[OrderType.ORDO_ORDER, OrderType.ORDER_REDUNDANCY]
     )
-    ordo_order_grow = ordo_order_percent_this_month - ordo_order_percent_before
-    span_arrow = format_html(
-        """
-        <span class="icn-box text-success fw-semibold fs-13 me-1"><i class='fa fa-long-arrow-up'></i> {}</span>
-        """,
-        "{:,} %".format(ordo_order_grow),
+    total_count, value = (
+        CustomTagHelper.calculate_growth_rate_and_get_payload(order_queryset=order_objects)
     )
-    if ordo_order_grow < 0:
-        span_arrow = format_html(
-            """
-            <span class="icn-box text-danger fw-semibold fs-13 me-1"><i class='fa fa-long-arrow-down'></i> {}</span>
-            """,
-            "{:,} %".format(ordo_order_grow),
-        )
     return render_to_string(
-        "admin/dashboard/ordo_order.html", {"title": "{:,}".format(count_ordo_order_all), "value": span_arrow}
+        "admin/dashboard/ordo_order.html", {"title": "{:,}".format(total_count), "value": value}
     )
 
 
 @register.simple_tag
 def dashboard_vendor_order_card():
-    month_date = timezone.now().date().replace(day=1)
-    count_vendor_order_all = Order.objects.filter(order_type=OrderType.VENDOR_DIRECT.label).count()
-    count_order_before = Order.objects.filter(order_date__lt=month_date).count()
-    count_vendor_order_before = Order.objects.filter(
-        order_date__lt=month_date, order_type=OrderType.VENDOR_DIRECT.label
-    ).count()
-    count_order_this_month = Order.objects.filter(order_date__gte=month_date).count()
-    count_vendor_order_this_month = Order.objects.filter(
-        order_date__gte=month_date, order_type=OrderType.VENDOR_DIRECT.label
-    ).count()
-    vendor_order_percent_before = (
-        int(count_vendor_order_before * 100 / count_order_before) if count_order_before else 0
+    vendor_order_objects = VendorOrder.objects.filter(status__in=[OrderStatus.OPEN, OrderStatus.CLOSED])
+    total_count, value = (
+        CustomTagHelper.calculate_growth_rate_and_get_payload(order_queryset=vendor_order_objects)
     )
-    vendor_order_percent_this_month = (
-        int(count_vendor_order_this_month * 100 / count_order_this_month) if count_order_this_month else 0
-    )
-    vendor_order_grow = vendor_order_percent_this_month - vendor_order_percent_before
-    span_arrow = format_html(
-        """
-        <span class="icn-box text-success fw-semibold fs-13 me-1"><i class='fa fa-long-arrow-up'></i> {}</span>
-        """,
-        "{:,} %".format(vendor_order_grow),
-    )
-    if vendor_order_grow < 0:
-        span_arrow = format_html(
-            """
-            <span class="icn-box text-danger fw-semibold fs-13 me-1"><i class='fa fa-long-arrow-down'></i> {}</span>
-            """,
-            "{:,} %".format(vendor_order_grow),
-        )
     return render_to_string(
-        "admin/dashboard/vendor_order.html", {"title": "{:,}".format(count_vendor_order_all), "value": span_arrow}
+        "admin/dashboard/vendor_order.html", {"title": "{:,}".format(total_count), "value": value}
     )
 
 
