@@ -1,6 +1,7 @@
 from django.db import transaction
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
+from rest_framework.fields import empty
 from rest_framework_recursive.fields import RecursiveField
 
 from apps.accounts.helper import OfficeBudgetHelper
@@ -41,14 +42,8 @@ class OfficeProductVendorSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         if self.context.get("with_inventory_count"):
-            office_inventory_products = (
-                m.OfficeProduct.objects.all()
-                .filter(office_id=self.context["office_id"], product__vendor_id=instance.id, is_inventory=True)
-                .exclude(product__vendor__isnull=True)
-            )
-            ret["category_ids"] = set(office_inventory_products.values_list("office_product_category_id", flat=True))
-            ret["count"] = office_inventory_products.count()
-
+            ret["category_ids"] = instance.categories
+            ret["count"] = instance.count
         return ret
 
 
@@ -226,17 +221,23 @@ class PromotionSerializer(serializers.ModelSerializer):
         model = m.Promotion
         fields = "__all__"
 
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        return ret
-
 
 class ProductSerializer(serializers.ModelSerializer):
-    vendor = serializers.PrimaryKeyRelatedField(queryset=m.Vendor.objects.all())
+    vendor = VendorLiteSerializer()
     images = ProductImageSerializer(many=True, required=False)
     category = ProductCategorySerializer(read_only=True)
     promotion_description = serializers.CharField(required=False, read_only=True)
     children = serializers.ListSerializer(child=RecursiveField(), required=False, read_only=True)
+
+    def get_fields(self):
+        fields = super().get_fields()
+
+        include_children = self.context.get("include_children", False)
+        if not include_children:
+            fields.pop("children", default=None)
+
+        return fields
+
 
     class Meta:
         model = m.Product
@@ -254,15 +255,6 @@ class ProductSerializer(serializers.ModelSerializer):
             "promotion_description",
             "url",
         )
-
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        if ret["vendor"]:
-            ret["vendor"] = VendorLiteSerializer(m.Vendor.objects.get(id=ret["vendor"])).data
-        if not self.context.get("include_children", False):
-            ret.pop("children", None)
-
-        return ret
 
 
 class ProductReadDetailSerializer(serializers.Serializer):
@@ -430,7 +422,7 @@ class CartSerializer(serializers.ModelSerializer):
     # office_product = OfficeProductReadSerializer(write_only=True)
     product = ProductSerializer(read_only=True, required=False)
     promotion = PromotionSerializer(read_only=True, required=False)
-    updated_unit_price = serializers.SerializerMethodField("get_updated_unit_price")
+    updated_unit_price = serializers.SerializerMethodField()
     # same_products = serializers.SerializerMethodField()
     # office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
 
@@ -486,6 +478,9 @@ class CartSerializer(serializers.ModelSerializer):
         """
         Return the updated product price
         """
+        if hasattr(cart_product, "updated_unit_price"):
+            return cart_product.updated_unit_price
+
         updated_product_price = m.OfficeProduct.objects.filter(
             office_id=cart_product.office_id, product_id=cart_product.product_id
         ).values("price")[:1]
@@ -496,10 +491,8 @@ class CartSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         # TODO: return sibling products from linked vendor
         ret = super().to_representation(instance)
-        sibling_products = OfficeProductHelper.get_available_sibling_products(
-            office=instance.office, product=instance.product
-        )
-        ret["sibling_products"] = ProductV2Serializer(
+        sibling_products = [o for o in instance.product.parent.children.all() if o.id != instance.product_id]
+        ret["sibling_products"] = ChildProductV2Serializer(
             sibling_products,
             many=True,
         ).data

@@ -5,7 +5,8 @@ from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField  # TrigramSimilarity,
 from django.db import models
-from django.db.models import Index, Q, Subquery
+from django.db.models import Index, Q, Subquery, OuterRef, F
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django_extensions.db.fields import AutoSlugField
 from slugify import slugify
@@ -18,7 +19,7 @@ from apps.scrapers.schema import Product as ProductDataClass
 from apps.scrapers.schema import ProductImage as ProductImageDataClass
 from apps.scrapers.schema import Vendor as VendorDataClass
 from apps.vendor_clients.types import Product as ProductDict
-
+from decimal import Decimal
 
 class ProductCategory(models.Model):
     name = models.CharField(max_length=128)
@@ -161,13 +162,12 @@ class Product(TimeStampedModel):
             "sku": "",
             "name": self.name,
             "url": self.url if self.url else "",
-
             "price": self.price,
             "category": self.category.slug if self.category else "",
             "unit": self.product_unit,
         }
         if include_images:
-            result["images"] = [image.image async for image in self.images.all()],
+            result["images"] = [image.image async for image in self.images.all()]
         return result
 
     def to_dataclass(self):
@@ -447,6 +447,21 @@ class IsoDate(models.Func):
     output_field = models.DateField()
 
 
+class CartQuerySet(models.QuerySet):
+    def with_updated_unit_price(self):
+        updated_unit_price = (
+            OfficeProduct.objects.filter(office_id=OuterRef("office_id"), product_id=OuterRef("product_id"))
+            .annotate(product_price=Coalesce(F("price"), F("product__price"), Decimal(0)))
+            .values("product_price")[:1]
+        )
+        queryset = self.annotate(updated_unit_price=Subquery(updated_unit_price))
+        return queryset
+
+
+class CartManager(models.Manager):
+    _queryset_class = CartQuerySet
+
+
 class Cart(TimeStampedModel):
     office = FlexibleForeignKey(Office)
     product = FlexibleForeignKey(Product)
@@ -463,6 +478,8 @@ class Cart(TimeStampedModel):
         blank=True,
         db_index=True,
     )
+
+    objects = CartManager()
 
     class Meta:
         ordering = ("created_at",)

@@ -40,7 +40,7 @@ from apps.accounts.models import OfficeVendor as OfficeVendorModel
 from apps.accounts.models import Vendor as VendorModel
 from apps.api_clients.factory import APIClientFactory
 from apps.common import messages as msgs
-from apps.common.choices import OrderStatus, ProductStatus
+from apps.common.choices import OrderStatus, ProductStatus, OrderType
 from apps.common.query import Replacer
 from apps.common.utils import (
     batched,
@@ -1583,10 +1583,9 @@ class OrderHelper:
                     fake_order=fake_order,
                 )
             )
-
         results = await aio.gather(*order_tasks, return_exceptions=True)
         if all(results):
-            order.order_type = msgs.ORDER_TYPE_ORDO
+            order.order_type = OrderType.ORDO_ORDER
             await sync_to_async(order.save)()
 
     @staticmethod

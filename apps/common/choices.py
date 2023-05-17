@@ -29,5 +29,5 @@ class ProductStatus(models.TextChoices):
 
 class OrderType(models.TextChoices):
     ORDER_REDUNDANCY = "redundancy", "Ordo Order - Redundancy"
-    ORDO_ORDER = "normal", "Ordo Order"
+    ORDO_ORDER = "ordo", "Ordo Order"
     VENDOR_DIRECT = "vendor", "Vendor Direct"
