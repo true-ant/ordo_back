@@ -18,7 +18,7 @@ from scrapy import Selector
 from slugify import slugify
 
 from apps.common import messages as msgs
-from apps.common.choices import OrderStatus, ProductStatus
+from apps.common.choices import OrderStatus, ProductStatus, OrderType
 from apps.common.month import Month
 from apps.orders.services.product import ProductService
 from apps.scrapers.errors import DownloadInvoiceError, VendorAuthenticationFailed
@@ -443,6 +443,7 @@ class Scraper:
                         order_date=order_date,
                         total_items=order_data["total_items"],
                         total_amount=order_data["total_amount"],
+                        order_type=OrderType.VENDOR_DIRECT
                     )
                     vendor_order = VendorOrderModel.from_dataclass(
                         vendor=self.vendor, order=order, dict_data=order_data

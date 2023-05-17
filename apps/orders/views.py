@@ -16,6 +16,7 @@ from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.contrib.postgres.aggregates import ArrayAgg
+from django.contrib.postgres.expressions import ArraySubquery
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import (
@@ -30,6 +31,7 @@ from django.db.models import (
     Value,
     When,
     Subquery,
+    Func,
 )
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
@@ -618,7 +620,17 @@ class OfficeProductCategoryViewSet(ModelViewSet):
     @action(detail=False, methods=["get"], url_path="inventory-vendor")
     def get_inventory_vendor_view(self, request, *args, **kwargs):
         categories = {category.id: category.to_dict() for category in m.OfficeProductCategory.objects.all()}
-        queryset = m.Vendor.objects.all().order_by("name")
+        office_id = kwargs["office_pk"]
+        inventory_products = m.OfficeProduct.objects.filter(
+            office_id=office_id, product__vendor_id=OuterRef("pk"), is_inventory=True
+        )
+        vendor_categories = (
+            inventory_products.values("office_product_category_id").order_by("office_product_category_id").distinct()
+        )
+        inventory_product_count = inventory_products.annotate(count=Func(F("id"), function="Count")).values("count")
+        queryset = m.Vendor.objects.annotate(
+            categories=ArraySubquery(vendor_categories), count=Subquery(inventory_product_count)
+        ).order_by("name")
         serializer = s.OfficeProductVendorSerializer(
             queryset, many=True, context={"with_inventory_count": True, "office_id": kwargs["office_pk"]}
         )
@@ -987,7 +999,6 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 created_by=self.request.user,
                 order_date=order_date,
                 status=m.OrderStatus.PENDING_APPROVAL if approval_needed else m.OrderStatus.OPEN,
-                order_type=msgs.ORDER_TYPE_REDUNDANCY,
             )
             total_amount = 0.0
             total_items = 0.0
