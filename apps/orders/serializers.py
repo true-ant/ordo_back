@@ -1,6 +1,7 @@
 from django.db import transaction
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
+from rest_framework.fields import empty
 from rest_framework_recursive.fields import RecursiveField
 
 from apps.accounts.helper import OfficeBudgetHelper
@@ -226,17 +227,23 @@ class PromotionSerializer(serializers.ModelSerializer):
         model = m.Promotion
         fields = "__all__"
 
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        return ret
-
 
 class ProductSerializer(serializers.ModelSerializer):
-    vendor = serializers.PrimaryKeyRelatedField(queryset=m.Vendor.objects.all())
+    vendor = VendorLiteSerializer()
     images = ProductImageSerializer(many=True, required=False)
     category = ProductCategorySerializer(read_only=True)
     promotion_description = serializers.CharField(required=False, read_only=True)
     children = serializers.ListSerializer(child=RecursiveField(), required=False, read_only=True)
+
+    def get_fields(self):
+        fields = super().get_fields()
+
+        include_children = self.context.get("include_children", False)
+        if not include_children:
+            fields.pop("children", default=None)
+
+        return fields
+
 
     class Meta:
         model = m.Product
@@ -254,15 +261,6 @@ class ProductSerializer(serializers.ModelSerializer):
             "promotion_description",
             "url",
         )
-
-    def to_representation(self, instance):
-        ret = super().to_representation(instance)
-        if ret["vendor"]:
-            ret["vendor"] = VendorLiteSerializer(m.Vendor.objects.get(id=ret["vendor"])).data
-        if not self.context.get("include_children", False):
-            ret.pop("children", None)
-
-        return ret
 
 
 class ProductReadDetailSerializer(serializers.Serializer):
@@ -430,7 +428,7 @@ class CartSerializer(serializers.ModelSerializer):
     # office_product = OfficeProductReadSerializer(write_only=True)
     product = ProductSerializer(read_only=True, required=False)
     promotion = PromotionSerializer(read_only=True, required=False)
-    updated_unit_price = serializers.SerializerMethodField("get_updated_unit_price")
+    updated_unit_price = serializers.SerializerMethodField()
     # same_products = serializers.SerializerMethodField()
     # office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
 
@@ -486,6 +484,9 @@ class CartSerializer(serializers.ModelSerializer):
         """
         Return the updated product price
         """
+        if hasattr(cart_product, "updated_unit_price"):
+            return cart_product.updated_unit_price
+
         updated_product_price = m.OfficeProduct.objects.filter(
             office_id=cart_product.office_id, product_id=cart_product.product_id
         ).values("price")[:1]

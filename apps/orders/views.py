@@ -28,7 +28,8 @@ from django.db.models import (
     Q,
     Sum,
     Value,
-    When, Subquery,
+    When,
+    Subquery,
 )
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
@@ -800,7 +801,12 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
     def get_queryset(self):
         # orders_product table
-        queryset = self.queryset.filter(office_id=self.kwargs["office_pk"])
+        queryset = (
+            self.queryset.filter(office_id=self.kwargs["office_pk"])
+            .with_updated_unit_price()
+            .select_related("product", "product__vendor", "product__category")
+            .prefetch_related("product__images")
+        )
         order_by = self.request.query_params.get("by", "vendor")
         if order_by == "time":
             return queryset.order_by("-updated_at")
@@ -2019,34 +2025,42 @@ class ProcedureCategoryLink(ModelViewSet):
         summary_category = self.request.query_params.get("summary_category", "all")
         slugs = self.queryset.get(summary_slug=summary_category).linked_slugs
 
-        office_product_price = OfficeProduct.objects.filter(
-            office_id=office_pk, product_id=OuterRef("pk")
-        ).values("price")
-        child_prefetch_queryset = Product.objects.annotate(
-            office_product_price=Subquery(office_product_price[:1])
-        ).annotate(
-            product_price=Coalesce(F("office_product_price"), F("price"))
-        ).prefetch_related(
-            "images",
-            "category",
-            "vendor"
+        office_product_price = OfficeProduct.objects.filter(office_id=office_pk, product_id=OuterRef("pk")).values(
+            "price"
+        )
+        child_prefetch_queryset = (
+            Product.objects.annotate(office_product_price=Subquery(office_product_price[:1]))
+            .annotate(product_price=Coalesce(F("office_product_price"), F("price")))
+            .prefetch_related("images", "category", "vendor")
         )
 
-        queryset = m.OfficeProduct.objects.filter(
-            office_id=office_pk, is_inventory=True, office_product_category__slug__in=slugs
-        ).annotate(
-            last_quantity_ordered=Subquery(VendorOrderProduct.objects.filter(product_id=OuterRef("product_id")).order_by("-updated_at").values("quantity")[:1])
-        ).prefetch_related(
-            "office_product_category",
-            "vendor",
-            Prefetch("product", Product.objects.all().prefetch_related(
+        queryset = (
+            m.OfficeProduct.objects.filter(
+                office_id=office_pk, is_inventory=True, office_product_category__slug__in=slugs
+            )
+            .annotate(
+                last_quantity_ordered=Subquery(
+                    VendorOrderProduct.objects.filter(product_id=OuterRef("product_id"))
+                    .order_by("-updated_at")
+                    .values("quantity")[:1]
+                )
+            )
+            .prefetch_related(
+                "office_product_category",
                 "vendor",
-                Prefetch("parent", Product.objects.all().prefetch_related(
-                    Prefetch("children", child_prefetch_queryset),
-                    "images",
-                    "category"
-                ))
-            ))
+                Prefetch(
+                    "product",
+                    Product.objects.all().prefetch_related(
+                        "vendor",
+                        Prefetch(
+                            "parent",
+                            Product.objects.all().prefetch_related(
+                                Prefetch("children", child_prefetch_queryset), "images", "category"
+                            ),
+                        ),
+                    ),
+                ),
+            )
         )
         return Response(s.OfficeProductSerializer(queryset, many=True, context={"include_children": True}).data)
 
