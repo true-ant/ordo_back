@@ -497,10 +497,8 @@ class CartSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         # TODO: return sibling products from linked vendor
         ret = super().to_representation(instance)
-        sibling_products = OfficeProductHelper.get_available_sibling_products(
-            office=instance.office, product=instance.product
-        )
-        ret["sibling_products"] = ProductV2Serializer(
+        sibling_products = [o for o in instance.product.parent.children.all() if o.id != instance.product_id]
+        ret["sibling_products"] = ChildProductV2Serializer(
             sibling_products,
             many=True,
         ).data

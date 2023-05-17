@@ -801,11 +801,27 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
 
     def get_queryset(self):
         # orders_product table
+        office_pk = self.kwargs["office_pk"]
+        office_product_price = OfficeProduct.objects.filter(office_id=office_pk, product_id=OuterRef("pk")).values(
+            "price"
+        )
+        child_prefetch_queryset = (
+            Product.objects.annotate(office_product_price=Subquery(office_product_price[:1]))
+            .annotate(product_price=Coalesce(F("office_product_price"), F("price")))
+            .prefetch_related("images", "category", "vendor")
+        )
         queryset = (
-            self.queryset.filter(office_id=self.kwargs["office_pk"])
+            self.queryset.filter(office_id=office_pk)
             .with_updated_unit_price()
-            .select_related("product", "product__vendor", "product__category")
-            .prefetch_related("product__images")
+            .select_related(
+                "product",
+                "product__vendor",
+                "product__category",
+            )
+            .prefetch_related(
+                "product__images",
+                Prefetch("product__parent__children", child_prefetch_queryset),
+            )
         )
         order_by = self.request.query_params.get("by", "vendor")
         if order_by == "time":
