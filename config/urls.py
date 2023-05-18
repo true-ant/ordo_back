@@ -31,4 +31,5 @@ urlpatterns = [
         include("django_rest_passwordreset.urls", namespace="password_reset"),
     ),
     path("api/audit/", include("apps.audit.urls")),
+    path("reports/", include("apps.reports.urls"))
 ]
