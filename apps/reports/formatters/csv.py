@@ -11,5 +11,4 @@ def export_to_csv(rows: List) -> str:
     writer.writerow(fieldnames)
     for row in rows:
         writer.writerow(row)
-    buffer.seek(0)
-    return buffer
+    return buffer.getvalue()
