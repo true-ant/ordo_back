@@ -1,6 +1,5 @@
 from decimal import Decimal
 from dateutil.relativedelta import relativedelta
-
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
 from django.db.models import Sum, Count, Q, OuterRef, Subquery, Func, F
