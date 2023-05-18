@@ -190,7 +190,7 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
             qs = qs.order_by(*ordering)
         return qs
 
-    @admin.display(description="Order Count")
+    @admin.display(description="Ordo Order Count")
     def ordo_order_count(self, obj):
         return obj.order_count
 
