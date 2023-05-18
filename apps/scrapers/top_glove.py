@@ -18,29 +18,26 @@ class TopGloveScraper(Scraper):
     BASE_URL = "https://www.topqualitygloves.com"
 
     async def _get_login_data(self, *args, **kwargs):
-        try:
-            async with self.session.get(f"{self.BASE_URL}/index.php?main_page=login", headers=HTTP_HEADER) as resp:
-                text = Selector(text=await resp.text())
-                security_token = text.xpath("//form[@name='login']//input[@name='securityToken']/@value").get()
-                data = [
-                    ("email_address", self.username),
-                    ("password", self.password),
-                    ("securityToken", security_token),
-                    ("x", "27"),
-                    ("y", "3"),
-                ]
-                return {
-                    "url": f"{self.BASE_URL}/index.php?main_page=login&action=process",
-                    "headers": LOGIN_HEADER,
-                    "data": data,
-                }
-        except Exception as err:
-            raise ValueError(err)
+        async with self.session.get(f"{self.BASE_URL}/index.php?main_page=login", headers=HTTP_HEADER) as resp:
+            text = Selector(text=await resp.text())
+            security_token = text.xpath("//form[@name='login']//input[@name='securityToken']/@value").get()
+            data = [
+                ("email_address", self.username),
+                ("password", self.password),
+                ("securityToken", security_token),
+                ("x", "27"),
+                ("y", "3"),
+            ]
+            return {
+                "url": f"{self.BASE_URL}/index.php?main_page=login&action=process",
+                "headers": LOGIN_HEADER,
+                "data": data,
+            }
 
     async def _check_authenticated(self, resp: ClientResponse):
         text = await resp.text()
         dom = Selector(text=text)
-        return True if "logged in" in dom.xpath("//li[@class='headerNavLoginButton']//text()").get() else False
+        return "logged in" in dom.xpath("//li[@class='headerNavLoginButton']//text()").get()
 
     async def create_order(self, products: List[CartProduct], shipping_method=None) -> Dict[str, VendorOrderDetail]:
         subtotal_manual = sum([prod["price"] * prod["quantity"] for prod in products])
