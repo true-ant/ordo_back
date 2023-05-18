@@ -50,4 +50,4 @@ class Command(BaseCommand):
                 )
                 for vendor_product in page.object_list
             ]
-            OfficeProduct.objects.bulk_create(office_products)
+            OfficeProduct.objects.bulk_create(office_products, ignore_conflicts=True)
