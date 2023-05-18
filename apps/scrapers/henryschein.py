@@ -277,7 +277,6 @@ class HenryScheinScraper(Scraper):
         print("henryschein/get_orders")
 
         params = {}
-
         if from_date and to_date:
             from_date = from_date.strftime("%m/%d/%Y")
             to_date = to_date.strftime("%m/%d/%Y")
