@@ -266,3 +266,7 @@ RUNSERVER_PLUS_PRINT_SQL_TRUNCATE = None
 
 # Vendor API Keys
 DENTAL_CITY_AUTH_KEY = get_secret_value("DENTAL_CITY_AUTH_KEY")
+
+CORS_EXPOSE_HEADERS = [
+    "Content-Disposition",
+]
