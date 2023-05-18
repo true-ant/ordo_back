@@ -131,7 +131,7 @@ class Net32Scraper(Scraper):
                                     "name": line_item["mpName"],
                                     "description": line_item["description"],
                                     "url": f"{self.BASE_URL}/{line_item['detailLink']}",
-                                    # "images": [{"image": f"{self.BASE_URL}/media{line_item['mediaPath']}"}],
+                                    "images": [{"image": f"{self.BASE_URL}/media{line_item['mediaPath']}"}] if 'mediaPath' in line_item else [],
                                     "category": [line_item["catName"]],
                                     "price": line_item["oliProdPrice"],
                                     "vendor": self.vendor.to_dict(),
