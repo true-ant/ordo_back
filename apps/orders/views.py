@@ -2067,7 +2067,10 @@ class ProcedureCategoryLink(ModelViewSet):
             )
             .annotate(
                 last_quantity_ordered=Subquery(
-                    VendorOrderProduct.objects.filter(product_id=OuterRef("product_id"))
+                    VendorOrderProduct.objects.filter(
+                        product_id=OuterRef("product_id"),
+                        vendor_order__order__office_id=office_pk
+                    )
                     .order_by("-updated_at")
                     .values("quantity")[:1]
                 )

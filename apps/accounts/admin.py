@@ -1,6 +1,5 @@
 from decimal import Decimal
 from dateutil.relativedelta import relativedelta
-
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
 from django.db.models import Sum, Count, Q, OuterRef, Subquery, Func, F
@@ -190,7 +189,7 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
             qs = qs.order_by(*ordering)
         return qs
 
-    @admin.display(description="Order Count")
+    @admin.display(description="Ordo Order Count")
     def ordo_order_count(self, obj):
         return obj.order_count
 

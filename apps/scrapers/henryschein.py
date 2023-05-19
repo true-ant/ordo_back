@@ -8,6 +8,7 @@ import uuid
 from decimal import Decimal
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
+from dateutil.relativedelta import relativedelta
 
 from aiohttp import ClientResponse
 from scrapy import Selector
@@ -279,7 +280,13 @@ class HenryScheinScraper(Scraper):
 
         params = {}
         if from_date and to_date:
-            params["Search"] = f"dateRangeSF|{from_date.strftime('%m/%d/%Y')}|{to_date.strftime('%m/%d/%Y')}"
+            from_date = from_date.strftime("%m/%d/%Y")
+            to_date = to_date.strftime("%m/%d/%Y")
+        else:
+            from_date = (datetime.datetime.now() - relativedelta(years=2)).date().strftime("%m/%d/%Y")
+            to_date = datetime.datetime.today().date().strftime("%m/%d/%Y")
+
+        params["Search"] = f"dateRangeSF|{from_date}|{to_date}"
 
         url = f"{self.BASE_URL}/us-en/Orders/OrderStatus.aspx"
 
