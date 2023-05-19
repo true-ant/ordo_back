@@ -120,7 +120,7 @@ class Scraper:
             return "returned"
         elif any([status in order_product_status for status in ("cancelled",)]):
             return "cancelled"
-        elif any([status in order_product_status for status in ("received", "complete", "shipped")]):
+        elif any([status in order_product_status for status in ("received", "complete")]):
             return "received"
         else:
             return order_product_status
@@ -409,7 +409,19 @@ class Scraper:
                 vendor_order.vendor_order_id = order_id
                 vendor_order.status = order_data["status"]
                 vendor_order.total_amount = Decimal(order_data.get("total_amount", 0.0))
+                vendor_order.invoice_link = order_data.get("invoice_link", "")
                 vendor_order.save()
+
+                vendor_order_products = vendor_order.order_products.select_related("product").filter(
+                    status=ProductStatus.PROCESSING
+                )
+                for o in order_products:
+                    vendor_order_product = vendor_order_products.filter(product__product_id=o["product"]["product_id"]).first()
+                    if not vendor_order_product:
+                        continue
+                    vendor_order_product.status= self.normalize_order_product_status(o["status"])
+                    vendor_order_product.tracking_link = o.get("tracking_link")
+                    vendor_order_product.save()
             else:
                 # Try to find the vendor order using products and order date
                 order_found = False
@@ -426,10 +438,19 @@ class Scraper:
                         coming_product_ids = [o["product"]["product_id"] for o in order_products]
                         discrepancy = list(set(origin_product_ids) - set(coming_product_ids))
                         if not discrepancy:
+                            for o in order_products:
+                                vendor_order_product = vendor_order_products.filter(product__product_id=o["product"]["product_id"]).first()
+                                if not vendor_order_product:
+                                    continue
+                                vendor_order_product.status = self.normalize_order_product_status(o["status"])
+                                vendor_order_product.tracking_link = o.get("tracking_link")
+                                vendor_order_product.save()
+
                             v_order.vendor_order_id = order_id
                             v_order.status = order_data["status"]
                             v_order.vendor_order_reference = vendor_order_reference if vendor_order_reference else ""
                             v_order.total_amount = Decimal(order_data.get("total_amount", 0.0))
+                            v_order.invoice_link = order_data.get("invoice_link", "")
                             v_order.save()
                             order_found = True
                             break

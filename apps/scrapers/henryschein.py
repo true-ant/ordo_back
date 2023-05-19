@@ -146,6 +146,7 @@ class HenryScheinScraper(Scraper):
                 quantity = quantity_price.split(";")[0].strip("-")
                 product_price = re.search(r"\$(.*)/", quantity_price)
                 product_price = product_price.group(1)
+                product_status = self.extract_first(order_product_dom, "./td[@colspan='4' or @colspan='5']//table//tr[1]//td[3]//text()")
 
                 if "invoice_link" not in order:
                     invoice_link = self.extract_first(
@@ -186,6 +187,7 @@ class HenryScheinScraper(Scraper):
                             "images": [],
                             "category": "",
                             "price": product_price,
+                            "status": product_status,
                             "vendor": self.vendor.to_dict(),
                         },
                         "quantity": quantity,
@@ -290,7 +292,7 @@ class HenryScheinScraper(Scraper):
 
         if perform_login:
             await self.login()
-        print(completed_order_ids)
+
         sem = asyncio.Semaphore(value=2)
         async with self.session.get(url, params=params) as resp:
             text = await resp.text()

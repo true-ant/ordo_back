@@ -119,9 +119,9 @@ class Net32Scraper(Scraper):
                     for line_item in vendor_order["lineItems"]:
                         tracking_link = None
                         tracking_number = None
-                        if line_item["manifests"] and "shippingMethod" in line_item["manifests"][0]:
+                        if line_item["manifests"] and "shippingMethod" in line_item["manifests"][0] and "trackingNumber" in line_item["manifests"][0]:
                             shipping_method = line_item["manifests"][0]["shippingMethod"]
-                            # tracking_number = line_item["manifests"][0]["trackingNumber"]
+                            tracking_number = line_item["manifests"][0]["trackingNumber"]
                             tracking_link = f"{shipping_base_tracking_urls[shipping_method]}{tracking_number}"
 
                         order_products.append(
@@ -135,6 +135,7 @@ class Net32Scraper(Scraper):
                                     "category": [line_item["catName"]],
                                     "price": line_item["oliProdPrice"],
                                     "vendor": self.vendor.to_dict(),
+                                    "status": line_item["status"]
                                 },
                                 "quantity": line_item["quantity"],
                                 "unit_price": line_item["oliProdPrice"],
