@@ -10,6 +10,7 @@ from typing import Dict, List, Optional
 
 import scrapy
 from scrapy import Selector
+from unicaps import CaptchaSolver, CaptchaSolvingService
 
 from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
@@ -18,6 +19,11 @@ from apps.scrapers.schema import Order, VendorOrderDetail
 from apps.scrapers.utils import catch_network, semaphore_coroutine
 from apps.types.orders import CartProduct
 from apps.types.scraper import InvoiceFile, InvoiceFormat, InvoiceType
+
+ANTI_CAPTCHA_API_KEY = 'c5fe215b8d10e582e21b52622c66be4e'
+SITE_KEY = '6LeUI1YlAAAAAHc-5405p6x2aXI-e9R5o0RO9R9Z'
+MIN_SCORE = 0.9
+UESR_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36'
 
 headers = {
     "authority": "store.implantdirect.com",
@@ -240,23 +246,51 @@ class ImplantDirectScraper(Scraper):
         is_authenticated = self._check_authenticated(login_resp)
         if is_authenticated:
             return True
+        
+        solver = CaptchaSolver(
+            CaptchaSolvingService.ANTI_CAPTCHA,
+            ANTI_CAPTCHA_API_KEY
+        )
         form_key = login_dom.xpath('//form[@id="login-form"]/input[@name="form_key"]/@value').get()
         form_action = login_dom.xpath('//form[@id="login-form"]/@action').get()
-        data = {
-            "form_key": form_key,
-            "login[username]": self.username,
-            "login[password]": self.password,
-            "send": "",
-        }
-        response = self.session.post(form_action, data=data, headers=headers)
 
-        is_authenticated = self._check_authenticated(response)
-        if not is_authenticated:
-            raise VendorAuthenticationFailed()
+        retry_count = 5
+        for i in range(retry_count):
+            solved = solver.solve_recaptcha_v3(
+                site_key=SITE_KEY,
+                page_url=login_resp.url,
+                is_enterprise=True,
+                min_score=MIN_SCORE,
+                api_domain="recaptcha.net"
+            )
 
-        print(response.url)
-        print("Log In POST:", response.status_code)
-        return response.cookies
+            recaptcha_token = solved.solution.token
+
+            data = {
+                'form_key': form_key,
+                'login[username]': self.username,
+                'login[password]': self.password,
+                'g-recaptcha-response': recaptcha_token,
+                'token': recaptcha_token,
+            }
+
+            response = self.session.post(form_action, data=data, headers=headers)
+            if response.url.endswith('/customer/account/'):
+                print(f"Try #{i+1} >>> Log In POST:", response.status_code)
+                is_authenticated = self._check_authenticated(response)
+                if not is_authenticated:
+                    raise VendorAuthenticationFailed()
+
+                print(response.url)
+                print("Log In POST:", response.status_code)
+                return response.cookies
+            else:
+                if (i+1) == retry_count:
+                    print(f"Exceed trying {retry_count} times!")
+                    raise VendorAuthenticationFailed()
+                else:
+                    print(f"Try #{i+1} >>> Login Faild!")
+                    continue
 
     def clear_cart(self):
         cart_page = self.getCartPage()
