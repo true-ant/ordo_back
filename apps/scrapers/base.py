@@ -412,7 +412,9 @@ class Scraper:
                 vendor_order.invoice_link = order_data.get("invoice_link", "")
                 vendor_order.save()
 
-                vendor_order_products = vendor_order.order_products.select_related("product")
+                vendor_order_products = vendor_order.order_products.select_related("product").filter(
+                    status=ProductStatus.PROCESSING
+                )
                 for o in order_products:
                     vendor_order_product = vendor_order_products.filter(product__product_id=o["product"]["product_id"]).first()
                     if not vendor_order_product:
@@ -502,7 +504,6 @@ class Scraper:
                         )
                         order_product["vendor_status"] = order_product["status"]
                         order_product["status"] = self.normalize_order_product_status(order_product["vendor_status"])
-                        order_product["tracking_link"] = order_product.get("tracking_link")
 
                         VendorOrderProductModel.objects.update_or_create(
                             vendor_order=vendor_order,
