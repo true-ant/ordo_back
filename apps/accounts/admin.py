@@ -1,15 +1,15 @@
 from decimal import Decimal
+
 from dateutil.relativedelta import relativedelta
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
-from django.db.models import Sum, Count, Q, OuterRef, Subquery, Func, F
-from django.db.models.functions import Coalesce
+from django.db.models import Count, F, Func, OuterRef, Q, Subquery
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
-from apps.common.admins import ReadOnlyAdminMixin, AdminDynamicPaginationMixin
-from apps.common.choices import OrderType, OrderStatus
+from apps.common.admins import AdminDynamicPaginationMixin, ReadOnlyAdminMixin
+from apps.common.choices import OrderStatus, OrderType
 from apps.common.month import Month
 from apps.orders import models as om
 
@@ -86,10 +86,22 @@ class OfficeBudgetInline(NestedTabularInline):
         return super().get_queryset(request).filter(month__gte=month).order_by("-month")
 
 
-class OfficeOrdersInline(NestedTabularInline):
+class OfficeOrdersInline(ReadOnlyAdminMixin, NestedTabularInline):
     model = om.Order
-    readonly_fields = ("id", "company", "office", "vendors", "total_price", "order_date", "order_type", "status")
+    readonly_fields = (
+        "id",
+        "company",
+        "office",
+        "vendors",
+        "total_price",
+        "order_date",
+        "order_type",
+        "status",
+        "total_items",
+        "total_amount",
+    )
     fields = ("vendors", "order_date", "total_items", "total_amount", "company", "order_type", "status")
+    show_change_link = True
 
     @admin.display(description="Company")
     def company(self, obj):
@@ -181,7 +193,7 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
         qs = m.Company.objects.annotate(
             order_count=Subquery(orders),
             vendor_order_count=Subquery(vendor_orders),
-            ordo_order_volume=Subquery(total_amount)
+            ordo_order_volume=Subquery(total_amount),
         )
 
         ordering = self.get_ordering(request)

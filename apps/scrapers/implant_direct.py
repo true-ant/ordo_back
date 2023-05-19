@@ -218,6 +218,7 @@ class ImplantDirectScraper(Scraper):
             product["product_id"] = product_item["sku"]
             product["vendor"] = self.vendor.to_dict()
             product["subtotal"] = product_item["row_total"]
+            product["status"] = product_item["status"]
             product["images"] = []
             order["products"].append(
                 {"product": product, "quantity": product.pop("qty"), "unit_price": product["price"]}
