@@ -2,10 +2,10 @@ import asyncio
 import datetime
 import uuid
 from decimal import Decimal
-from typing import Dict, List, Optional
+from typing import Dict, List, NamedTuple, Optional
 from urllib.parse import urlparse
 
-from aiohttp import ClientResponse
+from aiohttp import ClientConnectorError, ClientResponse
 from django.utils.dateparse import parse_datetime
 from scrapy import Selector
 
@@ -16,7 +16,7 @@ from apps.common.utils import (
     strip_whitespaces,
 )
 from apps.scrapers.base import Scraper
-from apps.scrapers.errors import OrderFetchException
+from apps.scrapers.errors import NetworkConnectionException, OrderFetchException
 from apps.scrapers.headers.net32 import (
     CART_HEADERS,
     LOGIN_HEADERS,
@@ -30,7 +30,7 @@ from apps.scrapers.product_track import (
     USPSProductTrack,
 )
 from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
-from apps.scrapers.utils import catch_network
+from apps.scrapers.utils import transform_exceptions
 from apps.types.orders import CartProduct
 from apps.types.scraper import (
     InvoiceAddress,
@@ -44,6 +44,11 @@ from apps.types.scraper import (
     ProductSearch,
     SmartProductID,
 )
+
+
+class ShippingInfo(NamedTuple):
+    tracking_link: Optional[str] = None
+    tracking_number: Optional[str] = None
 
 
 class Net32Scraper(Scraper):
@@ -71,7 +76,83 @@ class Net32Scraper(Scraper):
             },
         }
 
-    @catch_network
+    def _get_shipping_info(self, line_item, shipping_base_tracking_urls) -> ShippingInfo:
+        if "manifests" not in line_item:
+            return ShippingInfo()
+        manifests = line_item["manifests"]
+        if not manifests:
+            return ShippingInfo()
+        manifest = manifests[0]
+        for required_field in ("shippingMethod", "trackingNumber"):
+            if required_field not in manifest:
+                return ShippingInfo()
+        shipping_method = manifest["shippingMethod"]
+        if shipping_method not in shipping_base_tracking_urls:
+            return ShippingInfo()
+        base_url = shipping_base_tracking_urls[shipping_method]
+        tracking_number = manifest["trackingNumber"]
+        tracking_link = f"{base_url}{tracking_number}"
+        return ShippingInfo(tracking_link=tracking_link, tracking_number=tracking_number)
+
+    def _transform_line_item(self, line_item, shipping_base_tracking_urls):
+        shipping_info = self._get_shipping_info(line_item, shipping_base_tracking_urls)
+
+        return {
+            "product": {
+                "product_id": line_item["mpId"],
+                "name": line_item["mpName"],
+                "description": line_item["description"],
+                "url": f"{self.BASE_URL}/{line_item['detailLink']}",
+                "images": [{"image": f"{self.BASE_URL}/media{line_item['mediaPath']}"}]
+                if "mediaPath" in line_item
+                else [],
+                "category": [line_item["catName"]],
+                "price": line_item["oliProdPrice"],
+                "vendor": self.vendor.to_dict(),
+                "status": line_item["status"],
+            },
+            "quantity": line_item["quantity"],
+            "unit_price": line_item["oliProdPrice"],
+            "status": line_item["status"],
+            **shipping_info._asdict(),
+        }
+
+    def _transform_order(self, order, from_date, to_date, completed_order_ids, shipping_base_tracking_urls):
+        order_date = parse_datetime(order["coTime"]).date()
+        if from_date and to_date and (order_date < from_date or order_date > to_date):
+            return
+
+        order_id = str(order["id"])
+        if completed_order_ids and order_id in completed_order_ids:
+            return
+
+        order_products = [
+            self._transform_line_item(line_item, shipping_base_tracking_urls)
+            for vendor_order in order["vendorOrders"]
+            for line_item in vendor_order["lineItems"]
+        ]
+
+        return {
+            "order_id": order["id"],
+            "total_amount": order["orderTotal"],
+            "currency": "USD",
+            "order_date": parse_datetime(order["coTime"]).date(),
+            "status": order["status"],
+            "shipping_address": {
+                "address": "".join([i for i in order["shippingAdress"]["Streets"] if i]),
+                "region_code": order["shippingAdress"]["RegionCD"],
+                "postal_code": order["shippingAdress"]["PostalCD"],
+            },
+            "invoice_link": f"https://www.net32.com/account/orders/invoice/{order['id']}",
+            "products": order_products,
+        }
+
+    @transform_exceptions(
+        {
+            ClientConnectorError: NetworkConnectionException,
+        },
+        OrderFetchException,
+    )
     async def get_orders(
         self,
         office=None,
@@ -99,91 +180,41 @@ class Net32Scraper(Scraper):
         async with self.session.get(url, headers=headers, params=params) as resp:
             res = await resp.json()
 
-        try:
-            orders = []
-            shipping_base_tracking_urls = {
-                shipping_method["name"]: shipping_method.get("smTrackingUrl", "")
-                for shipping_method in res["Payload"]["shippingMethods"]
-            }
-            for order in res["Payload"]["orders"]:
-                order_date = parse_datetime(order["coTime"]).date()
-                if from_date and to_date and (order_date < from_date or order_date > to_date):
-                    continue
-
-                order_id = order["id"]
-                if completed_order_ids and order_id in completed_order_ids:
-                    continue
-
-                order_products = []
-                for vendor_order in order["vendorOrders"]:
-                    for line_item in vendor_order["lineItems"]:
-                        tracking_link = None
-                        tracking_number = None
-                        if line_item["manifests"] and "shippingMethod" in line_item["manifests"][0] and "trackingNumber" in line_item["manifests"][0]:
-                            shipping_method = line_item["manifests"][0]["shippingMethod"]
-                            tracking_number = line_item["manifests"][0]["trackingNumber"]
-                            tracking_link = f"{shipping_base_tracking_urls[shipping_method]}{tracking_number}"
-
-                        order_products.append(
-                            {
-                                "product": {
-                                    "product_id": line_item["mpId"],
-                                    "name": line_item["mpName"],
-                                    "description": line_item["description"],
-                                    "url": f"{self.BASE_URL}/{line_item['detailLink']}",
-                                    "images": [{"image": f"{self.BASE_URL}/media{line_item['mediaPath']}"}] if 'mediaPath' in line_item else [],
-                                    "category": [line_item["catName"]],
-                                    "price": line_item["oliProdPrice"],
-                                    "vendor": self.vendor.to_dict(),
-                                    "status": line_item["status"]
-                                },
-                                "quantity": line_item["quantity"],
-                                "unit_price": line_item["oliProdPrice"],
-                                "status": line_item["status"],
-                                "tracking_link": tracking_link,
-                                "tracking_number": tracking_number,
-                            }
-                        )
-
-                orders.append(
-                    {
-                        "order_id": order_id,
-                        "total_amount": order["orderTotal"],
-                        "currency": "USD",
-                        "order_date": parse_datetime(order["coTime"]).date(),
-                        "status": order["status"],
-                        "shipping_address": {
-                            "address": "".join([i for i in order["shippingAdress"]["Streets"] if i]),
-                            "region_code": order["shippingAdress"]["RegionCD"],
-                            "postal_code": order["shippingAdress"]["PostalCD"],
-                        },
-                        "invoice_link": f"https://www.net32.com/account/orders/invoice/{order['id']}",
-                        "products": order_products,
-                    }
+        shipping_base_tracking_urls = {
+            shipping_method["name"]: shipping_method.get("smTrackingUrl", "")
+            for shipping_method in res["Payload"]["shippingMethods"]
+        }
+        orders = [
+            res_order
+            for order in res["Payload"]["orders"]
+            if (
+                res_order := self._transform_order(
+                    order, from_date, to_date, completed_order_ids, shipping_base_tracking_urls
                 )
-
-            product_categories = {}
-            product_ids = list(
-                set([product["product"]["product_id"] for order in orders for product in order["products"]])
             )
-            tasks = (self.get_product_category_tree(product_id) for product_id in product_ids)
-            categories = await asyncio.gather(*tasks)
-            for product_id, category in zip(product_ids, categories):
-                product_categories[product_id] = category
+        ]
 
+        product_categories = {}
+        product_ids = list(
+            set([product["product"]["product_id"] for order in orders for product in order["products"]])
+        )
+        tasks = (self.get_product_category_tree(product_id) for product_id in product_ids)
+        categories = await asyncio.gather(*tasks)
+        for product_id, category in zip(product_ids, categories):
+            product_categories[product_id] = category
+
+        for order in orders:
+            for order_product in order["products"]:
+                p = order_product["product"]
+                p["category"] = product_categories[p["product_id"]]
+
+        orders = [Order.from_dict(order) for order in orders]
+
+        if office:
             for order in orders:
-                for order_product in order["products"]:
-                    order_product["product"]["category"] = product_categories[order_product["product"]["product_id"]]
+                await self.save_order_to_db(office, order=order)
 
-            orders = [Order.from_dict(order) for order in orders]
-
-            if office:
-                for order in orders:
-                    await self.save_order_to_db(office, order=order)
-
-            return orders
-        except KeyError:
-            raise OrderFetchException()
+        return orders
 
     async def get_product_category_tree(self, product_id, product_data_dict=None):
         async with self.session.get(f"https://www.net32.com/rest/neo/pdp/{product_id}/categories-tree") as resp:

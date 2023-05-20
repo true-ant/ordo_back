@@ -1,24 +1,40 @@
 import re
 from decimal import Decimal
 from functools import wraps
-from typing import List
+from typing import Dict, List, Optional, Type
 
 from aiohttp.client_exceptions import ClientConnectorError
 
 from apps.scrapers.errors import NetworkConnectionException
 
+TransformValue = Type[Exception]
+TranformExceptionMapping = Dict[Type[Exception], TransformValue]
 
-def catch_network(func):
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        try:
-            res = await func(*args, **kwargs)
-        except ClientConnectorError:
-            raise NetworkConnectionException()
-        else:
-            return res
 
-    return wrapper
+def transform_exceptions(exception_mapping: TranformExceptionMapping, default: Optional[TransformValue] = None):
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            try:
+                result = await func(*args, **kwargs)
+            except Exception as e:
+                for exception_class, substitute in exception_mapping.items():
+                    if not isinstance(e, exception_class):
+                        continue
+                    raise substitute() from e
+                else:
+                    if default is None:
+                        raise
+                    raise default() from e
+            else:
+                return result
+
+        return wrapper
+
+    return decorator
+
+
+catch_network = transform_exceptions({ClientConnectorError: NetworkConnectionException})
 
 
 def semaphore_coroutine(func):
