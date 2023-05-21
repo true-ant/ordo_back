@@ -464,7 +464,7 @@ class VendorViewSet(ModelViewSet):
     serializer_class = s.VendorSerializer
     queryset = m.Vendor.objects.all()
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['enabled']
+    filterset_fields = ["enabled"]
 
     def update(self, request, *args, **kwargs):
         kwargs.setdefault("partial", True)
@@ -492,7 +492,10 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return m.OfficeVendor.objects.filter(office_id=self.kwargs["office_pk"])
+        queryset = m.OfficeVendor.objects.filter(office_id=self.kwargs["office_pk"])
+        if self.action == "list":
+            return queryset.select_related("vendor", "default_shipping_option").prefetch_related("shipping_options")
+        return queryset
 
     def get_serializer_class(self):
         if self.request.method in ["POST"]:
