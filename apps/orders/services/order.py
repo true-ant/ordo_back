@@ -1,5 +1,3 @@
-import datetime
-from datetime import timedelta
 from decimal import Decimal
 
 from asgiref.sync import async_to_sync, sync_to_async
@@ -11,11 +9,7 @@ from apps.common.choices import BUDGET_SPEND_TYPE, ProductStatus
 from apps.common.month import Month
 from apps.orders.helpers import OrderHelper
 from apps.orders.models import OrderStatus, VendorOrder, VendorOrderProduct
-from apps.orders.tasks import (
-    check_order_status_and_notify_customers,
-    notify_order_creation,
-    perform_real_order,
-)
+from apps.orders.tasks import notify_order_creation, perform_real_order
 from config.utils import get_client_session
 
 
@@ -65,8 +59,6 @@ class OrderService:
 
         if products:
             perform_real_order.delay([vendor_order.id])
-            check_date = datetime.datetime.now() + timedelta(days=3)
-            check_order_status_and_notify_customers.apply_async([vendor_order.id], eta=check_date)
             vendor_order.status = OrderStatus.OPEN
         else:
             vendor_order.status = OrderStatus.CLOSED
