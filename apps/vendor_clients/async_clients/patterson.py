@@ -27,6 +27,12 @@ from apps.vendor_clients.headers.patterson import (
 logger = logging.getLogger(__name__)
 
 
+B2C_LOGIN_URL = (
+    "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
+    "B2C_1A_PRODUCTION_Dental_SignInWithPwReset/api/CombinedSigninAndSignup/confirmed"
+)
+
+
 class PattersonClient(BaseClient):
     VENDOR_SLUG = "patterson"
     GET_PRODUCT_PAGE_HEADERS = GET_PRODUCT_PAGE_HEADERS
@@ -87,74 +93,78 @@ class PattersonClient(BaseClient):
     async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> Optional[SimpleCookie]:
         login_info = await self.get_login_data()
         logger.debug("Got logger data: %s", login_info)
-        if login_info:
-            async with self.session.post(
-                url=login_info["url"], headers=login_info["headers"], data=login_info["data"]
-            ) as resp:
-                transId = login_info["data"]["transId"]
-                policy = login_info["data"]["policy"]
-                csrf = login_info["data"]["csrf"]
-                diag = login_info["data"]["diag"]
+        if not login_info:
+            return
 
-                headers = LOGIN_HOOK_HEADER.copy()
-                headers["Referer"] = login_info["data"]["login_page_link"]
+        async with self.session.post(
+            url=login_info["url"], headers=login_info["headers"], data=login_info["data"]
+        ) as resp:
+            await resp.read()
 
-                params = (
-                    ("tx", transId),
-                    ("p", policy),
-                    ("rememberMe", "false"),
-                    ("csrf_token", csrf),
-                    ("diags", urlencode(diag)),
-                )
-                url = (
-                    "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
-                    "B2C_1A_PRODUCTION_Dental_SignInWithPwReset/api/CombinedSigninAndSignup/confirmed?"
-                    + urlencode(params)
-                )
+        login_data = login_info["data"]
+        transId = login_data["transId"]
+        policy = login_data["policy"]
+        csrf = login_data["csrf"]
+        diag = login_data["diag"]
 
-                logger.debug("Logging in...")
-                async with self.session.get(url, headers=headers) as resp:
-                    print("Login Confirmed: ", resp.status)
-                    text = await resp.text()
-                    dom = Selector(text=text)
-                    state = dom.xpath('//input[@name="state"]/@value').get()
-                    code = dom.xpath('//input[@name="code"]/@value').get()
-                    id_token = dom.xpath('//input[@name="id_token"]/@value').get()
+        headers = LOGIN_HOOK_HEADER.copy()
+        headers["Referer"] = login_data["login_page_link"]
 
-                    headers = LOGIN_HOOK_HEADER2.copy()
+        params = (
+            ("tx", transId),
+            ("p", policy),
+            ("rememberMe", "false"),
+            ("csrf_token", csrf),
+            ("diags", urlencode(diag)),
+        )
+        url = f"{B2C_LOGIN_URL}?{urlencode(params)}"
 
-                    data = {
-                        "state": state,
-                        "code": code,
-                        "id_token": id_token,
-                    }
+        logger.debug("Logging in...")
+        async with self.session.get(url, headers=headers) as resp:
+            print("Login Confirmed: ", resp.status)
+            text = await resp.text()
 
-                    async with self.session.post(
-                        url="https://www.pattersondental.com/Account/LogOnPostProcessing/",
-                        headers=headers,
-                        data=data,
-                    ) as resp:
-                        async with self.session.get(
-                            url="https://www.pattersondental.com/supplies/deals",
-                            headers=HOME_HEADERS,
-                            data=data,
-                        ) as resp:
-                            if resp.status != 200:
-                                content = await resp.read()
-                                logger.debug("Got %s status, content = %s", resp.status, content)
-                                raise errors.VendorAuthenticationFailed()
+        dom = Selector(text=text)
+        state = dom.xpath('//input[@name="state"]/@value').get()
+        code = dom.xpath('//input[@name="code"]/@value').get()
+        id_token = dom.xpath('//input[@name="id_token"]/@value').get()
 
-                            is_authenticated = await self.check_authenticated(resp)
-                            if not is_authenticated:
-                                logger.debug("Still not authenticated")
-                                raise errors.VendorAuthenticationFailed()
+        headers = LOGIN_HOOK_HEADER2.copy()
 
-                            if hasattr(self, "after_login_hook"):
-                                await self.after_login_hook(resp)
+        data = {
+            "state": state,
+            "code": code,
+            "id_token": id_token,
+        }
 
-                            logger.info("Successfully logged in")
+        async with self.session.post(
+            url="https://www.pattersondental.com/Account/LogOnPostProcessing/",
+            headers=headers,
+            data=data,
+        ) as resp:
+            await resp.read()
 
-            return resp.cookies
+        async with self.session.get(
+            url="https://www.pattersondental.com/supplies/deals",
+            headers=HOME_HEADERS,
+            data=data,
+        ) as resp:
+            content = await resp.read()
+            if resp.status != 200:
+                logger.debug("Got %s status, content = %s", resp.status, content)
+                raise errors.VendorAuthenticationFailed()
+
+        is_authenticated = await self.check_authenticated(resp)
+        if not is_authenticated:
+            logger.debug("Still not authenticated")
+            raise errors.VendorAuthenticationFailed()
+
+        if hasattr(self, "after_login_hook"):
+            await self.after_login_hook(resp)
+
+        logger.info("Successfully logged in")
+
+        return resp.cookies
 
     async def get_cart_page(self) -> Union[Selector, dict]:
         return await self.get_response_as_json(
