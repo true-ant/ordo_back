@@ -2,7 +2,6 @@ import asyncio
 import datetime
 import json
 import logging
-import os
 import re
 import time
 import uuid
@@ -12,7 +11,6 @@ from typing import Dict, List, Optional
 
 import scrapy
 from scrapy import Selector
-from unicaps import CaptchaSolver, CaptchaSolvingService
 
 from apps.common import messages as msgs
 from apps.scrapers.base import Scraper
@@ -26,8 +24,8 @@ MIN_SCORE = 0.9
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36"
 )
-retry_count = 5
 
+retry_count = 5
 logger = logging.getLogger(__name__)
 
 headers = {
@@ -255,7 +253,7 @@ class ImplantDirectScraper(Scraper):
 
         form_key = login_dom.xpath('//form[@id="login-form"]/input[@name="form_key"]/@value').get()
         form_action = login_dom.xpath('//form[@id="login-form"]/@action').get()
-        sitekey = re.search(r'sitekey\"\s*\:\s*\"([\d\w\-]+)\"', login_resp.text).groups()[0]
+        sitekey = re.search(r"sitekey\"\s*\:\s*\"([\d\w\-]+)\"", login_resp.text).groups()[0]
 
         for i in range(retry_count):
             solved = solve_captcha(sitekey, login_resp.url, MIN_SCORE, True, "recaptcha.net")
@@ -282,7 +280,7 @@ class ImplantDirectScraper(Scraper):
                 logger.info(response.url)
                 logger.info("Log In POST: {response.status_code}")
                 return response.cookies
-            
+
         logger.info(f"Exceed trying {retry_count} times!")
         raise VendorAuthenticationFailed()
 

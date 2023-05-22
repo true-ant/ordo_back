@@ -2,15 +2,13 @@ import asyncio
 import datetime
 import json
 import logging
-import os
+import re
 import textwrap
 from typing import Dict, Optional, Union
-import re
 
 import scrapy
 from aiohttp import ClientResponse
 from scrapy import Selector
-from unicaps import CaptchaSolver, CaptchaSolvingService
 
 from apps.common.utils import (
     concatenate_list_as_string,
@@ -30,6 +28,7 @@ MIN_SCORE = 0.9
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36"
 )
+
 retry_count = 5
 LOGIN_HEADER = {
     "authority": "store.implantdirect.com",
@@ -49,6 +48,7 @@ LOGIN_HEADER = {
 }
 
 logger = logging.getLogger(__name__)
+
 
 class ImplantDirectClient(BaseClient):
     VENDOR_SLUG = "implant_direct"
@@ -81,7 +81,7 @@ class ImplantDirectClient(BaseClient):
 
             form_key = login_dom.xpath('//form[@id="login-form"]/input[@name="form_key"]/@value').get()
             form_action = login_dom.xpath('//form[@id="login-form"]/@action').get()
-            sitekey = re.search(r'sitekey\"\s*\:\s*\"([\d\w\-]+)\"', text).groups()[0]
+            sitekey = re.search(r"sitekey\"\s*\:\s*\"([\d\w\-]+)\"", text).groups()[0]
 
             solved = solve_captcha(sitekey, resp.url, MIN_SCORE, True, "recaptcha.net")
             recaptcha_token = solved.solution.token
@@ -132,10 +132,9 @@ class ImplantDirectClient(BaseClient):
         if is_authenticated:
             return True
 
-        solver = CaptchaSolver(CaptchaSolvingService.ANTI_CAPTCHA, ANTI_CAPTCHA_API_KEY)
         form_key = login_dom.xpath('//form[@id="login-form"]/input[@name="form_key"]/@value').get()
         form_action = login_dom.xpath('//form[@id="login-form"]/@action').get()
-        sitekey = re.search(r'sitekey\"\s*\:\s*\"([\d\w\-]+)\"', login_resp.text).groups()[0]
+        sitekey = re.search(r"sitekey\"\s*\:\s*\"([\d\w\-]+)\"", login_resp.text).groups()[0]
 
         for i in range(retry_count):
             solved = solve_captcha(sitekey, login_resp.url, MIN_SCORE, True, "recaptcha.net")
@@ -162,7 +161,7 @@ class ImplantDirectClient(BaseClient):
                 logger.info(response.url)
                 logger.info("Log In POST: {response.status_code}")
                 return response.cookies
-        
+
         logger.info(f"Exceed trying {retry_count} times!")
         raise errors.VendorAuthenticationFailed()
 
