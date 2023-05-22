@@ -43,47 +43,49 @@ class PattersonClient(BaseClient):
                 "returnUrl": "/",
                 "signIn": "userSignIn",
             }
-            async with self.session.get(
-                url="https://www.pattersondental.com/Account", headers=PRE_LOGIN_HEADERS, params=params
-            ) as resp:
-                login_url = str(resp.url)
-                text = await resp.text()
-                settings_content = text.split("var SETTINGS")[1].split(";")[0].strip(" =")
-                settings = json.loads(settings_content)
-                csrf = settings.get("csrf", "")
-                transId = settings.get("transId", "")
-                policy = settings.get("hosts", {}).get("policy", "")
-                diag = {"pageViewId": settings.get("pageViewId", ""), "pageId": "CombinedSigninAndSignup", "trace": []}
+            await resp.read()
 
-                headers = LOGIN_HEADERS.copy()
-                headers["Referer"] = login_url
-                headers["X-CSRF-TOKEN"] = csrf
+        async with self.session.get(
+            url="https://www.pattersondental.com/Account", headers=PRE_LOGIN_HEADERS, params=params
+        ) as resp:
+            login_url = str(resp.url)
+            text = await resp.text()
+            settings_content = text.split("var SETTINGS")[1].split(";")[0].strip(" =")
+            settings = json.loads(settings_content)
+            csrf = settings.get("csrf", "")
+            transId = settings.get("transId", "")
+            policy = settings.get("hosts", {}).get("policy", "")
+            diag = {"pageViewId": settings.get("pageViewId", ""), "pageId": "CombinedSigninAndSignup", "trace": []}
 
-                params = (
-                    ("tx", transId),
-                    ("p", policy),
-                )
-                url = (
-                    "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
-                    "B2C_1A_PRODUCTION_Dental_SignInWithPwReset/SelfAsserted?" + urlencode(params)
-                )
+            headers = LOGIN_HEADERS.copy()
+            headers["Referer"] = login_url
+            headers["X-CSRF-TOKEN"] = csrf
 
-                data = {
-                    "signInName": self.username,
-                    "password": self.password,
-                    "request_type": "RESPONSE",
-                    "diag": diag,
-                    "login_page_link": login_url,
-                    "transId": transId,
-                    "csrf": csrf,
-                    "policy": policy,
-                }
+            params = (
+                ("tx", transId),
+                ("p", policy),
+            )
+            url = (
+                "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
+                "B2C_1A_PRODUCTION_Dental_SignInWithPwReset/SelfAsserted?" + urlencode(params)
+            )
 
-                return {
-                    "url": url,
-                    "headers": headers,
-                    "data": data,
-                }
+            data = {
+                "signInName": self.username,
+                "password": self.password,
+                "request_type": "RESPONSE",
+                "diag": diag,
+                "login_page_link": login_url,
+                "transId": transId,
+                "csrf": csrf,
+                "policy": policy,
+            }
+
+            return {
+                "url": url,
+                "headers": headers,
+                "data": data,
+            }
 
     async def check_authenticated(self, resp: ClientResponse) -> bool:
         text = await resp.text()
