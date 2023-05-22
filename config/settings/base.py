@@ -227,7 +227,7 @@ if SENTRY_DSN:
         integrations=[DjangoIntegration(), CeleryIntegration()],
         environment=SENTRY_ENVIRONMENT,
         release=VERSION,
-        traces_sample_rate=1.0,
+        traces_sample_rate=0.1,
         send_default_pii=True,
     )
 
