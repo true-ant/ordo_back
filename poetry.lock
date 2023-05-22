@@ -1211,6 +1211,18 @@ lxml = "*"
 requests = "*"
 
 [[package]]
+name = "enforce-typing"
+version = "1.0.0.post1"
+description = "An easy to use decorator to enforce static typing for function and dataclasses."
+category = "main"
+optional = false
+python-versions = ">=3.5"
+files = [
+    {file = "enforce-typing-1.0.0.post1.tar.gz", hash = "sha256:90347a61d08e7f7578d9714b4f0fd8abd9b6bc48c8ac8d46d7f290d413afabb7"},
+    {file = "enforce_typing-1.0.0.post1-py2.py3-none-any.whl", hash = "sha256:d3184dfdbfd7f9520c884986561751a6106c57cdd65d730470645d2d40c47e18"},
+]
+
+[[package]]
 name = "exceptiongroup"
 version = "1.1.1"
 description = "Backport of PEP 654 (exception groups)"
@@ -1421,6 +1433,28 @@ files = [
 ]
 
 [[package]]
+name = "httpcore"
+version = "0.17.1"
+description = "A minimal low-level HTTP client."
+category = "main"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "httpcore-0.17.1-py3-none-any.whl", hash = "sha256:628e768aaeec1f7effdc6408ba1c3cdbd7487c1fc570f7d66844ec4f003e1ca4"},
+    {file = "httpcore-0.17.1.tar.gz", hash = "sha256:caf508597c525f9b8bfff187e270666309f63115af30f7d68b16143a403c8356"},
+]
+
+[package.dependencies]
+anyio = ">=3.0,<5.0"
+certifi = "*"
+h11 = ">=0.13,<0.15"
+sniffio = ">=1.0.0,<2.0.0"
+
+[package.extras]
+http2 = ["h2 (>=3,<5)"]
+socks = ["socksio (>=1.0.0,<2.0.0)"]
+
+[[package]]
 name = "httptools"
 version = "0.2.0"
 description = "A collection of framework independent HTTP protocol utils."
@@ -1447,6 +1481,30 @@ files = [
 
 [package.extras]
 test = ["Cython (==0.29.22)"]
+
+[[package]]
+name = "httpx"
+version = "0.24.1"
+description = "The next generation HTTP client."
+category = "main"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "httpx-0.24.1-py3-none-any.whl", hash = "sha256:06781eb9ac53cde990577af654bd990a4949de37a28bdb4a230d434f3a30b9bd"},
+    {file = "httpx-0.24.1.tar.gz", hash = "sha256:5853a43053df830c20f8110c5e69fe44d035d850b2dfe795e196f00fdb774bdd"},
+]
+
+[package.dependencies]
+certifi = "*"
+httpcore = ">=0.15.0,<0.18.0"
+idna = "*"
+sniffio = "*"
+
+[package.extras]
+brotli = ["brotli", "brotlicffi"]
+cli = ["click (>=8.0.0,<9.0.0)", "pygments (>=2.0.0,<3.0.0)", "rich (>=10,<14)"]
+http2 = ["h2 (>=3,<5)"]
+socks = ["socksio (>=1.0.0,<2.0.0)"]
 
 [[package]]
 name = "hyperlink"
@@ -3101,6 +3159,22 @@ files = [
 ]
 
 [[package]]
+name = "unicaps"
+version = "1.2.1"
+description = "Universal CAPTCHA Solver for humans"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "unicaps-1.2.1-py3-none-any.whl", hash = "sha256:4339e5c105d407ec763d655a65bb9048be90539f6b5c0ea3b8461cfde6e4145a"},
+    {file = "unicaps-1.2.1.tar.gz", hash = "sha256:d1db80e2404fb948c8eea0fe2a013dde1fcc7651c2e4b58a1563a7bb198f6df2"},
+]
+
+[package.dependencies]
+enforce-typing = ">=1.0.0"
+httpx = ">=0.22.0"
+
+[[package]]
 name = "urllib3"
 version = "1.26.15"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
@@ -3631,4 +3705,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "109f499d3f7bd511e165a38193c29e8d1837066e88b6e9ebefce992e24f06804"
+content-hash = "98b5b11811ddf9a5749249902c5df8c98351b5168d8908d893565b5d267168e5"

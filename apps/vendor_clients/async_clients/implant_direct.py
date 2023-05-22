@@ -2,9 +2,11 @@ import asyncio
 import datetime
 import json
 import logging
+import re
 import textwrap
 from typing import Dict, Optional, Union
 
+import scrapy
 from aiohttp import ClientResponse
 from scrapy import Selector
 
@@ -17,9 +19,33 @@ from apps.common.utils import (
 )
 from apps.orders.models import OfficeProduct
 from apps.orders.updater import STATUS_ACTIVE, STATUS_UNAVAILABLE
-from apps.vendor_clients import types
+from apps.scrapers.utils import catch_network, solve_captcha
+from apps.vendor_clients import errors, types
 from apps.vendor_clients.async_clients.base import BaseClient, PriceInfo
 from apps.vendor_clients.headers import implant_direct as hdrs
+
+MIN_SCORE = 0.9
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36"
+)
+
+retry_count = 5
+LOGIN_HEADER = {
+    "authority": "store.implantdirect.com",
+    "sec-ch-ua": '" Not;A Brand";v="99", "Google Chrome";v="97", "Chromium";v="97"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    "upgrade-insecure-requests": "1",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit"
+    "/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36",
+    "accept": "*/*",
+    "sec-fetch-site": "same-origin",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-user": "?1",
+    "sec-fetch-dest": "document",
+    "referer": "https://store.implantdirect.com/us/en/",
+    "accept-language": "en-US,en;q=0.9",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -27,22 +53,44 @@ logger = logging.getLogger(__name__)
 class ImplantDirectClient(BaseClient):
     VENDOR_SLUG = "implant_direct"
     aiohttp_mode = False
+    BASE_URL = "https://store.implantdirect.com"
+
+    def get_home_page(self):
+        response = self.session.get(f"{self.BASE_URL}/us/en/", headers=hdrs.HOMEPAGE_HEADERS)
+        logger.info(f"Home Page: {response.status_code}")
+        return response
+
+    def get_login_page(self, login_link):
+        response = self.session.get(login_link, headers=hdrs.LOGIN_PAGE_HEADERS)
+        logger.info(f"Login Page: {response.status_code}")
+        return response
 
     async def get_login_link(self):
-        home_dom = await self.get_response_as_dom(
-            url="https://store.implantdirect.com/",
+        async with self.session.get(
+            self.BASE_URL,
             headers=hdrs.HOMEPAGE_HEADERS,
-        )
-        return home_dom.xpath('//ul/li[@class="authorization-link"]/a/@href').get()
+        ) as resp:
+            text = await resp.text()
+            login_dom = Selector(text=text)
+            return login_dom.xpath('//ul/li[@class="authorization-link"]/a/@href').get()
 
     async def get_login_form(self, login_link):
-        login_dom = await self.get_response_as_dom(login_link, headers=hdrs.LOGIN_PAGE_HEADERS)
-        form_key = login_dom.xpath('//form[@id="login-form"]/input[@name="form_key"]/@value').get()
-        form_action = login_dom.xpath('//form[@id="login-form"]/@action').get()
-        return {
-            "key": form_key,
-            "action": form_action,
-        }
+        async with self.session.get(login_link, headers=hdrs.LOGIN_PAGE_HEADERS) as resp:
+            text = await resp.text()
+            login_dom = Selector(text=text)
+
+            form_key = login_dom.xpath('//form[@id="login-form"]/input[@name="form_key"]/@value').get()
+            form_action = login_dom.xpath('//form[@id="login-form"]/@action').get()
+            sitekey = re.search(r"sitekey\"\s*\:\s*\"([\d\w\-]+)\"", text).groups()[0]
+
+            solved = solve_captcha(sitekey, resp.url, MIN_SCORE, True, "recaptcha.net")
+            recaptcha_token = solved.solution.token
+
+            return {
+                "key": form_key,
+                "recaptcha_token": recaptcha_token,
+                "action": form_action,
+            }
 
     async def get_login_data(self, *args, **kwargs) -> Optional[types.LoginInformation]:
         login_link = await self.get_login_link()
@@ -57,13 +105,68 @@ class ImplantDirectClient(BaseClient):
                 "form_key": form["key"],
                 "login[username]": self.username,
                 "login[password]": self.password,
-                "send": "",
+                "g-recaptcha-response": form["recaptcha_token"],
+                "token": form["recaptcha_token"],
             },
         }
 
-    async def check_authenticated(self, response: ClientResponse) -> bool:
-        text = await response.text()
-        dom = Selector(text=text)
+    @catch_network
+    async def login(self, username: Optional[str] = None, password: Optional[str] = None):
+        """Login session"""
+        if username:
+            self.username = username
+        if password:
+            self.password = password
+
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self.login_proc)
+        logger.info("login DONE")
+
+    def login_proc(self):
+        home_resp = self.get_home_page()
+        home_dom = scrapy.Selector(text=home_resp.text)
+        login_link = home_dom.xpath('//ul/li[contains(@class, "authorization-link")]/a/@href').get()
+        login_resp = self.get_login_page(login_link)
+        login_dom = scrapy.Selector(text=login_resp.text)
+        is_authenticated = self._check_authenticated(login_resp)
+        if is_authenticated:
+            return True
+
+        form_key = login_dom.xpath('//form[@id="login-form"]/input[@name="form_key"]/@value').get()
+        form_action = login_dom.xpath('//form[@id="login-form"]/@action').get()
+        sitekey = re.search(r"sitekey\"\s*\:\s*\"([\d\w\-]+)\"", login_resp.text).groups()[0]
+
+        for i in range(retry_count):
+            solved = solve_captcha(sitekey, login_resp.url, MIN_SCORE, True, "recaptcha.net")
+            recaptcha_token = solved.solution.token
+
+            data = {
+                "form_key": form_key,
+                "login[username]": self.username,
+                "login[password]": self.password,
+                "g-recaptcha-response": recaptcha_token,
+                "token": recaptcha_token,
+            }
+
+            response = self.session.post(form_action, data=data, headers=LOGIN_HEADER)
+            if not response.url.endswith("/customer/account/"):
+                logger.info(f"Try #{i+1} >>> Login Faild!")
+                continue
+            else:
+                logger.info(f"Try #{i+1} >>> Log In POST: {response.status_code}")
+                is_authenticated = self._check_authenticated(response)
+                if not is_authenticated:
+                    raise errors.VendorAuthenticationFailed()
+
+                logger.info(response.url)
+                logger.info("Log In POST: {response.status_code}")
+                return response.cookies
+
+        logger.info(f"Exceed trying {retry_count} times!")
+        raise errors.VendorAuthenticationFailed()
+
+    def _check_authenticated(self, response: ClientResponse) -> bool:
+        dom = Selector(text=response.text)
         page_title = dom.css("title::text").get()
         return page_title != "Customer Login"
 
