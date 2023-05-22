@@ -1,8 +1,9 @@
 import re
+import os
 from decimal import Decimal
 from functools import wraps
 from typing import List
-
+from unicaps import CaptchaSolver, CaptchaSolvingService
 from aiohttp.client_exceptions import ClientConnectorError
 
 from apps.scrapers.errors import NetworkConnectionException
@@ -43,3 +44,14 @@ def convert_string_to_price(text: str) -> Decimal:
         return Decimal(price)
     except (KeyError, ValueError, TypeError, IndexError):
         return Decimal("0")
+
+def solve_captcha(site_key: str, url: str, score: float, is_enterprise: bool, api_domain: str):
+    solver = CaptchaSolver(CaptchaSolvingService.ANTI_CAPTCHA, os.getenv("ANTI_CAPTCHA_API_KEY"))
+    solved = solver.solve_recaptcha_v3(
+        site_key=site_key,
+        page_url=url,
+        is_enterprise=is_enterprise,
+        min_score=score,
+        api_domain=api_domain
+    )
+    return solved

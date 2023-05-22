@@ -2,11 +2,13 @@ import asyncio
 import datetime
 import json
 import logging
+import os
 import textwrap
 from typing import Dict, Optional, Union
+import re
 
-from aiohttp import ClientResponse
 import scrapy
+from aiohttp import ClientResponse
 from scrapy import Selector
 from unicaps import CaptchaSolver, CaptchaSolvingService
 
@@ -19,36 +21,55 @@ from apps.common.utils import (
 )
 from apps.orders.models import OfficeProduct
 from apps.orders.updater import STATUS_ACTIVE, STATUS_UNAVAILABLE
-from apps.scrapers.utils import catch_network
-from apps.vendor_clients import types
+from apps.scrapers.utils import catch_network, solve_captcha
+from apps.vendor_clients import errors, types
 from apps.vendor_clients.async_clients.base import BaseClient, PriceInfo
 from apps.vendor_clients.headers import implant_direct as hdrs
-from apps.vendor_clients import errors, types
 
-ANTI_CAPTCHA_API_KEY = 'c5fe215b8d10e582e21b52622c66be4e'
-SITE_KEY = '6LeUI1YlAAAAAHc-5405p6x2aXI-e9R5o0RO9R9Z'
 MIN_SCORE = 0.9
-UESR_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36'
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36"
+)
+retry_count = 5
+LOGIN_HEADER = {
+    "authority": "store.implantdirect.com",
+    "sec-ch-ua": '" Not;A Brand";v="99", "Google Chrome";v="97", "Chromium";v="97"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    "upgrade-insecure-requests": "1",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit"
+    "/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36",
+    "accept": "*/*",
+    "sec-fetch-site": "same-origin",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-user": "?1",
+    "sec-fetch-dest": "document",
+    "referer": "https://store.implantdirect.com/us/en/",
+    "accept-language": "en-US,en;q=0.9",
+}
 
 logger = logging.getLogger(__name__)
-
 
 class ImplantDirectClient(BaseClient):
     VENDOR_SLUG = "implant_direct"
     aiohttp_mode = False
+    BASE_URL = "https://store.implantdirect.com"
 
-    def getHomePage(self):
-        response = self.session.get("https://store.implantdirect.com/us/en/", headers=hdrs.HOMEPAGE_HEADERS)
-        print("Home Page:", response.status_code)
+    def get_home_page(self):
+        response = self.session.get(f"{self.BASE_URL}/us/en/", headers=hdrs.HOMEPAGE_HEADERS)
+        logger.info(f"Home Page: {response.status_code}")
         return response
-    
-    def getLoginPage(self, login_link):
+
+    def get_login_page(self, login_link):
         response = self.session.get(login_link, headers=hdrs.LOGIN_PAGE_HEADERS)
-        print("LogIn Page:", response.status_code)
+        logger.info(f"Login Page: {response.status_code}")
         return response
-    
+
     async def get_login_link(self):
-        async with self.session.get("https://store.implantdirect.com/",  headers=hdrs.HOMEPAGE_HEADERS,) as resp:
+        async with self.session.get(
+            self.BASE_URL,
+            headers=hdrs.HOMEPAGE_HEADERS,
+        ) as resp:
             text = await resp.text()
             login_dom = Selector(text=text)
             return login_dom.xpath('//ul/li[@class="authorization-link"]/a/@href').get()
@@ -60,24 +81,14 @@ class ImplantDirectClient(BaseClient):
 
             form_key = login_dom.xpath('//form[@id="login-form"]/input[@name="form_key"]/@value').get()
             form_action = login_dom.xpath('//form[@id="login-form"]/@action').get()
-            solver = CaptchaSolver(
-                CaptchaSolvingService.ANTI_CAPTCHA,
-                ANTI_CAPTCHA_API_KEY
-            )
+            sitekey = re.search(r'sitekey\"\s*\:\s*\"([\d\w\-]+)\"', text).groups()[0]
 
-            solved = solver.solve_recaptcha_v3(
-                site_key=SITE_KEY,
-                page_url=resp.url,
-                is_enterprise=True,
-                min_score=MIN_SCORE,
-                api_domain="recaptcha.net"
-            )
-
+            solved = solve_captcha(sitekey, resp.url, MIN_SCORE, True, "recaptcha.net")
             recaptcha_token = solved.solution.token
 
             return {
-                'key': form_key,
-                'recaptcha_token': recaptcha_token,
+                "key": form_key,
+                "recaptcha_token": recaptcha_token,
                 "action": form_action,
             }
 
@@ -94,11 +105,11 @@ class ImplantDirectClient(BaseClient):
                 "form_key": form["key"],
                 "login[username]": self.username,
                 "login[password]": self.password,
-                'g-recaptcha-response': form["recaptcha_token"],
-                'token': form["recaptcha_token"],
+                "g-recaptcha-response": form["recaptcha_token"],
+                "token": form["recaptcha_token"],
             },
         }
-    
+
     @catch_network
     async def login(self, username: Optional[str] = None, password: Optional[str] = None):
         """Login session"""
@@ -108,80 +119,52 @@ class ImplantDirectClient(BaseClient):
             self.password = password
 
         loop = asyncio.get_event_loop()
-        res = await loop.run_in_executor(None, self.login_proc)
-        print("login DONE")
-    
+        await loop.run_in_executor(None, self.login_proc)
+        logger.info("login DONE")
+
     def login_proc(self):
-        headers = {
-            "authority": "store.implantdirect.com",
-            "sec-ch-ua": '" Not;A Brand";v="99", "Google Chrome";v="97", "Chromium";v="97"',
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": '"Windows"',
-            "upgrade-insecure-requests": "1",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit"
-            "/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36",
-            "accept": "*/*",
-            "sec-fetch-site": "same-origin",
-            "sec-fetch-mode": "navigate",
-            "sec-fetch-user": "?1",
-            "sec-fetch-dest": "document",
-            "referer": "https://store.implantdirect.com/us/en/",
-            "accept-language": "en-US,en;q=0.9",
-        }
-        
-        home_resp = self.getHomePage()
+        home_resp = self.get_home_page()
         home_dom = scrapy.Selector(text=home_resp.text)
         login_link = home_dom.xpath('//ul/li[contains(@class, "authorization-link")]/a/@href').get()
-        login_resp = self.getLoginPage(login_link)
+        login_resp = self.get_login_page(login_link)
         login_dom = scrapy.Selector(text=login_resp.text)
         is_authenticated = self._check_authenticated(login_resp)
         if is_authenticated:
             return True
-        
-        solver = CaptchaSolver(
-            CaptchaSolvingService.ANTI_CAPTCHA,
-            ANTI_CAPTCHA_API_KEY
-        )
+
+        solver = CaptchaSolver(CaptchaSolvingService.ANTI_CAPTCHA, ANTI_CAPTCHA_API_KEY)
         form_key = login_dom.xpath('//form[@id="login-form"]/input[@name="form_key"]/@value').get()
         form_action = login_dom.xpath('//form[@id="login-form"]/@action').get()
+        sitekey = re.search(r'sitekey\"\s*\:\s*\"([\d\w\-]+)\"', login_resp.text).groups()[0]
 
-        retry_count = 5
         for i in range(retry_count):
-            solved = solver.solve_recaptcha_v3(
-                site_key=SITE_KEY,
-                page_url=login_resp.url,
-                is_enterprise=True,
-                min_score=MIN_SCORE,
-                api_domain="recaptcha.net"
-            )
-
+            solved = solve_captcha(sitekey, login_resp.url, MIN_SCORE, True, "recaptcha.net")
             recaptcha_token = solved.solution.token
 
             data = {
-                'form_key': form_key,
-                'login[username]': self.username,
-                'login[password]': self.password,
-                'g-recaptcha-response': recaptcha_token,
-                'token': recaptcha_token,
+                "form_key": form_key,
+                "login[username]": self.username,
+                "login[password]": self.password,
+                "g-recaptcha-response": recaptcha_token,
+                "token": recaptcha_token,
             }
 
-            response = self.session.post(form_action, data=data, headers=headers)
-            if response.url.endswith('/customer/account/'):
-                print(f"Try #{i+1} >>> Log In POST:", response.status_code)
+            response = self.session.post(form_action, data=data, headers=LOGIN_HEADER)
+            if not response.url.endswith("/customer/account/"):
+                logger.info(f"Try #{i+1} >>> Login Faild!")
+                continue
+            else:
+                logger.info(f"Try #{i+1} >>> Log In POST: {response.status_code}")
                 is_authenticated = self._check_authenticated(response)
                 if not is_authenticated:
                     raise errors.VendorAuthenticationFailed()
 
-                print(response.url)
-                print("Log In POST:", response.status_code)
+                logger.info(response.url)
+                logger.info("Log In POST: {response.status_code}")
                 return response.cookies
-            else:
-                if (i+1) == retry_count:
-                    print(f"Exceed trying {retry_count} times!")
-                    raise errors.VendorAuthenticationFailed()
-                else:
-                    print(f"Try #{i+1} >>> Login Faild!")
-                    continue
+        
+        logger.info(f"Exceed trying {retry_count} times!")
+        raise errors.VendorAuthenticationFailed()
 
     def _check_authenticated(self, response: ClientResponse) -> bool:
         dom = Selector(text=response.text)
