@@ -1,11 +1,12 @@
 from datetime import timedelta
+from decimal import Decimal
 
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField  # TrigramSimilarity,
 from django.db import models
-from django.db.models import Index, Q, Subquery, OuterRef, F
+from django.db.models import F, Index, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django_extensions.db.fields import AutoSlugField
@@ -14,12 +15,14 @@ from slugify import slugify
 from apps.accounts.models import Office, ShippingMethod, User, Vendor
 from apps.common.choices import BUDGET_SPEND_TYPE, OrderStatus, OrderType, ProductStatus
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
-from apps.orders.managers import Net32ProductManager, ProcedureManager, ProductManager
+from apps.orders.managers.office_product_category import OfficeProductCategoryManager
+from apps.orders.managers.procedure import ProcedureManager
+from apps.orders.managers.product import Net32ProductManager, ProductManager
 from apps.scrapers.schema import Product as ProductDataClass
 from apps.scrapers.schema import ProductImage as ProductImageDataClass
 from apps.scrapers.schema import Vendor as VendorDataClass
 from apps.vendor_clients.types import Product as ProductDict
-from decimal import Decimal
+
 
 class ProductCategory(models.Model):
     name = models.CharField(max_length=128)
@@ -201,6 +204,8 @@ class OfficeProductCategory(TimeStampedModel):
     name = models.CharField(max_length=128)
     slug = models.CharField(max_length=128)
     predefined = models.BooleanField(default=True)
+
+    objects = OfficeProductCategoryManager()
 
     def __str__(self):
         return f"{self.slug}"
