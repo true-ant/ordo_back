@@ -15,12 +15,8 @@ from pathlib import Path
 
 import sentry_sdk
 from dotenv import load_dotenv
-from sentry_sdk.integrations.celery import CeleryIntegration
-from sentry_sdk.integrations.django import DjangoIntegration
 
 from services.utils.secrets import get_secret_value
-
-from .version import VERSION
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 
@@ -222,12 +218,20 @@ SENTRY_ENVIRONMENT = os.getenv("SENTRY_ENVIRONMENT", "UNKNOWN")
 
 SENTRY_DSN = os.getenv("SENTRY_DSN")
 if SENTRY_DSN:
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.django import DjangoIntegration
+
+    from .version import VERSION
+
+    TRACES_SAMPLE_RATES = {"beanstalk": 1, "celery": 0.1}
+    DEFAULT_TRACES_SAMPLE_RATE = 0.1
+
     sentry_sdk.init(
         dsn=SENTRY_DSN,
         integrations=[DjangoIntegration(), CeleryIntegration()],
         environment=SENTRY_ENVIRONMENT,
         release=VERSION,
-        traces_sample_rate=0.1,
+        traces_sample_rate=TRACES_SAMPLE_RATES.get(SENTRY_ENVIRONMENT, DEFAULT_TRACES_SAMPLE_RATE),
         send_default_pii=True,
     )
 
