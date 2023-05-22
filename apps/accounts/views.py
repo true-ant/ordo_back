@@ -5,6 +5,7 @@ from decimal import Decimal
 from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
 from django.db import transaction
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -322,7 +323,23 @@ class CompanyMemberViewSet(ModelViewSet):
     filterset_class = f.CompanyMemberFilter
 
     def get_queryset(self):
-        return m.CompanyMember.objects.filter(company_id=self.kwargs["company_pk"])
+        queryset = m.CompanyMember.objects.filter(company_id=self.kwargs["company_pk"])
+        current_time = timezone.now()
+        if self.action == "list":
+            queryset = queryset.select_related(
+                "office",
+                "office__dental_api",
+            ).prefetch_related(
+                "office__addresses",
+                "office__vendors",
+                Prefetch(
+                    "office__budgets",
+                    m.OfficeBudget.objects.filter(month=Month(year=current_time.year, month=current_time.month)),
+                    to_attr="prefetched_current_budget",
+                ),
+                "office__settings",
+            )
+        return queryset
 
     def get_serializer_class(self):
         if self.action == "update":
