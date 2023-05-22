@@ -209,7 +209,7 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
     def vendor_order_count(self, obj):
         return obj.vendor_order_count
 
-    @admin.display(description="Order Volume")
+    @admin.display(description="Ordo Order Volume")
     def ordo_order_volume(self, obj):
         return f"${obj.ordo_order_volume}"
 

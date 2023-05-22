@@ -20,6 +20,8 @@ from sentry_sdk.integrations.django import DjangoIntegration
 
 from services.utils.secrets import get_secret_value
 
+from .version import VERSION
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -215,12 +217,17 @@ DEFAULT_FILE_STORAGE = "apps.common.storage_backends.PublicMediaStorage"
 # phone number field settings
 PHONENUMBER_DB_FORMAT = "NATIONAL"
 PHONENUMBER_DEFAULT_REGION = "US"
+
+SENTRY_ENVIRONMENT = os.getenv("SENTRY_ENVIRONMENT", "UNKNOWN")
+
 SENTRY_DSN = os.getenv("SENTRY_DSN")
 if SENTRY_DSN:
     sentry_sdk.init(
         dsn=SENTRY_DSN,
         integrations=[DjangoIntegration(), CeleryIntegration()],
-        traces_sample_rate=1.0,
+        environment=SENTRY_ENVIRONMENT,
+        release=VERSION,
+        traces_sample_rate=0.1,
         send_default_pii=True,
     )
 

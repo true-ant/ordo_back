@@ -296,25 +296,27 @@ def fetch_orders_v2(office_vendor_id):
 @app.task
 def notify_vendor_auth_issue_to_admins(office_vendor_id):
     office_vendor = OfficeVendor.objects.get(pk=office_vendor_id)
-    company_members = CompanyMember.objects.filter(office=office_vendor.office, role=User.Role.ADMIN)
 
-    for company_member in company_members:
-        user = company_member.user
+    htm_content = render_to_string(
+        "emails/vendor_unlink.html",
+        {
+            "vendor": office_vendor.vendor.name,
+        },
+    )
 
-        htm_content = render_to_string(
-            "emails/vendor_unlink.html",
-            {
-                "vendor": office_vendor.vendor.name,
-            },
-        )
+    company_member_emails = list(
+        CompanyMember.objects.filter(
+            office_id=office_vendor.office_id, role=User.Role.ADMIN, user__email__isnull=False
+        ).values_list("user__email", flat=True)
+    )
 
-        send_mail(
-            subject="Vendor authentication failure!",
-            message="message",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            html_message=htm_content,
-        )
+    send_mail(
+        subject="Vendor authentication failure!",
+        message="message",
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=company_member_emails,
+        html_message=htm_content,
+    )
 
 
 @app.task

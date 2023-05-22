@@ -17,7 +17,10 @@ class NotificationModelViewset(ModelViewSet):
     http_method_names = ["get", "patch", "post"]
 
     def get_queryset(self):
-        return self.queryset.filter(is_read=False, user=self.request.user)
+        queryset = self.queryset.filter(is_read=False, user=self.request.user)
+        if self.action == "list":
+            queryset = queryset.select_related("notification")
+        return queryset
 
     @action(detail=False, methods=["post"], url_path="read")
     def mark_as_read(self, request, *args, **kwargs):

@@ -5,6 +5,7 @@ from django.contrib.admin import SimpleListFilter
 from django.db.models import Q
 from django.http import HttpResponse
 from django.utils.safestring import mark_safe
+from django.utils.html import format_html
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
 from apps.common.admins import ReadOnlyAdminMixin, AdminDynamicPaginationMixin
@@ -122,6 +123,26 @@ class OrderAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
     @admin.display(description="Order Total")
     def total_price(self, objs):
         return objs.total_amount
+
+
+@admin.register(m.VendorOrder)
+class VendorOrderAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
+    list_display = (
+        "vendor",
+        "invoice",
+        "vendor_order_reference",
+        "order_date",
+        "total_amount",
+        "total_items",
+        "nickname",
+        "currency",
+        "status",
+    )
+    search_fields = ("vendor_order_id",)
+    inlines = (VendorOrderProductInline,)
+    def invoice(self, obj):
+        return format_html("<a href='{}'> {} </a>", obj.invoice_link, obj.vendor_order_id)
+
 
 
 class ProductPriceFilter(SimpleListFilter):

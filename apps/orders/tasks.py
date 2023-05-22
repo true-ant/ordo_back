@@ -423,38 +423,6 @@ def update_promotions():
 
 
 @app.task
-def check_order_status_and_notify_customers(vendor_order_id):
-    vendor_order = VendorOrderModel.objects.get(pk=vendor_order_id)
-
-    if vendor_order.status != OrderStatus.OPEN:
-        return
-
-    # company_members = CompanyMember.objects.filter(office=vendor_order.order.office)
-    #
-    # for company_member in company_members:
-    #     user = company_member.user
-    #
-    #     htm_content = render_to_string(
-    #         "emails/vendor_issue.html",
-    #         {
-    #             "customer_name": user.first_name,
-    #             "order_number": vendor_order.pk,
-    #             "vendor_name": vendor_order.vendor.name,
-    #             "order_date": vendor_order.order_date,
-    #             "vendor_url": vendor_order.vendor.url,
-    #         },
-    #     )
-    #
-    #     send_mail(
-    #         subject=f"Urgent Issue with Order #{vendor_order.pk}",
-    #         message="message",
-    #         from_email=settings.DEFAULT_FROM_EMAIL,
-    #         recipient_list=[user.email],
-    #         html_message=htm_content,
-    #     )
-
-
-@app.task
 def perform_real_order(vendor_order_ids):
     # TODO: Remove Logs
     vendor_order = VendorOrderModel.objects.filter(pk__in=vendor_order_ids).first()
