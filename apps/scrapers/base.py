@@ -2,12 +2,14 @@ import asyncio
 import datetime
 import logging
 import re
+import ssl
 import uuid
 from collections import defaultdict
 from decimal import Decimal
 from http.cookies import SimpleCookie
 from typing import Dict, List, Optional, Tuple, Union
 
+import certifi
 import requests
 from aiohttp import ClientResponse, ClientSession
 from asgiref.sync import sync_to_async
@@ -18,7 +20,7 @@ from scrapy import Selector
 from slugify import slugify
 
 from apps.common import messages as msgs
-from apps.common.choices import OrderStatus, ProductStatus, OrderType
+from apps.common.choices import OrderStatus, OrderType, ProductStatus
 from apps.common.month import Month
 from apps.orders.services.product import ProductService
 from apps.scrapers.errors import DownloadInvoiceError, VendorAuthenticationFailed
@@ -57,6 +59,7 @@ class Scraper:
         self.orders = {}
         self.objs = {"product_categories": defaultdict(dict)}
         self.logged_in = True
+        self.ssl_context = ssl.create_default_context(cafile=certifi.where())
 
     @staticmethod
     def extract_first(dom, xpath):
@@ -416,10 +419,12 @@ class Scraper:
                     status=ProductStatus.PROCESSING
                 )
                 for o in order_products:
-                    vendor_order_product = vendor_order_products.filter(product__product_id=o["product"]["product_id"]).first()
+                    vendor_order_product = vendor_order_products.filter(
+                        product__product_id=o["product"]["product_id"]
+                    ).first()
                     if not vendor_order_product:
                         continue
-                    vendor_order_product.status= self.normalize_order_product_status(o["status"])
+                    vendor_order_product.status = self.normalize_order_product_status(o["status"])
                     vendor_order_product.tracking_link = o.get("tracking_link")
                     vendor_order_product.save()
             else:
@@ -439,7 +444,9 @@ class Scraper:
                         discrepancy = list(set(origin_product_ids) - set(coming_product_ids))
                         if not discrepancy:
                             for o in order_products:
-                                vendor_order_product = vendor_order_products.filter(product__product_id=o["product"]["product_id"]).first()
+                                vendor_order_product = vendor_order_products.filter(
+                                    product__product_id=o["product"]["product_id"]
+                                ).first()
                                 if not vendor_order_product:
                                     continue
                                 vendor_order_product.status = self.normalize_order_product_status(o["status"])
@@ -464,7 +471,7 @@ class Scraper:
                         order_date=order_date,
                         total_items=order_data["total_items"],
                         total_amount=order_data["total_amount"],
-                        order_type=OrderType.VENDOR_DIRECT
+                        order_type=OrderType.VENDOR_DIRECT,
                     )
                     vendor_order = VendorOrderModel.from_dataclass(
                         vendor=self.vendor, order=order, dict_data=order_data

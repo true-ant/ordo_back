@@ -3,6 +3,7 @@ import datetime
 import json
 import logging
 import re
+import time
 import uuid
 from decimal import Decimal
 from typing import Dict, List, Optional
@@ -63,51 +64,45 @@ class PattersonScraper(Scraper):
         return text.strip() if text else ""
 
     async def _get_login_data(self, *args, **kwargs) -> LoginInformation:
-        async with self.session.get(url="https://www.pattersondental.com/", headers=HOME_HEADERS) as resp:
+        async with self.session.get(url=f"{self.BASE_URL}/", headers=HOME_HEADERS) as resp:
             params = {
                 "returnUrl": "/",
                 "signIn": "userSignIn",
             }
             async with self.session.get(
-                url="https://www.pattersondental.com/Account", headers=PRE_LOGIN_HEADERS, params=params
+                url=f"{self.BASE_URL}/Account", headers=PRE_LOGIN_HEADERS, params=params, ssl=self.ssl_context
             ) as resp:
                 login_url = str(resp.url)
                 text = await resp.text()
-                settings_content = text.split("var SETTINGS")[1].split(";")[0].strip(" =")
-                settings = json.loads(settings_content)
-                csrf = settings.get("csrf", "")
-                transId = settings.get("transId", "")
-                policy = settings.get("hosts", {}).get("policy", "")
-                diag = {"pageViewId": settings.get("pageViewId", ""), "pageId": "CombinedSigninAndSignup", "trace": []}
+
+                settings = text.split("SETTINGS =")[1].split(";")[0]
+                properties = settings.split("StateProperties=")[1].split('"')[0]
+                csrf_token = settings.split('"csrf":')[1].split(",")[0].strip('"')
+                page_view_id = settings.split('"pageViewId":')[1].split(",")[0].strip('"')
+                login_post_endpoint = (
+                    f"https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
+                    f"B2C_1A_PRODUCTION_Dental_SignInWithPwReset/SelfAsserted?"
+                    f"tx=StateProperties={properties}&p=B2C_1A_PRODUCTION_Dental_SignInWithPwReset"
+                )
 
                 headers = LOGIN_HEADERS.copy()
                 headers["Referer"] = login_url
-                headers["X-CSRF-TOKEN"] = csrf
-
-                params = (
-                    ("tx", transId),
-                    ("p", policy),
-                )
-                url = (
-                    "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
-                    "B2C_1A_PRODUCTION_Dental_SignInWithPwReset/SelfAsserted?" + urlencode(params)
-                )
+                headers["X-CSRF-TOKEN"] = csrf_token
 
                 data = {
                     "signInName": self.username,
                     "password": self.password,
                     "request_type": "RESPONSE",
-                    "diag": diag,
-                    "login_page_link": login_url,
-                    "transId": transId,
-                    "csrf": csrf,
-                    "policy": policy,
                 }
 
                 return {
-                    "url": url,
+                    "url": login_post_endpoint,
                     "headers": headers,
                     "data": data,
+                    "page_view_id": page_view_id,
+                    "login_page_link": login_url,
+                    "csrf_token": csrf_token,
+                    "properties": properties,
                 }
 
     async def check_authenticated(self, resp: ClientResponse) -> bool:
@@ -119,32 +114,62 @@ class PattersonScraper(Scraper):
         login_info = await self._get_login_data()
         logger.debug("Got logger data: %s", login_info)
         if login_info:
+            cookies = {
+                "_ga": "GA1.3.489531655.1631651519",
+                "_gid": "GA1.3.215390832.1631651519",
+            }
+
             async with self.session.post(
-                url=login_info["url"], headers=login_info["headers"], data=login_info["data"]
+                url=login_info["url"],
+                headers=login_info["headers"],
+                data=login_info["data"],
+                cookies=cookies,
+                ssl=self.ssl_context,
             ) as resp:
-                transId = login_info["data"]["transId"]
-                policy = login_info["data"]["policy"]
-                csrf = login_info["data"]["csrf"]
-                diag = login_info["data"]["diag"]
-
+                timestamp = int(time.time())
                 headers = LOGIN_HOOK_HEADER.copy()
-                headers["Referer"] = login_info["data"]["login_page_link"]
+                headers["Referer"] = login_info["login_page_link"]
 
-                params = (
-                    ("tx", transId),
-                    ("p", policy),
-                    ("rememberMe", "false"),
-                    ("csrf_token", csrf),
-                    ("diags", urlencode(diag)),
-                )
+                params = {
+                    "diags": {
+                        "trace": [
+                            {"ac": "T005", "acST": {timestamp}, "acD": 2},
+                            {
+                                "ac": "T021 - URL:https://pattersonb2c.blob.core.windows.net"
+                                "/patterson/PRODUCTION/dental/en/unified.html",
+                                "acST": {timestamp},
+                                "acD": 7,
+                            },
+                            {"ac": "T019", "acST": {timestamp + 1}, "acD": 5},
+                            {"ac": "T004", "acST": {timestamp + 1}, "acD": 2},
+                            {"ac": "T003", "acST": {timestamp + 1}, "acD": 2},
+                            {"ac": "T035", "acST": {timestamp + 2}, "acD": 0},
+                            {"ac": "T030Online", "acST": {timestamp + 2}, "acD": 0},
+                            {
+                                "ac": "T018The username or password provided in the request are invalid.",
+                                "acST": {timestamp + 4},
+                                "acD": 1327,
+                            },
+                            {"ac": "T002", "acST": {timestamp + 96}, "acD": 0},
+                            {"ac": "T018T010", "acST": {timestamp + 95}, "acD": 985},
+                        ],
+                        "pageViewId": login_info["page_view_id"],
+                        "pageId": "CombinedSigninAndSignup",
+                    },
+                    "rememberMe": "false",
+                    "csrf_token": login_info["csrf_token"],
+                    "tx=StateProperties": login_info["properties"],
+                    "p": "B2C_1A_PRODUCTION_Dental_SignInWithPwReset",
+                }
                 url = (
-                    "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
-                    "B2C_1A_PRODUCTION_Dental_SignInWithPwReset/api/CombinedSigninAndSignup/confirmed?"
-                    + urlencode(params)
+                    f"https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
+                    f"B2C_1A_PRODUCTION_Dental_SignInWithPwReset/api/CombinedSigninAndSignup/"
+                    f"confirmed?{urlencode(params)}"
                 )
 
                 logger.debug("Logging in...")
-                async with self.session.get(url, headers=headers) as resp:
+
+                async with self.session.get(url, headers=headers, ssl=self.ssl_context) as resp:
                     print("Login Confirmed: ", resp.status)
                     text = await resp.text()
                     dom = Selector(text=text)
@@ -161,12 +186,13 @@ class PattersonScraper(Scraper):
                     }
 
                     async with self.session.post(
-                        url="https://www.pattersondental.com/Account/LogOnPostProcessing/",
+                        url=f"{self.BASE_URL}/Account/LogOnPostProcessing/",
                         headers=headers,
                         data=data,
+                        ssl=self.ssl_context,
                     ) as resp:
                         async with self.session.get(
-                            url="https://www.pattersondental.com/supplies/deals",
+                            url=f"{self.BASE_URL}/supplies/deals",
                             headers=HOME_HEADERS,
                             data=data,
                         ) as resp:
