@@ -1,6 +1,7 @@
 import os
 
 import sentry_sdk
+from sentry_sdk.integrations.asyncio import AsyncioIntegration
 from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk.integrations.django import DjangoIntegration
 
@@ -18,7 +19,11 @@ if SENTRY_DSN:
     profiles_sample_rate = PROFILE_SAMPLE_RATES.get(SENTRY_ENVIRONMENT, DEFAULT_PROFILES_SAMPLE_RATE)
     sentry_sdk.init(
         dsn=SENTRY_DSN,
-        integrations=[DjangoIntegration(), CeleryIntegration()],
+        integrations=[
+            DjangoIntegration(),
+            CeleryIntegration(),
+            AsyncioIntegration(),
+        ],
         environment=SENTRY_ENVIRONMENT,
         release=VERSION,
         traces_sample_rate=traces_sample_rate,
