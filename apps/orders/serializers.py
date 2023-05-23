@@ -1,7 +1,6 @@
 from django.db import transaction
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
-from rest_framework.fields import empty
 from rest_framework_recursive.fields import RecursiveField
 
 from apps.accounts.helper import OfficeBudgetHelper
@@ -23,13 +22,8 @@ class OfficeProductCategorySerializer(serializers.ModelSerializer):
         ret = super().to_representation(instance)
 
         if self.context.get("with_inventory_count"):
-            office_inventory_products = (
-                instance.products.filter(is_inventory=True)
-                .exclude(product__vendor__isnull=True)
-                .collapse_by_parent_products()
-            )
-            ret["vendor_ids"] = set(office_inventory_products.values_list("product__vendor__id", flat=True))
-            ret["count"] = office_inventory_products.count()
+            ret["vendor_ids"] = instance.vendors
+            ret["count"] = instance.count
 
         return ret
 
@@ -237,7 +231,6 @@ class ProductSerializer(serializers.ModelSerializer):
             fields.pop("children", default=None)
 
         return fields
-
 
     class Meta:
         model = m.Product

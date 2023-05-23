@@ -16,7 +16,6 @@ from asgiref.sync import sync_to_async
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.contrib.postgres.expressions import ArraySubquery
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import (
@@ -24,7 +23,6 @@ from django.db.models import (
     Count,
     Exists,
     F,
-    Func,
     OuterRef,
     Prefetch,
     Q,
@@ -557,13 +555,7 @@ class OfficeProductCategoryViewSet(ModelViewSet):
     serializer_class = s.OfficeProductCategorySerializer
 
     def get_queryset(self):
-        return (
-            super()
-            .get_queryset()
-            .annotate(has_category=Case(When(slug="other", then=Value(1)), default=Value(0)))
-            .filter(office__id=self.kwargs["office_pk"])
-            .order_by("has_category", "name")
-        )
+        return m.OfficeProductCategory.objects.all().with_stats(office_id=self.kwargs["office_pk"])
 
     def create(self, request, *args, **kwargs):
         request.data.setdefault("office", self.kwargs["office_pk"])
@@ -613,23 +605,16 @@ class OfficeProductCategoryViewSet(ModelViewSet):
         ret = serializer.data
         for office_product_category in ret:
             vendor_ids = office_product_category.pop("vendor_ids")
-            office_product_category["vendors"] = [vendors[vendor_id] for vendor_id in vendor_ids]
+            office_product_category["vendors"] = [vendors[vendor_id] for vendor_id in vendor_ids if vendor_id]
         return Response(serializer.data)
 
     @action(detail=False, methods=["get"], url_path="inventory-vendor")
     def get_inventory_vendor_view(self, request, *args, **kwargs):
         categories = {category.id: category.to_dict() for category in m.OfficeProductCategory.objects.all()}
         office_id = kwargs["office_pk"]
-        inventory_products = m.OfficeProduct.objects.filter(
-            office_id=office_id, product__vendor_id=OuterRef("pk"), is_inventory=True
-        )
-        vendor_categories = (
-            inventory_products.values("office_product_category_id").order_by("office_product_category_id").distinct()
-        )
-        inventory_product_count = inventory_products.annotate(count=Func(F("id"), function="Count")).values("count")
-        queryset = m.Vendor.objects.annotate(
-            categories=ArraySubquery(vendor_categories), count=Subquery(inventory_product_count)
-        ).order_by("name")
+
+        queryset = m.Vendor.objects.all().with_stats(office_id)
+
         serializer = s.OfficeProductVendorSerializer(
             queryset, many=True, context={"with_inventory_count": True, "office_id": kwargs["office_pk"]}
         )
