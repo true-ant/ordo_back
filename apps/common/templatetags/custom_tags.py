@@ -114,6 +114,17 @@ def dashboard_ordo_order_card():
 
 
 @register.simple_tag
+def dashboard_order_count_card():
+    vendor_order_objects = VendorOrder.objects.filter(status__in=[OrderStatus.OPEN, OrderStatus.CLOSED])
+    total_count, value = (
+        CustomTagHelper.calculate_growth_rate_and_get_payload(order_queryset=vendor_order_objects)
+    )
+    return render_to_string(
+        "admin/dashboard/vendor_order.html", {"title": "{:,}".format(total_count), "value": value}
+    )
+
+
+@register.simple_tag
 def dashboard_vendor_order_card():
     vendor_order_objects = VendorOrder.objects.filter(status__in=[OrderStatus.OPEN, OrderStatus.CLOSED])
     total_count, value = (
