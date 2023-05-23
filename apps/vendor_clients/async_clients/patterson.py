@@ -37,124 +37,135 @@ class PattersonClient(BaseClient):
                 "returnUrl": "/",
                 "signIn": "userSignIn",
             }
-            async with self.session.get(
-                url="https://www.pattersondental.com/Account", headers=PRE_LOGIN_HEADERS, params=params
-            ) as resp:
-                login_url = str(resp.url)
-                text = await resp.text()
-                settings_content = text.split("var SETTINGS")[1].split(";")[0].strip(" =")
-                settings = json.loads(settings_content)
-                csrf = settings.get("csrf", "")
-                transId = settings.get("transId", "")
-                policy = settings.get("hosts", {}).get("policy", "")
-                diag = {"pageViewId": settings.get("pageViewId", ""), "pageId": "CombinedSigninAndSignup", "trace": []}
+            await resp.read()
 
-                headers = LOGIN_HEADERS.copy()
-                headers["Referer"] = login_url
-                headers["X-CSRF-TOKEN"] = csrf
+        async with self.session.get(
+            url="https://www.pattersondental.com/Account", headers=PRE_LOGIN_HEADERS, params=params
+        ) as resp:
+            login_url = str(resp.url)
+            text = await resp.text()
+        settings_content = text.split("var SETTINGS")[1].split(";")[0].strip(" =")
+        settings = json.loads(settings_content)
+        csrf = settings.get("csrf", "")
+        transId = settings.get("transId", "")
+        policy = settings.get("hosts", {}).get("policy", "")
+        diag = {"pageViewId": settings.get("pageViewId", ""), "pageId": "CombinedSigninAndSignup", "trace": []}
 
-                params = (
-                    ("tx", transId),
-                    ("p", policy),
-                )
-                url = (
-                    "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
-                    "B2C_1A_PRODUCTION_Dental_SignInWithPwReset/SelfAsserted?" + urlencode(params)
-                )
+        headers = LOGIN_HEADERS.copy()
+        headers["Referer"] = login_url
+        headers["X-CSRF-TOKEN"] = csrf
 
-                data = {
-                    "signInName": self.username,
-                    "password": self.password,
-                    "request_type": "RESPONSE",
-                    "diag": diag,
-                    "login_page_link": login_url,
-                    "transId": transId,
-                    "csrf": csrf,
-                    "policy": policy,
-                }
+        params = (
+            ("tx", transId),
+            ("p", policy),
+        )
+        url = (
+            "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
+            "B2C_1A_PRODUCTION_Dental_SignInWithPwReset/SelfAsserted?" + urlencode(params)
+        )
 
-                return {
-                    "url": url,
-                    "headers": headers,
-                    "data": data,
-                }
+        data = {
+            "signInName": self.username,
+            "password": self.password,
+            "request_type": "RESPONSE",
+            "diag": diag,
+            "login_page_link": login_url,
+            "transId": transId,
+            "csrf": csrf,
+            "policy": policy,
+        }
+
+        return {
+            "url": url,
+            "headers": headers,
+            "data": data,
+        }
 
     async def check_authenticated(self, resp: ClientResponse) -> bool:
         text = await resp.text()
         dom = Selector(text=text)
-        return True if dom.xpath("//a[@href='/Account/LogOff']") else False
+        if dom.xpath("//a[@href='/Account/LogOff']"):
+            return True
+        logger.debug("Did not find logoff: %s", text)
+        return False
 
     async def login(self, username: Optional[str] = None, password: Optional[str] = None) -> Optional[SimpleCookie]:
         login_info = await self.get_login_data()
         logger.debug("Got logger data: %s", login_info)
-        if login_info:
-            async with self.session.post(
-                url=login_info["url"], headers=login_info["headers"], data=login_info["data"]
-            ) as resp:
-                transId = login_info["data"]["transId"]
-                policy = login_info["data"]["policy"]
-                csrf = login_info["data"]["csrf"]
-                diag = login_info["data"]["diag"]
+        if not login_info:
+            return
+        async with self.session.post(
+            url=login_info["url"], headers=login_info["headers"], data=login_info["data"]
+        ) as resp:
+            await resp.read()
 
-                headers = LOGIN_HOOK_HEADER.copy()
-                headers["Referer"] = login_info["data"]["login_page_link"]
+        login_data = login_info["data"]
+        transId = login_data["transId"]
+        policy = login_data["policy"]
+        csrf = login_data["csrf"]
+        diag = login_data["diag"]
 
-                params = (
-                    ("tx", transId),
-                    ("p", policy),
-                    ("rememberMe", "false"),
-                    ("csrf_token", csrf),
-                    ("diags", urlencode(diag)),
-                )
-                url = (
-                    "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
-                    "B2C_1A_PRODUCTION_Dental_SignInWithPwReset/api/CombinedSigninAndSignup/confirmed?"
-                    + urlencode(params)
-                )
+        headers = LOGIN_HOOK_HEADER.copy()
+        headers["Referer"] = login_data["login_page_link"]
 
-                logger.debug("Logging in...")
-                async with self.session.get(url, headers=headers) as resp:
-                    print("Login Confirmed: ", resp.status)
-                    text = await resp.text()
-                    dom = Selector(text=text)
-                    state = dom.xpath('//input[@name="state"]/@value').get()
-                    code = dom.xpath('//input[@name="code"]/@value').get()
-                    id_token = dom.xpath('//input[@name="id_token"]/@value').get()
+        params = (
+            ("tx", transId),
+            ("p", policy),
+            ("rememberMe", "false"),
+            ("csrf_token", csrf),
+            ("diags", urlencode(diag)),
+        )
+        url = (
+            "https://pattersonb2c.b2clogin.com/pattersonb2c.onmicrosoft.com/"
+            "B2C_1A_PRODUCTION_Dental_SignInWithPwReset/api/CombinedSigninAndSignup/confirmed?" + urlencode(params)
+        )
 
-                    headers = LOGIN_HOOK_HEADER2.copy()
+        logger.debug("Logging in...")
+        async with self.session.get(url, headers=headers) as resp:
+            logger.debug("Login Confirmed: status=%s", resp.status)
+            text = await resp.text()
 
-                    data = {
-                        "state": state,
-                        "code": code,
-                        "id_token": id_token,
-                    }
+        dom = Selector(text=text)
+        state = dom.xpath('//input[@name="state"]/@value').get()
+        code = dom.xpath('//input[@name="code"]/@value').get()
+        id_token = dom.xpath('//input[@name="id_token"]/@value').get()
 
-                    async with self.session.post(
-                        url="https://www.pattersondental.com/Account/LogOnPostProcessing/",
-                        headers=headers,
-                        data=data,
-                    ) as resp:
-                        async with self.session.get(
-                            url="https://www.pattersondental.com/supplies/deals",
-                            headers=HOME_HEADERS,
-                            data=data,
-                        ) as resp:
-                            if resp.status != 200:
-                                content = await resp.read()
-                                logger.debug("Got %s status, content = %s", resp.status, content)
-                                raise errors.VendorAuthenticationFailed()
+        headers = LOGIN_HOOK_HEADER2.copy()
 
-                            is_authenticated = await self.check_authenticated(resp)
-                            if not is_authenticated:
-                                logger.debug("Still not authenticated")
-                                raise errors.VendorAuthenticationFailed()
+        data = {
+            "state": state,
+            "code": code,
+            "id_token": id_token,
+        }
 
-                            if hasattr(self, "after_login_hook"):
-                                await self.after_login_hook(resp)
+        async with self.session.post(
+            url="https://www.pattersondental.com/Account/LogOnPostProcessing/",
+            headers=headers,
+            data=data,
+        ) as resp:
+            await resp.read()
 
-                            logger.info("Successfully logged in")
+        async with self.session.get(
+            url="https://www.pattersondental.com/supplies/deals",
+            headers=HOME_HEADERS,
+            data=data,
+        ) as resp:
+            content = await resp.read()
+            if resp.status != 200:
+                logger.debug("Got %s status, content = %s", resp.status, content)
+                raise errors.VendorAuthenticationFailed()
 
-            return resp.cookies
+        is_authenticated = await self.check_authenticated(resp)
+        if not is_authenticated:
+            logger.debug("Still not authenticated")
+            raise errors.VendorAuthenticationFailed()
+
+        if hasattr(self, "after_login_hook"):
+            await self.after_login_hook(resp)
+
+        logger.info("Successfully logged in")
+
+        return resp.cookies
 
     async def get_cart_page(self) -> Union[Selector, dict]:
         return await self.get_response_as_json(

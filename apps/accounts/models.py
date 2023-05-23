@@ -9,7 +9,9 @@ from django.utils import timezone
 from django_extensions.db.fields import AutoSlugField
 from phonenumber_field.modelfields import PhoneNumberField
 
-from apps.accounts import managers
+import apps.accounts.managers.company_member
+import apps.accounts.managers.subscription
+from apps.accounts.managers.vendor import VendorManager
 from apps.common.models import FlexibleForeignKey, TimeStampedModel
 from apps.common.month import Month
 from apps.common.month.models import MonthField
@@ -39,6 +41,8 @@ class Vendor(models.Model):
     logo = models.URLField(null=True, blank=True)
     enabled = models.BooleanField(default=True)
 
+    objects = VendorManager()
+
     def __str__(self):
         return self.name
 
@@ -60,7 +64,7 @@ class Company(TimeStampedModel):
     is_active = models.BooleanField(default=True)
     billing_together = models.BooleanField(default=False)
 
-    objects = managers.CompanyMemeberActiveManager()
+    objects = apps.accounts.managers.company_member.CompanyMemberActiveManager()
 
     def __str__(self):
         return self.name
@@ -83,7 +87,7 @@ class Office(TimeStampedModel):
     dental_api = models.OneToOneField(OpenDentalKey, on_delete=models.SET_NULL, null=True)
     # Budget & Card Information
 
-    objects = managers.CompanyMemeberActiveManager()
+    objects = apps.accounts.managers.company_member.CompanyMemberActiveManager()
 
     class Meta:
         ordering = ("created_at",)
@@ -105,6 +109,8 @@ class Office(TimeStampedModel):
 
     @property
     def budget(self):
+        if hasattr(self, "prefetched_current_budget"):
+            return self.prefetched_current_budget[0]
         current_date = timezone.now().date()
         month = Month(year=current_date.year, month=current_date.month)
         return self.budgets.filter(month=month).first()
@@ -239,8 +245,7 @@ class CompanyMember(TimeStampedModel):
     token_expires_at = models.DateTimeField(default=default_expires_at)
     is_active = models.BooleanField(default=True)
 
-    objects = managers.CompanyMemeberActiveManager()
-    alls = managers.Manager()
+    objects = apps.accounts.managers.company_member.CompanyMemberActiveManager()
 
     def regenerate_token(self):
         self.key = generate_token()
@@ -263,7 +268,7 @@ class Subscription(TimeStampedModel):
     cancelled_on = models.DateField(null=True, blank=True)
 
     objects = Manager()
-    actives = managers.ActiveSubscriptionManager()
+    actives = apps.accounts.managers.subscription.ActiveSubscriptionManager()
 
     def __str__(self):
         return f"{self.office.name}' Subscription"
