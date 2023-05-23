@@ -110,7 +110,10 @@ class Office(TimeStampedModel):
     @property
     def budget(self):
         if hasattr(self, "prefetched_current_budget"):
-            return self.prefetched_current_budget[0]
+            budget = self.prefetched_current_budget
+            if budget:
+                return budget[0]
+            return None
         current_date = timezone.now().date()
         month = Month(year=current_date.year, month=current_date.month)
         return self.budgets.filter(month=month).first()
