@@ -21,7 +21,6 @@ from django.db.models import Q
 from django.template.loader import render_to_string
 from django.utils import timezone
 
-from apps.accounts.errors import TaskFailure
 from apps.accounts.helper import OfficeBudgetHelper
 from apps.accounts.models import CompanyMember, Office, OfficeVendor, User
 from apps.orders.helpers import (
@@ -164,8 +163,8 @@ def link_vendor(vendor_slug: str, office_id: int, consider_recent=False):
     fetch_order_history(vendor_slug, office_id, consider_recent)
 
 
-@app.task
-def fetch_order_history(vendor_slug, office_id, consider_recent=False):
+@app.task(bind=True)
+def fetch_order_history(self, vendor_slug, office_id, consider_recent=False):
     """
     NOTE: Passed vendor_slug and office_id as params instead of OfficeVendor object
     to clearly observe task events in the celery flower...
@@ -176,7 +175,8 @@ def fetch_order_history(vendor_slug, office_id, consider_recent=False):
     office_vendor = OfficeVendor.objects.get(vendor__slug=vendor_slug, office=office_id)
 
     if not office_vendor.login_success:
-        raise TaskFailure("The authentication of this vendor doesn't work.")
+        self.update_state(state=states.FAILURE, meta="Cancelled due to failed authentication earlier")
+        return
 
     order_id_field = "vendor_order_reference" if vendor_slug == "henry_schein" else "vendor_order_id"
     completed_order_ids = list(
