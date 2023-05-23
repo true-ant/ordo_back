@@ -10,7 +10,7 @@ SENTRY_ENVIRONMENT = os.getenv("SENTRY_ENVIRONMENT", "UNKNOWN")
 SENTRY_DSN = os.getenv("SENTRY_DSN")
 
 if SENTRY_DSN:
-    TRACES_SAMPLE_RATES = {"beanstalk": 1, "celery": 0.1}
+    TRACES_SAMPLE_RATES = {"beanstalk": 0.5, "celery": 0.1}
     PROFILE_SAMPLE_RATES = {"beanstalk": 0.2, "celery": 0.1}
     DEFAULT_TRACES_SAMPLE_RATE = 0.1
     DEFAULT_PROFILES_SAMPLE_RATE = 0.1
