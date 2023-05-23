@@ -2129,9 +2129,7 @@ class DentalCityOrderFlowShipmentNoticeRequest(APIView):
         logger.info(f"ShipmentNoticeRequest: {request.data}")
         shipping_info: DentalCityShippingInfo = DentalCityCXMLParser.parse_shipment_notice_request(request.data)
         order_id = shipping_info.order_id
-        order = m.VendorOrder.objects.filter(
-            vendor__slug=SupportedVendor.DentalCity.value, vendor_order_id=order_id
-        ).first()
+        order = m.VendorOrder.objects.filter(id=order_id).first()
         if order is not None:
             order.vendor_status = "shipped"
             order.status = m.OrderStatus.CLOSED
