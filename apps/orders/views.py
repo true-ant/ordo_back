@@ -271,9 +271,24 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
+        office_id = self.kwargs["office_pk"]
+        office_product_price = m.OfficeProduct.objects.filter(
+            product_id=OuterRef("product_id"), office_id=office_id
+        ).values("price")[:1]
         return (
-            self.queryset.filter(order__office_id=self.kwargs["office_pk"])
+            self.queryset.filter(order__office_id=office_id)
             .select_related("order", "vendor", "order__office")
+            .prefetch_related(
+                Prefetch(
+                    "order_products",
+                    m.VendorOrderProduct.objects.select_related("product", "product__vendor", "product__category")
+                    .prefetch_related("product__images")
+                    .annotate(
+                        office_product_price=Subquery(office_product_price),
+                        updated_unit_price=Coalesce(F("office_product_price"), F("product__price")),
+                    ),
+                )
+            )
             .order_by("-order_date", "-order_id")
         )
 
