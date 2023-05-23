@@ -308,14 +308,14 @@ class VendorOrderProductSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
 
+        ret["order_date"] = instance.vendor_order.order_date
+
         if hasattr(instance, "updated_unit_price"):
             ret["updated_unit_price"] = instance.updated_unit_price
         else:
             office_product = m.OfficeProduct.objects.filter(
                 product_id=instance.product_id, office_id=instance.vendor_order.order.office_id
             ).first()
-
-            ret["order_date"] = instance.vendor_order.order_date
 
             if office_product:
                 ret["updated_unit_price"] = office_product.price
