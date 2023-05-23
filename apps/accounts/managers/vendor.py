@@ -2,12 +2,12 @@ from django.db import models
 
 PRODUCT_CATEGORY_STATS_BY_VENDOR = """
 WITH collapsed AS (
-        SELECT DISTINCT ON (op.vendor_id, op.parent_id)
-        ofp.id, op.vendor_id, ofp.office_product_category_id
+        SELECT DISTINCT ON (ofp.vendor_id, op.parent_id)
+        ofp.id, ofp.vendor_id, ofp.office_product_category_id
         FROM "orders_officeproduct" ofp
                LEFT OUTER JOIN "orders_product" op ON (ofp.product_id = op.id)
-        WHERE ofp.is_inventory AND ofp.office_id = 135
-        ORDER BY op.vendor_id, op.parent_id ASC, ofp."last_order_date" DESC
+        WHERE ofp.is_inventory AND ofp.office_id = %(office_id)s
+        ORDER BY ofp.vendor_id, op.parent_id ASC, ofp."last_order_date" DESC
     ),
     stats AS (
         SELECT
