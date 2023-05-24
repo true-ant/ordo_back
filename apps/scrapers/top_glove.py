@@ -65,7 +65,7 @@ class TopGloveScraper(Scraper):
             ("unit_prices", './td[@class="cartUnitDisplay"]//text()'),
             ("prices", './td[@class="cartTotalDisplay"]//text()'),
         ]
-        
+
         data = {name: product_line.xpath(xpath).extract() for name, xpath in PRODUCT_LINE_EXTRACTION_PARAMS}
         data["product_name"] = try_extract_text(product_line.xpath('./td[@class="accountProductDisplay"]'))
 
