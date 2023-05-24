@@ -25,8 +25,6 @@ def add_customer_to_stripe(
     if payment_method_token is None:
         payment_method_token = get_payment_method_token(card_number, expiry, cvc)
 
-    if settings.STAGE in ("staging", "local"):
-        customer_name = f"{customer_name}({settings.STAGE})"
     customer = register_customer(email, customer_name, payment_method_token)
     return payment_method_token, customer
 

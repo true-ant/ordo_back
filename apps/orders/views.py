@@ -271,9 +271,24 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
+        office_id = self.kwargs["office_pk"]
+        office_product_price = m.OfficeProduct.objects.filter(
+            product_id=OuterRef("product_id"), office_id=office_id
+        ).values("price")[:1]
         return (
-            self.queryset.filter(order__office_id=self.kwargs["office_pk"])
+            self.queryset.filter(order__office_id=office_id)
             .select_related("order", "vendor", "order__office")
+            .prefetch_related(
+                Prefetch(
+                    "order_products",
+                    m.VendorOrderProduct.objects.select_related("product", "product__vendor", "product__category")
+                    .prefetch_related("product__images")
+                    .annotate(
+                        office_product_price=Subquery(office_product_price),
+                        updated_unit_price=Coalesce(F("office_product_price"), F("product__price")),
+                    ),
+                )
+            )
             .order_by("-order_date", "-order_id")
         )
 
@@ -1339,20 +1354,42 @@ class OfficeProductViewSet(AsyncMixin, ModelViewSet):
 
         queryset = filterset.qs
         queryset = queryset.collapse_by_parent_products()
+        office_products = OfficeProduct.objects.filter(Q(office_id=office_pk))
+        child_prefetch_queryset = Product.objects.select_related("category", "vendor").prefetch_related(
+            "images", Prefetch("office_products", office_products, to_attr="office_product")
+        )
 
-        queryset = queryset.annotate(
+        queryset = queryset.select_related("vendor", "office_product_category").annotate(
             category_order=Case(
                 When(office_product_category__slug=category_ordering, then=Value(0)),
                 When(office_product_category__slug="other", then=Value(2)),
                 default=Value(1),
-            )
+            ),
+            last_quantity_ordered=Subquery(
+                VendorOrderProduct.objects.filter(
+                    product_id=OuterRef("product_id"), vendor_order__order__office_id=office_pk
+                )
+                .order_by("-updated_at")
+                .values("quantity")[:1]
+            ),
         )
 
         queryset = queryset.prefetch_related(
             Prefetch(
                 "product",
-                Product.objects.prefetch_related(
-                    Prefetch("parent", Product.objects.all().annotate(is_inventory=Value(True)))
+                Product.objects.select_related("vendor", "category").prefetch_related(
+                    Prefetch(
+                        "parent",
+                        Product.objects.annotate(is_inventory=Value(True))
+                        .select_related(
+                            "category",
+                            "vendor",
+                        )
+                        .prefetch_related(
+                            Prefetch("children", child_prefetch_queryset),
+                            "images",
+                        ),
+                    )
                 ),
             ),
         )

@@ -114,7 +114,8 @@ DATABASES = {
         "TEST": {
             "NAME": "ordo_db_test",
         },
-        "CONN_MAX_AGE": 1500,
+        "CONN_MAX_AGE": None,
+        "CONN_HEALTH_CHECKS": True,
     }
 }
 
