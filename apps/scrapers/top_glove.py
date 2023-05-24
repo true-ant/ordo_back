@@ -1,8 +1,10 @@
 import asyncio
 import datetime
+import itertools
 import logging
 import re
 from decimal import Decimal
+from itertools import zip_longest
 from typing import Dict, List, Optional
 from urllib.parse import urlencode
 
@@ -18,7 +20,11 @@ from apps.scrapers.headers.top_glove import (
     ORDER_HISTORY_HEADER,
 )
 from apps.scrapers.schema import Order, VendorOrderDetail
-from apps.scrapers.utils import catch_network, semaphore_coroutine
+from apps.scrapers.utils import (
+    catch_network,
+    convert_string_to_price,
+    semaphore_coroutine,
+)
 from apps.types.orders import CartProduct
 
 logger = logging.getLogger(__name__)
@@ -30,6 +36,17 @@ def try_extract_text(dom):
         return text
     except Exception:
         return None
+
+
+def same(x):
+    return x
+
+
+def parse_int_or_float(v):
+    try:
+        return int(v)
+    except ValueError:
+        return Decimal(v)
 
 
 class TopGloveScraper(Scraper):
@@ -59,41 +76,30 @@ class TopGloveScraper(Scraper):
 
     def parse_product_line(self, product_line):
         PRODUCT_LINE_EXTRACTION_PARAMS = [
-            ("descriptions", './td[@class="accountProductDescDisplay"]//text()'),
-            ("skus", './td[@class="accountProductCodeDisplay"]//text()'),
-            ("qtys", './td[@class="accountQuantityDisplay"]//text()'),
-            ("unit_prices", './td[@class="cartUnitDisplay"]//text()'),
-            ("prices", './td[@class="cartTotalDisplay"]//text()'),
+            ("descriptions", './td[@class="accountProductDescDisplay"]//text()', same),
+            ("skus", './td[@class="accountProductCodeDisplay"]//text()', same),
+            ("qtys", './td[@class="accountQuantityDisplay"]//text()', parse_int_or_float),
+            ("unit_prices", './td[@class="cartUnitDisplay"]//text()', convert_string_to_price),
+            ("prices", './td[@class="cartTotalDisplay"]//text()', convert_string_to_price),
         ]
 
-        data = {name: product_line.xpath(xpath).extract() for name, xpath in PRODUCT_LINE_EXTRACTION_PARAMS}
+        data = {
+            name: list(map(converter, [i for i in product_line.xpath(xpath).extract() if i.strip()]))
+            for name, xpath, converter in PRODUCT_LINE_EXTRACTION_PARAMS
+        }
         data["product_name"] = try_extract_text(product_line.xpath('./td[@class="accountProductDisplay"]'))
 
         if not data["skus"]:
             return []
 
         products = []
-        for index, sku in enumerate(data["skus"]):
-            if len(data["descriptions"]) > index:
-                description = data["descriptions"][index].strip()
-            else:
-                description = data["descriptions"][0].strip()
-
-            if len(data["qtys"]) > index:
-                qty = data["qtys"][index].strip()
-            else:
-                qty = data["qtys"][0].strip()
-
-            if len(data["unit_prices"]) > index:
-                unit_price = data["unit_prices"][index].strip()
-            else:
-                unit_price = data["unit_prices"][0].strip()
-
-            if len(data["unit_prices"]) > index:
-                product_price = data["unit_prices"][index].strip()
-            else:
-                product_price = data["unit_prices"][0].strip()
-
+        important_keys = ("skus", "qtys", "unit_prices", "prices")
+        if len({len(data[key]) for key in important_keys}) > 1:
+            # logger.warning("Could not parse the following product line: %s", get_html_content(product_line))
+            return []
+        for sku, qty, unit_price, price, description in zip_longest(
+            *(data[k] for k in (*important_keys, "description"))
+        ):
             products.append(
                 {
                     "product": {
@@ -104,7 +110,7 @@ class TopGloveScraper(Scraper):
                         "url": "",
                         "images": [],
                         "category": "",
-                        "price": product_price,
+                        "price": price,
                         "status": "",
                         "vendor": self.vendor.to_dict(),
                     },
@@ -113,6 +119,7 @@ class TopGloveScraper(Scraper):
                     "status": "",
                 }
             )
+
         return products
 
     @semaphore_coroutine
@@ -158,7 +165,7 @@ class TopGloveScraper(Scraper):
         product_rows = resp_dom.xpath('//table[@id="orderHistoryHeading"]//tr')
 
         for product_line in product_rows:
-            order_item["products"] = self.parse_product_line(product_line)
+            order_item["products"].extend(self.parse_product_line(product_line))
 
         if office:
             await self.save_order_to_db(office, order=Order.from_dict(order_item))
@@ -179,7 +186,7 @@ class TopGloveScraper(Scraper):
 
         tasks = []
         page = 1
-        while True:
+        for page in itertools.count(1):
             params = (
                 ("main_page", "account_history"),
                 ("page", page),
@@ -207,8 +214,6 @@ class TopGloveScraper(Scraper):
 
             if len(order_history_doms) < 10:
                 break
-            else:
-                page += 1
 
         if not tasks:
             return []
