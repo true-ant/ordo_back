@@ -40,7 +40,7 @@ from apps.accounts.models import OfficeVendor as OfficeVendorModel
 from apps.accounts.models import Vendor as VendorModel
 from apps.api_clients.factory import APIClientFactory
 from apps.common import messages as msgs
-from apps.common.choices import OrderStatus, ProductStatus, OrderType
+from apps.common.choices import OrderStatus, OrderType, ProductStatus
 from apps.common.query import Replacer
 from apps.common.utils import (
     batched,
@@ -144,10 +144,7 @@ class OfficeProductHelper:
 
     @staticmethod
     async def get_office_vendors(office_id: str, vendor_slugs: List[str]) -> Dict[str, VendorCredential]:
-        office_vendors = OfficeVendorModel.objects.filter(
-            office_id=office_id,
-            vendor__slug__in=vendor_slugs
-        ).values(
+        office_vendors = OfficeVendorModel.objects.filter(office_id=office_id, vendor__slug__in=vendor_slugs).values(
             "vendor__slug", "username", "password"
         )
         return {
@@ -1591,7 +1588,9 @@ class OrderHelper:
     @staticmethod
     def update_vendor_order_totals(vendor_order: VendorOrderModel):
         new_total_amount = 0
-        for vendor_order_product in VendorOrderProductModel.objects.filter(vendor_order=vendor_order):
+        for vendor_order_product in VendorOrderProductModel.objects.filter(vendor_order=vendor_order).exclude(
+            status__in=(ProductStatus.REJECTED,)
+        ):
             updated_product_price = (
                 OfficeProductModel.objects.filter(
                     office_id=vendor_order.order.office_id, product_id=vendor_order_product.product_id
