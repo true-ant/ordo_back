@@ -13,7 +13,6 @@ import datetime
 import os
 from pathlib import Path
 
-import sentry_sdk
 from dotenv import load_dotenv
 
 from services.utils.secrets import get_secret_value
@@ -214,27 +213,6 @@ DEFAULT_FILE_STORAGE = "apps.common.storage_backends.PublicMediaStorage"
 # phone number field settings
 PHONENUMBER_DB_FORMAT = "NATIONAL"
 PHONENUMBER_DEFAULT_REGION = "US"
-
-SENTRY_ENVIRONMENT = os.getenv("SENTRY_ENVIRONMENT", "UNKNOWN")
-
-SENTRY_DSN = os.getenv("SENTRY_DSN")
-if SENTRY_DSN:
-    from sentry_sdk.integrations.celery import CeleryIntegration
-    from sentry_sdk.integrations.django import DjangoIntegration
-
-    from .version import VERSION
-
-    TRACES_SAMPLE_RATES = {"beanstalk": 1, "celery": 0.1}
-    DEFAULT_TRACES_SAMPLE_RATE = 0.1
-
-    sentry_sdk.init(
-        dsn=SENTRY_DSN,
-        integrations=[DjangoIntegration(), CeleryIntegration()],
-        environment=SENTRY_ENVIRONMENT,
-        release=VERSION,
-        traces_sample_rate=TRACES_SAMPLE_RATES.get(SENTRY_ENVIRONMENT, DEFAULT_TRACES_SAMPLE_RATE),
-        send_default_pii=True,
-    )
 
 # Stripe
 STRIPE_API_KEY = get_secret_value("STRIPE_API_KEY")

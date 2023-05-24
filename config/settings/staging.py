@@ -1,3 +1,4 @@
+from . import sentry  # noqa
 from .base import *  # noqa
 
 DEBUG = False

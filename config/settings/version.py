@@ -11,7 +11,16 @@ BEANSTALK_MANIFEST = "/opt/elasticbeanstalk/deployment/app_version_manifest.json
 def get_beanstalk_version():
     with open(BEANSTALK_MANIFEST) as f:
         data = json.load(f)
-    label = data["VersionLabel"]
+    if "VersionLabel" in data:
+        label = data["VersionLabel"]
+        return label.split("-")[-1]
+    runtime_sources = data["RuntimeSources"]
+    if len(runtime_sources) != 1:
+        raise ValueError()
+    inner_object = list(runtime_sources.values())[0]
+    if len(inner_object) != 1:
+        raise ValueError()
+    label = list(inner_object.keys())[0]
     return label.split("-")[-1]
 
 
