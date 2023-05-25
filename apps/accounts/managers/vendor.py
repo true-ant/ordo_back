@@ -18,10 +18,10 @@ WITH collapsed AS (
         GROUP BY c.vendor_id
     )
 SELECT av.*,
-    stats.count as count,
-    stats.categories as categories
+    COALESCE(stats.count, 0) as count,
+    COALESCE(stats.categories, '{}'::int[]) as categories
     FROM stats
-        JOIN accounts_vendor av ON stats.vendor_id = av.id
+        RIGHT JOIN accounts_vendor av ON stats.vendor_id = av.id
     ORDER BY av.name;
 """
 
