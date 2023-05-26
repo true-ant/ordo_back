@@ -22,12 +22,11 @@ celery -A config beat -l INFO --scheduler django_celery_beat.schedulers:Database
 celery -A config worker
 ```
 You can dump database from staging server. I strongly suggest that you can use this data to populate your local database.
-
-## Project Deployment
-```shell
-poetry shell
-eb deploy
+To do that please
+```bash
+cp dump_db.env.example dump_db.env
 ```
+Then fill values for variables in `dump_db.env` and run `./dump_db.sh`
 
 ## About Project
 Main featurs in Ordo are as followings
