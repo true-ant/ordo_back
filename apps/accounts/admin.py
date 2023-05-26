@@ -1,11 +1,15 @@
 from decimal import Decimal
+from typing import Any
 
 from dateutil.relativedelta import relativedelta
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
 from django.db.models import Count, F, Func, OuterRef, Q, Subquery
+from django.db.models.query import QuerySet
+from django.http.request import HttpRequest
 from django.utils import timezone
 from django.utils.safestring import mark_safe
+from apps.common.utils import get_order_string
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
 from apps.common.admins import AdminDynamicPaginationMixin, ReadOnlyAdminMixin
@@ -32,6 +36,12 @@ class UserAdmin(AdminDynamicPaginationMixin, DefaultUserAdmin):
         "role",
         "avatar",
     )
+
+    def get_queryset(self, request):
+        order_str = get_order_string(request)
+        if order_str:
+            self.ordering = (order_str,)
+        return super().get_queryset(request)
 
 
 class CompanyMemberInline(ReadOnlyAdminMixin, NestedTabularInline):
@@ -149,7 +159,7 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
     list_display = (
         "name",
         "on_boarding_step",
-        "ordo_order_count",
+        "order_count",
         "vendor_order_count",
         "ordo_order_volume",
         "is_active",
@@ -158,7 +168,6 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
         CompanyMemberInline,
         OfficeInline,
     )
-    ordering = ("-on_boarding_step",)
 
     def get_queryset(self, request):
         orders = (
@@ -195,14 +204,14 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
             vendor_order_count=Subquery(vendor_orders),
             ordo_order_volume=Subquery(total_amount),
         )
-
-        ordering = self.get_ordering(request)
-        if ordering:
-            qs = qs.order_by(*ordering)
+        
+        sort_str = get_order_string(request)
+        if sort_str:
+            qs = qs.order_by(sort_str)
         return qs
 
     @admin.display(description="Ordo Order Count")
-    def ordo_order_count(self, obj):
+    def order_count(self, obj):
         return obj.order_count
 
     @admin.display(description="Vendor Order Count")
@@ -231,7 +240,7 @@ class VendorAdmin(AdminDynamicPaginationMixin, admin.ModelAdmin):
             _vendor_order_count=Count(
                 "vendororder", filter=Q(vendororder__status__in=[OrderStatus.OPEN, OrderStatus.CLOSED])
             )
-        ).order_by("-_vendor_order_count")
+        )
         return queryset
 
     @admin.display(description="Logo")

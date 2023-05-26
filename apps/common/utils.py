@@ -359,5 +359,16 @@ def batched(iterable, size):
         yield item
 
 
+def get_order_string(request):
+    request.GET = request.GET.copy()
+    sort_by = request.GET.pop('sort_by', None)
+    direction = request.GET.pop('direction', 'asc')
+    if sort_by:
+        order_str = sort_by[0]
+        if direction[0] == 'desc':
+            order_str = "-" + order_str
+        return order_str
+    return None
+
 if __name__ == "__main__":
     group_products_by_str()

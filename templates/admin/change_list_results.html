@@ -9,11 +9,11 @@
 {% endif %}
 
 {% if results %}
-<table id="project-table" class="table text-nowrap mb-0 table-bordered border-top border-bottom project-list-main">
+<table id="project-table" class="table dataTable text-nowrap mb-0 table-bordered border-top border-bottom project-list-main">
   <thead class="table-head">
     <tr>
       {% for header in result_headers %}
-      <th class="bg-transparent border-bottom-0">{{ header.text|capfirst }}</th>
+      <th field_name="{{ cl.list_display|index:forloop.counter0 }}" class="bg-transparent border-bottom-0 sorting"><a style="display:block;" href="?sort_by={{ cl.list_display|index:forloop.counter0 }}">{{ header.text|capfirst }}</a></th>
       {% endfor %}
       <th class="bg-transparent border-bottom-0">Action</th>
     </tr>

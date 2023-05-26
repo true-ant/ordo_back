@@ -224,3 +224,8 @@ def dashboard_order_chart_card():
         "admin/dashboard/order_chart.html",
         {"title": "{:,}".format(price_order_all), "value": "${:,}".format(current_year_grow)},
     )
+
+
+@register.filter
+def index(indexable, i):
+    return indexable[i]
