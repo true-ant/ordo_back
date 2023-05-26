@@ -74,6 +74,15 @@ class Company(TimeStampedModel):
 
 
 class Office(TimeStampedModel):
+    class ManageType(models.TextChoices):
+        OPENDENTAL = "open_dental", "Open Dental"
+        DENTIRX = "dentirx", "Dentirx"
+        EAGLESOFT = "eaglesoft", "EagleSoft"
+        CURVE = "curve", "Curve"
+        CARESTACK = "carestack", "Carestack"
+        MACPRACTICE = "macpractice", "MacPractice"
+        OTHER = "other", "Other"
+        
     company = FlexibleForeignKey(Company, related_name="offices")
     vendors = models.ManyToManyField(Vendor, through="OfficeVendor")
     is_active = models.BooleanField(default=True)
@@ -85,6 +94,7 @@ class Office(TimeStampedModel):
     website = models.URLField(max_length=100, null=True, blank=True)
     logo = models.ImageField(null=True, blank=True, upload_to="offices")
     dental_api = models.OneToOneField(OpenDentalKey, on_delete=models.SET_NULL, null=True)
+    practice_software = models.CharField(max_length=50, choices=ManageType.choices, default=ManageType.OPENDENTAL)
     # Budget & Card Information
 
     objects = apps.accounts.managers.company_member.CompanyMemberActiveManager()
