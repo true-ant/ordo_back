@@ -51,15 +51,8 @@ repos:
       # - id: requirements-txt-fixer
       # - id: sort-simple-yaml
       - id: trailing-whitespace
-  - repo: https://gitlab.com/retnikt/flake9
-    rev: '3.8.3.post1'
-    hooks:
-    - id: flake8
-      additional_dependencies:
-        - toml
-      exclude: "^docs/"
   - repo: https://github.com/charliermarsh/ruff-pre-commit
     # Ruff version.
-    rev: 'v0.0.265'
+    rev: 'v0.0.270'
     hooks:
       - id: ruff
