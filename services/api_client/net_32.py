@@ -39,31 +39,29 @@ class Net32APIClient:
                 )
             return products
 
+    def parse_content(self, content: bytes):
+        tree = etree.fromstring(content)
+        product_elements = tree.findall(".//entry")
+        return [
+            Net32ProductInfo(
+                mp_id=product_element.findtext(".//mp_id"),
+                price=convert_string_to_price(product_element.findtext(".//price")),
+                inventory_quantity=int(product_element.findtext(".//inventory_quantity")),
+                name=product_element.findtext(".//title"),
+                manufacturer_number=product_element.findtext(".//mp_code"),
+                category=product_element.findtext(".//category"),
+                url=product_element.findtext(".//link"),
+                retail_price=convert_string_to_price(product_element.findtext(".//retail_price")),
+                availability=product_element.findtext(".//availability"),
+            )
+            for product_element in product_elements
+        ]
+
     async def get_full_products(self) -> List[Net32ProductInfo]:
         url = "https://www.net32.com/feeds/searchspring_windfall/dental_products.xml"
-        products = []
         async with self.session.get(url) as resp:
             content = await resp.read()
-            tree = etree.fromstring(content)
-            ns = {"atom": "http://www.w3.org/2005/Atom"}
-            product_list = tree.findall(".//atom:entry", namespaces=ns)
-            for product_element in product_list:
-                products.append(
-                    Net32ProductInfo(
-                        mp_id=product_element.findtext(".//atom:mp_id", namespaces=ns),
-                        price=convert_string_to_price(product_element.findtext(".//atom:price", namespaces=ns)),
-                        inventory_quantity=int(product_element.findtext(".//atom:inventory_quantity", namespaces=ns)),
-                        name=product_element.findtext(".//atom:title", namespaces=ns),
-                        manufacturer_number=product_element.findtext(".//atom:mp_code", namespaces=ns),
-                        category=product_element.findtext(".//atom:category", namespaces=ns),
-                        url=product_element.findtext(".//atom:link", namespaces=ns),
-                        retail_price=convert_string_to_price(
-                            product_element.findtext(".//atom:retail_price", namespaces=ns)
-                        ),
-                        availability=product_element.findtext(".//atom:availability", namespaces=ns),
-                    )
-                )
-            return products
+        return self.parse_content(content)
 
 
 async def main():
