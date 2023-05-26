@@ -136,6 +136,8 @@ dmypy.json
 *.csv
 
 init.sql
+init.sql.gz
+init.sql.zstd
 install-pyenv-win.ps1
 .vscode/*
 node_modules
@@ -143,3 +145,5 @@ node_modules
 services/xmls/*
 node_modules/*
 static/*
+
+dump_db.env
