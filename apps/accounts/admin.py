@@ -145,6 +145,7 @@ class OfficeInline(NestedTabularInline):
         "phone_number",
         "website",
         "is_active",
+        "practice_software"
     )
     exclude = ("logo",)
     extra = 0

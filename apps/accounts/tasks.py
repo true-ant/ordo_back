@@ -311,7 +311,7 @@ def notify_vendor_auth_issue_to_admins(office_vendor_id):
     )
 
     send_mail(
-        subject="Vendor authentication failure!",
+        subject="Vendor authentication failure",
         message="message",
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=company_member_emails,
