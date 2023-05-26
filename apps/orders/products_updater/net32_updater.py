@@ -1,15 +1,18 @@
 import datetime
+import logging
 from typing import List
 
 from aiohttp import ClientSession
 from django.db.models import Q
 from django.utils import timezone
 
+from apps.accounts.models import Vendor
+from apps.common.utils import batched
 from apps.orders.models import Product
 from services.api_client import Net32APIClient
 from services.api_client.vendor_api_types import Net32ProductInfo
 
-BATCH_SIZE = 1000
+BATCH_SIZE = 200
 
 
 async def update_net32_products():
@@ -20,6 +23,7 @@ async def update_net32_products():
     """
     async with ClientSession() as session:
         client = Net32APIClient(session)
+        logging.info("Getting full product list")
         products_from_api: List[Net32ProductInfo] = await client.get_full_products()
 
         await enable_or_disable_products(products_from_api)
@@ -27,53 +31,60 @@ async def update_net32_products():
 
 
 async def enable_or_disable_products(products_from_api: List[Net32ProductInfo]):
-    net32_db_product_ids = set(await Product.net32.available_products().avalues_list("product_id"))
-    net32_api_product_ids = set(product.mp_id for product in products_from_api)
+    net_32_vendor_id = (await Vendor.objects.aget(slug="net_32")).id
+    all_products = [
+        o
+        async for o in Product.objects.filter(vendor_id=net_32_vendor_id).values_list(
+            "product_id", "is_available_on_vendor"
+        )
+    ]
+    available_product_ids = {product_id for product_id, available in all_products if available}
+    unavailable_product_ids = {product_id for product_id, available in all_products if not available}
+    all_product_ids = {product_id for product_id, _ in all_products}
+
+    available_product_ids_from_api = set(product.mp_id for product in products_from_api)
+
+    product_ids_to_be_disabled = available_product_ids - available_product_ids_from_api
+    product_ids_to_be_enabled = unavailable_product_ids & available_product_ids_from_api
+    product_ids_to_be_created = available_product_ids_from_api - all_product_ids
+
+    logging.info(
+        "To disable = %s, to enable = %s, to_create = %s",
+        len(product_ids_to_be_disabled),
+        len(product_ids_to_be_enabled),
+        len(product_ids_to_be_created),
+    )
+
+    for batch in batched(product_ids_to_be_disabled, BATCH_SIZE):
+        logging.debug("Disabling %s", batch)
+        await Product.objects.filter(product_id__in=batch).aupdate(
+            is_available_on_vendor=False, updated_at=timezone.now()
+        )
+
+    for batch in batched(product_ids_to_be_enabled, BATCH_SIZE):
+        logging.debug("Enabling %s", batch)
+        await Product.objects.filter(product_id__in=batch).aupdate(
+            is_available_on_vendor=True, updated_at=timezone.now()
+        )
 
     updated_at = timezone.now()
-    product_ids_to_be_disabled = net32_db_product_ids - net32_api_product_ids
-    product_ids_to_be_enabled = net32_api_product_ids - net32_db_product_ids
-
-    if product_ids_to_be_disabled:
-        product_instances = Product.net32.filter(product_id__in=product_ids_to_be_disabled)
-        async for product_instance in product_instances:
-            product_instance.is_available_on_vendor = False
-            product_instance.updated_at = updated_at
-
-        await Product.objects.abulk_update(
-            product_instances, fields=["is_available_on_vendor", "updated_at"], batch_size=BATCH_SIZE
+    products_to_be_created = [
+        Product(
+            vendor_id=net_32_vendor_id,
+            product_id=product.mp_id,
+            manufacturer_number=product.manufacturer_number,
+            name=product.name,
+            url=product.url,
+            price=product.price,
+            last_price_updated=updated_at,
+            created_at=updated_at,
+            updated_at=updated_at,
         )
+        for product in products_from_api
+        if product.mp_id in product_ids_to_be_created
+    ]
 
-    if product_ids_to_be_enabled:
-        product_instances = Product.net32.filter(product_id__in=product_ids_to_be_enabled)
-        existing_product_ids = set()
-
-        async for product_instance in product_instances:
-            existing_product_ids.add(product_instance.product_id)
-            product_instance.is_available_on_vendor = True
-            product_instance.updated_at = updated_at
-
-        product_ids_to_be_created = product_ids_to_be_enabled - existing_product_ids
-        products_to_be_created = [
-            Product(
-                vendor_id=2,
-                product_id=product.mp_id,
-                manufacturer_number=product.manufacturer_number,
-                name=product.name,
-                url=product.url,
-                price=product.price,
-                last_price_updated=updated_at,
-                created_at=updated_at,
-                updated_at=updated_at,
-            )
-            for product in products_from_api
-            if product.mp_id in product_ids_to_be_created
-        ]
-
-        await Product.objects.abulk_update(
-            product_instances, fields=["is_available_on_vendor", "updated_at"], batch_size=BATCH_SIZE
-        )
-        await Product.objects.abulk_create(products_to_be_created, batch_size=BATCH_SIZE)
+    await Product.objects.abulk_create(products_to_be_created, batch_size=BATCH_SIZE)
 
 
 async def update_prices(products_from_api: List[Net32ProductInfo]):
