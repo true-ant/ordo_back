@@ -1,3 +1,5 @@
+import os
+
 from . import sentry  # noqa
 from .base import *  # noqa
 
@@ -20,6 +22,10 @@ ALLOWED_HOSTS = [
     "172.31.93.12",
     "44.215.221.7",
 ]
+ADDITIONAL_ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS")
+if ADDITIONAL_ALLOWED_HOSTS:
+    ALLOWED_HOSTS.extend(ADDITIONAL_ALLOWED_HOSTS.split(","))
+
 CSRF_TRUSTED_ORIGINS = ["https://*.joinordo.com"]
 # CORS_ALLOWED_ORIGINS = [
 #     "https://staging.joinordo.com",
