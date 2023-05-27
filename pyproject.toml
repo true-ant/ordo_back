@@ -48,7 +48,7 @@ pysftp = "^0.2.9"
 xmltodict = "^0.13.0"
 aws-secretsmanager-caching = "^1.1.1.5"
 unicaps = "^1.2.1"
-uvicorn = "^0.22.0"
+uvicorn = {extras = ["standard"], version = "^0.22.0"}
 
 [tool.poetry.scripts]
 dbdump = 'scripts.dbdump:main'
