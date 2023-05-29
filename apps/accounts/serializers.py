@@ -93,6 +93,7 @@ class OfficeSerializer(serializers.ModelSerializer):
     settings = OfficeSettingSerializer(read_only=True)
     name = serializers.CharField()
     dental_api = OpenDentalKeySerializer()
+    practice_software = serializers.CharField()
 
     class Meta:
         model = m.Office
@@ -180,6 +181,7 @@ class CompanySerializer(serializers.ModelSerializer):
                 name=kwargs["name"],
                 phone_number=kwargs.get("phone_number"),
                 website=kwargs.get("website"),
+                practice_software=kwargs.get("practice_software")
             )
             m.OfficeSetting.objects.create(office=office)
 
