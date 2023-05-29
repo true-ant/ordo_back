@@ -108,22 +108,24 @@ class OrderVendorFilter(SimpleListFilter):
 
 @admin.register(m.Order)
 class OrderAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
-    list_display = ("id", "company", "office", "vendors", "total_price", "order_date", "order_type", "status")
-    search_fields = ("vendor_orders__vendor_order_id",)
+    list_display = ("id", "office__company", "office", "vendors", "total_amount", "order_date", "order_type", "status")
+    search_fields = ("vendor_orders__vendor__name", "office__name", "office__company__name", "order_type", "status")
     list_filter = (
         "status",
         OrderVendorFilter,
     )
     inlines = (VendorOrderInline,)
-
-    # def get_queryset(self, request: HttpRequest) -> QuerySet[Any]:
-    #     order_str = get_order_string(request)
-    #     if order_str:
-    #         self.ordering = (order_str)
-    #     return super().get_queryset(request)
+    sort_exclude = (
+        'vendors',
+    )
+    def get_queryset(self, request: HttpRequest) -> QuerySet[Any]:
+        order_str = get_order_string(request, self.sort_exclude)
+        if order_str:
+            self.ordering = (order_str,)
+        return super().get_queryset(request)
 
     @admin.display(description="Company")
-    def company(self, obj):
+    def office__company(self, obj):
         return obj.office.company
 
     @admin.display(description="Vendors")
@@ -131,7 +133,7 @@ class OrderAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
         return ", ".join([vendor_order.vendor.name for vendor_order in objs.vendor_orders.all()])
 
     @admin.display(description="Order Total")
-    def total_price(self, objs):
+    def total_amount(self, objs):
         return objs.total_amount
 
 

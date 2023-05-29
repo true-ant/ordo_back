@@ -165,6 +165,7 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
         "ordo_order_volume",
         "is_active",
     )
+    search_fields = ("name",)
     inlines = (
         CompanyMemberInline,
         OfficeInline,
@@ -232,7 +233,7 @@ class VendorAdmin(AdminDynamicPaginationMixin, admin.ModelAdmin):
         "vendor_order_count",
         "url",
     )
-
+    search_fields = ("name",)
     sort_exclude = (
         'logo_thumb',
     )
