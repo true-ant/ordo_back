@@ -22,10 +22,6 @@ class ProductQuerySet(models.QuerySet):
     def with_inventory_refs(self):
         return self.annotate(_inventory_refs=RawSQL("inventory_refs", (), output_field=models.IntegerField()))
 
-    async def avalues_list(self, field):
-        result = self.values_list(field, flat=True)
-        return [x async for x in result.aiterator()]
-
 
 class ProductManager(models.Manager):
     _queryset_class = ProductQuerySet
