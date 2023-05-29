@@ -227,21 +227,25 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
 @admin.register(m.Vendor)
 class VendorAdmin(AdminDynamicPaginationMixin, admin.ModelAdmin):
     list_display = (
-        "__str__",
-        "logo_thumb",
         "name",
-        "slug",
+        "logo_thumb",
         "vendor_order_count",
         "url",
     )
 
+    sort_exclude = (
+        'logo_thumb',
+    )
+
     def get_queryset(self, request):
-        queryset = super().get_queryset(request)
-        queryset = queryset.annotate(
-            _vendor_order_count=Count(
+        queryset = m.Vendor.objects.all().annotate(
+            vendor_order_count=Count(
                 "vendororder", filter=Q(vendororder__status__in=[OrderStatus.OPEN, OrderStatus.CLOSED])
             )
         )
+        order_str = get_order_string(request, self.sort_exclude)
+        if order_str:
+            self.ordering = (order_str, "name")
         return queryset
 
     @admin.display(description="Logo")
@@ -250,4 +254,4 @@ class VendorAdmin(AdminDynamicPaginationMixin, admin.ModelAdmin):
 
     @admin.display(description="Vendor Order Count")
     def vendor_order_count(self, obj):
-        return obj._vendor_order_count
+        return obj.vendor_order_count

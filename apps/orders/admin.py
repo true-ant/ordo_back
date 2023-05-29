@@ -1,14 +1,18 @@
 import csv
+from typing import Any
 
 from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
 from django.db.models import Q
+from django.db.models.query import QuerySet
 from django.http import HttpResponse
+from django.http.request import HttpRequest
 from django.utils.safestring import mark_safe
 from django.utils.html import format_html
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
 from apps.common.admins import ReadOnlyAdminMixin, AdminDynamicPaginationMixin
+from apps.common.utils import get_order_string
 
 from . import models as m
 
@@ -111,6 +115,12 @@ class OrderAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
         OrderVendorFilter,
     )
     inlines = (VendorOrderInline,)
+
+    # def get_queryset(self, request: HttpRequest) -> QuerySet[Any]:
+    #     order_str = get_order_string(request)
+    #     if order_str:
+    #         self.ordering = (order_str)
+    #     return super().get_queryset(request)
 
     @admin.display(description="Company")
     def company(self, obj):
