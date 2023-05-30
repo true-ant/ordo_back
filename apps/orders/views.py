@@ -816,6 +816,9 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         office_product_price = OfficeProduct.objects.filter(office_id=office_pk, product_id=OuterRef("pk")).values(
             "price"
         )
+        office_product_is_inventory = OfficeProduct.objects.filter(
+            office_id=OuterRef("office_id"), product_id=OuterRef("product_id")
+        ).values("is_inventory")
         child_prefetch_queryset = (
             Product.objects.annotate(office_product_price=Subquery(office_product_price[:1]))
             .annotate(product_price=Coalesce(F("office_product_price"), F("price")))
@@ -823,6 +826,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
         )
         queryset = (
             self.queryset.filter(office_id=office_pk)
+            .annotate(item_inventory=Subquery(office_product_is_inventory[:1]))
             .with_updated_unit_price()
             .select_related(
                 "product",
