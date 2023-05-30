@@ -1,20 +1,17 @@
 from decimal import Decimal
-from typing import Any
 
 from dateutil.relativedelta import relativedelta
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
 from django.db.models import Count, F, Func, OuterRef, Q, Subquery
-from django.db.models.query import QuerySet
-from django.http.request import HttpRequest
 from django.utils import timezone
 from django.utils.safestring import mark_safe
-from apps.common.utils import get_order_string
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
 from apps.common.admins import AdminDynamicPaginationMixin, ReadOnlyAdminMixin
 from apps.common.choices import OrderStatus, OrderType
 from apps.common.month import Month
+from apps.common.utils import get_order_string
 from apps.orders import models as om
 
 from . import models as m
@@ -139,14 +136,7 @@ class OfficeInline(NestedTabularInline):
     model = m.Office
     inlines = [SubscriptionInline, OfficeVendorInline, OfficeBudgetInline, OfficeOrdersInline]
     can_delete = False
-    readonly_fields = (
-        "logo_thumb",
-        "name",
-        "phone_number",
-        "website",
-        "is_active",
-        "practice_software"
-    )
+    readonly_fields = ("logo_thumb", "name", "phone_number", "website", "is_active", "practice_software")
     exclude = ("logo",)
     extra = 0
 
@@ -165,6 +155,7 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
         "ordo_order_volume",
         "is_active",
     )
+    search_fields = ("name",)
     inlines = (
         CompanyMemberInline,
         OfficeInline,
@@ -205,7 +196,7 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
             vendor_order_count=Subquery(vendor_orders),
             ordo_order_volume=Subquery(total_amount),
         )
-        
+
         sort_str = get_order_string(request)
         if sort_str:
             qs = qs.order_by(sort_str)
@@ -232,10 +223,8 @@ class VendorAdmin(AdminDynamicPaginationMixin, admin.ModelAdmin):
         "vendor_order_count",
         "url",
     )
-
-    sort_exclude = (
-        'logo_thumb',
-    )
+    search_fields = ("name",)
+    sort_exclude = ("logo_thumb",)
 
     def get_queryset(self, request):
         queryset = m.Vendor.objects.all().annotate(

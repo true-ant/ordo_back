@@ -7,11 +7,11 @@ from django.db.models import Q
 from django.db.models.query import QuerySet
 from django.http import HttpResponse
 from django.http.request import HttpRequest
-from django.utils.safestring import mark_safe
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
-from apps.common.admins import ReadOnlyAdminMixin, AdminDynamicPaginationMixin
+from apps.common.admins import AdminDynamicPaginationMixin, ReadOnlyAdminMixin
 from apps.common.utils import get_order_string
 
 from . import models as m
@@ -108,22 +108,23 @@ class OrderVendorFilter(SimpleListFilter):
 
 @admin.register(m.Order)
 class OrderAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
-    list_display = ("id", "company", "office", "vendors", "total_price", "order_date", "order_type", "status")
-    search_fields = ("vendor_orders__vendor_order_id",)
+    list_display = ("id", "office__company", "office", "vendors", "total_amount", "order_date", "order_type", "status")
+    search_fields = ("vendor_orders__vendor__name", "office__name", "office__company__name", "order_type", "status")
     list_filter = (
         "status",
         OrderVendorFilter,
     )
     inlines = (VendorOrderInline,)
+    sort_exclude = ("vendors",)
 
-    # def get_queryset(self, request: HttpRequest) -> QuerySet[Any]:
-    #     order_str = get_order_string(request)
-    #     if order_str:
-    #         self.ordering = (order_str)
-    #     return super().get_queryset(request)
+    def get_queryset(self, request: HttpRequest) -> QuerySet[Any]:
+        order_str = get_order_string(request, self.sort_exclude)
+        if order_str:
+            self.ordering = (order_str,)
+        return super().get_queryset(request)
 
     @admin.display(description="Company")
-    def company(self, obj):
+    def office__company(self, obj):
         return obj.office.company
 
     @admin.display(description="Vendors")
@@ -131,7 +132,7 @@ class OrderAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
         return ", ".join([vendor_order.vendor.name for vendor_order in objs.vendor_orders.all()])
 
     @admin.display(description="Order Total")
-    def total_price(self, objs):
+    def total_amount(self, objs):
         return objs.total_amount
 
 
@@ -150,9 +151,9 @@ class VendorOrderAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
     )
     search_fields = ("vendor_order_id",)
     inlines = (VendorOrderProductInline,)
+
     def invoice(self, obj):
         return format_html("<a href='{}'> {} </a>", obj.invoice_link, obj.vendor_order_id)
-
 
 
 class ProductPriceFilter(SimpleListFilter):
