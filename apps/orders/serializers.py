@@ -493,6 +493,10 @@ class CartSerializer(serializers.ModelSerializer):
             sibling_products,
             many=True,
         ).data
+        office_product = m.OfficeProduct.objects.filter(
+            office_id=instance.office_id, product_id=instance.product_id
+        ).first()
+        ret["is_inventory"] = office_product.is_inventory
         return ret
 
 
