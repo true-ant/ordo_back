@@ -420,6 +420,7 @@ class CartSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True, required=False)
     promotion = PromotionSerializer(read_only=True, required=False)
     updated_unit_price = serializers.SerializerMethodField()
+    item_inventory = serializers.BooleanField()
     # same_products = serializers.SerializerMethodField()
     # office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
 
@@ -432,6 +433,7 @@ class CartSerializer(serializers.ModelSerializer):
             "quantity",
             "unit_price",
             "updated_unit_price",
+            "item_inventory",
             "save_for_later",
             "instant_checkout",
             "promotion",
