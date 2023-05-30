@@ -87,23 +87,22 @@
         direction = url.searchParams.get("direction")
 
         if(direction == "asc")
-            $('table.dataTable>thead .sorting[field_name="'+sort_by+'"]').addClass('sorting_asc');
+            $('table.dataTable>thead .sorting[field_name="'+ $.escapeSelector(sort_by) +'"]').addClass('sorting_asc');
         else if(direction == "desc")
-            $('table.dataTable>thead .sorting[field_name="'+sort_by+'"]').addClass('sorting_desc');
-        
+            $('table.dataTable>thead .sorting[field_name="'+ $.escapeSelector(sort_by) +'"]').addClass('sorting_desc');
+
         $('.pop_del_obj').click(function(){
             $('#del_obj_pk').val($(this).closest("tr")[0].children[0].children[0].value)
         })
 
         $('table.dataTable>thead .sorting a').click(function(){
-            if($(this).parent().hasClass('sorting_asc'))
-                this.href += "&direction=desc";
-            else
-                this.href += "&direction=asc";
+            let sorting = $(this).parent().hasClass('sorting_asc') ? "desc" : "asc";
+            const updatedUrl = new URL(url);
+            updatedUrl.searchParams.set("direction", sorting)
+            this.href = updatedUrl.href;
         })
 
         $('a.page-link').click(function(){
-            let url = new URL(window.location.href);
             let search_param = new URLSearchParams(url.search)
             let search_page = new URLSearchParams(this.search)
             for (let [key, val] of search_page.entries())
