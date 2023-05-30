@@ -1,5 +1,4 @@
 import logging
-import os
 from decimal import Decimal
 from typing import List
 
@@ -29,7 +28,11 @@ class DentalCityClient:
         office_admin = await CompanyMember.objects.filter(
             company=office_vendor.office.company, role=User.Role.ADMIN
         ).afirst()
-        partner_info = DentalCityPartnerInfo(partner_name="Ordo", shared_secret="a4GTFG2a5", customer_id="O00001")
+        partner_info = DentalCityPartnerInfo(
+            partner_name="Ordo",
+            shared_secret="a4GTFG2a5",
+            customer_id=office_vendor.account_id,
+        )
         dental_city_shipping_address = DentalCityShippingAddress(
             name=office_address.office.name,
             address_id=office_address.id,

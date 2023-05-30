@@ -23,6 +23,7 @@ from django.utils import timezone
 
 from apps.accounts.helper import OfficeBudgetHelper
 from apps.accounts.models import CompanyMember, Office, OfficeVendor, User
+from apps.common.enums import SupportedVendor
 from apps.orders.helpers import (
     OfficeProductCategoryHelper,
     OfficeProductHelper,
@@ -160,6 +161,8 @@ def task_update_net32_products():
 @app.task
 def link_vendor(vendor_slug: str, office_id: int, consider_recent=False):
     call_command("fill_office_products", office=office_id, vendor=vendor_slug)
+    if vendor_slug == SupportedVendor.DentalCity.value:
+        call_command("fill_dental_city_account_ids", offices=office_id)
     fetch_order_history(vendor_slug, office_id, consider_recent)
 
 
