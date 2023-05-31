@@ -253,6 +253,7 @@ class ScraperTestCase(IntEnum):
     TEST_GET_ORDERS = auto()
     TEST_CONFIRM_ORDER = auto()
     TEST_MAKE_INVOICE_TEMPLATE = auto()
+    TEST_GET_ACCOUNT_ID = auto()
 
 
 async def test_scraper(test: ScraperTestCase, vendors):
@@ -287,6 +288,8 @@ async def test_scraper(test: ScraperTestCase, vendors):
                     invoice_info = InvoiceInfoFactory()
                     invoice_content = await scraper.make_invoice_template(invoice_info)
                     tasks.append(scraper.html2pdf(invoice_content))
+                elif test == ScraperTestCase.TEST_GET_ACCOUNT_ID:
+                    tasks.append(scraper.get_account_id())
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
         if test in [ScraperTestCase.TEST_DOWNLOAD_INVOICE, ScraperTestCase.TEST_DOWNLOAD_INVOICE_WITH_FAKE]:

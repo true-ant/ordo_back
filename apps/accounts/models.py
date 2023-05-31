@@ -82,7 +82,7 @@ class Office(TimeStampedModel):
         CARESTACK = "carestack", "Carestack"
         MACPRACTICE = "macpractice", "MacPractice"
         OTHER = "other", "Other"
-        
+
     company = FlexibleForeignKey(Company, related_name="offices")
     vendors = models.ManyToManyField(Vendor, through="OfficeVendor")
     is_active = models.BooleanField(default=True)
@@ -214,6 +214,8 @@ class ShippingMethod(models.Model):
 class OfficeVendor(TimeStampedModel):
     vendor = FlexibleForeignKey(Vendor, related_name="connected_offices")
     office = FlexibleForeignKey(Office, related_name="connected_vendors")
+    # account id on vendor side, account id is required for dental city.
+    account_id = models.CharField(max_length=128, null=True, blank=True)
     username = models.CharField(max_length=100)
     password = models.CharField(max_length=100)
     login_success = models.BooleanField(default=True)
