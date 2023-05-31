@@ -10,7 +10,7 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 from apps.accounts.models import Company, Office, User, Vendor
-from apps.common.choices import OrderType, OrderStatus
+from apps.common.choices import OrderStatus, OrderType
 from apps.common.helper import CustomTagHelper
 from apps.orders.models import Order, Product, VendorOrder
 
@@ -102,37 +102,23 @@ def dashboard_user_card():
 
 @register.simple_tag
 def dashboard_ordo_order_card():
-    order_objects = Order.objects.filter(
-        order_type__in=[OrderType.ORDO_ORDER, OrderType.ORDER_REDUNDANCY]
-    )
-    total_count, value = (
-        CustomTagHelper.calculate_growth_rate_and_get_payload(order_queryset=order_objects)
-    )
-    return render_to_string(
-        "admin/dashboard/ordo_order.html", {"title": "{:,}".format(total_count), "value": value}
-    )
+    order_objects = Order.objects.filter(order_type__in=[OrderType.ORDO_ORDER, OrderType.ORDER_REDUNDANCY])
+    total_count, value = CustomTagHelper.calculate_growth_rate_and_get_payload(order_queryset=order_objects)
+    return render_to_string("admin/dashboard/ordo_order.html", {"title": "{:,}".format(total_count), "value": value})
 
 
 @register.simple_tag
 def dashboard_order_count_card():
     vendor_order_objects = VendorOrder.objects.filter(status__in=[OrderStatus.OPEN, OrderStatus.CLOSED])
-    total_count, value = (
-        CustomTagHelper.calculate_growth_rate_and_get_payload(order_queryset=vendor_order_objects)
-    )
-    return render_to_string(
-        "admin/dashboard/vendor_order.html", {"title": "{:,}".format(total_count), "value": value}
-    )
+    total_count, value = CustomTagHelper.calculate_growth_rate_and_get_payload(order_queryset=vendor_order_objects)
+    return render_to_string("admin/dashboard/vendor_order.html", {"title": "{:,}".format(total_count), "value": value})
 
 
 @register.simple_tag
 def dashboard_vendor_order_card():
     vendor_order_objects = VendorOrder.objects.filter(status__in=[OrderStatus.OPEN, OrderStatus.CLOSED])
-    total_count, value = (
-        CustomTagHelper.calculate_growth_rate_and_get_payload(order_queryset=vendor_order_objects)
-    )
-    return render_to_string(
-        "admin/dashboard/vendor_order.html", {"title": "{:,}".format(total_count), "value": value}
-    )
+    total_count, value = CustomTagHelper.calculate_growth_rate_and_get_payload(order_queryset=vendor_order_objects)
+    return render_to_string("admin/dashboard/vendor_order.html", {"title": "{:,}".format(total_count), "value": value})
 
 
 @register.simple_tag
@@ -224,8 +210,3 @@ def dashboard_order_chart_card():
         "admin/dashboard/order_chart.html",
         {"title": "{:,}".format(price_order_all), "value": "${:,}".format(current_year_grow)},
     )
-
-
-@register.filter
-def index(indexable, i):
-    return indexable[i]

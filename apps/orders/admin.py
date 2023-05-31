@@ -1,22 +1,16 @@
 import csv
-from typing import Any
 
 from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
 from django.db.models import Q
-from django.db.models.query import QuerySet
 from django.http import HttpResponse
-from django.http.request import HttpRequest
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
 from apps.common.admins import AdminDynamicPaginationMixin, ReadOnlyAdminMixin
-from apps.common.utils import get_order_string
 
 from . import models as m
-
-admin.ModelAdmin.list_per_page = 10
 
 
 class ExportCsvMixin:
@@ -108,23 +102,16 @@ class OrderVendorFilter(SimpleListFilter):
 
 @admin.register(m.Order)
 class OrderAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
-    list_display = ("id", "office__company", "office", "vendors", "total_amount", "order_date", "order_type", "status")
+    list_display = ("id", "company", "office", "vendors", "total_amount", "order_date", "order_type", "status")
     search_fields = ("vendor_orders__vendor__name", "office__name", "office__company__name", "order_type", "status")
     list_filter = (
         "status",
         OrderVendorFilter,
     )
     inlines = (VendorOrderInline,)
-    sort_exclude = ("vendors",)
-
-    def get_queryset(self, request: HttpRequest) -> QuerySet[Any]:
-        order_str = get_order_string(request, self.sort_exclude)
-        if order_str:
-            self.ordering = (order_str,)
-        return super().get_queryset(request)
 
     @admin.display(description="Company")
-    def office__company(self, obj):
+    def company(self, obj):
         return obj.office.company
 
     @admin.display(description="Vendors")
@@ -134,6 +121,8 @@ class OrderAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
     @admin.display(description="Order Total")
     def total_amount(self, objs):
         return objs.total_amount
+
+    company.admin_order_field = "office__company"
 
 
 @admin.register(m.VendorOrder)

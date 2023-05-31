@@ -1,6 +1,5 @@
 {% extends 'components/base.html' %}
 {% load i18n admin_urls static admin_list %}
-{% load custom_tags %}
 {% block styles %}
 {% endblock %}
 {% block extrastyle %}
@@ -82,33 +81,8 @@
 
 {% block scripts %}
     <script>
-        const url = new URL(window.location.href)
-        sort_by = url.searchParams.get('sort_by')
-        direction = url.searchParams.get("direction")
-
-        if(direction == "asc")
-            $('table.dataTable>thead .sorting[field_name="'+ $.escapeSelector(sort_by) +'"]').addClass('sorting_asc');
-        else if(direction == "desc")
-            $('table.dataTable>thead .sorting[field_name="'+ $.escapeSelector(sort_by) +'"]').addClass('sorting_desc');
-
         $('.pop_del_obj').click(function(){
             $('#del_obj_pk').val($(this).closest("tr")[0].children[0].children[0].value)
-        })
-
-        $('table.dataTable>thead .sorting a').click(function(){
-            let sorting = $(this).parent().hasClass('sorting_asc') ? "desc" : "asc";
-            const updatedUrl = new URL(url);
-            updatedUrl.searchParams.set("direction", sorting)
-            this.href = updatedUrl.href;
-        })
-
-        $('a.page-link').click(function(){
-            let search_param = new URLSearchParams(url.search)
-            let search_page = new URLSearchParams(this.search)
-            for (let [key, val] of search_page.entries())
-                search_param.set(key, val);
-            let str_search_param = search_param.toString();
-            this.search = str_search_param;
         })
     </script>
 

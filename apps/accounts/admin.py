@@ -11,12 +11,11 @@ from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 from apps.common.admins import AdminDynamicPaginationMixin, ReadOnlyAdminMixin
 from apps.common.choices import OrderStatus, OrderType
 from apps.common.month import Month
-from apps.common.utils import get_order_string
 from apps.orders import models as om
 
 from . import models as m
 
-admin.ModelAdmin.list_per_page = 10
+admin.ModelAdmin.list_per_page = 50
 
 
 @admin.register(m.User)
@@ -33,12 +32,6 @@ class UserAdmin(AdminDynamicPaginationMixin, DefaultUserAdmin):
         "role",
         "avatar",
     )
-
-    def get_queryset(self, request):
-        order_str = get_order_string(request)
-        if order_str:
-            self.ordering = (order_str,)
-        return super().get_queryset(request)
 
 
 class CompanyMemberInline(ReadOnlyAdminMixin, NestedTabularInline):
@@ -160,6 +153,7 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
         CompanyMemberInline,
         OfficeInline,
     )
+    ordering = ("-on_boarding_step",)
 
     def get_queryset(self, request):
         orders = (
@@ -197,9 +191,9 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
             ordo_order_volume=Subquery(total_amount),
         )
 
-        sort_str = get_order_string(request)
-        if sort_str:
-            qs = qs.order_by(sort_str)
+        ordering = self.get_ordering(request)
+        if ordering:
+            qs = qs.order_by(*ordering)
         return qs
 
     @admin.display(description="Ordo Order Count")
@@ -214,6 +208,10 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
     def ordo_order_volume(self, obj):
         return f"${obj.ordo_order_volume}"
 
+    order_count.admin_order_field = "order_count"
+    vendor_order_count.admin_order_field = "vendor_order_count"
+    ordo_order_volume.admin_order_field = "ordo_order_volume"
+
 
 @admin.register(m.Vendor)
 class VendorAdmin(AdminDynamicPaginationMixin, admin.ModelAdmin):
@@ -224,17 +222,14 @@ class VendorAdmin(AdminDynamicPaginationMixin, admin.ModelAdmin):
         "url",
     )
     search_fields = ("name",)
-    sort_exclude = ("logo_thumb",)
 
     def get_queryset(self, request):
-        queryset = m.Vendor.objects.all().annotate(
-            vendor_order_count=Count(
+        queryset = super().get_queryset(request)
+        queryset = queryset.annotate(
+            _vendor_order_count=Count(
                 "vendororder", filter=Q(vendororder__status__in=[OrderStatus.OPEN, OrderStatus.CLOSED])
             )
-        )
-        order_str = get_order_string(request, self.sort_exclude)
-        if order_str:
-            self.ordering = (order_str, "name")
+        ).order_by("-_vendor_order_count")
         return queryset
 
     @admin.display(description="Logo")
@@ -243,4 +238,6 @@ class VendorAdmin(AdminDynamicPaginationMixin, admin.ModelAdmin):
 
     @admin.display(description="Vendor Order Count")
     def vendor_order_count(self, obj):
-        return obj.vendor_order_count
+        return obj._vendor_order_count
+
+    vendor_order_count.admin_order_field = "_vendor_order_count"
