@@ -15,7 +15,7 @@ from apps.orders import models as om
 
 from . import models as m
 
-admin.ModelAdmin.list_per_page = 10
+admin.ModelAdmin.list_per_page = 50
 
 
 @admin.register(m.User)
@@ -129,14 +129,7 @@ class OfficeInline(NestedTabularInline):
     model = m.Office
     inlines = [SubscriptionInline, OfficeVendorInline, OfficeBudgetInline, OfficeOrdersInline]
     can_delete = False
-    readonly_fields = (
-        "logo_thumb",
-        "name",
-        "phone_number",
-        "website",
-        "is_active",
-        "practice_software"
-    )
+    readonly_fields = ("logo_thumb", "name", "phone_number", "website", "is_active", "practice_software")
     exclude = ("logo",)
     extra = 0
 
@@ -150,11 +143,12 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
     list_display = (
         "name",
         "on_boarding_step",
-        "ordo_order_count",
+        "order_count",
         "vendor_order_count",
         "ordo_order_volume",
         "is_active",
     )
+    search_fields = ("name",)
     inlines = (
         CompanyMemberInline,
         OfficeInline,
@@ -203,7 +197,7 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
         return qs
 
     @admin.display(description="Ordo Order Count")
-    def ordo_order_count(self, obj):
+    def order_count(self, obj):
         return obj.order_count
 
     @admin.display(description="Vendor Order Count")
@@ -214,17 +208,20 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
     def ordo_order_volume(self, obj):
         return f"${obj.ordo_order_volume}"
 
+    order_count.admin_order_field = "order_count"
+    vendor_order_count.admin_order_field = "vendor_order_count"
+    ordo_order_volume.admin_order_field = "ordo_order_volume"
+
 
 @admin.register(m.Vendor)
 class VendorAdmin(AdminDynamicPaginationMixin, admin.ModelAdmin):
     list_display = (
-        "__str__",
-        "logo_thumb",
         "name",
-        "slug",
+        "logo_thumb",
         "vendor_order_count",
         "url",
     )
+    search_fields = ("name",)
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
@@ -242,3 +239,5 @@ class VendorAdmin(AdminDynamicPaginationMixin, admin.ModelAdmin):
     @admin.display(description="Vendor Order Count")
     def vendor_order_count(self, obj):
         return obj._vendor_order_count
+
+    vendor_order_count.admin_order_field = "_vendor_order_count"

@@ -4,15 +4,13 @@ from django.contrib import admin
 from django.contrib.admin import SimpleListFilter
 from django.db.models import Q
 from django.http import HttpResponse
-from django.utils.safestring import mark_safe
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
-from apps.common.admins import ReadOnlyAdminMixin, AdminDynamicPaginationMixin
+from apps.common.admins import AdminDynamicPaginationMixin, ReadOnlyAdminMixin
 
 from . import models as m
-
-admin.ModelAdmin.list_per_page = 10
 
 
 class ExportCsvMixin:
@@ -104,8 +102,8 @@ class OrderVendorFilter(SimpleListFilter):
 
 @admin.register(m.Order)
 class OrderAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
-    list_display = ("id", "company", "office", "vendors", "total_price", "order_date", "order_type", "status")
-    search_fields = ("vendor_orders__vendor_order_id",)
+    list_display = ("id", "company", "office", "vendors", "total_amount", "order_date", "order_type", "status")
+    search_fields = ("vendor_orders__vendor__name", "office__name", "office__company__name", "order_type", "status")
     list_filter = (
         "status",
         OrderVendorFilter,
@@ -121,8 +119,10 @@ class OrderAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
         return ", ".join([vendor_order.vendor.name for vendor_order in objs.vendor_orders.all()])
 
     @admin.display(description="Order Total")
-    def total_price(self, objs):
+    def total_amount(self, objs):
         return objs.total_amount
+
+    company.admin_order_field = "office__company"
 
 
 @admin.register(m.VendorOrder)
@@ -140,9 +140,9 @@ class VendorOrderAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
     )
     search_fields = ("vendor_order_id",)
     inlines = (VendorOrderProductInline,)
+
     def invoice(self, obj):
         return format_html("<a href='{}'> {} </a>", obj.invoice_link, obj.vendor_order_id)
-
 
 
 class ProductPriceFilter(SimpleListFilter):
