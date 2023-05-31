@@ -2,9 +2,11 @@ import datetime
 import decimal
 import math
 from typing import Literal
+from unittest.mock import patch
 
 from dateutil.relativedelta import relativedelta
 from django.utils import timezone
+from faker import Faker
 from pydantic import BaseModel, root_validator, validator
 from rest_framework import status
 from rest_framework.reverse import reverse
@@ -17,7 +19,10 @@ from apps.accounts.factories import (
     OfficeFactory,
     UserFactory,
 )
+from apps.accounts.models import CompanyMember, User
 from apps.common.month import Month
+
+fake = Faker()
 
 
 class RemainingBudget(BaseModel):
@@ -68,6 +73,15 @@ class BudgetOutput(BaseModel):
         assert math.isclose(rb.dental, values["dental_budget"] - values["dental_spend"])
         assert math.isclose(rb.office, values["office_budget"] - values["office_spend"])
         return values
+
+
+def last_year_months():
+    this_month = timezone.now().date().replace(day=1)
+    start_month = this_month - relativedelta(months=11)
+    current = start_month
+    while current <= this_month:
+        yield current
+        current += relativedelta(months=1)
 
 
 class SingleOfficeBudgetTestCase(APITestCase):
@@ -134,22 +148,13 @@ class SingleOfficeBudgetTestCase(APITestCase):
 
 
 class ChartDataTestCase(APITestCase):
-    @staticmethod
-    def last_year():
-        this_month = timezone.now().date().replace(day=1)
-        start_month = this_month - relativedelta(months=11)
-        current = start_month
-        while current <= this_month:
-            yield current
-            current += relativedelta(months=1)
-
     @classmethod
     def setUpTestData(cls):
         cls.company = CompanyFactory()
         cls.office = OfficeFactory(company=cls.company)
         cls.company_member_user = UserFactory()
         cls.company_member = CompanyMemberFactory(company=cls.company, office=cls.office, user=cls.company_member_user)
-        for month in cls.last_year():
+        for month in last_year_months():
             cls.office_budget = OfficeBudgetFactory(office=cls.office, month=month)
         cls.api_client = APIClient()
         cls.api_client.force_authenticate(cls.company_member_user)
@@ -162,3 +167,66 @@ class ChartDataTestCase(APITestCase):
         for budget_data in data["data"]:
             budget = ChartBudget(**budget_data)
             assert budget
+
+
+class TestUserSignUpTestCase(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.company = CompanyFactory()
+        cls.office = OfficeFactory(company=cls.company)
+        cls.company_member = CompanyMemberFactory(
+            company=cls.company,
+            office=cls.office,
+            invite_status=CompanyMember.InviteStatus.INVITE_SENT,
+            user=None,
+        )
+        for month in last_year_months():
+            cls.office_budget = OfficeBudgetFactory(office=cls.office, month=month)
+        cls.api_client = APIClient()
+
+    def test_user_signup_with_token(self):
+        url = reverse("signup")
+        first_name = fake.first_name()
+        last_name = fake.last_name()
+        with patch("apps.accounts.tasks.send_welcome_email.run") as mock:
+            resp = self.api_client.post(
+                url,
+                data={
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "email": self.company_member.email,
+                    "password": fake.password(),
+                    "company_name": self.company.name,
+                    "token": self.company_member.token,
+                },
+                format="json",
+            )
+        assert resp.status_code == 200
+        assert mock.called_once_with(user_id=User.objects.get(email=self.company_member.email).pk)
+        data = resp.json()
+        budget_data = data["data"]["company"]["offices"][0]["budget"]
+        budget = BudgetOutput(**budget_data)
+        assert budget
+
+    def test_user_signup_without_token(self):
+        url = reverse("signup")
+        first_name = fake.first_name()
+        last_name = fake.last_name()
+        email = f"{first_name}.{last_name}@example.com"
+        with patch("apps.accounts.tasks.send_welcome_email.run") as mock:
+            resp = self.api_client.post(
+                url,
+                data={
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "email": email,
+                    "password": fake.password(),
+                    "company_name": fake.company(),
+                },
+                format="json",
+            )
+        assert resp.status_code == 200
+        assert mock.called_once_with(user_id=User.objects.get(email=email).pk)
+        data = resp.json()
+        offices = data["data"]["company"]["offices"]
+        assert len(offices) == 0

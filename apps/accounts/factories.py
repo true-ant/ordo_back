@@ -12,11 +12,15 @@ class UserFactory(DjangoModelFactory):
     class Meta:
         model = m.User
 
+    first_name = factory.Faker("first_name")
+    last_name = factory.Faker("last_name")
     username = factory.LazyAttribute(lambda o: o.email)
-    email = factory.Sequence(lambda n: f"{n}@example.com")
+    email = factory.LazyAttribute(lambda o: f"{o.first_name}.{o.last_name}@example.com")
 
 
 class CompanyFactory(DjangoModelFactory):
+    name = factory.Faker("company")
+
     class Meta:
         model = m.Company
 
@@ -89,3 +93,5 @@ class CompanyMemberFactory(DjangoModelFactory):
     company = factory.SubFactory(CompanyFactory)
     user = factory.SubFactory(UserFactory)
     office = factory.LazyAttribute(lambda o: OfficeFactory(company=o.company))
+    token = factory.Faker("pystr")
+    email = factory.Faker("email")

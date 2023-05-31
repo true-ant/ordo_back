@@ -4,6 +4,8 @@ import os
 import dotenv
 from celery.schedules import crontab
 
+from config.utils import get_bool_config
+
 dotenv.load_dotenv()
 
 default_queue = os.getenv("CELERY_DEFAULT_QUEUE")
@@ -19,6 +21,8 @@ task_serializer = "json"
 result_serializer = "json"
 timezone = "America/New_York"
 enable_utc = False
+# timezone = TIME_ZONE
+task_always_eager = get_bool_config("CELERY_TASK_ALWAYS_EAGER")
 
 
 beat_schedule = {

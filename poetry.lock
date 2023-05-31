@@ -2453,6 +2453,23 @@ docs = ["sphinx", "sphinx-rtd-theme"]
 testing = ["Django", "django-configurations (>=2.0)"]
 
 [[package]]
+name = "pytest-env"
+version = "0.8.1"
+description = "py.test plugin that allows you to add environment variables."
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "pytest_env-0.8.1-py3-none-any.whl", hash = "sha256:8c0605ae09a5b7e41c20ebcc44f2c906eea9654095b4b0c342b3814bcc3a8492"},
+    {file = "pytest_env-0.8.1.tar.gz", hash = "sha256:d7b2f5273ec6d1e221757998bc2f50d2474ed7d0b9331b92556011fadc4e9abf"},
+]
+
+[package.dependencies]
+pytest = ">=7.1.3"
+
+[package.extras]
+test = ["coverage (>=6.5)", "pytest-mock (>=3.10)"]
+
+[[package]]
 name = "python-crontab"
 version = "2.7.1"
 description = "Python Crontab API"
@@ -3599,4 +3616,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "5659a976f0a97d86d88470f5088fe9864e7cfd5a99fd7e7a1c464c8297d84c9b"
+content-hash = "a602d028cb3235950b0e5bc0f00b95bfb5a31510e675e6387c30bdbea9e1299b"

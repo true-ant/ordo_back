@@ -35,14 +35,8 @@ from . import filters as f
 from . import models as m
 from . import permissions as p
 from . import serializers as s
+from . import tasks as accounts_tasks
 from .services.offices import OfficeService
-from .tasks import (
-    fetch_order_history,
-    fetch_vendor_products_prices,
-    link_vendor,
-    send_company_invite_email,
-    send_welcome_email,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +85,7 @@ class UserSignupAPIView(APIView):
                     date_joined=timezone.localtime(),
                 )
 
-        send_welcome_email.delay(user_id=user.id)
+        accounts_tasks.send_welcome_email.delay(user_id=user.id)
         token = RefreshToken.for_user(user).access_token
         token["username"] = user.username
         token["email"] = user.username
@@ -354,7 +348,7 @@ class CompanyMemberViewSet(ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
-        send_company_invite_email.delay(
+        accounts_tasks.send_company_invite_email.delay(
             [
                 {
                     "company_id": self.kwargs["company_pk"],
@@ -428,7 +422,7 @@ class CompanyMemberViewSet(ModelViewSet):
                         token_expires_at=timezone.localtime() + timedelta(m.INVITE_EXPIRES_DAYS),
                     )
 
-        send_company_invite_email.delay(
+        accounts_tasks.send_company_invite_email.delay(
             [
                 {
                     "company_id": self.kwargs["company_pk"],
@@ -557,7 +551,7 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
 
                 # All scrapers work with login_cookies,
                 # but henryschein doesn't work with login_cookies...
-                link_vendor.delay(
+                accounts_tasks.link_vendor.delay(
                     vendor_slug=office_vendor.vendor.slug,
                     office_id=office_vendor.office.id,
                 )
@@ -596,7 +590,7 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
         if serializer.is_valid():
             self.perform_update(serializer)
 
-        fetch_order_history.delay(
+        accounts_tasks.fetch_order_history.delay(
             vendor_slug=office_vendor.vendor.slug,
             office_id=office_vendor.office.id,
         )
@@ -605,13 +599,13 @@ class OfficeVendorViewSet(AsyncMixin, ModelViewSet):
     @action(detail=True, methods=["get"], url_path="fetch-prices")
     def fetch_product_prices(self, request, *args, **kwargs):
         instance = self.get_object()
-        fetch_vendor_products_prices.delay(office_vendor_id=instance.id)
+        accounts_tasks.fetch_vendor_products_prices.delay(office_vendor_id=instance.id)
         return Response(s.OfficeVendorSerializer(instance).data)
 
     @action(detail=True, methods=["post"], url_path="fetch")
     def fetch_orders(self, request, *args, **kwargs):
         instance = self.get_object()
-        fetch_order_history.delay(vendor_slug=instance.vendor.slug, office_id=instance.office.id)
+        accounts_tasks.fetch_order_history.delay(vendor_slug=instance.vendor.slug, office_id=instance.office.id)
         return Response(s.OfficeVendorSerializer(instance).data)
 
 
