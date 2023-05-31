@@ -19,6 +19,7 @@ from apps.scrapers.base import Scraper
 from apps.scrapers.headers.dental_city import (
     CART_PAGE_HEADERS,
     CLEAR_CART_HEADERS,
+    GET_ACCOUNT_ID_HEADER,
     GET_PRODUCT_PAGE_HEADERS,
     LOGIN_HEADERS,
     LOGIN_PAGE_HEADERS,
@@ -74,6 +75,15 @@ class DentalCityScraper(Scraper):
                 "DashboardURL": "https://www.dentalcity.com/profile/dashboard",
             },
         }
+
+    async def get_account_id(self, perform_login: bool = True) -> str:
+        if perform_login:
+            await self.login()
+        async with self.session.get(
+            "https://www.dentalcity.com/profile/myorders/", headers=GET_ACCOUNT_ID_HEADER
+        ) as response:
+            dom = scrapy.Selector(text=await response.text())
+            return dom.xpath('//div[@class="myacc-leftnav-box"]/ul[1]/li[1]//text()').get().strip()
 
     async def _search_products(
         self, query: str, page: int = 1, min_price: int = 0, max_price: int = 0, sort_by="price", office_id=None
