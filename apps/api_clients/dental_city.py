@@ -17,6 +17,7 @@ from services.utils.secrets import get_secret_value
 
 logger = logging.getLogger(__name__)
 DENTAL_CITY_AUTH_KEY = get_secret_value("DENTAL_CITY_AUTH_KEY")
+DENTAL_CITY_PARTNER_SHARED_SECRET = get_secret_value("DENTAL_CITY_PARTNER_SHARED_SECRET")
 
 
 class DentalCityClient:
@@ -30,7 +31,7 @@ class DentalCityClient:
         ).afirst()
         partner_info = DentalCityPartnerInfo(
             partner_name="Ordo",
-            shared_secret="a4GTFG2a5",
+            shared_secret=DENTAL_CITY_PARTNER_SHARED_SECRET,
             customer_id=office_vendor.account_id,
         )
         dental_city_shipping_address = DentalCityShippingAddress(

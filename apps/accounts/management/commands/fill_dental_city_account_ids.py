@@ -1,5 +1,4 @@
 import asyncio
-import time
 
 from aiohttp import ClientSession
 from django.core.management import BaseCommand
@@ -16,16 +15,16 @@ class Command(BaseCommand):
     async def fetch_account_ids(self, username_passwords):
         account_ids = []
         async with ClientSession() as session:
-            for username_password in username_passwords:
+            for username, password in username_passwords:
                 scraper = DentalCityScraper(
                     session=session,
                     vendor=None,
-                    username=username_password[0],
-                    password=username_password[1],
+                    username=username,
+                    password=password,
                 )
                 account_id = await scraper.get_account_id()
                 account_ids.append(account_id)
-            time.sleep(1)
+            await asyncio.sleep(1)
         return account_ids
 
     def add_arguments(self, parser):
