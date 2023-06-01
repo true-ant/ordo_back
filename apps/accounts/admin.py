@@ -119,7 +119,6 @@ class OfficeInline(NestedTabularInline):
     inlines = [SubscriptionInline, OfficeVendorInline, OfficeBudgetInline, OfficeOrdersInline]
     can_delete = False
     readonly_fields = ("dental_api", "logo_thumb", "name", "phone_number", "website", "is_active", "practice_software")
-    exclude = ("logo",)
     extra = 0
 
     @admin.display(description="Logo")
