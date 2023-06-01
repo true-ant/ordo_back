@@ -330,6 +330,7 @@ class VendorOrderProductSerializer(serializers.ModelSerializer):
 class VendorOrderSerializer(serializers.ModelSerializer):
     products = VendorOrderProductSerializer(many=True, source="order_products")
     vendor = VendorLiteSerializer()
+    order = serializers.PrimaryKeyRelatedField(read_only=True)
     status_display_text = serializers.CharField(source="get_status_display")
     is_invoice_available = serializers.BooleanField()
 
