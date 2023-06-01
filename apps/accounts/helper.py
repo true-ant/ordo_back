@@ -118,7 +118,7 @@ class OfficeBudgetHelper:
                 prev_dental_percentage = 5.0
                 prev_office_percentage = 0.5
                 budget_type = "production"
-                if prev_month_office_budget[0]:
+                if prev_month_office_budget:
                     prev_dental_percentage = prev_month_office_budget[0].dental_percentage
                     prev_office_percentage = prev_month_office_budget[0].office_percentage
                     if prev_month_office_budget[0].dental_budget_type == "collection":

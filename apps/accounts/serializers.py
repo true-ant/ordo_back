@@ -108,7 +108,7 @@ class OfficeSerializer(serializers.ModelSerializer):
 
 class CompanyMemberSerializer(serializers.ModelSerializer):
     company = serializers.PrimaryKeyRelatedField(queryset=m.Company.objects.all(), allow_null=True)
-    office = OfficeSerializer()
+    office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
     role_name = serializers.CharField(source="get_role_display", required=False)
 
     def validate(self, attrs):
@@ -117,6 +117,11 @@ class CompanyMemberSerializer(serializers.ModelSerializer):
         if office.company_id != company.id:
             raise ValidationError("Office must belong to company")
         return attrs
+
+    def to_representation(self, instance: m.CompanyMember):
+        ret = super().to_representation(instance)
+        ret["office"] = OfficeSerializer(instance=instance.office).data
+        return ret
 
     class Meta:
         model = m.CompanyMember
