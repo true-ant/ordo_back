@@ -490,7 +490,10 @@ class CartSerializer(serializers.ModelSerializer):
     def get_item_inventory(self, cart_product):
         if hasattr(cart_product, "item_inventory"):
             return cart_product.item_inventory
-        return False
+        is_inventory = m.OfficeProduct.objects.filter(
+            office_id=cart_product.office_id, product_id=cart_product.product_id
+        ).values("is_inventory")[:1]
+        return is_inventory[0]["is_inventory"] if is_inventory else False
 
     def to_representation(self, instance):
         # TODO: return sibling products from linked vendor
