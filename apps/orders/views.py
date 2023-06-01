@@ -370,7 +370,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
         total_amount = 0
         average_amount = 0
 
-        requested_date = timezone.now().date()
+        requested_date = timezone.localtime().date()
         preset_date_range = self.request.query_params.get("date_range")
 
         if not self.request.query_params:
