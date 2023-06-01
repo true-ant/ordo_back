@@ -80,7 +80,7 @@ class OfficeBudgetInline(NestedTabularInline):
     )
 
     def get_queryset(self, request):
-        current_date = timezone.now().date()
+        current_date = timezone.localtime().date()
         three_months_ago = current_date - relativedelta(months=3)
         month = Month(year=current_date.year, month=three_months_ago.month)
         return super().get_queryset(request).filter(month__gte=month).order_by("-month")

@@ -28,7 +28,7 @@ class OrderHelperTestCase(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        current_time = timezone.now()
+        current_time = timezone.localtime()
 
         cls.company = CompanyFactory()
         cls.office = OfficeFactory(company=cls.company)

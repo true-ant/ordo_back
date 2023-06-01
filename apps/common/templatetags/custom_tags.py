@@ -55,7 +55,7 @@ def edit_link_for_result(cld, result, index):
 
 @register.simple_tag
 def dashboard_company_card():
-    month_date = timezone.now().date().replace(day=1)
+    month_date = timezone.localtime().date().replace(day=1)
     count_company_all = Company.objects.count()
     count_company_until_last_month = Company.objects.filter(created_at__lt=month_date).count()
     current_month_grow = count_company_all - count_company_until_last_month
@@ -79,7 +79,7 @@ def dashboard_company_card():
 
 @register.simple_tag
 def dashboard_user_card():
-    month_date = timezone.now().date().replace(day=1)
+    month_date = timezone.localtime().date().replace(day=1)
     count_user_all = User.objects.count()
     count_user_until_last_month = User.objects.filter(date_joined__lt=month_date).count()
     current_month_grow = count_user_all - count_user_until_last_month
@@ -123,7 +123,7 @@ def dashboard_vendor_order_card():
 
 @register.simple_tag
 def dashboard_order_price_card():
-    month_date = timezone.now().date().replace(day=1)
+    month_date = timezone.localtime().date().replace(day=1)
     price_order_all = Order.objects.aggregate(Sum("total_amount"))["total_amount__sum"]
     price_order_until_last_month = Order.objects.filter(order_date__lt=month_date).aggregate(Sum("total_amount"))[
         "total_amount__sum"
@@ -149,7 +149,7 @@ def dashboard_order_price_card():
 
 @register.simple_tag
 def dashboard_product_card():
-    month_date = timezone.now().date().replace(day=1)
+    month_date = timezone.localtime().date().replace(day=1)
     count_product_all = Product.objects.count()
     count_product_until_last_month = Product.objects.filter(created_at__lt=month_date).count()
     current_month_grow = count_product_all - count_product_until_last_month
@@ -199,7 +199,7 @@ def dashboard_order_chart_data():
 
 @register.simple_tag
 def dashboard_order_chart_card():
-    date_first_this_year = timezone.now().date().replace(month=1, day=1)
+    date_first_this_year = timezone.localtime().date().replace(month=1, day=1)
 
     price_order_all = Order.objects.aggregate(Sum("total_amount"))["total_amount__sum"]
     price_order_until_last_year = Order.objects.filter(order_date__lt=date_first_this_year).aggregate(
