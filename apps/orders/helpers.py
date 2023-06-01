@@ -17,6 +17,7 @@ from dateutil import rrule
 from django.conf import settings
 from django.contrib.postgres.search import SearchQuery, SearchVectorField
 from django.db.models import (
+    BooleanField,
     Case,
     Count,
     Exists,
@@ -30,7 +31,7 @@ from django.db.models import (
     Value,
     When,
 )
-from django.db.models.expressions import RawSQL
+from django.db.models.expressions import ExpressionWrapper, Func, RawSQL
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from slugify import slugify
@@ -1241,11 +1242,13 @@ class ProductHelper:
         ).values("price")
 
         # we treat parent product as inventory product if it has inventory children product
-        inventory_office_product = (
-            OfficeProductModel.objects.filter(Q(office_id=office_pk) & Q(is_inventory=True))
-            .annotate(pid=F("product__parent_id"))
-            .values("pid")
-            .filter(pid=OuterRef("pk"))
+        max_last_order_date = (
+            OfficeProductModel.objects.filter(
+                office_id=office_pk, is_inventory=True, product__parent_id=OuterRef("pk")
+            )
+            .order_by()
+            .annotate(max_last_order_date=Func(F("last_order_date"), function="Max"))
+            .values("max_last_order_date")
         )
 
         price_least_update_date = timezone.localtime() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
@@ -1272,7 +1275,8 @@ class ProductHelper:
             child_products_prefetch = child_products_prefetch.filter(product_price__lte=price_to)
 
         products = (
-            products.annotate(is_inventory=Exists(inventory_office_product))
+            products.annotate(last_order_date=Subquery(max_last_order_date))
+            .annotate(is_inventory=ExpressionWrapper(Q(last_order_date__isnull=False), output_field=BooleanField()))
             # .annotate(last_order_date=Subquery(inventory_office_products.values("last_order_date")[:1]))
             # .annotate(last_order_price=Subquery(inventory_office_products.values("price")[:1]))
             # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
@@ -1290,7 +1294,7 @@ class ProductHelper:
             )
             .order_by(
                 "selected_product",
-                "-is_inventory",
+                F("last_order_date").desc(nulls_last=True),
                 "-child_count",
             )
             .prefetch_related(Prefetch("children", child_products_prefetch))
