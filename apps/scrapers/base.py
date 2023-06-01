@@ -382,141 +382,136 @@ class Scraper:
 
         return product, office_product
 
+    def find_vendor_order(self, order_data: dict, order_products: list):
+        from apps.orders.models import VendorOrder as VendorOrderModel
+
+        vendor_order_reference = order_data.get("vendor_order_reference", "")
+        order_id = order_data.get("order_id", "")
+
+        # Try vendor order reference first
+        if vendor_order_reference:
+            vendor_order = VendorOrderModel.objects.filter(
+                vendor=self.vendor, vendor_order_reference=vendor_order_reference
+            ).first()
+            if vendor_order:
+                return vendor_order
+
+        # Try order_id
+        if order_id:
+            vendor_order = VendorOrderModel.objects.filter(vendor=self.vendor, vendor_order_id=order_id).first()
+            if vendor_order:
+                return vendor_order
+
+        # Try to find by date and products
+        for vendor_order in VendorOrderModel.objects.filter(
+            vendor=self.vendor, order_date=order_data["order_date"], status=OrderStatus.OPEN
+        ):
+            vendor_order_products = vendor_order.order_products.select_related("product").filter(
+                status=ProductStatus.PROCESSING
+            )
+            origin_product_ids = {i.product.product_id for i in vendor_order_products}
+            coming_product_ids = {o["product"]["product_id"] for o in order_data["products"]}
+            if origin_product_ids == coming_product_ids:
+                return vendor_order
+
+    def create_vendor_order(self, order_data, order_products, office):
+        from apps.orders.models import Order as OrderModel
+        from apps.orders.models import VendorOrder as VendorOrderModel
+
+        logger.debug("Create new vendor order information")
+        order = OrderModel.objects.create(
+            office=office,
+            status=order_data["status"],
+            order_date=order_data["order_date"],
+            total_items=order_data["total_items"],
+            total_amount=order_data["total_amount"],
+            order_type=OrderType.VENDOR_DIRECT,
+        )
+        vendor_order = VendorOrderModel.from_dataclass(vendor=self.vendor, order=order, dict_data=order_data)
+        return vendor_order
+
+    def update_vendor_order(self, vendor_order, order_data, order_products):
+        vendor_order.vendor_order_id = order_data["order_id"]
+        vendor_order.status = order_data["status"]
+        vendor_order.vendor_order_reference = order_data.get("vendor_order_reference", "")
+        vendor_order.total_amount = Decimal(order_data.get("total_amount", 0.0))
+        vendor_order.invoice_link = order_data.get("invoice_link", "")
+        vendor_order.save()
+
+        vendor_order_products = vendor_order.order_products.select_related("product").filter(
+            status=ProductStatus.PROCESSING
+        )
+        for order_product in order_products:
+            vendor_order_product = vendor_order_products.filter(
+                product__product_id=order_product["product"]["product_id"]
+            ).first()
+            if not vendor_order_product:
+                continue
+            vendor_order_product.status = self.normalize_order_product_status(order_product["status"])
+            vendor_order_product.tracking_link = order_product.get("tracking_link")
+            vendor_order_product.save()
+
+    def adjust_office_budget(self, office, vendor_order):
+        order_date = vendor_order.order_date
+        office_budget = (
+            office.budgets.filter(month__year=order_date.year).filter(month__month=order_date.month).first()
+        )
+        if office_budget:
+            office_budget.dental_spend = F("dental_spend") + vendor_order.total_amount
+            office_budget.save()
+            return
+
+        office_budget = office.budgets.filter(month__gte=order_date).order_by("month").first()
+
+        logger.debug(f"office_budget is {office_budget}")
+
+        if not office_budget:
+            logger.warning("Could not find office budget")
+
+        month = Month(year=order_date.year, month=order_date.month)
+        # Making a copy
+        office_budget.id = None
+        office_budget.month = month
+        office_budget.dental_spend = vendor_order.total_amount
+        office_budget.office_spend = 0
+        office_budget.miscellaneous_spend = 0
+        office_budget.save()
+
     @sync_to_async
     def save_order_to_db(self, office, order: Order):
         from django.db import transaction
 
-        from apps.orders.models import Order as OrderModel
-        from apps.orders.models import VendorOrder as VendorOrderModel
         from apps.orders.models import VendorOrderProduct as VendorOrderProductModel
 
         order_data = order.to_dict()
         order_data.pop("shipping_address")
         order_products = order_data.pop("products")
-        order_id = order_data["order_id"]
+
         order_data["vendor_status"] = order_data["status"]
         order_data["status"] = self.normalize_order_status(order_data["vendor_status"])
         order_date = order_data["order_date"]
 
         with transaction.atomic():
-            vendor_order_reference = order_data.get("vendor_order_reference", "")
-            if vendor_order_reference:
-                vendor_order = VendorOrderModel.objects.filter(
-                    vendor=self.vendor, vendor_order_reference=vendor_order_reference
-                ).first()
-            else:
-                vendor_order = VendorOrderModel.objects.filter(vendor=self.vendor, vendor_order_id=order_id).first()
-
+            vendor_order = self.find_vendor_order(order_data, order_products)
             if vendor_order:
-                logger.debug("Update existing vendor order status")
-                vendor_order.vendor_order_id = order_id
-                vendor_order.status = order_data["status"]
-                vendor_order.total_amount = Decimal(order_data.get("total_amount", 0.0))
-                vendor_order.invoice_link = order_data.get("invoice_link", "")
-                vendor_order.save()
-
-                vendor_order_products = vendor_order.order_products.select_related("product").filter(
-                    status=ProductStatus.PROCESSING
-                )
-                for o in order_products:
-                    vendor_order_product = vendor_order_products.filter(
-                        product__product_id=o["product"]["product_id"]
-                    ).first()
-                    if not vendor_order_product:
-                        continue
-                    vendor_order_product.status = self.normalize_order_product_status(o["status"])
-                    vendor_order_product.tracking_link = o.get("tracking_link")
-                    vendor_order_product.save()
+                self.update_vendor_order(vendor_order, order_data, order_products)
             else:
-                # Try to find the vendor order using products and order date
-                order_found = False
-                vendor_orders = VendorOrderModel.objects.filter(
-                    vendor=self.vendor, order_date=order_date, status=OrderStatus.OPEN
+                vendor_order = self.create_vendor_order(order_data, order_products, office)
+                self.adjust_office_budget(office, vendor_order)
+
+            for order_product in order_products:
+                product_data = order_product.pop("product")
+                product, _ = self.save_single_product_to_db(
+                    product_data, office, is_inventory=True, order_date=order_date
                 )
-                for v_order in vendor_orders:
-                    vendor_order_products = v_order.order_products.select_related("product").filter(
-                        status=ProductStatus.PROCESSING
-                    )
-                    product_count = vendor_order_products.count()
-                    if product_count == len(order_products):
-                        origin_product_ids = [i.product.product_id for i in vendor_order_products]
-                        coming_product_ids = [o["product"]["product_id"] for o in order_products]
-                        discrepancy = list(set(origin_product_ids) - set(coming_product_ids))
-                        if not discrepancy:
-                            for o in order_products:
-                                vendor_order_product = vendor_order_products.filter(
-                                    product__product_id=o["product"]["product_id"]
-                                ).first()
-                                if not vendor_order_product:
-                                    continue
-                                vendor_order_product.status = self.normalize_order_product_status(o["status"])
-                                vendor_order_product.tracking_link = o.get("tracking_link")
-                                vendor_order_product.save()
+                order_product["vendor_status"] = order_product["status"]
+                order_product["status"] = self.normalize_order_product_status(order_product["vendor_status"])
 
-                            v_order.vendor_order_id = order_id
-                            v_order.status = order_data["status"]
-                            v_order.vendor_order_reference = vendor_order_reference if vendor_order_reference else ""
-                            v_order.total_amount = Decimal(order_data.get("total_amount", 0.0))
-                            v_order.invoice_link = order_data.get("invoice_link", "")
-                            v_order.save()
-                            order_found = True
-                            break
-
-                if not order_found:
-                    # Create a new vendor order information
-                    logger.debug("Create new vendor order information")
-                    order = OrderModel.objects.create(
-                        office=office,
-                        status=order_data["status"],
-                        order_date=order_date,
-                        total_items=order_data["total_items"],
-                        total_amount=order_data["total_amount"],
-                        order_type=OrderType.VENDOR_DIRECT,
-                    )
-                    vendor_order = VendorOrderModel.from_dataclass(
-                        vendor=self.vendor, order=order, dict_data=order_data
-                    )
-                    office_budget = (
-                        office.budgets.filter(month__year=order_date.year)
-                        .filter(month__month=order_date.month)
-                        .first()
-                    )
-                    if office_budget:
-                        office_budget.dental_spend = F("dental_spend") + order_data["total_amount"]
-                        office_budget.save()
-                    else:
-                        office_budget = (
-                            office.budgets.filter(month__year=order_date.year)
-                            .filter(month__month__gte=order_date.month)
-                            .order_by("month")
-                            .first()
-                        )
-
-                        logger.debug(f"office_budget is {office_budget}")
-
-                        if office_budget:
-                            month = Month(year=order_date.year, month=order_date.month)
-                            # office_budget.id = None // I don't know why this is set as None...
-                            # let's see without this...
-                            office_budget.month = month
-                            office_budget.dental_spend = order_data["total_amount"]
-                            office_budget.office_spend = 0
-                            office_budget.miscellaneous_spend = 0
-                            office_budget.save()
-
-                    for order_product in order_products:
-                        product_data = order_product.pop("product")
-                        product, _ = self.save_single_product_to_db(
-                            product_data, office, is_inventory=True, order_date=order_date
-                        )
-                        order_product["vendor_status"] = order_product["status"]
-                        order_product["status"] = self.normalize_order_product_status(order_product["vendor_status"])
-
-                        VendorOrderProductModel.objects.update_or_create(
-                            vendor_order=vendor_order,
-                            product=product,
-                            defaults=order_product,
-                        )
+                VendorOrderProductModel.objects.update_or_create(
+                    vendor_order=vendor_order,
+                    product=product,
+                    defaults=order_product,
+                )
 
     async def get_missing_products_fields(self, order_products, fields=("description",)):
         sem = asyncio.Semaphore(value=2)
