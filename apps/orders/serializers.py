@@ -487,6 +487,11 @@ class CartSerializer(serializers.ModelSerializer):
             updated_product_price = m.Product.objects.filter(id=cart_product.product_id).values("price")[:1]
         return updated_product_price[0]["price"] if updated_product_price else 0
 
+    def get_item_inventory(self, cart_product):
+        if hasattr(cart_product, "item_inventory"):
+            return cart_product.item_inventory
+        return False
+
     def to_representation(self, instance):
         # TODO: return sibling products from linked vendor
         ret = super().to_representation(instance)
