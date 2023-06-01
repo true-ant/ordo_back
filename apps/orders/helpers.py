@@ -1502,6 +1502,7 @@ class OrderHelper:
             if vendor_order.vendor.slug in settings.API_AVAILABLE_VENDORS:
                 api_client = APIClientFactory.get_api_client(vendor=vendor_order.vendor, session=session)
                 await api_client.place_order(office_vendor, vendor_order, products)
+                return
             scraper = ScraperFactory.create_scraper(
                 vendor=office_vendor.vendor,
                 session=session,
