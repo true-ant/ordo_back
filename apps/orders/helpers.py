@@ -3,6 +3,7 @@ import csv
 import datetime
 import itertools
 import logging
+import traceback
 from collections import defaultdict
 from decimal import Decimal
 from functools import reduce
@@ -1501,32 +1502,28 @@ class OrderHelper:
             if vendor_order.vendor.slug in settings.API_AVAILABLE_VENDORS:
                 api_client = APIClientFactory.get_api_client(vendor=vendor_order.vendor, session=session)
                 await api_client.place_order(office_vendor, vendor_order, products)
-                return True
-            else:
-                scraper = ScraperFactory.create_scraper(
-                    vendor=office_vendor.vendor,
-                    session=session,
-                    username=office_vendor.username,
-                    password=office_vendor.password,
-                )
+            scraper = ScraperFactory.create_scraper(
+                vendor=office_vendor.vendor,
+                session=session,
+                username=office_vendor.username,
+                password=office_vendor.password,
+            )
 
-                if perform_login:
-                    try:
-                        await scraper.login()
-                    except Exception:
-                        logger.debug(f"Authentication is failed for {office_vendor.vendor.name} vendor")
-                        return False
+            if perform_login:
+                try:
+                    await scraper.login()
+                except Exception:
+                    logger.debug(f"Authentication is failed for {office_vendor.vendor.name} vendor")
+                    raise
 
-                result = await scraper.confirm_order(
-                    products=products,
-                    shipping_method=vendor_order.shipping_option.name if vendor_order.shipping_option else "",
-                    fake=fake_order,
-                )
-                if result.get("order_type") is msgs.ORDER_TYPE_ORDO:
-                    vendor_order.vendor_order_id = result.get("order_id")
-                    await sync_to_async(vendor_order.save)()
-                    return True
-        return False
+            result = await scraper.confirm_order(
+                products=products,
+                shipping_method=vendor_order.shipping_option.name if vendor_order.shipping_option else "",
+                fake=fake_order,
+            )
+            if result.get("order_type") is msgs.ORDER_TYPE_ORDO:
+                vendor_order.vendor_order_id = result.get("order_id")
+                await sync_to_async(vendor_order.save)()
 
     @staticmethod
     async def perform_orders_in_vendors(
@@ -1585,9 +1582,20 @@ class OrderHelper:
                 )
             )
         results = await aio.gather(*order_tasks, return_exceptions=True)
-        if all(results):
-            order.order_type = OrderType.ORDO_ORDER
-            await sync_to_async(order.save)()
+
+        for vendor_order_id, result in zip(vendor_order_ids, results):
+            if isinstance(result, Exception):
+                logger.error(
+                    "Placing vendor order %s resulted in exception: %s",
+                    vendor_order_id,
+                    traceback.print_tb(result.__traceback__),
+                )
+
+        if any([isinstance(r, Exception) for r in results]):
+            return
+
+        order.order_type = OrderType.ORDO_ORDER
+        await sync_to_async(order.save)()
 
     @staticmethod
     def update_vendor_order_totals(vendor_order: VendorOrderModel):

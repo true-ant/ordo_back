@@ -8,9 +8,9 @@ import uuid
 from decimal import Decimal
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
-from dateutil.relativedelta import relativedelta
 
 from aiohttp import ClientResponse
+from dateutil.relativedelta import relativedelta
 from scrapy import Selector
 
 from apps.common import messages as msgs
@@ -146,7 +146,9 @@ class HenryScheinScraper(Scraper):
                 quantity = quantity_price.split(";")[0].strip("-")
                 product_price = re.search(r"\$(.*)/", quantity_price)
                 product_price = product_price.group(1)
-                product_status = self.extract_first(order_product_dom, "./td[@colspan='4' or @colspan='5']//table//tr[1]//td[3]//text()")
+                product_status = self.extract_first(
+                    order_product_dom, "./td[@colspan='4' or @colspan='5']//table//tr[1]//td[3]//text()"
+                )
 
                 if "invoice_link" not in order:
                     invoice_link = self.extract_first(
@@ -796,95 +798,88 @@ class HenryScheinScraper(Scraper):
 
     async def confirm_order(self, products: List[CartProduct], shipping_method="UPS Standard Delivery", fake=False):
         print("confirm_order")
-        try:
-            await self.clear_cart()
-            await self.add_products_to_cart(products)
-            checkout_dom = await self.checkout(products)
-            review_checkout_dom = await self.review_checkout(checkout_dom, shipping_method)
-            vendor_order_detail = await self.review_order(review_checkout_dom)
-            if fake:
-                print("henryschein/confirm_order DONE")
-                return {
-                    **vendor_order_detail.to_dict(),
-                    "order_id": f"{uuid.uuid4()}",
-                    "order_type": msgs.ORDER_TYPE_ORDO,
-                }
-            headers = CHECKOUT_HEADER.copy()
-            headers["referer"] = "https://www.henryschein.com/us-en/Checkout/OrderReview.aspx"
-
-            data = [
-                (
-                    "ctl00_ScriptManager_TSM",
-                    ";;System.Web.Extensions, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35:en-US:"
-                    "f319b152-218f-4c14-829d-050a68bb1a61:ea597d4b:b25378d2",
-                ),
-                ("__EVENTTARGET", "ctl00$cphMainContentHarmony$lnkNextShop"),
-                ("__EVENTARGUMENT", ""),
-                ("__VIEWSTATE", review_checkout_dom.xpath("//input[@name='__VIEWSTATE']/@value").get()),
-                (
-                    "__VIEWSTATEGENERATOR",
-                    review_checkout_dom.xpath("//input[@name='__VIEWSTATEGENERATOR']/@value").get(),
-                ),
-                ("ctl00_cpAsideMenu_AsideMenu_SideMenuControl1000txtItemCodeId", ""),
-                ("ctl00_cpAsideMenu_AsideMenu_SideMenuControl1000txtItemQtyId", ""),
-                ("layout", "on"),
-                ("dest", ""),
-            ]
-
-            for index, product_row in enumerate(
-                review_checkout_dom.xpath(
-                    "//div[@id='ctl00_cphMainContentHarmony_ucOrderCartShop_pnlCartDetails']/ol/li"
-                )
-            ):
-                key1 = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{index+1:02d}$ucProductDetailsForEnh"
-                "ancedView$hiddenProductId"
-                data.append((key1, product_row.xpath(f'.//input[@name="{key1}"]/@value').get()))
-
-                key2 = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{index+1:02d}$ucProductDetailsForEnh"
-                "ancedView$hiddenProductAvailabilityCode"
-                data.append((key2, product_row.xpath(f'.//input[@name="{key2}"]/@value').get()))
-
-                key3 = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{index+1:02d}$ucProductDetailsForEnh"
-                "ancedView$hiddenInventoryAvailabilityCode"
-                data.append((key3, product_row.xpath(f'.//input[@name="{key3}"]/@value').get()))
-
-                key4 = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{index+1:02d}$ucProductDetailsForEnh"
-                "ancedView$hiddenImgProduct"
-                data.append((key4, product_row.xpath(f'.//input[@name="{key4}"]/@value').get()))
-
-                key5 = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{index+1:02d}$hdnPriceLabel1"
-                data.append((key5, product_row.xpath(f'.//input[@name="{key5}"]/@value').get()))
-
-                key6 = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{index+1:02d}$hdnPriceLabel2"
-                data.append((key6, product_row.xpath(f'.//input[@name="{key6}"]/@value').get()))
-
-                key7 = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{index+1:02d}$oldQty"
-                data.append((key7, product_row.xpath(f'.//input[@name="{key7}"]/@value').get()))
-
-                key8 = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{index+1:02d}$ucProductDetailsForEnh"
-                "ancedView$hiddenUom"
-                data.append((key8, product_row.xpath(f'.//input[@name="{key8}"]/@value').get()))
-
-                key9 = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{index+1:02d}$hdnItemId"
-                data.append((key9, product_row.xpath(f'.//input[@name="{key9}"]/@value').get()))
-
-            async with self.session.post(
-                "https://www.henryschein.com/us-en/Checkout/OrderReview.aspx", headers=headers, data=data
-            ) as resp:
-                response = await resp.text()
-                res_data = response.split("dataLayer.push(", 1)[1].split(");")[0]
-                res_data = res_data.replace("'", '"')
-                res_data = json.loads(res_data)
-                return {
-                    **vendor_order_detail.to_dict(),
-                    "order_id": res_data["ecommerce"]["purchase"]["actionField"]["id"],
-                    "order_type": msgs.ORDER_TYPE_ORDO,
-                }
-        except Exception as e:
-            print(f"Error occuerd {e}")
+        await self.clear_cart()
+        await self.add_products_to_cart(products)
+        checkout_dom = await self.checkout(products)
+        review_checkout_dom = await self.review_checkout(checkout_dom, shipping_method)
+        vendor_order_detail = await self.review_order(review_checkout_dom)
+        if fake:
+            print("henryschein/confirm_order DONE")
             return {
-                "order_type": msgs.ORDER_TYPE_REDUNDANCY,
+                **vendor_order_detail.to_dict(),
+                "order_id": f"{uuid.uuid4()}",
+                "order_type": msgs.ORDER_TYPE_ORDO,
             }
+        headers = CHECKOUT_HEADER.copy()
+        headers["referer"] = "https://www.henryschein.com/us-en/Checkout/OrderReview.aspx"
+
+        data = [
+            (
+                "ctl00_ScriptManager_TSM",
+                ";;System.Web.Extensions, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35:en-US:"
+                "f319b152-218f-4c14-829d-050a68bb1a61:ea597d4b:b25378d2",
+            ),
+            ("__EVENTTARGET", "ctl00$cphMainContentHarmony$lnkNextShop"),
+            ("__EVENTARGUMENT", ""),
+            ("__VIEWSTATE", review_checkout_dom.xpath("//input[@name='__VIEWSTATE']/@value").get()),
+            (
+                "__VIEWSTATEGENERATOR",
+                review_checkout_dom.xpath("//input[@name='__VIEWSTATEGENERATOR']/@value").get(),
+            ),
+            ("ctl00_cpAsideMenu_AsideMenu_SideMenuControl1000txtItemCodeId", ""),
+            ("ctl00_cpAsideMenu_AsideMenu_SideMenuControl1000txtItemQtyId", ""),
+            ("layout", "on"),
+            ("dest", ""),
+        ]
+
+        for index, product_row in enumerate(
+            review_checkout_dom.xpath("//div[@id='ctl00_cphMainContentHarmony_ucOrderCartShop_pnlCartDetails']/ol/li")
+        ):
+            key1 = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{index+1:02d}$ucProductDetailsForEnh"
+            "ancedView$hiddenProductId"
+            data.append((key1, product_row.xpath(f'.//input[@name="{key1}"]/@value').get()))
+
+            key2 = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{index+1:02d}$ucProductDetailsForEnh"
+            "ancedView$hiddenProductAvailabilityCode"
+            data.append((key2, product_row.xpath(f'.//input[@name="{key2}"]/@value').get()))
+
+            key3 = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{index+1:02d}$ucProductDetailsForEnh"
+            "ancedView$hiddenInventoryAvailabilityCode"
+            data.append((key3, product_row.xpath(f'.//input[@name="{key3}"]/@value').get()))
+
+            key4 = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{index+1:02d}$ucProductDetailsForEnh"
+            "ancedView$hiddenImgProduct"
+            data.append((key4, product_row.xpath(f'.//input[@name="{key4}"]/@value').get()))
+
+            key5 = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{index+1:02d}$hdnPriceLabel1"
+            data.append((key5, product_row.xpath(f'.//input[@name="{key5}"]/@value').get()))
+
+            key6 = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{index+1:02d}$hdnPriceLabel2"
+            data.append((key6, product_row.xpath(f'.//input[@name="{key6}"]/@value').get()))
+
+            key7 = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{index+1:02d}$oldQty"
+            data.append((key7, product_row.xpath(f'.//input[@name="{key7}"]/@value').get()))
+
+            key8 = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{index+1:02d}$ucProductDetailsForEnh"
+            "ancedView$hiddenUom"
+            data.append((key8, product_row.xpath(f'.//input[@name="{key8}"]/@value').get()))
+
+            key9 = f"ctl00$cphMainContentHarmony$ucOrderCartShop$rptBasket$ctl{index+1:02d}$hdnItemId"
+            data.append((key9, product_row.xpath(f'.//input[@name="{key9}"]/@value').get()))
+
+        async with self.session.post(
+            "https://www.henryschein.com/us-en/Checkout/OrderReview.aspx", headers=headers, data=data
+        ) as resp:
+            response_text = await resp.text()
+        logger.debug("Got response from order review: %s", response_text)
+        res_data = response_text.split("dataLayer.push(", 1)[1].split(");")[0]
+        res_data = res_data.replace("'", '"')
+        res_data = json.loads(res_data)
+        return {
+            **vendor_order_detail.to_dict(),
+            "order_id": res_data["ecommerce"]["purchase"]["actionField"]["id"],
+            "order_type": msgs.ORDER_TYPE_ORDO,
+        }
 
     def get_shipping_options(self, response_dom):
         shipping_options = {}
