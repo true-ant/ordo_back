@@ -345,6 +345,7 @@ def generate_csv_for_salesforce():
             target_columns.append("company_slug")
             target_columns.append("onboarding_step")
             target_columns.append("email")
+            target_columns.append("role")
         data = office.__dict__
         data["company_name"] = office.company.name
         data["company_slug"] = office.company.slug
@@ -352,10 +353,13 @@ def generate_csv_for_salesforce():
         data["created_at"] = data["created_at"].strftime("%Y-%m-%d %H:%M:%S")
         data["updated_at"] = data["updated_at"].strftime("%Y-%m-%d %H:%M:%S")
 
-        company_member_emails = office.companymember_set.values_list("email", flat=True)
-        for member_email in company_member_emails:
+        company_members = office.companymember_set.all()
+        for member in company_members:
+            if member.invite_status == CompanyMember.InviteStatus.INVITE_SENT:
+                continue
             new_data = data.copy()
-            new_data["email"] = member_email
+            new_data["email"] = member.email
+            new_data["role"] = next(label for value, label in User.Role.choices if value == member.user.role)
             office_data.append(new_data)
 
     dict_columns = {i: i.title() for i in target_columns}
