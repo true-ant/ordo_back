@@ -335,7 +335,7 @@ class VendorOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = m.VendorOrder
-        exclude = ("order",)
+        fields = "__all__"
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -420,7 +420,7 @@ class CartSerializer(serializers.ModelSerializer):
     product = ProductSerializer(read_only=True, required=False)
     promotion = PromotionSerializer(read_only=True, required=False)
     updated_unit_price = serializers.SerializerMethodField()
-    item_inventory = serializers.BooleanField()
+    item_inventory = serializers.BooleanField(read_only=True)
     # same_products = serializers.SerializerMethodField()
     # office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
 
