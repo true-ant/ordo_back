@@ -38,6 +38,7 @@ class CompanyMemberInline(ReadOnlyAdminMixin, NestedTabularInline):
     model = m.CompanyMember
     exclude = ("token", "token_expires_at")
     readonly_fields = (
+        "invited_by",
         "user",
         "email",
         "role",
@@ -53,30 +54,18 @@ class OfficeVendorInline(ReadOnlyAdminMixin, NestedTabularInline):
     readonly_fields = fields = ("vendor", "username", "password")
 
 
-# class OfficeBudgetInline(ReadOnlyAdminMixin, NestedTabularInline):
-#     model = m.OfficeBudget
-#     readonly_fields = fields = (
-#         "month",
-#         "dental_budget",
-#         "dental_spend",
-#         "office_budget",
-#         "office_spend",
-#     )
-
-#     def get_queryset(self, request):
-#         current_date = timezone.now().date()
-#         month = Month(year=current_date.year, month=current_date.month)
-#         return super().get_queryset(request).filter(month=month)
-
-
 class OfficeBudgetInline(NestedTabularInline):
     model = m.OfficeBudget
-    fields = (
+    fields = readonly_fields = (
         "month",
+        "dental_budget_type",
         "dental_budget",
         "dental_spend",
+        "dental_percentage",
+        "office_budget_type",
         "office_budget",
         "office_spend",
+        "office_percentage",
     )
 
     def get_queryset(self, request):
@@ -121,16 +110,15 @@ class OfficeOrdersInline(ReadOnlyAdminMixin, NestedTabularInline):
 
 class SubscriptionInline(NestedTabularInline):
     model = m.Subscription
-    # readonly_fields = ("subscription_id",)
-    extra = 0
+    fields = ("subscription_id", "start_on", "cancelled_on")
+    readonly_fields = ("subscription_id",)
 
 
 class OfficeInline(NestedTabularInline):
     model = m.Office
     inlines = [SubscriptionInline, OfficeVendorInline, OfficeBudgetInline, OfficeOrdersInline]
     can_delete = False
-    readonly_fields = ("logo_thumb", "name", "phone_number", "website", "is_active", "practice_software")
-    exclude = ("logo",)
+    readonly_fields = ("dental_api", "logo_thumb", "name", "phone_number", "website", "is_active", "practice_software")
     extra = 0
 
     @admin.display(description="Logo")

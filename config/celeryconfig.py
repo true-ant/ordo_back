@@ -17,13 +17,14 @@ result_backend = os.getenv("REDIS_URL")
 accept_content = ["application/json"]
 task_serializer = "json"
 result_serializer = "json"
-# timezone = TIME_ZONE
+timezone = "America/New_York"
+enable_utc = False
 
 
 beat_schedule = {
     "update_office_budget": {
         "task": "apps.accounts.tasks.update_office_budget",
-        "schedule": crontab(hour=0, minute=0, day_of_month=1),
+        "schedule": crontab(hour=6, minute=15, day_of_month=1),
     },
     "send_budget_update_notification": {
         "task": "apps.accounts.tasks.send_budget_update_notification",
