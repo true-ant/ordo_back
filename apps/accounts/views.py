@@ -71,7 +71,7 @@ class UserSignupAPIView(APIView):
                     raise ValidationError("Your invite not found")
                 company_member.user = user
                 company_member.invite_status = m.CompanyMember.InviteStatus.INVITE_APPROVED
-                company_member.date_joined = timezone.now()
+                company_member.date_joined = timezone.localtime()
                 company_member.save()
 
                 # update the user role with the company member role to be matched...
@@ -88,7 +88,7 @@ class UserSignupAPIView(APIView):
                     office=None,
                     email=user.email,
                     invite_status=m.CompanyMember.InviteStatus.INVITE_APPROVED,
-                    date_joined=timezone.now(),
+                    date_joined=timezone.localtime(),
                 )
 
         send_welcome_email.delay(user_id=user.id)
@@ -245,7 +245,7 @@ class OfficeViewSet(ModelViewSet):
         dental_api_key = instance.dental_api.key if instance.dental_api else None
         if not dental_api_key:
             return Response({"message": "No api key"}, HTTP_400_BAD_REQUEST)
-        now_date = timezone.now().date()
+        now_date = timezone.localtime().date()
         first_day_of_month = now_date.replace(day=1)
         prev_date = now_date - relativedelta(months=1)
 
@@ -324,7 +324,7 @@ class CompanyMemberViewSet(ModelViewSet):
 
     def get_queryset(self):
         queryset = m.CompanyMember.objects.filter(company_id=self.kwargs["company_pk"])
-        current_time = timezone.now()
+        current_time = timezone.localtime()
         if self.action == "list":
             queryset = queryset.select_related(
                 "office",
@@ -415,7 +415,7 @@ class CompanyMemberViewSet(ModelViewSet):
                             role=member["role"],
                             user=users.get(member["email"], None),
                             invited_by=request.user,
-                            token_expires_at=timezone.now() + timedelta(m.INVITE_EXPIRES_DAYS),
+                            token_expires_at=timezone.localtime() + timedelta(m.INVITE_EXPIRES_DAYS),
                         )
                 else:
                     m.CompanyMember.objects.create(
@@ -425,7 +425,7 @@ class CompanyMemberViewSet(ModelViewSet):
                         role=member["role"],
                         user=users.get(member["email"], None),
                         invited_by=request.user,
-                        token_expires_at=timezone.now() + timedelta(m.INVITE_EXPIRES_DAYS),
+                        token_expires_at=timezone.localtime() + timedelta(m.INVITE_EXPIRES_DAYS),
                     )
 
         send_company_invite_email.delay(
@@ -455,13 +455,13 @@ class CompanyMemberInvitationCheckAPIView(APIView):
         if company.on_boarding_step < OnboardingStep.INVITE_TEAM:
             return Response({"message": msgs.INVITE_NOT_ACCEPTABLE}, status=HTTP_400_BAD_REQUEST)
 
-        now = timezone.now()
+        now = timezone.localtime()
         if invite.token_expires_at < now:
             return Response({"message": msgs.INVITE_TOKEN_EXPIRED}, status=HTTP_400_BAD_REQUEST)
 
         if invite.user:
             invite.invite_status = m.CompanyMember.InviteStatus.INVITE_APPROVED
-            invite.date_joined = timezone.now()
+            invite.date_joined = timezone.localtime()
             invite.save()
             return Response({"redirect": "login"})
 
@@ -667,7 +667,7 @@ class OfficeBudgetViewSet(ModelViewSet):
             company.on_boarding_step = on_boarding_step
             company.save()
 
-        now_date = timezone.now().date()
+        now_date = timezone.localtime().date()
         request.data.setdefault("office", self.kwargs["office_pk"])
         request.data.setdefault("month", now_date)
         return super().create(request, *args, **kwargs)
@@ -675,7 +675,7 @@ class OfficeBudgetViewSet(ModelViewSet):
     @action(detail=False, methods=["get"], url_path="charts")
     def get_chart_data(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-        this_month = timezone.now().date().replace(day=1)
+        this_month = timezone.localtime().date().replace(day=1)
         a_year_ago = this_month - relativedelta(months=11)
         queryset = list(
             queryset.filter(month__lte=this_month, month__gte=a_year_ago)
@@ -714,7 +714,7 @@ class OfficeBudgetViewSet(ModelViewSet):
         try:
             requested_date = datetime.strptime(month, "%Y-%m")
         except ValueError:
-            requested_date = timezone.now().date()
+            requested_date = timezone.localtime().date()
         current_month_budget = (
             self.get_queryset().filter(month=Month(requested_date.year, requested_date.month)).first()
         )

@@ -1,6 +1,6 @@
-import dateutil.relativedelta
-
 from typing import Union
+
+import dateutil.relativedelta
 from django.utils import timezone
 from django.utils.html import format_html
 
@@ -13,17 +13,16 @@ class CustomTagHelper:
 
     @staticmethod
     def calculate_growth_rate_and_get_payload(order_queryset: Union[VendorOrder, Order]):
-        this_month_first_date = timezone.now().date().replace(day=1)
+        this_month_first_date = timezone.localtime().date().replace(day=1)
         last_month_first_date = this_month_first_date + dateutil.relativedelta.relativedelta(months=-1)
         total_count = order_queryset.count()
-        last_month_count = (
-            order_queryset.filter(order_date__gte=last_month_first_date, order_date__lt=this_month_first_date).count()
-        )
+        last_month_count = order_queryset.filter(
+            order_date__gte=last_month_first_date, order_date__lt=this_month_first_date
+        ).count()
         this_month_count = order_queryset.filter(order_date__gte=this_month_first_date).count()
         before_this_month_count = order_queryset.filter(order_date__lt=this_month_first_date).count()
         last_month_percentage = (
-            round(last_month_count * 100 / before_this_month_count, 2)
-            if before_this_month_count else 0
+            round(last_month_count * 100 / before_this_month_count, 2) if before_this_month_count else 0
         )
         this_month_percentage = round(this_month_count * 100 / total_count, 2) if total_count else 0
         growth_rate = round(this_month_percentage - last_month_percentage, 2)

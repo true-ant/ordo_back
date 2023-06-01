@@ -203,7 +203,7 @@ def update_order_history_for_all_offices(vendor_slug):
 
 @app.task
 def send_budget_update_notification():
-    now_date = timezone.now().date()
+    now_date = timezone.localtime().date()
     current_month = now_date.strftime("%B")
     previous_month = now_date - relativedelta(months=1)
     previous_month = previous_month.strftime("%B")
@@ -270,7 +270,7 @@ async def get_orders_v2(office_vendor, completed_order_ids):
             username=office_vendor.username,
             password=office_vendor.password,
         )
-        from_date = timezone.now().date()
+        from_date = timezone.localtime().date()
         to_date = from_date - relativedelta(year=1)
         await client.get_orders(from_date=from_date, to_date=to_date, exclude_order_ids=completed_order_ids)
 
@@ -373,7 +373,7 @@ def generate_csv_for_salesforce():
     with pysftp.Connection(
         host=host, username=username, password=password, port=int(port), cnopts=connection_options
     ) as sftp:
-        with sftp.open(f"/Import/customer_master{timezone.now().strftime('%Y%m%d')}.csv", mode="w") as csv_file:
+        with sftp.open(f"/Import/customer_master{timezone.localtime().strftime('%Y%m%d')}.csv", mode="w") as csv_file:
             file_writer = csv.DictWriter(csv_file, fieldnames=dict_columns, extrasaction="ignore")
             file_writer.writerow(dict_columns)
             file_writer.writerows(office_data)

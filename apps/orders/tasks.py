@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 
 @app.task
 def update_office_cart_status():
-    ten_minutes_ago = timezone.now() - datetime.timedelta(minutes=10)
+    ten_minutes_ago = timezone.localtime() - datetime.timedelta(minutes=10)
     objs = OfficeCheckoutStatus.objects.filter(
         checkout_status=OfficeCheckoutStatus.CHECKOUT_STATUS.IN_PROGRESS,
         order_status=OfficeCheckoutStatus.ORDER_STATUS.COMPLETE,

@@ -63,8 +63,8 @@ class OrderService:
         else:
             vendor_order.status = OrderStatus.CLOSED
 
-        vendor_order.order_date = timezone.now()
-        vendor_order.approved_at = timezone.now()
+        vendor_order.order_date = timezone.localtime()
+        vendor_order.approved_at = timezone.localtime()
         vendor_order.approved_by = approved_by
         await sync_to_async(vendor_order.save)()
 
@@ -79,7 +79,7 @@ class OrderService:
     def reject_vendor_order(approved_by, vendor_order: VendorOrder, validated_data):
         with transaction.atomic():
             vendor_order.status = OrderStatus.CLOSED
-            vendor_order.approved_at = timezone.now()
+            vendor_order.approved_at = timezone.localtime()
             vendor_order.approved_by = approved_by
             vendor_order.rejected_reason = validated_data["rejected_reason"]
             vendor_order.save()

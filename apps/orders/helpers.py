@@ -159,7 +159,7 @@ class OfficeProductHelper:
     async def update_products_prices(products_prices: Dict[str, ProductPrice], office_id: str):
         """Store product prices to table"""
         print("update_products_prices")
-        current_time = timezone.now()
+        current_time = timezone.localtime()
         product_ids = products_prices.keys()
         products = await ProductModel.objects.select_related("vendor").ain_bulk(product_ids)
         office_products = OfficeProductModel.objects.select_related("product").filter(
@@ -1084,7 +1084,7 @@ class ProductHelper:
 
         # TODO: this should be optimized
         office_products = OfficeProductModel.objects.filter(Q(office_id=office_pk))
-        price_least_update_date = timezone.now() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
+        price_least_update_date = timezone.localtime() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
         office_product_price = OfficeProductModel.objects.filter(
             Q(office_id=office_pk) & Q(product_id=OuterRef("pk")) & Q(last_price_updated__gte=price_least_update_date)
         ).values("price")
@@ -1248,7 +1248,7 @@ class ProductHelper:
             .filter(pid=OuterRef("pk"))
         )
 
-        price_least_update_date = timezone.now() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
+        price_least_update_date = timezone.localtime() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
         office_product_price = OfficeProductModel.objects.filter(
             Q(office=office) & Q(product_id=OuterRef("pk")) & Q(last_price_updated__gte=price_least_update_date)
         ).values("price")
@@ -1465,8 +1465,8 @@ class OrderHelper:
             to_date = None
 
             if consider_recent:
-                from_date = timezone.now().date() - datetime.timedelta(days=4)
-                to_date = timezone.now().date()
+                from_date = timezone.localtime().date() - datetime.timedelta(days=4)
+                to_date = timezone.localtime().date()
 
             if perform_login:
                 try:

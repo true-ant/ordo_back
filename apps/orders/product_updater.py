@@ -51,7 +51,7 @@ def update_products(vendor: SupportedVendor, products: Union[List[DentalCityProd
     - Dental City: In addition to product price, we update manufacturer promotion
     """
     products_by_identifier = {product.product_identifier: product for product in products}
-    update_time = timezone.now()
+    update_time = timezone.localtime()
     office_product_instances = []
 
     vendor_api_client_info = VendorAPIClientMapping[vendor]
@@ -81,7 +81,10 @@ def update_products(vendor: SupportedVendor, products: Union[List[DentalCityProd
             dental_city_manufacturer_special = getattr(vendor_product, "manufacturer_special", None)
             if dental_city_manufacturer_special:
                 manufacturer_number = getattr(vendor_product, "manufacturer_part_number", None)
-                if manufacturer_number and manufacturer_number.replace("-", "") != product_instance.manufacturer_number:
+                if (
+                    manufacturer_number
+                    and manufacturer_number.replace("-", "") != product_instance.manufacturer_number
+                ):
                     mismatch_manufacturer_numbers.append(vendor_product)
                     continue
 
@@ -101,7 +104,6 @@ def update_products(vendor: SupportedVendor, products: Union[List[DentalCityProd
             last_price_updated=update_time,
             updated_at=update_time,
         )
-
 
         Product.objects.bulk_update(
             manufacturer_promotion_products, fields=("promotion_description", "is_special_offer", "updated_at")

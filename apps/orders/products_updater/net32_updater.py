@@ -58,16 +58,16 @@ async def enable_or_disable_products(products_from_api: List[Net32ProductInfo]):
     for batch in batched(product_ids_to_be_disabled, BATCH_SIZE):
         logging.debug("Disabling %s", batch)
         await Product.objects.filter(product_id__in=batch).aupdate(
-            is_available_on_vendor=False, updated_at=timezone.now()
+            is_available_on_vendor=False, updated_at=timezone.localtime()
         )
 
     for batch in batched(product_ids_to_be_enabled, BATCH_SIZE):
         logging.debug("Enabling %s", batch)
         await Product.objects.filter(product_id__in=batch).aupdate(
-            is_available_on_vendor=True, updated_at=timezone.now()
+            is_available_on_vendor=True, updated_at=timezone.localtime()
         )
 
-    updated_at = timezone.now()
+    updated_at = timezone.localtime()
     products_to_be_created = [
         Product(
             vendor_id=net_32_vendor_id,
@@ -89,7 +89,7 @@ async def enable_or_disable_products(products_from_api: List[Net32ProductInfo]):
 
 async def update_prices(products_from_api: List[Net32ProductInfo]):
     product_prices = {p.mp_id: p.price for p in products_from_api}
-    updated_at = timezone.now()
+    updated_at = timezone.localtime()
     datetime_from = updated_at - datetime.timedelta(days=1)
     product_instances = Product.net32.available_products().filter(
         Q(last_price_updated__lt=datetime_from) | Q(last_price_updated=None)

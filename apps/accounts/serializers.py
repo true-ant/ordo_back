@@ -159,7 +159,7 @@ class CompanySerializer(serializers.ModelSerializer):
                             office=office,
                         )
                         m.Subscription.objects.create(
-                            subscription_id=subscription.id, office=office, start_on=timezone.now().date()
+                            subscription_id=subscription.id, office=office, start_on=timezone.localtime().date()
                         )
 
         except Exception as e:
@@ -181,7 +181,7 @@ class CompanySerializer(serializers.ModelSerializer):
                 name=kwargs["name"],
                 phone_number=kwargs.get("phone_number"),
                 website=kwargs.get("website"),
-                practice_software=kwargs.get("practice_software")
+                practice_software=kwargs.get("practice_software"),
             )
             m.OfficeSetting.objects.create(office=office)
 

@@ -206,7 +206,7 @@ def get_week_count(date_range: str):
 
 
 def get_date_range(date_range: str):
-    today = timezone.now().date()
+    today = timezone.localtime().date()
     first_day_of_this_week = today - datetime.timedelta(days=today.weekday())
     first_day_of_next_week = first_day_of_this_week + relativedelta(weeks=1)
     last_day_of_this_week = first_day_of_this_week + datetime.timedelta(days=6)

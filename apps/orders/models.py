@@ -132,7 +132,7 @@ class Product(TimeStampedModel):
         #       more frequently or returning `oudated` flag
         if self.vendor.slug in settings.NON_FORMULA_VENDORS:
             if self.vendor.slug == "dental_city" and self.last_price_updated:
-                ages_in_days = (timezone.now() - self.last_price_updated).days
+                ages_in_days = (timezone.localtime() - self.last_price_updated).days
                 life_span_in_days = (
                     settings.NET32_PRODUCT_PRICE_UPDATE_CYCLE
                     if self.vendor.slug == "net_32"
@@ -287,7 +287,7 @@ class OfficeProduct(TimeStampedModel):
 
     @property
     def recent_product(self):
-        if self.last_price_updated and (timezone.now() - self.last_price_updated).days > 10:
+        if self.last_price_updated and (timezone.localtime() - self.last_price_updated).days > 10:
             return self.price
 
     @classmethod
@@ -316,7 +316,7 @@ class OfficeProduct(TimeStampedModel):
 
 class OrderMonthManager(models.Manager):
     def get_queryset(self):
-        today = timezone.now().date()
+        today = timezone.localtime().date()
         month_first_day = today.replace(day=1)
         next_month_first_day = (month_first_day + timedelta(days=32)).replace(day=1)
         return (
