@@ -1586,10 +1586,12 @@ class OrderHelper:
 
         for vendor_order_id, result in zip(vendor_order_ids, results):
             if isinstance(result, Exception):
+                summary = traceback.extract_tb(result.__traceback__)
+                exception_tb = "\n".join(summary.format())
                 logger.error(
                     "Placing vendor order %s resulted in exception: %s",
                     vendor_order_id,
-                    traceback.print_tb(result.__traceback__),
+                    exception_tb,
                 )
 
         if any([isinstance(r, Exception) for r in results]):
