@@ -30,4 +30,5 @@ class TestUserSignUpTestCase(APITestCase):
             data={"office": self.office.pk, "role": User.Role.USER, "email": fake.email()},
             format="json",
         )
-        assert resp.status_code == status.HTTP_200_OK
+        assert resp.status_code == status.HTTP_201_CREATED
+

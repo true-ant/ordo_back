@@ -3,6 +3,7 @@ import csv
 import datetime
 import itertools
 import logging
+import traceback
 from collections import defaultdict
 from decimal import Decimal
 from functools import reduce
@@ -17,6 +18,7 @@ from dateutil import rrule
 from django.conf import settings
 from django.contrib.postgres.search import SearchQuery, SearchVectorField
 from django.db.models import (
+    BooleanField,
     Case,
     Count,
     Exists,
@@ -30,7 +32,7 @@ from django.db.models import (
     Value,
     When,
 )
-from django.db.models.expressions import RawSQL
+from django.db.models.expressions import ExpressionWrapper, Func, RawSQL
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from slugify import slugify
@@ -1241,11 +1243,13 @@ class ProductHelper:
         ).values("price")
 
         # we treat parent product as inventory product if it has inventory children product
-        inventory_office_product = (
-            OfficeProductModel.objects.filter(Q(office_id=office_pk) & Q(is_inventory=True))
-            .annotate(pid=F("product__parent_id"))
-            .values("pid")
-            .filter(pid=OuterRef("pk"))
+        max_last_order_date = (
+            OfficeProductModel.objects.filter(
+                office_id=office_pk, is_inventory=True, product__parent_id=OuterRef("pk")
+            )
+            .order_by()
+            .annotate(max_last_order_date=Func(F("last_order_date"), function="Max"))
+            .values("max_last_order_date")
         )
 
         price_least_update_date = timezone.localtime() - datetime.timedelta(days=settings.PRODUCT_PRICE_UPDATE_CYCLE)
@@ -1272,7 +1276,8 @@ class ProductHelper:
             child_products_prefetch = child_products_prefetch.filter(product_price__lte=price_to)
 
         products = (
-            products.annotate(is_inventory=Exists(inventory_office_product))
+            products.annotate(last_order_date=Subquery(max_last_order_date))
+            .annotate(is_inventory=ExpressionWrapper(Q(last_order_date__isnull=False), output_field=BooleanField()))
             # .annotate(last_order_date=Subquery(inventory_office_products.values("last_order_date")[:1]))
             # .annotate(last_order_price=Subquery(inventory_office_products.values("price")[:1]))
             # .annotate(product_vendor_status=Subquery(office_products.values("product_vendor_status")[:1]))
@@ -1290,7 +1295,7 @@ class ProductHelper:
             )
             .order_by(
                 "selected_product",
-                "-is_inventory",
+                F("last_order_date").desc(nulls_last=True),
                 "-child_count",
             )
             .prefetch_related(Prefetch("children", child_products_prefetch))
@@ -1497,32 +1502,29 @@ class OrderHelper:
             if vendor_order.vendor.slug in settings.API_AVAILABLE_VENDORS:
                 api_client = APIClientFactory.get_api_client(vendor=vendor_order.vendor, session=session)
                 await api_client.place_order(office_vendor, vendor_order, products)
-                return True
-            else:
-                scraper = ScraperFactory.create_scraper(
-                    vendor=office_vendor.vendor,
-                    session=session,
-                    username=office_vendor.username,
-                    password=office_vendor.password,
-                )
+                return
+            scraper = ScraperFactory.create_scraper(
+                vendor=office_vendor.vendor,
+                session=session,
+                username=office_vendor.username,
+                password=office_vendor.password,
+            )
 
-                if perform_login:
-                    try:
-                        await scraper.login()
-                    except Exception:
-                        logger.debug(f"Authentication is failed for {office_vendor.vendor.name} vendor")
-                        return False
+            if perform_login:
+                try:
+                    await scraper.login()
+                except Exception:
+                    logger.debug(f"Authentication is failed for {office_vendor.vendor.name} vendor")
+                    raise
 
-                result = await scraper.confirm_order(
-                    products=products,
-                    shipping_method=vendor_order.shipping_option.name if vendor_order.shipping_option else "",
-                    fake=fake_order,
-                )
-                if result.get("order_type") is msgs.ORDER_TYPE_ORDO:
-                    vendor_order.vendor_order_id = result.get("order_id")
-                    await sync_to_async(vendor_order.save)()
-                    return True
-        return False
+            result = await scraper.confirm_order(
+                products=products,
+                shipping_method=vendor_order.shipping_option.name if vendor_order.shipping_option else "",
+                fake=fake_order,
+            )
+            if result.get("order_type") is msgs.ORDER_TYPE_ORDO:
+                vendor_order.vendor_order_id = result.get("order_id")
+                await sync_to_async(vendor_order.save)()
 
     @staticmethod
     async def perform_orders_in_vendors(
@@ -1581,9 +1583,20 @@ class OrderHelper:
                 )
             )
         results = await aio.gather(*order_tasks, return_exceptions=True)
-        if all(results):
-            order.order_type = OrderType.ORDO_ORDER
-            await sync_to_async(order.save)()
+
+        for vendor_order_id, result in zip(vendor_order_ids, results):
+            if isinstance(result, Exception):
+                logger.error(
+                    "Placing vendor order %s resulted in exception: %s",
+                    vendor_order_id,
+                    traceback.print_tb(result.__traceback__),
+                )
+
+        if any([isinstance(r, Exception) for r in results]):
+            return
+
+        order.order_type = OrderType.ORDO_ORDER
+        await sync_to_async(order.save)()
 
     @staticmethod
     def update_vendor_order_totals(vendor_order: VendorOrderModel):
