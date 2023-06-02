@@ -31,3 +31,4 @@ class TestUserSignUpTestCase(APITestCase):
             format="json",
         )
         assert resp.status_code == status.HTTP_201_CREATED
+
