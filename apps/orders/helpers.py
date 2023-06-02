@@ -1498,7 +1498,7 @@ class OrderHelper:
         fake_order: bool = False,
         perform_login: bool = True,
     ):
-        async with ClientSession(timeout=ClientTimeout(60)) as session:
+        async with ClientSession(timeout=ClientTimeout(120)) as session:
             if vendor_order.vendor.slug in settings.API_AVAILABLE_VENDORS:
                 api_client = APIClientFactory.get_api_client(vendor=vendor_order.vendor, session=session)
                 await api_client.place_order(office_vendor, vendor_order, products)
