@@ -3,7 +3,7 @@ from decimal import Decimal
 from dateutil.relativedelta import relativedelta
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
-from django.db.models import Count, F, Func, OuterRef, Q, Subquery
+from django.db.models import CharField, Count, F, Func, OuterRef, Q, Subquery, Value
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
@@ -25,13 +25,24 @@ class UserAdmin(AdminDynamicPaginationMixin, DefaultUserAdmin):
         "username",
         "first_name",
         "last_name",
-        "email",
-        "is_staff",
-        "is_active",
+        "companies",
         "date_joined",
         "role",
-        "avatar",
+        "is_staff",
     )
+
+    def get_queryset(self, request):
+        company_names = (
+            m.CompanyMember.objects.filter(user_id=OuterRef("pk"))
+            .order_by()
+            .annotate(companies=Func(F("company__name"), Value(", "), function="string_agg", output_field=CharField()))
+            .values("companies")
+        )
+        return m.User.objects.annotate(companies=Subquery(company_names))
+
+    @admin.display(description="Companies")
+    def companies(self, obj):
+        return obj.companies
 
 
 class CompanyMemberInline(ReadOnlyAdminMixin, NestedTabularInline):
