@@ -25,13 +25,16 @@ class UserAdmin(AdminDynamicPaginationMixin, DefaultUserAdmin):
         "username",
         "first_name",
         "last_name",
-        "email",
-        "is_staff",
-        "is_active",
+        "companies",
         "date_joined",
         "role",
-        "avatar",
+        "is_staff",
     )
+
+    @admin.display(description="Companies")
+    def companies(self, obj):
+        qs = m.CompanyMember.objects.filter(user=obj).values_list("company__name", flat=True)
+        return ",".join(qs)
 
 
 class CompanyMemberInline(ReadOnlyAdminMixin, NestedTabularInline):
