@@ -23,8 +23,7 @@ admin.ModelAdmin.list_per_page = 50
 class UserAdmin(AdminDynamicPaginationMixin, DefaultUserAdmin):
     list_display = (
         "username",
-        "first_name",
-        "last_name",
+        "full_name",
         "companies",
         "date_joined",
         "role",
@@ -50,7 +49,7 @@ class CompanyMemberInline(ReadOnlyAdminMixin, NestedTabularInline):
     exclude = ("token", "token_expires_at")
     readonly_fields = (
         "invited_by",
-        "user",
+        "user_full_name",
         "email",
         "role",
         "office",
@@ -58,6 +57,10 @@ class CompanyMemberInline(ReadOnlyAdminMixin, NestedTabularInline):
         "date_joined",
         "is_active",
     )
+
+    @admin.display(description="User")
+    def user_full_name(self, obj):
+        return obj.user.full_name
 
 
 class OfficeVendorInline(ReadOnlyAdminMixin, NestedTabularInline):
