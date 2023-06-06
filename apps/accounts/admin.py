@@ -1,12 +1,9 @@
 from decimal import Decimal
-from typing import Any
 
 from dateutil.relativedelta import relativedelta
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
 from django.db.models import CharField, Count, F, Func, OuterRef, Q, Subquery, Value
-from django.db.models.query import QuerySet
-from django.http.request import HttpRequest
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import path, reverse_lazy
 from django.utils import timezone
@@ -64,7 +61,7 @@ class CompanyMemberInline(ReadOnlyAdminMixin, NestedTabularInline):
         "is_active",
     )
 
-    def get_queryset(self, request: HttpRequest) -> QuerySet[Any]:
+    def get_queryset(self, request):
         return super().get_queryset(request).select_related("user")
 
     @admin.display(description="User")
