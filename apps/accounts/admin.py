@@ -190,7 +190,7 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
         ]
 
     def relink_officevendor(self, request, pk):
-        officevendor = get_object_or_404(m.OfficeVendor, pk=pk)
+        officevendor = get_object_or_404(m.OfficeVendor.objects.select_related("vendor"), pk=pk)
         officevendor.login_success = True
         officevendor.save()
         fetch_order_history.delay(
