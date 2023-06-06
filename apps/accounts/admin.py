@@ -7,10 +7,13 @@ from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
 from django.db.models import CharField, Count, F, Func, OuterRef, Q, Subquery, Value
 from django.db.models.query import QuerySet
 from django.http.request import HttpRequest
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import path, reverse_lazy
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
+from apps.accounts.tasks import fetch_order_history
 from apps.common.admins import AdminDynamicPaginationMixin, ReadOnlyAdminMixin
 from apps.common.choices import OrderStatus, OrderType
 from apps.common.month import Month
@@ -71,7 +74,26 @@ class CompanyMemberInline(ReadOnlyAdminMixin, NestedTabularInline):
 
 class OfficeVendorInline(ReadOnlyAdminMixin, NestedTabularInline):
     model = m.OfficeVendor
-    readonly_fields = fields = ("vendor", "username", "password")
+    readonly_fields = fields = ("vendor", "username", "password", "relink", "vendor_login")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("vendor")
+
+    @admin.display(description="Relink Vendor")
+    def relink(self, obj):
+        if obj.login_success:
+            return ""
+        else:
+            return mark_safe(
+                '<a class="btn btn-outline-primary" href="{}" class="link">Relink Vendor</a>'.format(
+                    reverse_lazy("admin:admin_relink_officevendor", args=[obj.pk])
+                )
+            )
+
+    @admin.display(description="Vendor Login")
+    def vendor_login(self, obj):
+        url = obj.vendor.url
+        return mark_safe("<a target='_blank' href='{}' class='btn btn-outline-primary'>Vendor Login</a>".format(url))
 
 
 class OfficeBudgetInline(NestedTabularInline):
@@ -162,6 +184,24 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
         OfficeInline,
     )
     ordering = ("-on_boarding_step",)
+
+    def get_urls(self):
+        urls = super().get_urls()
+        my_urls = [
+            path("relink-officevendor/<int:pk>/", self.relink_officevendor, name="admin_relink_officevendor"),
+        ]
+        return my_urls + urls
+
+    def relink_officevendor(self, request, pk):
+        officevendor = get_object_or_404(m.OfficeVendor, pk=pk)
+        officevendor.login_success = True
+        officevendor.save()
+        fetch_order_history.delay(
+            vendor_slug=officevendor.vendor.slug,
+            office_id=officevendor.office.id,
+        )
+        print("fetch done")
+        return redirect(request.META.get("HTTP_REFERER"))
 
     def get_queryset(self, request):
         orders = (
