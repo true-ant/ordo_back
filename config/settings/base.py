@@ -190,6 +190,7 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "apps.common.renders.APIRenderer",
     ],
+    "DEFAULT_VERSIONING_CLASS": "config.settings.api_versioning.OrdoAPIVersioning",
     # "DEFAULT_PAGINATION_CLASS": "apps.common.pagination.StandardResultsSetPagination",
     # "PAGE_SIZE": 20,
     "DEFAULT_AUTHENTICATION_CLASSES": (

@@ -1,6 +1,7 @@
 # from django.db import models
 # Create your models here.
 from datetime import timedelta
+from decimal import Decimal
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
@@ -126,7 +127,7 @@ class Office(TimeStampedModel):
             return None
         current_date = timezone.localtime().date()
         month = Month(year=current_date.year, month=current_date.month)
-        return self.budgets.filter(month=month).first()
+        return Budget.objects.filter(office=self, month=month).first()
 
     @property
     def active_subscription(self):
@@ -163,11 +164,12 @@ class OfficeAddress(TimeStampedModel):
         ordering = ("address_type",)
 
 
-class OfficeBudget(TimeStampedModel):
-    class BudgetType(models.TextChoices):
-        PRODUCTION = "production", "Adjusted Production"
-        COLLECTION = "collection", "Collection"
+class BudgetType(models.TextChoices):
+    PRODUCTION = "production", "Adjusted Production"
+    COLLECTION = "collection", "Collection"
 
+
+class OfficeBudget(TimeStampedModel):
     office = FlexibleForeignKey(Office, related_name="budgets")
     # dental_* is used for managing budgets for net, henry and dental suppliers
     dental_budget_type = models.CharField(max_length=10, choices=BudgetType.choices, default=BudgetType.PRODUCTION)
@@ -175,6 +177,7 @@ class OfficeBudget(TimeStampedModel):
     dental_percentage = models.DecimalField(max_digits=5, decimal_places=2)
     dental_budget = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     dental_spend = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
     adjusted_production = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     collection = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
@@ -194,7 +197,71 @@ class OfficeBudget(TimeStampedModel):
         unique_together = ["office", "month"]
 
     def __str__(self):
-        return f"{self.office}'s {self.month} budget"
+        return f"{self.office_id} {self.month} budget"
+
+
+class BasisType(models.IntegerChoices):
+    NONE = 0, "No basis"
+    PRODUCTION = 1, "Adjusted Production"
+    COLLECTION = 2, "Collection"
+
+
+BASIS2CATEGORY = {BasisType.PRODUCTION: BudgetType.PRODUCTION, BasisType.COLLECTION: BudgetType.COLLECTION}
+
+
+class Budget(models.Model):
+    office = models.ForeignKey(Office, on_delete=models.PROTECT, related_name="budget_set")
+    month = MonthField()
+
+    adjusted_production = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    collection = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+
+class BudgetCategory(models.Model):
+    office = models.ForeignKey(Office, on_delete=models.PROTECT, related_name="budget_categories")
+
+    # Slug field for the category. It has special meaning and some predefined values
+    # dental - general dental budget category
+    # office - general office budget category
+    # misc - miscelanneous budget category
+    # vendor-<vendor_slug> - vendor specific category
+    slug = models.SlugField(max_length=30)
+
+    name = models.CharField(max_length=60)
+    is_custom = models.BooleanField(default=False)
+
+    def __str__(self):
+        if self.is_custom:
+            name = f"{self.name}"
+        else:
+            name = f"[{self.name}]"
+        basis = self.get_basis_display()
+        return f"{name} ({basis})"
+
+
+class Subaccount(models.Model):
+    budget = models.ForeignKey(Budget, on_delete=models.PROTECT, related_name="subaccounts")
+    basis = models.IntegerField(choices=BasisType.choices)
+    category = models.ForeignKey(BudgetCategory, on_delete=models.PROTECT, related_name="subaccounts")
+    percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+
+    spend = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    @property
+    def budget_type(self):
+        return BASIS2CATEGORY.get(self.basis)
+
+    @property
+    def total_budget(self):
+        if self.basis == BasisType.COLLECTION:
+            return self.budget.collection
+        elif self.basis == BasisType.PRODUCTION:
+            return self.budget.adjusted_production
+        return None
+
+    @property
+    def budget_(self):
+        return (Decimal(self.total_budget * self.percentage) / Decimal(100)).quantize(Decimal(10) ** -2)
 
 
 class OfficeSetting(TimeStampedModel):
@@ -248,7 +315,7 @@ class CompanyMember(TimeStampedModel):
         INVITE_APPROVED = 1
         INVITE_DECLINED = 2
 
-    company = FlexibleForeignKey(Company)
+    company = FlexibleForeignKey(Company, related_name="members")
     user = FlexibleForeignKey(User, null=True)
     role = models.IntegerField(choices=User.Role.choices, default=User.Role.ADMIN)
     office = FlexibleForeignKey(Office, null=True)

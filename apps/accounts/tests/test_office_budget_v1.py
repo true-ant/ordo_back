@@ -13,6 +13,7 @@ from rest_framework.reverse import reverse
 from rest_framework.test import APIClient, APITestCase
 
 from apps.accounts.factories import (
+    BudgetFactory,
     CompanyFactory,
     CompanyMemberFactory,
     OfficeBudgetFactory,
@@ -91,7 +92,7 @@ class SingleOfficeBudgetTestCase(APITestCase):
         cls.office = OfficeFactory(company=cls.company)
         cls.company_member_user = UserFactory()
         cls.company_member = CompanyMemberFactory(company=cls.company, office=cls.office, user=cls.company_member_user)
-        cls.office_budget = OfficeBudgetFactory(office=cls.office)
+        cls.office_budget = BudgetFactory(office=cls.office)
         cls.api_client = APIClient()
         cls.api_client.force_authenticate(cls.company_member_user)
 
@@ -146,6 +147,18 @@ class SingleOfficeBudgetTestCase(APITestCase):
         budget = BudgetOutput(**budget_data)
         assert budget
 
+    def test_user_self(self):
+        url = reverse("users-detail", kwargs={"pk": "me"})
+        resp = self.api_client.get(url)
+        assert resp.status_code == status.HTTP_200_OK
+        data = resp.json()
+        user_data = data["data"]
+        company_data = user_data["company"]
+        office_data = company_data["offices"][0]
+        budget_data = office_data["budget"]
+        budget = BudgetOutput(**budget_data)
+        assert budget
+
 
 class ChartDataTestCase(APITestCase):
     @classmethod
@@ -181,7 +194,7 @@ class TestUserSignUpTestCase(APITestCase):
             user=None,
         )
         for month in last_year_months():
-            cls.office_budget = OfficeBudgetFactory(office=cls.office, month=month)
+            cls.office_budget = BudgetFactory(office=cls.office, month=month)
         cls.api_client = APIClient()
 
     def test_user_signup_with_token(self):

@@ -6,6 +6,7 @@ from factory.django import DjangoModelFactory
 
 from ..common.month import Month
 from . import models as m
+from .models import BasisType
 
 
 class UserFactory(DjangoModelFactory):
@@ -57,12 +58,59 @@ def get_current_month():
     return month
 
 
+class BudgetFactory(DjangoModelFactory):
+    class Meta:
+        model = m.Budget
+        exclude = ["basis"]
+
+    office = factory.SubFactory(OfficeFactory)
+    month = factory.LazyFunction(get_current_month)
+    adjusted_production = factory.Faker("pydecimal", min_value=30, max_value=120)
+    collection = factory.Faker("pydecimal", min_value=30, max_value=120)
+
+    @factory.post_generation
+    def create_subaccounts(obj, create, extracted, **kwargs):
+        if not create:
+            return
+        basis = random.choice([m.BasisType.PRODUCTION, m.BasisType.COLLECTION])
+        dcat, ocat, mcat = [
+            BudgetCategoryFactory(office=obj.office, slug=category_slug, name=name, is_custom=False)
+            for category_slug, name in [
+                ("dental", "Dental Budget"),
+                ("office", "Office Budget"),
+                ("misc", "Miscellaneous Spend"),
+            ]
+        ]
+        for cat in [dcat, ocat, mcat]:
+            SubaccountFactory(budget=obj, basis=basis, category=cat, percentage=5, spend=0)
+
+
+class BudgetCategoryFactory(DjangoModelFactory):
+    class Meta:
+        model = m.BudgetCategory
+
+    slug = "dental"
+    name = "Dental Budget"
+    is_custom = False
+
+
+class SubaccountFactory(DjangoModelFactory):
+    class Meta:
+        model = m.Subaccount
+
+    budget = factory.SubFactory(BudgetFactory)
+    basis = BasisType.PRODUCTION
+    category = factory.LazyAttribute(lambda o: BudgetCategoryFactory(office=o.budget.office))
+    percentage = 5
+    spend = 0
+
+
 class OfficeBudgetFactory(DjangoModelFactory):
     class Meta:
         model = m.OfficeBudget
         exclude = ["budget_type"]
 
-    budget_type = factory.LazyFunction(lambda: random.choice(m.OfficeBudget.BudgetType.choices)[0])
+    budget_type = factory.LazyFunction(lambda: random.choice(m.BudgetType.choices)[0])
 
     dental_budget_type = factory.LazyAttribute(lambda o: o.budget_type)
     dental_total_budget = factory.Faker("pydecimal", min_value=20000, max_value=100000)

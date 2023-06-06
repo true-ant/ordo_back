@@ -38,6 +38,52 @@ class OpenDentalKeySerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class BudgetSerializerV1(serializers.ModelSerializer):
+    class Meta:
+        model = m.Budget
+        fields = (
+            "id",
+            "office",
+            "month",
+            "adjusted_production",
+            "collection",
+        )
+
+    def get_remaining_budget(self, result):
+        TWO_DECIMAL_PLACES = Decimal(10) ** -2
+        return {
+            "dental": (result["dental_budget"] - result["dental_spend"]).quantize(TWO_DECIMAL_PLACES),
+            "office": (result["office_budget"] - result["office_spend"]).quantize(TWO_DECIMAL_PLACES),
+        }
+
+    def to_representation(self, instance: m.Budget):
+        result = super().to_representation(instance)
+        for subaccount in instance.subaccounts.all():
+            category_slug = subaccount.category.slug
+            if category_slug in ("dental", "office"):
+                key_prefix = f"{category_slug}"
+                key_data = {
+                    "budget_type": subaccount.budget_type,
+                    "total_budget": subaccount.total_budget,
+                    "percentage": subaccount.percentage,
+                    "budget": subaccount.budget_,
+                    "spend": subaccount.spend,
+                }
+                result.update({f"{key_prefix}_{key}": value for key, value in key_data.items()})
+            elif category_slug == "misc":
+                result["miscellaneous_spend"] = subaccount.spend
+            else:
+                continue
+        remaining_budget = self.get_remaining_budget(result)
+        return {**result, "remaining_budget": remaining_budget}
+
+
+class BudgetSerializerV2(serializers.ModelSerializer):
+    class Meta:
+        model = m.Budget
+        fields = "__all__"
+
+
 class OfficeBudgetSerializer(serializers.ModelSerializer):
     office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all(), required=False)
     # spend = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
@@ -75,7 +121,7 @@ class OfficeSettingSerializer(serializers.ModelSerializer):
         exclude = ("office",)
 
 
-class OfficeSerializer(serializers.ModelSerializer):
+class BaseOfficeSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
     company = serializers.PrimaryKeyRelatedField(queryset=m.Company.objects.all(), required=False)
     addresses = OfficeAddressSerializer(many=True, required=False)
@@ -89,7 +135,6 @@ class OfficeSerializer(serializers.ModelSerializer):
     )
     coupon = serializers.CharField(write_only=True, required=False)
     cc_code = serializers.CharField(validators=[CSCValidator()], write_only=True)
-    budget = OfficeBudgetSerializer()
     settings = OfficeSettingSerializer(read_only=True)
     name = serializers.CharField()
     dental_api = OpenDentalKeySerializer()
@@ -106,6 +151,14 @@ class OfficeSerializer(serializers.ModelSerializer):
         return res
 
 
+class OfficeSerializerV1(BaseOfficeSerializer):
+    budget = BudgetSerializerV1()
+
+
+class OfficeSerializerV2(BaseOfficeSerializer):
+    budget = BudgetSerializerV2()
+
+
 class CompanyMemberSerializer(serializers.ModelSerializer):
     company = serializers.PrimaryKeyRelatedField(queryset=m.Company.objects.all(), allow_null=True)
     office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
@@ -120,7 +173,15 @@ class CompanyMemberSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance: m.CompanyMember):
         ret = super().to_representation(instance)
-        ret["office"] = OfficeSerializer(instance=instance.office).data
+        request = self.context["request"]
+        if request.version == "1.0":
+            office_serializer_class = OfficeSerializerV1
+        elif request.version == "2.0":
+            office_serializer_class = OfficeSerializerV2
+        else:
+            raise ValueError("Version is not supported")
+        ret["office"] = office_serializer_class(instance=instance.office, context=self.context).data
+
         return ret
 
     class Meta:
@@ -128,9 +189,7 @@ class CompanyMemberSerializer(serializers.ModelSerializer):
         exclude = ("token", "token_expires_at")
 
 
-class CompanySerializer(serializers.ModelSerializer):
-    offices = OfficeSerializer(many=True)
-
+class BaseCompanySerializer(serializers.ModelSerializer):
     class Meta:
         model = m.Company
         fields = "__all__"
@@ -241,6 +300,14 @@ class CompanySerializer(serializers.ModelSerializer):
         return res
 
 
+class CompanySerializerV1(BaseCompanySerializer):
+    offices = OfficeSerializerV1(many=True)
+
+
+class CompanySerializerV2(BaseCompanySerializer):
+    offices = OfficeSerializerV2(many=True)
+
+
 class UserSignupSerializer(serializers.Serializer):
     first_name = serializers.CharField()
     last_name = serializers.CharField()
@@ -323,9 +390,16 @@ class UserSerializer(serializers.ModelSerializer):
         )
 
     def get_company(self, instance):
-        company_member = m.CompanyMember.objects.select_related("company").filter(user=instance).first()
-        if company_member:
-            return CompanySerializer(company_member.company, context=self.context).data
+        company = m.Company.objects.filter(members__user=instance).first()
+        request = self.context["request"]
+        if request.version == "1.0":
+            company_serializer_class = CompanySerializerV1
+        elif request.version == "2.0":
+            company_serializer_class = CompanySerializerV2
+        else:
+            raise ValidationError("Unsupported version")
+        if company:
+            return company_serializer_class(company, context=self.context).data
 
 
 class VendorRequestSerializer(serializers.ModelSerializer):

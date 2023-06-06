@@ -20,7 +20,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
         data.pop("refresh")
         if api_settings.UPDATE_LAST_LOGIN:
             update_last_login(None, self.user)
-        data["profile"] = UserSerializer(instance=self.user).data
+        data["profile"] = UserSerializer(instance=self.user, context=self.context).data
         return data
 
     @classmethod
@@ -35,7 +35,7 @@ class MyTokenVerifySerializer(TokenVerifySerializer):
     def validate(self, attrs):
         token = UntypedToken(attrs["token"])
         user = User.objects.get(username=token.payload["username"])
-        return {"token": attrs["token"], "profile": UserSerializer(instance=user).data}
+        return {"token": attrs["token"], "profile": UserSerializer(instance=user, context=self.context).data}
 
 
 class MyTokenObtainPairView(TokenObtainPairView):

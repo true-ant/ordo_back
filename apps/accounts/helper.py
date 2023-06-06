@@ -1,14 +1,16 @@
 import json
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from typing import List, Union
+from typing import List, Optional, Union
 
-from django.db.models import F, Prefetch, Sum
+from django.db import transaction
+from django.db.models import F, Sum
 from django.utils import timezone
 
-from apps.accounts.models import Office, OfficeBudget
+from apps.accounts.models import Budget, Office
 from apps.accounts.models import OfficeVendor as OfficeVendorModel
 from apps.accounts.models import ShippingMethod as ShippingMethodModel
+from apps.accounts.models import Subaccount
 from apps.accounts.models import Vendor as VendorModel
 from apps.common.choices import BUDGET_SPEND_TYPE
 from apps.common.month import Month
@@ -17,18 +19,17 @@ from apps.orders.models import Order
 from services.opendental import OpenDentalClient
 
 
+class BudgetNotFoundError(Exception):
+    pass
+
+
 class OfficeBudgetHelper:
     @staticmethod
-    def update_spend(office: Union[int, str, Office], date: datetime.date, amount: Decimal):
-        # TODO: expand this function to update 2 kinds of budgets
-        if not isinstance(office, Office):
-            office = Office.objects.get(id=office)
-
+    def update_spend(office: Union[int, str, Office], date: datetime.date, amount: Decimal, category_slug="dental"):
         month = Month(year=date.year, month=date.month)
-        office_budget = office.budgets.filter(month=month).first()
-        if office_budget:
-            office_budget.dental_spend = F("dental_spend") + amount
-            office_budget.save()
+        Subaccount.objects.filter(budget__office=office, month=month, category__slug=category_slug).update(
+            spend=F("spend") + amount
+        )
 
     @staticmethod
     def move_spend_category(
@@ -37,113 +38,86 @@ class OfficeBudgetHelper:
         amount: Decimal,
         from_category: BUDGET_SPEND_TYPE,
         to_category: BUDGET_SPEND_TYPE,
-    ):
+    ) -> bool:
         """This function will move spend from one category to other category"""
-        if from_category and to_category and from_category != to_category:
-            month = Month.from_date(date)
-            if not isinstance(office, Office):
-                office_budget = OfficeBudget.objects.filter(office_id=office, month=month).first()
-            else:
-                office_budget = OfficeBudget.objects.filter(office=office, month=month).first()
+        if not from_category or not to_category or from_category == to_category:
+            return False
+        month = Month.from_date(date)
+        actions = ((from_category, -amount), (to_category, amount))
+        try:
+            with transaction.atomic():
+                for category, delta in actions:
+                    updated_rows = Subaccount.objects.filter(
+                        budget__office=office, month=month, category__slug=category
+                    ).update(spend=F("spend") + delta)
+                    if updated_rows == 0:
+                        raise BudgetNotFoundError
+        except BudgetNotFoundError:
+            return False
+        return True
 
-            if office_budget:
-                if from_category == BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET:
-                    office_budget.dental_spend = F("dental_spend") - amount
-                elif from_category == BUDGET_SPEND_TYPE.FRONT_OFFICE_SUPPLY_SPEND_BUDGET:
-                    office_budget.office_spend = F("office_spend") - amount
-                elif from_category == BUDGET_SPEND_TYPE.MISCELLANEOUS_SPEND_BUDGET:
-                    office_budget.miscellaneous_spend = F("miscellaneous_spend") - amount
-
-                if to_category == BUDGET_SPEND_TYPE.DENTAL_SUPPLY_SPEND_BUDGET:
-                    office_budget.dental_spend = F("dental_spend") + amount
-                elif to_category == BUDGET_SPEND_TYPE.FRONT_OFFICE_SUPPLY_SPEND_BUDGET:
-                    office_budget.office_spend = F("office_spend") + amount
-                elif to_category == BUDGET_SPEND_TYPE.MISCELLANEOUS_SPEND_BUDGET:
-                    office_budget.miscellaneous_spend = F("miscellaneous_spend") + amount
-                office_budget.save()
+    @staticmethod
+    def clone_prev_month_budget(prev_budgets: List[Budget], dental_api_data: Optional[dict] = None):
+        if dental_api_data is None:
+            dental_api_data = {}
+        budgets_to_create = []
+        for prev_budget in prev_budgets:
+            dental_api_values = dental_api_data.get(prev_budget.office_id, {})
+            current_month_budget = Budget(
+                month=prev_budget.month.next_month(),
+                office_id=prev_budget.office_id,
+                adjusted_production=dental_api_values.get("adjusted_production", prev_budget.adjusted_production),
+                collection=dental_api_values.get("collection", prev_budget.collection),
+            )
+            budgets_to_create.append(current_month_budget)
+        created_budgets = {b.office_id: b for b in Budget.objects.bulk_create(budgets_to_create)}
+        subaccounts_to_create = []
+        for budget in prev_budgets:
+            for subaccount in budget.subaccounts.all():
+                new_subaccount = Subaccount(
+                    budget=created_budgets[budget.office_id],
+                    basis=subaccount.basis,
+                    category_id=subaccount.category_id,
+                    percentage=subaccount.percentage,
+                    spend=0,
+                )
+                subaccounts_to_create.append(new_subaccount)
+        Subaccount.objects.bulk_create(subaccounts_to_create)
 
     @staticmethod
     def update_budget_with_previous_month():
         # TODO: update budget for active offices
-        current_month = Month.from_date(timezone.localtime().date())
+        current_month = Month.from_date(timezone.now().date())
         previous_month = current_month.prev_month()
-        office_budgets = OfficeBudget.objects.filter(month=previous_month)
-        offices = Office.objects.prefetch_related(
-            Prefetch("budgets", queryset=office_budgets, to_attr="previous_budget")
-        ).exclude(budgets__month=current_month)
-        office_budgets_to_created = []
-        for office in offices:
-            office_budget = office.previous_budget
-            if not office_budget:
-                continue
-            office_budget[0].id = None
-            office_budget[0].dental_spend = 0
-            office_budget[0].office_spend = 0
-            office_budget[0].month = current_month
-            office_budgets_to_created.append(office_budget[0])
-
-        bulk_create(OfficeBudget, office_budgets_to_created)
+        current_budgets = Budget.objects.filter(month=previous_month).prefetch_related("subaccounts")
+        OfficeBudgetHelper.clone_prev_month_budget(current_budgets)
 
     @staticmethod
     def update_office_budgets():
         # TODO: create budgets for active offices from Open Dental, if not, from previous month
-        current_month = Month.from_date(timezone.localtime().date())
-        previous_month = current_month.prev_month()
+        current_month = Month.from_date(timezone.now().date())
         last_day_of_prev_month = date.today().replace(day=1) - timedelta(days=1)
         start_day_of_prev_month = date.today().replace(day=1) - timedelta(days=last_day_of_prev_month.day)
-        prev_month_office_budgets = OfficeBudget.objects.filter(month=previous_month)
-        offices = Office.objects.prefetch_related(
-            Prefetch("budgets", queryset=prev_month_office_budgets, to_attr="previous_budget")
-        ).exclude(budgets__month=current_month)
-        office_budgets_to_created = []
+
+        offices = Office.objects.annotate(dental_api_key=F("dental_api__key")).exclude(budgets__month=current_month)
+
+        opendental_data = {}
         for office in offices:
-            dental_api = office.dental_api
-            prev_month_office_budget = office.previous_budget
-            if not dental_api:
-                if not prev_month_office_budget:
-                    continue
-                prev_month_office_budget[0].id = None
-                prev_month_office_budget[0].dental_spend = 0
-                prev_month_office_budget[0].office_spend = 0
-                prev_month_office_budget[0].month = current_month
-                office_budgets_to_created.append(prev_month_office_budget[0])
-                print(f"{office.name} from previous month")
-            else:
-                dental_api_key = dental_api.key
-                new_budget = OfficeBudget()
+            if not office.dental_api_key:
+                continue
+            try:
                 prev_adjusted_production, prev_collections = OfficeBudgetHelper.load_prev_month_production_collection(
-                    start_day_of_prev_month, last_day_of_prev_month, dental_api_key
+                    start_day_of_prev_month, last_day_of_prev_month, office.dental_api_key
                 )
-                budget_from_opendental = prev_adjusted_production
-                prev_dental_percentage = 5.0
-                prev_office_percentage = 0.5
-                budget_type = "production"
-                if prev_month_office_budget:
-                    prev_dental_percentage = prev_month_office_budget[0].dental_percentage
-                    prev_office_percentage = prev_month_office_budget[0].office_percentage
-                    if prev_month_office_budget[0].dental_budget_type == "collection":
-                        budget_type = "collection"
-                        budget_from_opendental = prev_collections
-                prev_dental_budget = budget_from_opendental * float(prev_dental_percentage) / 100.0
-                prev_office_budget = budget_from_opendental * float(prev_office_percentage) / 100.0
-                new_budget.office_id = office.id
-                new_budget.adjusted_production = prev_adjusted_production
-                new_budget.collection = prev_collections
-                new_budget.dental_budget_type = budget_type
-                new_budget.dental_budget_type = budget_type
-                new_budget.dental_total_budget = budget_from_opendental
-                new_budget.dental_percentage = prev_dental_percentage
-                new_budget.dental_budget = prev_dental_budget
-                new_budget.dental_spend = "0.0"
-                new_budget.office_budget_type = budget_type
-                new_budget.office_total_budget = budget_from_opendental
-                new_budget.office_percentage = prev_office_percentage
-                new_budget.office_budget = prev_office_budget
-                new_budget.office_spend = "0.0"
-                new_budget.month = datetime(current_month.year, current_month.month, 1)
-                office_budgets_to_created.append(new_budget)
-                print(f"{office.name} from Open Dental")
-        bulk_create(OfficeBudget, office_budgets_to_created)
+            except Exception:
+                pass
+            else:
+                opendental_data[office.pk] = {
+                    "adjusted_production": prev_adjusted_production,
+                    "collection": prev_collections,
+                }
+        budgets_to_clone = [office.previous_budget[0] for office in offices if office.previous_budget]
+        OfficeBudgetHelper.clone_prev_month_budget(budgets_to_clone, opendental_data)
 
     @staticmethod
     def load_prev_month_production_collection(day1, day2, api_key):
@@ -152,14 +126,11 @@ class OfficeBudgetHelper:
         query = product_query.format(day_from=day1, day_to=day2)
         od_client = OpenDentalClient(api_key)
         json_production = od_client.query(query)
-        try:
-            adjusted_production, collections = (
-                json_production[0][0]["Adjusted_Production"],
-                json_production[0][0]["Collections"],
-            )
-            return adjusted_production, collections
-        except Exception:
-            return 0, 0
+        adjusted_production, collections = (
+            json_production[0][0]["Adjusted_Production"],
+            json_production[0][0]["Collections"],
+        )
+        return adjusted_production, collections
 
     @staticmethod
     def get_office_spent_budget_current_month(office):

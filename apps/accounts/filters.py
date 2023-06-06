@@ -1,15 +1,15 @@
 from django.db.models import Q
 from django_filters import rest_framework as filters
 
-from .models import CompanyMember, OfficeBudget, Vendor
+from .models import Budget, CompanyMember, Vendor
 
 
-class OfficeBudgetFilter(filters.FilterSet):
+class BudgetFilter(filters.FilterSet):
     start_month = filters.DateFilter(field_name="month", lookup_expr="gte", input_formats=["%Y-%m"])
     end_month = filters.DateFilter(field_name="month", lookup_expr="lte", input_formats=["%Y-%m"])
 
     class Meta:
-        model = OfficeBudget
+        model = Budget
         fields = ["start_month", "end_month"]
 
 
