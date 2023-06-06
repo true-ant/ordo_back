@@ -7,6 +7,7 @@ from django.db.models import CharField, Count, F, Func, OuterRef, Q, Subquery, V
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import path, reverse_lazy
 from django.utils import timezone
+from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
@@ -81,10 +82,9 @@ class OfficeVendorInline(ReadOnlyAdminMixin, NestedTabularInline):
         if obj.login_success:
             return ""
         else:
-            return mark_safe(
-                '<a class="btn btn-outline-primary" href="{}" class="link">Relink Vendor</a>'.format(
-                    reverse_lazy("admin:admin_relink_officevendor", args=[obj.pk])
-                )
+            return format_html(
+                '<a class="btn btn-outline-primary" href="{}" class="link">Relink Vendor</a>',
+                reverse_lazy("admin:admin_relink_officevendor", args=[obj.pk]),
             )
 
     @admin.display(description="Vendor Login")
@@ -184,10 +184,10 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
 
     def get_urls(self):
         urls = super().get_urls()
-        my_urls = [
+        return [
             path("relink-officevendor/<int:pk>/", self.relink_officevendor, name="admin_relink_officevendor"),
+            *urls,
         ]
-        return my_urls + urls
 
     def relink_officevendor(self, request, pk):
         officevendor = get_object_or_404(m.OfficeVendor, pk=pk)
@@ -195,9 +195,8 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
         officevendor.save()
         fetch_order_history.delay(
             vendor_slug=officevendor.vendor.slug,
-            office_id=officevendor.office.id,
+            office_id=officevendor.office_id,
         )
-        print("fetch done")
         return redirect(request.META.get("HTTP_REFERER"))
 
     def get_queryset(self, request):
