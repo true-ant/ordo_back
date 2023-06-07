@@ -3,7 +3,7 @@ from decimal import Decimal
 from dateutil.relativedelta import relativedelta
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
-from django.db.models import CharField, Count, F, Func, OuterRef, Q, Subquery, Value
+from django.db.models import CharField, F, Func, OuterRef, Subquery, Value
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import path, reverse_lazy
 from django.utils import timezone
@@ -11,6 +11,7 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
+from apps.accounts.filters import VendorDateFilter
 from apps.accounts.tasks import fetch_order_history
 from apps.common.admins import AdminDynamicPaginationMixin, ReadOnlyAdminMixin
 from apps.common.choices import OrderStatus, OrderType
@@ -265,16 +266,8 @@ class VendorAdmin(AdminDynamicPaginationMixin, admin.ModelAdmin):
         "vendor_order_count",
         "url",
     )
+    list_filter = (VendorDateFilter,)
     search_fields = ("name",)
-
-    def get_queryset(self, request):
-        queryset = super().get_queryset(request)
-        queryset = queryset.annotate(
-            _vendor_order_count=Count(
-                "vendororder", filter=Q(vendororder__status__in=[OrderStatus.OPEN, OrderStatus.CLOSED])
-            )
-        ).order_by("-_vendor_order_count")
-        return queryset
 
     @admin.display(description="Logo")
     def logo_thumb(self, obj):
