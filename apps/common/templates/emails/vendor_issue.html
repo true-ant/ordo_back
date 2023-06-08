@@ -3,20 +3,33 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reset Password</title>
+  <title>Vendor Issue</title>
+  <style type="text/css">
+    body {
+      margin: 0;
+    }
+    .card-table-wrapper {
+      padding: 60px 55px 60px;
+    }
+    @media only screen and (max-device-width: 620px) {
+      .card-table-wrapper {
+        padding: 30px 16px;
+      }
+    }
+  </style>
 </head>
 <body>
   <table cellspacing="0" cellpadding="0" border="0" style="width: 100%;">
     <tr>
-      <td style="min-width: 718px; background-color: #ebf4f8; position: relative;">
-        <table cellspacing="0" cellpadding="0" border="0" style="width: 518px; height: 384px; margin: 28px auto; position: relative; z-index: 2;">
+      <td style="background-color: #ebf4f8; padding: 0 16px;">
+        <table cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; margin: 28px auto;">
           <tr>
             <td style="text-align: center;">
               <img src="https://cdn.joinordo.com/emails/images/logo.png" alt="" style="width: 150px; height: 40px; margin: 0 0 30px 0px;">
             </td>
           </tr>
           <tr>
-            <td style="padding: 60px 88px 60px; border-radius: 8px; background-color: #fff;">
+            <td style="border-radius: 8px; background-color: #fff;" class="card-table-wrapper">
               <p style="font-weight: bold; font-size: 20px; font-stretch: normal; font-style: normal; line-height: 1.5; letter-spacing: normal; text-align: center; color: #333;">Vendor Issue</p>
               <p style="font-size: 14px; font-weight: 500; font-stretch: normal; font-style: normal; line-height: 1.83; letter-spacing: normal; color: rgba(44, 44, 44, 0.5)">Dear {{customer_name}},</p>
               <p style="font-size: 14px; font-weight: 500; font-stretch: normal; font-style: normal; line-height: 1.83; letter-spacing: normal; color: rgba(44, 44, 44, 0.5)">Our team has identified an issue with your order #{{order_number}} from {{vendor_name}} placed on {{order_date}}.</p>
