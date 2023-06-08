@@ -188,7 +188,6 @@ class DCDentalProduct:
     price: Decimal
     quantity: Decimal
     manufacturer: str
-    manufacturer_part_number: str
     manufacturer_special: str
 
     @property
@@ -200,7 +199,6 @@ class DCDentalProduct:
         return cls(
             manufacturer=data.pop("Manufacturer"),
             manufacturer_special=data.pop("Active Promotion"),
-            manufacturer_part_number=data.pop("DCD Item"),
             name=data.pop("Description"),
             product_id=data.pop("DCD ID"),
             sku=data.pop("DCD Item"),

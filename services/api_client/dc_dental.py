@@ -71,6 +71,20 @@ class DCDentalAPIClient:
                 if result["success"]:
                     return result["result"]
 
+    async def create_customer(self, customer_info):
+        http_method = "POST"
+        params = {
+            "script": "customscript_pri_rest_customer",
+            "deploy": "customdeploy_pri_rest_customer_ordo4837",
+        }
+        order_info = json.dumps(customer_info)
+        url, headers, body = self.oauthclient.sign(params=params, http_method=http_method, headers=self.headers)
+        async with self.session.post(url, headers=headers, data=order_info) as resp:
+            if resp.status == 200:
+                result = await resp.json()
+                if result["success"]:
+                    return result["result"]
+
     async def get_customer_address(self, customer_id):
         http_method = "GET"
         params = {
@@ -80,6 +94,20 @@ class DCDentalAPIClient:
         }
         url, headers, body = self.oauthclient.sign(params=params, http_method=http_method, headers=self.headers)
         async with self.session.get(url, headers=headers) as resp:
+            if resp.status == 200:
+                result = await resp.json()
+                if result["success"]:
+                    return result["result"]
+
+    async def create_customer_address(self, customer_address_info):
+        http_method = "POST"
+        params = {
+            "script": "customscript_pri_rest_customer_address",
+            "deploy": "customdeploy_pri_rest_cust_add_ordo4837",
+        }
+        order_info = json.dumps(customer_address_info)
+        url, headers, body = self.oauthclient.sign(params=params, http_method=http_method, headers=self.headers)
+        async with self.session.post(url, headers=headers, data=order_info) as resp:
             if resp.status == 200:
                 result = await resp.json()
                 if result["success"]:
