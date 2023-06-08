@@ -34,6 +34,7 @@ class UserAdmin(AdminDynamicPaginationMixin, DefaultUserAdmin):
         "role",
         "is_staff",
     )
+    list_filter = ()
 
     def get_queryset(self, request):
         company_names = (
