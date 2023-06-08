@@ -15,6 +15,7 @@ from django.utils import timezone
 from slugify import slugify
 
 from apps.accounts.models import CompanyMember, OfficeVendor, Subscription, User
+from apps.audit.models import OrderTasks
 from apps.common.choices import OrderStatus
 from apps.common.utils import group_products
 from apps.notifications.models import Notification
@@ -422,12 +423,12 @@ def update_promotions():
         update_vendor_promotions.delay(vendor_slug)
 
 
-@app.task
-def perform_real_order(vendor_order_ids):
+@app.task(bind=True)
+def perform_real_order(self, vendor_order_ids):
     # TODO: Remove Logs
     vendor_order = VendorOrderModel.objects.filter(pk__in=vendor_order_ids).first()
-    order_id = vendor_order.order.id
-
+    order_id = vendor_order.order_id
+    OrderTasks.objects.create(task_id=self.request.id, order_id=order_id)
     asyncio.run(
         OrderHelper.perform_orders_in_vendors(
             order_id=order_id,
