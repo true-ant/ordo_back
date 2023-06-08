@@ -56,7 +56,7 @@ def update_products(vendor: SupportedVendor, products: Union[List[DentalCityProd
     - Dental City: In addition to product price, we update manufacturer promotion
     """
     products_by_identifier = {product.product_identifier: product for product in products}
-    update_time = timezone.now()
+    update_time = timezone.localtime()
     office_product_instances = []
 
     vendor_api_client_info = VendorAPIClientMapping[vendor]

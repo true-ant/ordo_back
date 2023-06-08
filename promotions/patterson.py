@@ -228,7 +228,7 @@ class PattersonSpider:
         return response.json()["title"]
 
     def update_products(self, data):
-        current_time = timezone.now()
+        current_time = timezone.localtime()
         to_update = []
         for product_info in data:
             logger.debug("Processing %s", product_info)

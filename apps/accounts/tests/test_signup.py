@@ -52,7 +52,7 @@ class UserSignupTests(APITestCase):
         assert company_member.user == user
         assert company_member.invite_status == CompanyMember.InviteStatus.INVITE_APPROVED
         # Make sure the member was created very recently
-        assert (timezone.now() - company_member.date_joined).total_seconds() < 2
+        assert (timezone.localtime() - company_member.date_joined).total_seconds() < 2
 
         data = response.json()["data"]
         assert data.keys() == {"token", "company"}
@@ -75,7 +75,7 @@ class UserSignupTests(APITestCase):
         company_member = CompanyMember.objects.filter(user=user).first()
         assert company_member.invite_status == CompanyMember.InviteStatus.INVITE_APPROVED
         # Make sure the member was created very recently
-        assert (timezone.now() - company_member.date_joined).total_seconds() < 2
+        assert (timezone.localtime() - company_member.date_joined).total_seconds() < 2
 
         data = response.json()["data"]
         assert data.keys() == {"token", "company"}

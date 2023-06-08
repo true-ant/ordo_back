@@ -65,7 +65,7 @@ class OfficeBudgetHelper:
     @staticmethod
     def update_budget_with_previous_month():
         # TODO: update budget for active offices
-        current_month = Month.from_date(timezone.now().date())
+        current_month = Month.from_date(timezone.localtime().date())
         previous_month = current_month.prev_month()
         office_budgets = OfficeBudget.objects.filter(month=previous_month)
         offices = Office.objects.prefetch_related(
@@ -87,7 +87,7 @@ class OfficeBudgetHelper:
     @staticmethod
     def update_office_budgets():
         # TODO: create budgets for active offices from Open Dental, if not, from previous month
-        current_month = Month.from_date(timezone.now().date())
+        current_month = Month.from_date(timezone.localtime().date())
         previous_month = current_month.prev_month()
         last_day_of_prev_month = date.today().replace(day=1) - timedelta(days=1)
         start_day_of_prev_month = date.today().replace(day=1) - timedelta(days=last_day_of_prev_month.day)
@@ -118,7 +118,7 @@ class OfficeBudgetHelper:
                 prev_dental_percentage = 5.0
                 prev_office_percentage = 0.5
                 budget_type = "production"
-                if prev_month_office_budget[0]:
+                if prev_month_office_budget:
                     prev_dental_percentage = prev_month_office_budget[0].dental_percentage
                     prev_office_percentage = prev_month_office_budget[0].office_percentage
                     if prev_month_office_budget[0].dental_budget_type == "collection":
@@ -163,7 +163,7 @@ class OfficeBudgetHelper:
 
     @staticmethod
     def get_office_spent_budget_current_month(office):
-        current_month = Month.from_date(timezone.now().date())
+        current_month = Month.from_date(timezone.localtime().date())
         first_day_current_month = datetime(current_month.year, current_month.month, 1)
         orders = Order.objects.filter(office=office, order_date__gte=first_day_current_month).aggregate(
             total_amount=Sum("total_amount")

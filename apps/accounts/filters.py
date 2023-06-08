@@ -1,5 +1,9 @@
-from django.db.models import Q
+from django.contrib.admin import SimpleListFilter
+from django.db.models import Count, Q
 from django_filters import rest_framework as filters
+
+from apps.common.choices import OrderStatus
+from apps.common.utils import get_date_range
 
 from .models import CompanyMember, OfficeBudget, Vendor
 
@@ -36,3 +40,42 @@ class CompanyMemberFilter(filters.FilterSet):
 
     def filter_office_members(self, queryset, name, value):
         return queryset.filter(Q(office_id=value) | Q(office__isnull=True))
+
+
+class VendorDateFilter(SimpleListFilter):
+    title = "date ange"
+    parameter_name = "vendororder_range"
+
+    def lookups(self, request, model_admin):
+        """
+        Filter the vendor orders in the given range.
+        Calculated fields will be filtered within this date range.
+        """
+        return [
+            ("thisMonth", "this month"),
+            ("thisQuarter", "this quarter"),
+            ("thisYear", "this year"),
+        ]
+
+    def queryset(self, request, queryset):
+        """
+        Returns the filtered queryset based on the date range.
+        """
+        date_range = get_date_range(self.value())
+        if date_range:
+            return queryset.annotate(
+                _vendor_order_count=Count(
+                    "vendororder",
+                    filter=Q(
+                        vendororder__order_date__gte=date_range[0],
+                        vendororder__order_date__lte=date_range[1],
+                        vendororder__status__in=[OrderStatus.OPEN, OrderStatus.CLOSED],
+                    ),
+                )
+            ).order_by("-_vendor_order_count")
+        else:
+            return queryset.annotate(
+                _vendor_order_count=Count(
+                    "vendororder", filter=Q(vendororder__status__in=[OrderStatus.OPEN, OrderStatus.CLOSED])
+                )
+            ).order_by("-_vendor_order_count")

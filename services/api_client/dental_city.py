@@ -21,7 +21,6 @@ from services.api_client.vendor_api_types import (
     DentalCityShippingInfo,
     DentalCityShippingProduct,
 )
-from services.utils.secrets import get_secret_value
 from services.utils.xml import dict2xml
 
 logger = logging.getLogger(__name__)
@@ -29,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 class Stage(Enum):
     TEST = "https://dcservicestest.azurewebsites.net"
-    PROD = "https://dcservicestest.azurewebsites.net"
+    PROD = "https://dcservices.azurewebsites.net"
 
 
 XML_LANG = "en-US"

@@ -82,7 +82,7 @@ class Office(TimeStampedModel):
         CARESTACK = "carestack", "Carestack"
         MACPRACTICE = "macpractice", "MacPractice"
         OTHER = "other", "Other"
-        
+
     company = FlexibleForeignKey(Company, related_name="offices")
     vendors = models.ManyToManyField(Vendor, through="OfficeVendor")
     is_active = models.BooleanField(default=True)
@@ -124,7 +124,7 @@ class Office(TimeStampedModel):
             if budget:
                 return budget[0]
             return None
-        current_date = timezone.now().date()
+        current_date = timezone.localtime().date()
         month = Month(year=current_date.year, month=current_date.month)
         return self.budgets.filter(month=month).first()
 
@@ -214,6 +214,8 @@ class ShippingMethod(models.Model):
 class OfficeVendor(TimeStampedModel):
     vendor = FlexibleForeignKey(Vendor, related_name="connected_offices")
     office = FlexibleForeignKey(Office, related_name="connected_vendors")
+    # account id on vendor side, account id is required for dental city.
+    account_id = models.CharField(max_length=128, null=True, blank=True)
     username = models.CharField(max_length=100)
     password = models.CharField(max_length=100)
     login_success = models.BooleanField(default=True)
@@ -237,7 +239,7 @@ class OfficeVendor(TimeStampedModel):
 
 
 def default_expires_at():
-    return timezone.now() + timedelta(days=INVITE_EXPIRES_DAYS)
+    return timezone.localtime() + timedelta(days=INVITE_EXPIRES_DAYS)
 
 
 class CompanyMember(TimeStampedModel):
@@ -265,7 +267,7 @@ class CompanyMember(TimeStampedModel):
         self.refresh_expires_at()
 
     def refresh_expires_at(self):
-        self.token_expires_at = timezone.now() + timedelta(days=INVITE_EXPIRES_DAYS)
+        self.token_expires_at = timezone.localtime() + timedelta(days=INVITE_EXPIRES_DAYS)
 
     # class Meta:
     #     unique_together = ["company", "email"]

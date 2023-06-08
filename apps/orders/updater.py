@@ -12,7 +12,7 @@ from asgiref.sync import sync_to_async
 from django.db.models.functions import Now
 from django.utils import timezone
 
-from apps.accounts.models import Office, OfficeVendor, Vendor
+from apps.accounts.models import OfficeVendor, Vendor
 from apps.orders.models import OfficeProduct, Product
 from apps.orders.types import ProcessResult, ProcessTask, Stats, VendorParams
 from apps.vendor_clients.async_clients import BaseClient
@@ -154,7 +154,7 @@ class StatBuffer:
             self.pop()
 
     def add_item(self, item: bool):
-        self.items.append(ProcessResult(timezone.now(), item))
+        self.items.append(ProcessResult(timezone.localtime(), item))
         if not item:
             self.total_errors += 1
         self.total += 1
@@ -270,7 +270,7 @@ class Updater:
             await self.to_process.put(pt)
 
     async def mark_status(self, product: Union[Product, OfficeProduct], status: str):
-        current_time = timezone.now()
+        current_time = timezone.localtime()
         update_fields = {
             "product_vendor_status": status,
             "last_price_updated": current_time,
@@ -285,12 +285,12 @@ class Updater:
             await OfficeProduct.objects.filter(id=product.pk).aupdate(**update_fields)
 
     async def update_price(self, product: Union[Product, OfficeProduct], price_info: PriceInfo):
-        update_time = timezone.now()
+        update_time = timezone.localtime()
         update_fields = {
             "price": price_info.price,
             "last_price_updated": update_time,
             "product_vendor_status": price_info.product_vendor_status,
-            "price_expiration": timezone.now() + get_vendor_age(self.vendor, product),
+            "price_expiration": timezone.localtime() + get_vendor_age(self.vendor, product),
         }
         if isinstance(product, Product):
             logger.debug("Updating price for product %s: %s", product.id, price_info)

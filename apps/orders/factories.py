@@ -25,7 +25,7 @@ class OrderFactory(DjangoModelFactory):
         model = m.Order
 
     office = factory.SubFactory(OfficeFactory)
-    order_date = factory.LazyFunction(timezone.now)
+    order_date = factory.LazyFunction(timezone.localtime)
     total_items = 0
     total_amount = Decimal(0)
     order_type = "Ordo Order"

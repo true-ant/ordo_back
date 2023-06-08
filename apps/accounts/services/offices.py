@@ -21,7 +21,7 @@ class OfficeService:
     @staticmethod
     def get_office_budget(office_pk: int, month: Optional[Month] = None):
         if month is None:
-            current_date = timezone.now().date()
+            current_date = timezone.localtime().date()
             month = Month(year=current_date.year, month=current_date.month)
 
         return OfficeBudget.objects.filter(office_id=office_pk, month=month).first()
@@ -49,7 +49,7 @@ class OfficeService:
         except Exception as e:
             return False, f"{e}"
         else:
-            active_subscription.cancelled_on = timezone.now()
+            active_subscription.cancelled_on = timezone.localtime()
             active_subscription.save()
             return True, "Subscription cancelled successfully"
 
@@ -63,5 +63,5 @@ class OfficeService:
         except Exception as e:
             return False, f"{e}"
         else:
-            Subscription.objects.create(subscription_id=subscription.id, start_on=timezone.now(), office=office)
+            Subscription.objects.create(subscription_id=subscription.id, start_on=timezone.localtime(), office=office)
             return True, "Subscription renewed successfully"

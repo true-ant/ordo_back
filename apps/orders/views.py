@@ -153,77 +153,6 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
     def get_queryset(self):
         return super().get_queryset().filter(office__id=self.kwargs["office_pk"])
 
-    # @action(detail=False, methods=["get"], url_path="stats")
-    # def get_orders_stats(self, request, *args, **kwargs):
-    #     # TODO: this should be removed
-    #     office_id = self.kwargs["office_pk"]
-    #
-    #     total_items = 0
-    #     total_amount = 0
-    #     average_amount = 0
-    #
-    #     month = self.request.query_params.get("month", "")
-    #     try:
-    #         requested_date = datetime.strptime(month, "%Y-%m")
-    #     except ValueError:
-    #         requested_date = timezone.now().date()
-    #
-    #     month_first_day = requested_date.replace(day=1)
-    #     next_month_first_day = (requested_date + timedelta(days=32)).replace(day=1)
-    #
-    #     queryset = (
-    #         m.Order.objects.filter(
-    #             Q(order_date__gte=month_first_day) & Q(order_date__lt=next_month_first_day) & Q(office_id=office_id)
-    #         )
-    #         .exclude(status__in=[m.OrderStatus.REJECTED, m.OrderStatus.WAITING_APPROVAL])
-    #         .annotate(month_total_items=Sum("total_items", distinct=True))
-    #         .annotate(month_total_amount=Sum("total_amount", distinct=True))
-    #     )
-    #     orders_count = queryset.count()
-    #     if orders_count:
-    #         total_items = queryset[0].month_total_items
-    #         total_amount = queryset[0].month_total_amount
-    #         average_amount = (total_amount / orders_count).quantize(Decimal(".01"), rounding=decimal.ROUND_UP)
-    #
-    #     pending_orders_count = m.VendorOrder.objects.filter(
-    #         order__office_id=office_id,
-    #         status=m.OrderStatus.WAITING_APPROVAL,
-    #     ).count()
-    #     vendors = (
-    #         m.VendorOrder.objects.filter(
-    #             Q(order_date__gte=month_first_day)
-    #             & Q(order_date__lt=next_month_first_day)
-    #             & Q(order__office_id=office_id)
-    #         )
-    #         .order_by("vendor_id")
-    #         .values("vendor_id")
-    #         .annotate(order_counts=Count("vendor_id"))
-    #         .annotate(order_total_amount=Sum("total_amount"))
-    #         .annotate(vendor_name=F("vendor__name"))
-    #         .annotate(vendor_logo=F("vendor__logo"))
-    #     )
-    #
-    #     ret = {
-    #         "order": {
-    #             "order_counts": orders_count,
-    #             "pending_order_counts": pending_orders_count,
-    #             "total_items": total_items,
-    #             "total_amount": total_amount,
-    #             "average_amount": average_amount,
-    #         },
-    #         "vendors": [
-    #             {
-    #                 "id": vendor["vendor_id"],
-    #                 "name": vendor["vendor_name"],
-    #                 "logo": f"{vendor['vendor_logo']}",
-    #                 "order_counts": vendor["order_counts"],
-    #                 "total_amount": vendor["order_total_amount"],
-    #             }
-    #             for vendor in vendors
-    #         ],
-    #     }
-    #     return Response(ret)
-
     @action(detail=True, methods=["get"], url_path="invoice-download")
     async def download_invoice(self, request, *args, **kwargs):
         vendor_orders = await self._get_vendor_orders()
@@ -370,7 +299,7 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
         total_amount = 0
         average_amount = 0
 
-        requested_date = timezone.now().date()
+        requested_date = timezone.localtime().date()
         preset_date_range = self.request.query_params.get("date_range")
 
         if not self.request.query_params:
@@ -488,7 +417,7 @@ class VendorOrderProductViewSet(ModelViewSet):
 
 def get_spending(by, orders, company):
     if by == "month":
-        last_year_today = (timezone.now() - relativedelta(months=11)).date()
+        last_year_today = (timezone.localtime() - relativedelta(months=11)).date()
         last_year_today.replace(day=1)
         return (
             orders.filter(order_date__gte=last_year_today)
@@ -991,7 +920,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
     def _create_order(
         self, office_vendors, vendor_order_results, cart_products, approval_needed, shipping_options, fake_order
     ):
-        order_date = timezone.now().date()
+        order_date = timezone.localtime().date()
         office = office_vendors[0].office
         vendor_order_ids = []
         office_vendor_ids = []
@@ -1077,7 +1006,7 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
                 order_status=m.OfficeCheckoutStatus.ORDER_STATUS.COMPLETE,
             )
 
-            current_date = timezone.now().date()
+            current_date = timezone.localtime().date()
             month = Month(year=current_date.year, month=current_date.month)
             office_budget = office.budgets.filter(month=month).first()
 
@@ -1887,7 +1816,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=False)
     def summary_category(self, request, *args, **kwargs):
-        today = timezone.now().date()
+        today = timezone.localtime().date()
         office_pk = self.kwargs["office_pk"]
         office = m.Office.objects.get(id=office_pk)
         dental_api = office.dental_api
@@ -1966,7 +1895,7 @@ class ProcedureViewSet(AsyncMixin, ModelViewSet):
 
     @action(detail=False)
     def summary_detail(self, request, *args, **kwargs):
-        today = timezone.now().date()
+        today = timezone.localtime().date()
         summary_category = self.request.query_params.get("summary_category")
         office_pk = self.kwargs["office_pk"]
         day_range = self.request.query_params.get("date_range")

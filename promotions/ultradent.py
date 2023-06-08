@@ -80,9 +80,9 @@ class UltradentSpider:
             for p in Product.objects.filter(vendor__slug=self.vendor_slug, product_id__in=skus):
                 logger.info("Updating product %s sku %s", p.id, p.product_id)
                 p.promotion_description = product_info["promo"]
-                p.price_expiration = timezone.now()
+                p.price_expiration = timezone.localtime()
                 products_to_update.append(p)
-                OfficeProduct.objects.filter(product=p).update(price_expiration=timezone.now())
+                OfficeProduct.objects.filter(product=p).update(price_expiration=timezone.localtime())
         Product.objects.bulk_update(products_to_update, fields=("promotion_description", "price_expiration"))
         logger.info("Total updated: %s", len(products_to_update))
 

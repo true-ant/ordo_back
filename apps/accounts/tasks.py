@@ -23,6 +23,7 @@ from django.utils import timezone
 
 from apps.accounts.helper import OfficeBudgetHelper
 from apps.accounts.models import CompanyMember, Office, OfficeVendor, User
+from apps.common.enums import SupportedVendor
 from apps.orders.helpers import (
     OfficeProductCategoryHelper,
     OfficeProductHelper,
@@ -160,6 +161,8 @@ def task_update_net32_products():
 @app.task
 def link_vendor(vendor_slug: str, office_id: int, consider_recent=False):
     call_command("fill_office_products", office=office_id, vendor=vendor_slug)
+    if vendor_slug == SupportedVendor.DentalCity.value:
+        call_command("fill_dental_city_account_ids", offices=office_id)
     fetch_order_history(vendor_slug, office_id, consider_recent)
 
 
@@ -200,7 +203,7 @@ def update_order_history_for_all_offices(vendor_slug):
 
 @app.task
 def send_budget_update_notification():
-    now_date = timezone.now().date()
+    now_date = timezone.localtime().date()
     current_month = now_date.strftime("%B")
     previous_month = now_date - relativedelta(months=1)
     previous_month = previous_month.strftime("%B")
@@ -267,7 +270,7 @@ async def get_orders_v2(office_vendor, completed_order_ids):
             username=office_vendor.username,
             password=office_vendor.password,
         )
-        from_date = timezone.now().date()
+        from_date = timezone.localtime().date()
         to_date = from_date - relativedelta(year=1)
         await client.get_orders(from_date=from_date, to_date=to_date, exclude_order_ids=completed_order_ids)
 
@@ -342,6 +345,7 @@ def generate_csv_for_salesforce():
             target_columns.append("company_slug")
             target_columns.append("onboarding_step")
             target_columns.append("email")
+            target_columns.append("role")
         data = office.__dict__
         data["company_name"] = office.company.name
         data["company_slug"] = office.company.slug
@@ -349,10 +353,13 @@ def generate_csv_for_salesforce():
         data["created_at"] = data["created_at"].strftime("%Y-%m-%d %H:%M:%S")
         data["updated_at"] = data["updated_at"].strftime("%Y-%m-%d %H:%M:%S")
 
-        company_member_emails = office.companymember_set.values_list("email", flat=True)
-        for member_email in company_member_emails:
+        company_members = office.companymember_set.all()
+        for member in company_members:
+            if member.invite_status == CompanyMember.InviteStatus.INVITE_SENT:
+                continue
             new_data = data.copy()
-            new_data["email"] = member_email
+            new_data["email"] = member.email
+            new_data["role"] = next(label for value, label in User.Role.choices if value == member.user.role)
             office_data.append(new_data)
 
     dict_columns = {i: i.title() for i in target_columns}
@@ -366,7 +373,7 @@ def generate_csv_for_salesforce():
     with pysftp.Connection(
         host=host, username=username, password=password, port=int(port), cnopts=connection_options
     ) as sftp:
-        with sftp.open(f"/Import/customer_master{timezone.now().strftime('%Y%m%d')}.csv", mode="w") as csv_file:
+        with sftp.open(f"/Import/customer_master{timezone.localtime().strftime('%Y%m%d')}.csv", mode="w") as csv_file:
             file_writer = csv.DictWriter(csv_file, fieldnames=dict_columns, extrasaction="ignore")
             file_writer.writerow(dict_columns)
             file_writer.writerows(office_data)
