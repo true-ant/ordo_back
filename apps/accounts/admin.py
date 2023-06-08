@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Any
 
 from dateutil.relativedelta import relativedelta
 from django.contrib import admin
@@ -35,6 +34,7 @@ class UserAdmin(AdminDynamicPaginationMixin, DefaultUserAdmin):
         "role",
         "is_staff",
     )
+    list_filter = ()
 
     def get_queryset(self, request):
         company_names = (
