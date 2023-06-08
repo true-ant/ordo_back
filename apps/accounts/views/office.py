@@ -25,9 +25,9 @@ class OfficeViewSet(ModelViewSet):
     queryset = m.Office.objects.filter(is_active=True)
 
     def get_serializer_class(self):
-        if self.request.version == "v1":
+        if self.request.version == "1.0":
             return s.OfficeSerializerV1
-        elif self.request.version == "v2":
+        elif self.request.version == "2.0":
             return s.OfficeSerializerV2
         else:
             raise ValidationError("Wrong version")
