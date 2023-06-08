@@ -291,7 +291,7 @@ class ProductService:
             if product["product_id"] in update_products_map.keys():
                 if update_products_map[product["product_id"]].updated_at.date() >= two_days_ago.date():
                     continue
-                update_products_map[product["product_id"]].price = product["price"]
+                update_products_map[product["product_id"]].price = str(product["price"]).replace(",", "")
                 update_products_map[product["product_id"]].url = product["url"]
                 update_products_map[product["product_id"]].name = product["name"]
                 update_products_map[product["product_id"]].description = product["description"]
