@@ -27,7 +27,7 @@ company_router.register(
 
 office_router = NestedSimpleRouter(company_router, r"offices", lookup="office")
 office_router.register(r"vendors", apps.accounts.views.office_vendor.OfficeVendorViewSet, basename="vendors")
-office_router.register(r"budgets", apps.accounts.views.office_budget.OfficeBudgetViewSet, basename="budgets")
+office_router.register(r"budgets", apps.accounts.views.office_budget.BudgetViewSet, basename="budgets")
 
 urlpatterns = [
     path("health/check", apps.accounts.views.health.HealthCheck.as_view()),

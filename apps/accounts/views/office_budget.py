@@ -19,7 +19,7 @@ from apps.common.month import Month
 logger = logging.getLogger(__name__)
 
 
-class OfficeBudgetViewSet(ModelViewSet):
+class BudgetViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = m.Budget.objects.all()
     filterset_class = f.BudgetFilter

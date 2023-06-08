@@ -126,7 +126,7 @@ class Office(TimeStampedModel):
             if budget:
                 return budget[0]
             return None
-        current_date = timezone.localtime().date()
+        current_date = timezone.now().date()
         month = Month(year=current_date.year, month=current_date.month)
         return Budget.objects.filter(office=self, month=month).first()
 
@@ -210,7 +210,7 @@ class BasisType(models.IntegerChoices):
 BASIS2CATEGORY = {BasisType.PRODUCTION: BudgetType.PRODUCTION, BasisType.COLLECTION: BudgetType.COLLECTION}
 
 
-class BudgetQueryset(models.QuerySet):
+class BudgetQuerySet(models.QuerySet):
     def compatible_with_office_budget(self):
         dental_subaccount, office_subaccount, misc_subaccount = [
             Subaccount.objects.filter(budget_id=OuterRef("pk"), category__slug=slug).values(
@@ -239,16 +239,25 @@ class BudgetQueryset(models.QuerySet):
         )
 
 
+class BudgetManager(models.Manager):
+    _queryset_class = BudgetQuerySet
+
+
 class CompatibleBudgetMixin:
-    def __getattr__(self, item: str):
+    sub_keys = ("budget_type", "total_budget", "percentage", "spend")
+
+    def __getattribute__(self, item):
         if item == "miscellaneous_spend":
             return self.misc_sub["spend"]
         elif item.startswith("dental_"):
             rest = item.removeprefix("dental_")
-            return self.dental_sub[rest]
+            if rest in self.sub_keys:
+                return self.dental_sub[rest]
         elif item.startswith("office_"):
             rest = item.removeprefix("office_")
-            return self.office_sub[rest]
+            if rest in self.sub_keys:
+                return self.office_sub[rest]
+        return super().__getattribute__(item)
 
     @property
     def dental_budget(self):
@@ -266,7 +275,7 @@ class Budget(models.Model, CompatibleBudgetMixin):
     adjusted_production = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     collection = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
-    objects = BudgetQueryset.as_manager()
+    objects = BudgetManager()
 
 
 class BudgetCategory(models.Model):
