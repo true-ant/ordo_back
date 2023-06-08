@@ -49,7 +49,7 @@ class OfficeBudgetViewSet(ModelViewSet):
     @action(detail=False, methods=["get"], url_path="charts")
     def get_chart_data(self, request, *args, **kwargs):
         # TODO: rewrite this one
-        queryset = self.get_queryset()
+        queryset = self.get_queryset().compatible_with_office_budget()
         this_month = timezone.now().date().replace(day=1)
         a_year_ago = this_month - relativedelta(months=11)
         queryset = list(queryset.filter(month__lte=this_month, month__gte=a_year_ago).order_by("month"))
@@ -86,7 +86,10 @@ class OfficeBudgetViewSet(ModelViewSet):
         except ValueError:
             requested_date = timezone.now().date()
         current_month_budget = (
-            self.get_queryset().filter(month=Month(requested_date.year, requested_date.month)).first()
+            self.get_queryset()
+            .compatible_with_office_budget()
+            .filter(month=Month(requested_date.year, requested_date.month))
+            .first()
         )
         serializer = self.get_serializer(current_month_budget)
         return Response(serializer.data)

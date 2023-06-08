@@ -5,7 +5,8 @@ from decimal import Decimal
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.db.models import Manager
+from django.db.models import Case, Manager, OuterRef, Subquery, Value, When
+from django.db.models.functions import JSONObject
 from django.utils import timezone
 from django_extensions.db.fields import AutoSlugField
 from phonenumber_field.modelfields import PhoneNumberField
@@ -209,12 +210,63 @@ class BasisType(models.IntegerChoices):
 BASIS2CATEGORY = {BasisType.PRODUCTION: BudgetType.PRODUCTION, BasisType.COLLECTION: BudgetType.COLLECTION}
 
 
-class Budget(models.Model):
+class BudgetQueryset(models.QuerySet):
+    def compatible_with_office_budget(self):
+        dental_subaccount, office_subaccount, misc_subaccount = [
+            Subaccount.objects.filter(budget_id=OuterRef("pk"), category__slug=slug).values(
+                data=JSONObject(
+                    basis="basis",
+                    percentage="percentage",
+                    spend="spend",
+                    budget_type=Case(
+                        When(basis=BasisType.PRODUCTION, then=Value(BudgetType.PRODUCTION)),
+                        When(basis=BasisType.COLLECTION, then=Value(BudgetType.COLLECTION)),
+                        output_field=models.CharField(),
+                    ),
+                    total_budget=Case(
+                        When(basis=BasisType.PRODUCTION, then=OuterRef("adjusted_production")),
+                        When(basis=BasisType.COLLECTION, then=OuterRef("collection")),
+                        output_field=models.CharField(),
+                    ),
+                )
+            )[:1]
+            for slug in ("dental", "office", "misc")
+        ]
+        return self.annotate(
+            dental_sub=Subquery(dental_subaccount),
+            office_sub=Subquery(office_subaccount),
+            misc_sub=Subquery(misc_subaccount),
+        )
+
+
+class CompatibleBudgetMixin:
+    def __getattr__(self, item: str):
+        if item == "miscellaneous_spend":
+            return self.misc_sub["spend"]
+        elif item.startswith("dental_"):
+            rest = item.removeprefix("dental_")
+            return self.dental_sub[rest]
+        elif item.startswith("office_"):
+            rest = item.removeprefix("office_")
+            return self.office_sub[rest]
+
+    @property
+    def dental_budget(self):
+        return self.dental_total_budget * self.dental_percentage / 100
+
+    @property
+    def office_budget(self):
+        return self.office_total_budget * self.office_percentage / 100
+
+
+class Budget(models.Model, CompatibleBudgetMixin):
     office = models.ForeignKey(Office, on_delete=models.PROTECT, related_name="budget_set")
     month = MonthField()
 
     adjusted_production = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     collection = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    objects = BudgetQueryset.as_manager()
 
 
 class BudgetCategory(models.Model):
