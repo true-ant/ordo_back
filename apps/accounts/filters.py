@@ -44,6 +44,7 @@ class CompanyMemberFilter(filters.FilterSet):
 
 class VendorDateFilter(SimpleListFilter):
     title = "date range"
+
     parameter_name = "vendororder_range"
 
     def lookups(self, request, model_admin):
