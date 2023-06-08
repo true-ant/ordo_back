@@ -43,7 +43,7 @@ class CompanyMemberFilter(filters.FilterSet):
 
 
 class VendorDateFilter(SimpleListFilter):
-    title = "date ange"
+    title = "date range"
     parameter_name = "vendororder_range"
 
     def lookups(self, request, model_admin):
@@ -53,8 +53,11 @@ class VendorDateFilter(SimpleListFilter):
         """
         return [
             ("thisMonth", "this month"),
+            ("lastMonth", "last month"),
             ("thisQuarter", "this quarter"),
+            ("lastQuarter", "last quarter"),
             ("thisYear", "this year"),
+            ("lastYear", "last year"),
         ]
 
     def queryset(self, request, queryset):
