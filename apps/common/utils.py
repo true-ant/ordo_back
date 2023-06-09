@@ -11,6 +11,15 @@ from dateutil.relativedelta import relativedelta
 from django.db.models import Model
 from django.utils import timezone
 
+CUSTOM_DATE_FILTER = (
+    ("thisMonth", "this month"),
+    ("lastMonth", "last month"),
+    ("thisQuarter", "this quarter"),
+    ("lastQuarter", "last quarter"),
+    ("thisYear", "this year"),
+    ("lastYear", "last year"),
+)
+
 
 def generate_token():
     return uuid.uuid4().hex + uuid.uuid4().hex
@@ -357,21 +366,6 @@ def batched(iterable, size):
     it = iter(iterable)
     while item := list(itertools.islice(it, size)):
         yield item
-
-
-def custom_datefilter_range():
-    """
-    Filter the vendor orders in the given range.
-    Calculated fields will be filtered within this date range.
-    """
-    return [
-        ("thisMonth", "this month"),
-        ("lastMonth", "last month"),
-        ("thisQuarter", "this quarter"),
-        ("lastQuarter", "last quarter"),
-        ("thisYear", "this year"),
-        ("lastYear", "last year"),
-    ]
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@ from django.db.models import Count, Q
 from django_filters import rest_framework as filters
 
 from apps.common.choices import OrderStatus
-from apps.common.utils import custom_datefilter_range, get_date_range
+from apps.common.utils import CUSTOM_DATE_FILTER, get_date_range
 
 from .models import CompanyMember, OfficeBudget, Vendor
 
@@ -48,7 +48,7 @@ class VendorDateFilter(SimpleListFilter):
     parameter_name = "vendororder_range"
 
     def lookups(self, request, model_admin):
-        return custom_datefilter_range()
+        return CUSTOM_DATE_FILTER
 
     def queryset(self, request, queryset):
         """

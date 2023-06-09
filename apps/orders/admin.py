@@ -9,7 +9,7 @@ from django.utils.safestring import mark_safe
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
 from apps.common.admins import AdminDynamicPaginationMixin, ReadOnlyAdminMixin
-from apps.common.utils import custom_datefilter_range, get_date_range
+from apps.common.utils import CUSTOM_DATE_FILTER, get_date_range
 
 from . import models as m
 
@@ -106,7 +106,7 @@ class OrderDateFilter(SimpleListFilter):
     parameter_name = "date_range"
 
     def lookups(self, request, model_admin):
-        return custom_datefilter_range()
+        return CUSTOM_DATE_FILTER
 
     def queryset(self, request, queryset):
         value = self.value()
