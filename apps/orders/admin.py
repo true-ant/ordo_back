@@ -9,6 +9,7 @@ from django.utils.safestring import mark_safe
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
 from apps.common.admins import AdminDynamicPaginationMixin, ReadOnlyAdminMixin
+from apps.common.utils import CUSTOM_DATE_FILTER, get_date_range
 
 from . import models as m
 
@@ -100,6 +101,22 @@ class OrderVendorFilter(SimpleListFilter):
         return queryset.filter(vendor_orders__vendor__slug=value)
 
 
+class OrderDateFilter(SimpleListFilter):
+    title = "Date Range"
+    parameter_name = "date_range"
+
+    def lookups(self, request, model_admin):
+        return CUSTOM_DATE_FILTER
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        date_range = get_date_range(value)
+
+        if not date_range:
+            return queryset
+        return queryset.filter(Q(order_date__gte=date_range[0], order_date__lte=date_range[1]))
+
+
 @admin.register(m.Order)
 class OrderAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
     list_display = ("id", "company", "office", "vendors", "total_amount", "order_date", "order_type", "status")
@@ -107,6 +124,7 @@ class OrderAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
     list_filter = (
         "status",
         OrderVendorFilter,
+        OrderDateFilter,
     )
     inlines = (VendorOrderInline,)
 
