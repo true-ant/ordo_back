@@ -201,6 +201,29 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
             m.VendorOrder.objects.bulk_update(vendor_orders, fields=["nickname"])
         return super().update(request, *args, **kwargs)
 
+    @action(detail=True, methods=["post"], permission_classes=[p.OrderApprovalPermission])
+    async def approve(self, request, *args, **kwargs):
+        serializer = s.OrderApprovalSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        order = await sync_to_async(self.get_object)()
+        if order.status != m.OrderStatus.PENDING_APPROVAL:
+            return Response({"message": "This order status is not pending approval"})
+
+        vendor_orders = order.vendor_orders.all()
+        async for vendor_order in vendor_orders:
+            await OrderService.approve_vendor_order(
+                approved_by=request.user,
+                vendor_order=vendor_order,
+                validated_data=serializer.validated_data,
+                stage=request.META["HTTP_HOST"],
+            )
+            await sync_to_async(OrderService.update_vendor_order_spent)(vendor_order, serializer.validated_data)
+        order.status = m.OrderStatus.OPEN
+        await sync_to_async(order.save)()
+
+        return Response({"message": "Successfully approved!"})
+
 
 class VendorOrderViewSet(AsyncMixin, ModelViewSet):
     queryset = m.VendorOrder.objects.all()
