@@ -1,5 +1,6 @@
 import copy
 import datetime
+import decimal
 import itertools
 from collections import defaultdict
 from itertools import chain
@@ -19,6 +20,14 @@ from apps.orders.models import Product, ProductCategory, ProductImage, Vendor
 
 ProductID = Union[int, str]
 ProductIDs = List[ProductID]
+
+
+def clean_price(price: str) -> Optional[decimal.Decimal]:
+    if price is None:
+        return None
+    if isinstance(price, str):
+        cleaned_price = price.replace(",", "")
+        return decimal.Decimal(cleaned_price)
 
 
 class ProductService:
@@ -291,7 +300,7 @@ class ProductService:
             if product["product_id"] in update_products_map.keys():
                 if update_products_map[product["product_id"]].updated_at.date() >= two_days_ago.date():
                     continue
-                update_products_map[product["product_id"]].price = str(product["price"]).replace(",", "")
+                update_products_map[product["product_id"]].price = clean_price(product["price"])
                 update_products_map[product["product_id"]].url = product["url"]
                 update_products_map[product["product_id"]].name = product["name"]
                 update_products_map[product["product_id"]].description = product["description"]
