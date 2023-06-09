@@ -12,6 +12,7 @@ from django.utils import timezone
 from apps.common.enums import SupportedVendor
 from apps.orders.models import OfficeProduct, Product
 from services.api_client import (
+    DCDentalAPIClient,
     DentalCityAPIClient,
     DentalCityProduct,
     Net32APIClient,
@@ -38,6 +39,10 @@ VendorAPIClientMapping = {
     },
     SupportedVendor.Net32: {
         "klass": Net32APIClient,
+        "product_identifier_name_in_table": "product_id",
+    },
+    SupportedVendor.DcDental: {
+        "klass": DCDentalAPIClient,
         "product_identifier_name_in_table": "product_id",
     },
 }
@@ -77,9 +82,9 @@ def update_products(vendor: SupportedVendor, products: Union[List[DentalCityProd
             if product_description:
                 product_instance.vendor_description = product_description
 
-            # In case of dental city, we update manufacturer promotion
-            dental_city_manufacturer_special = getattr(vendor_product, "manufacturer_special", None)
-            if dental_city_manufacturer_special:
+            # In case of dental city and DC Dental, we update manufacturer promotion
+            manufacturer_special = getattr(vendor_product, "manufacturer_special", None)
+            if manufacturer_special:
                 manufacturer_number = getattr(vendor_product, "manufacturer_part_number", None)
                 if (
                     manufacturer_number
@@ -94,7 +99,7 @@ def update_products(vendor: SupportedVendor, products: Union[List[DentalCityProd
 
                 # Avoid loading parent from db, simulate product with id field.
                 manufacturer_promotion_product = Product(id=product_instance.parent_id)
-                manufacturer_promotion_product.promotion_description = dental_city_manufacturer_special
+                manufacturer_promotion_product.promotion_description = manufacturer_special
                 manufacturer_promotion_product.is_special_offer = True
                 manufacturer_promotion_product.updated_at = update_time
                 manufacturer_promotion_products.append(manufacturer_promotion_product)
