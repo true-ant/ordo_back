@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import os
 from typing import List
@@ -43,80 +42,84 @@ class DCDentalAPIClient:
         self.headers = {"Content-Type": "application/json"}
 
     async def get_product_list(self, page_number: int = 1, page_size: int = 1000):
-        http_method = "GET"
         params = {
             "script": "customscript_pri_rest_product",
             "deploy": "customdeploy_pri_rest_product_ordo4837",
             "page": page_number,
             "pagesize": page_size,
         }
-        url, headers, body = self.oauthclient.sign(params=params, http_method=http_method, headers=self.headers)
+        url, headers, body = self.oauthclient.sign(params=params, http_method="GET", headers=self.headers)
         async with self.session.get(url, headers=headers) as resp:
-            if resp.status == 200:
-                result = await resp.json()
-                if result["success"]:
-                    return result["result"]
+            if resp.status != 200:
+                return None
+
+            result = await resp.json()
+            if result["success"]:
+                return result["result"]
 
     async def get_customer(self, email: str):
-        http_method = "GET"
         params = {
             "script": "customscript_pri_rest_customer",
             "deploy": "customdeploy_pri_rest_customer_ordo4837",
             "email": email,
         }
-        url, headers, body = self.oauthclient.sign(params=params, http_method=http_method, headers=self.headers)
+        url, headers, body = self.oauthclient.sign(params=params, http_method="GET", headers=self.headers)
         async with self.session.get(url, headers=headers) as resp:
-            if resp.status == 200:
-                result = await resp.json()
-                if result["success"]:
-                    return result["result"]
+            if resp.status != 200:
+                return None
+
+            result = await resp.json()
+            if result["success"]:
+                return result["result"]
 
     async def create_customer(self, customer_info):
-        http_method = "POST"
         params = {
             "script": "customscript_pri_rest_customer",
             "deploy": "customdeploy_pri_rest_customer_ordo4837",
         }
-        order_info = json.dumps(customer_info)
-        url, headers, body = self.oauthclient.sign(params=params, http_method=http_method, headers=self.headers)
-        async with self.session.post(url, headers=headers, data=order_info) as resp:
-            if resp.status == 200:
-                result = await resp.json()
-                if result["success"]:
-                    return result["result"]
+        url, headers, body = self.oauthclient.sign(params=params, http_method="POST", headers=self.headers)
+        async with self.session.post(url, headers=headers, json=customer_info) as resp:
+            if resp.status != 200:
+                return None
+
+            result = await resp.json()
+            if result["success"]:
+                return result["result"]
 
     async def get_customer_address(self, customer_id):
-        http_method = "GET"
         params = {
             "script": "customscript_pri_rest_customer_address",
             "deploy": "customdeploy_pri_rest_cust_add_ordo4837",
             "customerid": customer_id,
         }
-        url, headers, body = self.oauthclient.sign(params=params, http_method=http_method, headers=self.headers)
+        url, headers, body = self.oauthclient.sign(params=params, http_method="GET", headers=self.headers)
         async with self.session.get(url, headers=headers) as resp:
-            if resp.status == 200:
-                result = await resp.json()
-                if result["success"]:
-                    return result["result"]
+            if resp.status != 200:
+                return None
+
+            result = await resp.json()
+            if result["success"]:
+                return result["result"]
 
     async def create_customer_address(self, customer_address_info):
-        http_method = "POST"
         params = {
             "script": "customscript_pri_rest_customer_address",
             "deploy": "customdeploy_pri_rest_cust_add_ordo4837",
         }
-        order_info = json.dumps(customer_address_info)
-        url, headers, body = self.oauthclient.sign(params=params, http_method=http_method, headers=self.headers)
-        async with self.session.post(url, headers=headers, data=order_info) as resp:
-            if resp.status == 200:
-                result = await resp.json()
-                if result["success"]:
-                    return result["result"]
+        url, headers, body = self.oauthclient.sign(params=params, http_method="POST", headers=self.headers)
+        async with self.session.post(url, headers=headers, json=customer_address_info) as resp:
+            if resp.status != 200:
+                return None
+
+            result = await resp.json()
+            if result["success"]:
+                return result["result"]
 
     async def get_page_products(self, page_number: int = 1) -> List[DCDentalProduct]:
         products = await self.get_product_list(page_number, self.page_size)
-        if products:
-            return [DCDentalProduct.from_dict(product) for product in products]
+        if not products:
+            return []
+        return [DCDentalProduct.from_dict(product) for product in products]
 
     async def get_products(self) -> List[DCDentalProduct]:
         products: List[DCDentalProduct] = []
@@ -135,26 +138,24 @@ class DCDentalAPIClient:
         return products
 
     async def create_order_request(self, order_info):
-        http_method = "POST"
         params = {
             "script": "customscript_pri_rest_salesorder",
             "deploy": "customdeploy_pri_rest_salesord_ordo4837",
         }
-        order_info = json.dumps(order_info)
-        url, headers, body = self.oauthclient.sign(params=params, http_method=http_method, headers=self.headers)
-        async with self.session.post(url, headers=headers, data=order_info) as resp:
-            if resp.status == 200:
-                result = await resp.json()
-                if result["success"]:
-                    return result["result"]
+        url, headers, body = self.oauthclient.sign(params=params, http_method="POST", headers=self.headers)
+        async with self.session.post(url, headers=headers, json=order_info) as resp:
+            if resp.status != 200:
+                return None
+
+            result = await resp.json()
+            if result["success"]:
+                return result["result"]
 
 
 async def main():
     async with ClientSession() as session:
         api_client = DCDentalAPIClient(session)
-        cusomters = await api_client.get_customer()
-        print(cusomters)
-        # return await api_client.get_products()
+        return await api_client.get_products()
 
 
 if __name__ == "__main__":
