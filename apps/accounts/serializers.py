@@ -15,6 +15,7 @@ from apps.accounts.services.stripe import (
 )
 from apps.common.serializers import Base64ImageField, OptionalSchemeURLValidator
 
+from ..utils.misc import normalize_decimal_values
 from . import models as m
 
 # from .tasks import fetch_orders_from_vendor
@@ -75,7 +76,7 @@ class BudgetSerializerV1(serializers.ModelSerializer):
             else:
                 continue
         remaining_budget = self.get_remaining_budget(result)
-        return {**result, "remaining_budget": remaining_budget}
+        return normalize_decimal_values({**result, "remaining_budget": remaining_budget})
 
 
 class BudgetSerializerV2(serializers.ModelSerializer):
