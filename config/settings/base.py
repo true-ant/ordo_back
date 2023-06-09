@@ -197,6 +197,7 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.BasicAuthentication",
     ),
+    "EXCEPTION_HANDLER": "config.exception_handler.custom_exception_handler",
 }
 
 # DRF-JWT
