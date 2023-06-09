@@ -422,6 +422,7 @@ class CartSerializer(serializers.ModelSerializer):
     promotion = PromotionSerializer(read_only=True, required=False)
     updated_unit_price = serializers.SerializerMethodField()
     item_inventory = serializers.BooleanField(read_only=True)
+
     # same_products = serializers.SerializerMethodField()
     # office = serializers.PrimaryKeyRelatedField(queryset=m.Office.objects.all())
 
@@ -690,6 +691,11 @@ class RejectProductSerializer(serializers.Serializer):
 
 class ApproveRejectSerializer(serializers.Serializer):
     is_approved = serializers.BooleanField()
+    rejected_items = serializers.ListSerializer(child=RejectProductSerializer(), required=False)
+    rejected_reason = serializers.CharField(required=False)
+
+
+class OrderApprovalSerializer(serializers.Serializer):
     rejected_items = serializers.ListSerializer(child=RejectProductSerializer(), required=False)
     rejected_reason = serializers.CharField(required=False)
 

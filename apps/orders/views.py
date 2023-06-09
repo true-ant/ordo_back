@@ -10,6 +10,7 @@ from dataclasses import asdict
 from datetime import timedelta
 from decimal import Decimal
 from functools import reduce
+from itertools import chain
 from typing import Union
 
 from asgiref.sync import sync_to_async
@@ -189,6 +190,39 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
         temp.seek(0)
         return response
 
+    def update(self, request, *args, **kwargs):
+        if "nickname" in request.data:
+            nickname = request.data.pop("nickname")
+            instance = self.get_object()
+            vendor_orders = instance.vendor_orders.all()
+            for vendor_order in vendor_orders:
+                vendor_order.nickname = nickname
+            m.VendorOrder.objects.bulk_update(vendor_orders, fields=["nickname"])
+        return super().update(request, *args, **kwargs)
+
+    @action(detail=True, methods=["post"], permission_classes=[p.OrderApprovalPermission])
+    async def approve(self, request, *args, **kwargs):
+        serializer = s.OrderApprovalSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        order = await sync_to_async(self.get_object)()
+        if order.status != m.OrderStatus.PENDING_APPROVAL:
+            return Response({"message": "This order status is not pending approval"})
+
+        vendor_orders = order.vendor_orders.all()
+        async for vendor_order in vendor_orders:
+            await OrderService.approve_vendor_order(
+                approved_by=request.user,
+                vendor_order=vendor_order,
+                validated_data=serializer.validated_data,
+                stage=request.META["HTTP_HOST"],
+            )
+            await sync_to_async(OrderService.update_vendor_order_spent)(vendor_order, serializer.validated_data)
+        order.status = m.OrderStatus.OPEN
+        await sync_to_async(order.save)()
+
+        return Response({"message": "Successfully approved!"})
+
 
 class VendorOrderViewSet(AsyncMixin, ModelViewSet):
     queryset = m.VendorOrder.objects.all()
@@ -220,6 +254,35 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
             )
             .order_by("-order_date", "-order_id")
         )
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        approved_queryset = queryset.exclude(status=m.OrderStatus.PENDING_APPROVAL)
+        approval_queryset = queryset.filter(status=m.OrderStatus.PENDING_APPROVAL)
+        approval_order_ids = approval_queryset.values_list("order", flat=True).distinct()
+        order_queryset = m.Order.objects.filter(pk__in=approval_order_ids)
+        full_queryset = list(
+            sorted(chain(order_queryset, approved_queryset), key=lambda instance: instance.order_date, reverse=True)
+        )
+        page = self.paginate_queryset(full_queryset)
+
+        orders_to_serialize = []
+        vendor_orders_to_serialize = []
+
+        for item in page:
+            if isinstance(item, m.VendorOrder):
+                vendor_orders_to_serialize.append(item)
+            else:
+                orders_to_serialize.append(item)
+        serialized_orders = s.OrderSerializer(orders_to_serialize, many=True)
+        serialized_vendor_orders = s.VendorOrderSerializer(vendor_orders_to_serialize, many=True)
+
+        result = sorted(
+            (serialized_orders.data + serialized_vendor_orders.data),
+            key=lambda instance: instance.get("order_date"),
+            reverse=True,
+        )
+        return self.get_paginated_response(result)
 
     @sync_to_async
     def get_office_vendor(self):

@@ -1524,7 +1524,7 @@ class OrderHelper:
             )
             if result.get("order_type") is msgs.ORDER_TYPE_ORDO:
                 vendor_order.vendor_order_id = result.get("order_id")
-                await sync_to_async(vendor_order.save)()
+                await vendor_order.asave()
 
     @staticmethod
     async def perform_orders_in_vendors(
@@ -1589,8 +1589,9 @@ class OrderHelper:
                 summary = traceback.extract_tb(result.__traceback__)
                 exception_tb = "\n".join(summary.format())
                 logger.error(
-                    "Placing vendor order %s resulted in exception: %s",
+                    "Placing vendor order %s resulted in exception:\n%s\n%s",
                     vendor_order_id,
+                    result,
                     exception_tb,
                 )
 
