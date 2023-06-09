@@ -36,11 +36,31 @@ def fill_budget(apps, schema_editor):
             )
         }
         for month, ob in budgets.items():
+            dtb = ob.dental_total_budget
+            otb = ob.office_total_budget
+            if ob.adjusted_production:
+                adjusted_production = ob.adjusted_production
+            elif ob.dental_budget_type == 'production':
+                adjusted_production = dtb
+            elif ob.office_budget_type == 'production':
+                adjusted_production = otb
+            else:
+                adjusted_production = 0
+
+            if ob.collection:
+                collection = ob.collection
+            elif ob.dental_budget_type == "collection":
+                collection = dtb
+            elif ob.office_budget_type == "collection":
+                collection = otb
+            else:
+                collection = 0
+
             budget = Budget.objects.create(
                 office_id=ob.office_id,
                 month=month,
-                adjusted_production=ob.adjusted_production,
-                collection=ob.collection,
+                adjusted_production=adjusted_production,
+                collection=collection,
             )
             dental_basis = BT2BASIS[ob.dental_budget_type]
             office_basis = BT2BASIS[ob.office_budget_type]

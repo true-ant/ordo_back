@@ -2,7 +2,6 @@ import logging
 from datetime import datetime
 
 from _decimal import Decimal
-from dateutil.relativedelta import relativedelta
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.decorators import action
@@ -50,16 +49,25 @@ class BudgetViewSet(ModelViewSet):
     def get_chart_data(self, request, *args, **kwargs):
         # TODO: rewrite this one
         queryset = self.get_queryset().compatible_with_office_budget()
-        this_month = timezone.now().date().replace(day=1)
-        a_year_ago = this_month - relativedelta(months=11)
+        this_month = Month.from_date(timezone.now().date().replace(day=1))
+        a_year_ago = this_month - 11
         queryset = list(queryset.filter(month__lte=this_month, month__gte=a_year_ago).order_by("month"))
         items = {o.month: o for o in queryset}
 
         ret = []
         for i in range(12):
-            month = a_year_ago + relativedelta(months=i)
+            month = a_year_ago + i
             if month in items:
-                ret.append(items[month])
+                item = items[month]
+                ret.append(
+                    {
+                        "month": month.strftime("%Y-%m"),
+                        "dental_budget": item.dental_budget,
+                        "dental_spend": item.dental_spend,
+                        "office_budget": item.office_budget,
+                        "office_spend": item.office_spend,
+                    }
+                )
             else:
                 decimal_0 = Decimal(0)
                 ret.append(
