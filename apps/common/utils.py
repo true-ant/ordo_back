@@ -359,5 +359,20 @@ def batched(iterable, size):
         yield item
 
 
+def custom_datefilter_range():
+    """
+    Filter the vendor orders in the given range.
+    Calculated fields will be filtered within this date range.
+    """
+    return [
+        ("thisMonth", "this month"),
+        ("lastMonth", "last month"),
+        ("thisQuarter", "this quarter"),
+        ("lastQuarter", "last quarter"),
+        ("thisYear", "this year"),
+        ("lastYear", "last year"),
+    ]
+
+
 if __name__ == "__main__":
     group_products_by_str()
