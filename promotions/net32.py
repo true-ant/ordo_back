@@ -2,8 +2,11 @@ import csv
 import logging
 import os
 import re
+import time
 
 import requests
+
+logger = logging.getLogger(__name__)
 
 
 class Net32Spider:
@@ -69,17 +72,17 @@ class Net32Spider:
         return response.json()
 
     def run(self):
-
-        products = list()
+        products = []
         next_page = 1
         while True:
             product_response = self.get_product(next_page)
-            print(next_page, len(product_response["productDetails"]))
+            logger.debug(next_page, len(product_response["productDetails"]))
             products += product_response["productDetails"]
 
             next_page = product_response["pagination"]["nextPage"]
             if not next_page:
                 break
+            time.sleep(1)
 
         return self.parse_products(products)
 
