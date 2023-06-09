@@ -191,9 +191,8 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
         return response
 
     def update(self, request, *args, **kwargs):
-        nickname = request.data.pop("nickname", None)
-
-        if nickname:
+        if "nickname" in request.data:
+            nickname = request.data.pop("nickname")
             instance = self.get_object()
             vendor_orders = instance.vendor_orders.all()
             for vendor_order in vendor_orders:

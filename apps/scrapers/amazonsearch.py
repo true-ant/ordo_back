@@ -1,14 +1,7 @@
 import re
-import logging
-from scrapy import Selector
-from requests import Session
-from typing import Dict, List, Optional
 
-from apps.scrapers.base import Scraper
-from apps.scrapers.schema import Product
-from apps.types.scraper import ProductSearch
-from apps.types.orders import CartProduct
-from apps.scrapers.schema import Order, Product, ProductCategory, VendorOrderDetail
+from requests import Session
+from scrapy import Selector
 
 session = Session()
 
@@ -21,10 +14,10 @@ SEARCH_HEADERS = {
     "sec-ch-ua-mobile": "?0",
     "sec-ch-ua-platform": '"Windows"',
     "upgrade-insecure-requests": "1",
-    "User-Agent": 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:80.0) Gecko/20100101 Firefox/80.0'
-                  "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.93 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:80.0) Gecko/20100101 Firefox/80.0"
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.93 Safari/537.36",
     "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,"
-              "image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+    "image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
     "sec-fetch-site": "none",
     "sec-fetch-mode": "navigate",
     "sec-fetch-user": "?1",
@@ -33,7 +26,7 @@ SEARCH_HEADERS = {
 }
 
 
-class AmazonSearchScraper():
+class AmazonSearchScraper:
     BASE_URL = "https://www.amazon.com"
 
     def _search_products(self, query: str, page: int = 1, from_price=None, to_price=None):
@@ -54,7 +47,7 @@ class AmazonSearchScraper():
             log1 += "ama3"
             total_size_str = total_size_str.replace(",", "")
             log1 += "ama4"
-            total_size_str = re.search(r'(\d+)\s+results', total_size_str).group(1)
+            total_size_str = re.search(r"(\d+)\s+results", total_size_str).group(1)
             log1 += "ama5"
             total_size = int(total_size_str)
         except (ValueError, AttributeError):
@@ -65,7 +58,7 @@ class AmazonSearchScraper():
         log1 += "ama7"
 
         for product_dom in response_dom.xpath(
-                '//div[contains(@class, "s-result-list")]/div[contains(@class, "s-result-item")]'
+            '//div[contains(@class, "s-result-list")]/div[contains(@class, "s-result-item")]'
         ):
             product_id = product_dom.xpath("./@data-asin").get()  # asin
             if not product_id:
@@ -81,10 +74,11 @@ class AmazonSearchScraper():
                         continue
                     if to_price and float(product_price) > float(to_price):
                         continue
-                except:
+                except Exception:
                     # Since searching doesn't work properly in cloud, added this exception just for checking
                     pass
-
+            else:  # Without this case, it causes VauleErroras the field is not a decimal number.
+                product_price = 0
             product_image = product_dom.xpath('.//span[@data-component-type="s-product-image"]//img/@src').get()
             log1 += " " + product_name
             products.append(
@@ -114,5 +108,5 @@ class AmazonSearchScraper():
             "page_size": page_size,
             "products": products,
             "last_page": last_page,
-            "log": log1
+            "log": log1,
         }
