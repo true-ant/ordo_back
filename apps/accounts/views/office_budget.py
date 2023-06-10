@@ -49,11 +49,17 @@ class BudgetViewSet(ModelViewSet):
             company.save()
 
         now_date = timezone.now().date()
-        request.data.setdefault("office", self.kwargs["office_pk"])
-        request.data.setdefault("month", now_date)
-        serializer = self.get_serializer(data=request.data)
+        # request.data.setdefault("office", self.kwargs["office_pk"])
+        # request.data.setdefault("month", now_date)
+
+        serializer_class = self.get_serializer_class()
+        serializer = serializer_class(
+            data=request.data,
+            context={**self.get_serializer_context(), "office_pk": self.kwargs["office_pk"], "month": now_date},
+        )
         serializer.is_valid(raise_exception=True)
-        instance = self.perform_create(serializer)
+        self.perform_create(serializer)
+        instance = serializer.instance
         serializer_class = self.get_response_serializer_class()
         serializer = serializer_class(instance=instance)
 

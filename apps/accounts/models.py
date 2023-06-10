@@ -294,11 +294,10 @@ class BudgetCategory(models.Model):
 
     def __str__(self):
         if self.is_custom:
-            name = f"{self.name}"
+            name = f"{self.slug}"
         else:
-            name = f"[{self.name}]"
-        basis = self.get_basis_display()
-        return f"{name} ({basis})"
+            name = f"[{self.slug}]"
+        return name
 
 
 class Subaccount(models.Model):

@@ -1,5 +1,7 @@
 # from celery.result import AsyncResult
+import decimal
 from decimal import Decimal
+from typing import NamedTuple
 
 from creditcards.validators import CCNumberValidator, CSCValidator, ExpiryDateValidator
 from django.db import transaction
@@ -41,6 +43,11 @@ class OpenDentalKeySerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class BaseValues(NamedTuple):
+    adjusted_production: decimal.Decimal
+    collection: decimal.Decimal
+
+
 class BaseBudgetSerializerV1(serializers.Serializer):
     dental_budget_type = serializers.ChoiceField(choices=BudgetType.choices)
     dental_percentage = serializers.DecimalField(max_digits=10, decimal_places=2)
@@ -56,6 +63,22 @@ class BaseBudgetSerializerV1(serializers.Serializer):
     # adjusted_production = serializers.DecimalField(max_digits=10, decimal_places=2)
     # collection = serializers.DecimalField(max_digits=10, decimal_places=2)
 
+    def get_base_values(self, attrs: dict) -> BaseValues:
+        base_values = {"production": [], "collection": []}
+        for prefix in ("office", "dental"):
+            budget_type = attrs[f"{prefix}_budget_type"]
+            base_values[budget_type].append(attrs[f"{prefix}_total_budget"])
+        result = {"adjusted_production": 0, "collection": 0}
+        for k, v in base_values.items():
+            if not v:
+                continue
+            value = v[0]
+            if k == BudgetType.COLLECTION:
+                result["collection"] = value
+            elif k == BudgetType.PRODUCTION:
+                result["adjusted_production"] = value
+        return BaseValues(**result)
+
 
 class BudgetUpdateSerializerV1(BaseBudgetSerializerV1):
     def update(self, instance: m.Budget, attrs):
@@ -65,24 +88,18 @@ class BudgetUpdateSerializerV1(BaseBudgetSerializerV1):
                 slug=F("category__slug")
             )
         }
-        base_values = {"production": [], "collection": []}
+        base_values = self.get_base_values(attrs)
         for prefix in ("office", "dental"):
             budget_type = attrs[f"{prefix}_budget_type"]
             percentage = attrs[f"{prefix}_percentage"]
-            base_values[budget_type].append(attrs[f"{prefix}_total_budget"])
             subaccount = subaccounts[prefix]
             subaccount.basis = CATEGORY2BASIS[budget_type]
             subaccount.percentage = percentage
 
-        for k, v in base_values.items():
-            if not v:
-                continue
-            value = v[0]
-            if k == BudgetType.COLLECTION:
-                instance.collection = value
-            elif k == BudgetType.PRODUCTION:
-                instance.adjusted_production = value
+        instance.adjusted_production = base_values.adjusted_production
+        instance.collection = base_values.collection
         instance.save(update_fields=("collection", "adjusted_production"))
+
         m.Subaccount.objects.bulk_update(subaccounts.values(), fields=("percentage", "basis"))
         instance._prefetched_objects_cache = {}
         return instance
@@ -92,13 +109,21 @@ class BudgetCreateSerializerV1(BaseBudgetSerializerV1):
     def create(self, attrs):
         office_pk = self.context.get("office_pk")
         month = self.context.get("month")
+        base_values = self.get_base_values(attrs)
+
         instance, _ = m.Budget.objects.update_or_create(
-            office_id=office_pk, month=month, defaults={k: attrs.get(k) for k in ("adjusted_production", "collection")}
+            office_id=office_pk,
+            month=month,
+            defaults={**base_values._asdict(), "office_id": office_pk, "month": month},
         )
         for prefix in ("office", "dental"):
+            budget_category, _ = m.BudgetCategory.objects.get_or_create(
+                office_id=office_pk, slug=prefix, defaults={"name": "", "is_custom": False}  # TODO: generate name
+            )
             budget_type = attrs[f"{prefix}_budget_type"]
             m.Subaccount.objects.update_or_create(
                 budget=instance,
+                category=budget_category,
                 defaults={"basis": CATEGORY2BASIS[budget_type], "percentage": attrs[f"{prefix}_percentage"]},
             )
         return instance
