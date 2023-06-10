@@ -65,13 +65,26 @@ class BudgetUpdateSerializerV1(BaseBudgetSerializerV1):
                 slug=F("category__slug")
             )
         }
+        base_values = {"production": [], "collection": []}
         for prefix in ("office", "dental"):
             budget_type = attrs[f"{prefix}_budget_type"]
             percentage = attrs[f"{prefix}_percentage"]
+            base_values[budget_type].append(attrs[f"{prefix}_total_budget"])
             subaccount = subaccounts[prefix]
             subaccount.basis = CATEGORY2BASIS[budget_type]
             subaccount.percentage = percentage
+
+        for k, v in base_values.items():
+            if not v:
+                continue
+            value = v[0]
+            if k == BudgetType.COLLECTION:
+                instance.collection = value
+            elif k == BudgetType.PRODUCTION:
+                instance.adjusted_production = value
+        instance.save(update_fields=("collection", "adjusted_production"))
         m.Subaccount.objects.bulk_update(subaccounts.values(), fields=("percentage", "basis"))
+        instance._prefetched_objects_cache = {}
         return instance
 
 

@@ -136,6 +136,36 @@ class SingleOfficeBudgetTestCase(APITestCase):
         budget = BudgetOutput(**budget_data)
         assert budget
 
+    def test_update_budget(self):
+        url = reverse(
+            "budgets-detail",
+            kwargs={"company_pk": self.company.pk, "office_pk": self.office.pk, "pk": self.office_budget.pk},
+        )
+        update_data = {
+            "dental_budget_type": "collection",
+            "dental_percentage": decimal.Decimal("4.5"),
+            "dental_budget": decimal.Decimal("6854.39"),
+            "dental_total_budget": decimal.Decimal("152319.74"),
+            "office_budget_type": "collection",
+            "office_percentage": decimal.Decimal("0.9"),
+            "office_budget": decimal.Decimal("1370.88"),
+            "office_total_budget": decimal.Decimal("152319.74"),
+        }
+        resp = self.api_client.put(url, data=update_data, format="json")
+        url = reverse(
+            "budgets-detail",
+            kwargs={"company_pk": self.company.pk, "office_pk": self.office.pk, "pk": self.office_budget.pk},
+        )
+
+        resp = self.api_client.get(url)
+        assert resp.status_code == status.HTTP_200_OK
+        data = resp.json()
+        budget_data = data["data"]
+        budget = BudgetOutput(**budget_data)
+        for field_name, value in update_data.items():
+            print(field_name)
+            assert getattr(budget, field_name) == update_data[field_name]
+
     def test_get_current_month_budget(self):
         url = reverse(
             "budgets-get-current-month-budget", kwargs={"company_pk": self.company.pk, "office_pk": self.office.pk}
