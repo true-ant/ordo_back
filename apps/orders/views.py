@@ -52,13 +52,7 @@ from rest_framework.status import (
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from apps.accounts.models import (
-    Company,
-    Office,
-    OfficeBudget,
-    OfficeVendor,
-    ShippingMethod,
-)
+from apps.accounts.models import Budget, Company, Office, OfficeVendor, ShippingMethod
 from apps.accounts.services.offices import OfficeService
 from apps.accounts.tasks import fetch_order_history
 from apps.common import messages as msgs
@@ -373,23 +367,24 @@ class VendorOrderViewSet(AsyncMixin, ModelViewSet):
         if preset_date_range and (start_end_date := get_date_range(preset_date_range)):
             start_month = Month(start_end_date[0].year, start_end_date[0].month)
             end_month = Month(start_end_date[1].year, start_end_date[1].month)
-            budgets_queryset = OfficeBudget.objects.filter(
+            budgets_queryset = Budget.objects.filter(
                 Q(office_id=self.kwargs["office_pk"]),
                 Q(month__gte=start_month),
                 Q(month__lte=end_month),
             )
         else:
-            budgets_queryset = OfficeBudget.objects.filter(
+            budgets_queryset = Budget.objects.filter(
                 office_id=self.kwargs["office_pk"], month=Month(requested_date.year, requested_date.month)
-            )
+            ).compatible_with_office_budget()
 
-        budget_stats = budgets_queryset.aggregate(
-            total_dental_budget=Sum("dental_budget"),
-            total_dental_spend=Sum("dental_spend"),
-            total_office_budget=Sum("office_budget"),
-            total_office_spend=Sum("office_spend"),
-            total_miscellaneous_spend=Sum("miscellaneous_spend"),
-        )
+        # TODO: optimize
+        budget_stats = {
+            "total_dental_budget": sum(b.dental_budget for b in budgets_queryset),
+            "total_dental_spend": sum(b.dental_spend for b in budgets_queryset),
+            "total_office_budget": sum(b.office_budget for b in budgets_queryset),
+            "total_office_spend": sum(b.office_spend for b in budgets_queryset),
+            "total_miscellaneous_spend": sum(b.miscellaneous_spend for b in budgets_queryset),
+        }
 
         approved_orders_queryset = queryset.exclude(status=m.OrderStatus.PENDING_APPROVAL)
         aggregation = approved_orders_queryset.aggregate(

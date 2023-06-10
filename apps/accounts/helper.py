@@ -25,9 +25,10 @@ class BudgetNotFoundError(Exception):
 
 class OfficeBudgetHelper:
     @staticmethod
-    def update_spend(office: Union[int, str, Office], date: datetime.date, amount: Decimal, category_slug="dental"):
+    def update_spend(office: Union[int, str, Office], date: datetime.date, amount: Decimal, slug="dental"):
+        # TODO: write unittests
         month = Month(year=date.year, month=date.month)
-        Subaccount.objects.filter(budget__office=office, month=month, category__slug=category_slug).update(
+        Subaccount.objects.filter(budget__office=office, budget__month=month, slug=slug).update(
             spend=F("spend") + amount
         )
 
@@ -39,6 +40,7 @@ class OfficeBudgetHelper:
         from_category: BUDGET_SPEND_TYPE,
         to_category: BUDGET_SPEND_TYPE,
     ) -> bool:
+        # TODO: write unittests
         """This function will move spend from one category to other category"""
         if not from_category or not to_category or from_category == to_category:
             return False
@@ -48,7 +50,7 @@ class OfficeBudgetHelper:
             with transaction.atomic():
                 for category, delta in actions:
                     updated_rows = Subaccount.objects.filter(
-                        budget__office=office, month=month, category__slug=category
+                        budget__office=office, budget__month=month, slug=category
                     ).update(spend=F("spend") + delta)
                     if updated_rows == 0:
                         raise BudgetNotFoundError
@@ -57,7 +59,31 @@ class OfficeBudgetHelper:
         return True
 
     @staticmethod
+    def clone_budget(budget: Budget, overrides: dict = None) -> Budget:
+        if overrides is None:
+            overrides = {}
+        new_budget = Budget.objects.create(
+            month=overrides.get("month", budget.month.next_month()),
+            office_id=budget.office_id,
+            basis=overrides.get("basis", budget.basis),
+            adjusted_production=overrides.get("adjusted_production", budget.adjusted_production),
+            collection=overrides.get("collection", budget.collection),
+        )
+        subaccounts_to_create = []
+        for subaccount in budget.subaccounts.all():
+            new_subaccount = Subaccount(
+                budget=new_budget,
+                slug=subaccount.slug,
+                percentage=subaccount.percentage,
+                spend=0,
+            )
+            subaccounts_to_create.append(new_subaccount)
+        Subaccount.objects.bulk_create(subaccounts_to_create)
+        return new_budget
+
+    @staticmethod
     def clone_prev_month_budget(prev_budgets: List[Budget], dental_api_data: Optional[dict] = None):
+        # TODO: write unittests
         if dental_api_data is None:
             dental_api_data = {}
         budgets_to_create = []
@@ -66,6 +92,7 @@ class OfficeBudgetHelper:
             current_month_budget = Budget(
                 month=prev_budget.month.next_month(),
                 office_id=prev_budget.office_id,
+                basis=prev_budget.basis,
                 adjusted_production=dental_api_values.get("adjusted_production", prev_budget.adjusted_production),
                 collection=dental_api_values.get("collection", prev_budget.collection),
             )
@@ -76,8 +103,7 @@ class OfficeBudgetHelper:
             for subaccount in budget.subaccounts.all():
                 new_subaccount = Subaccount(
                     budget=created_budgets[budget.office_id],
-                    basis=subaccount.basis,
-                    category_id=subaccount.category_id,
+                    slug=subaccount.slug,
                     percentage=subaccount.percentage,
                     spend=0,
                 )
@@ -87,6 +113,7 @@ class OfficeBudgetHelper:
     @staticmethod
     def update_budget_with_previous_month():
         # TODO: update budget for active offices
+        # TODO: write unittest
         current_month = Month.from_date(timezone.now().date())
         previous_month = current_month.prev_month()
         current_budgets = Budget.objects.filter(month=previous_month).prefetch_related("subaccounts")
@@ -95,11 +122,15 @@ class OfficeBudgetHelper:
     @staticmethod
     def update_office_budgets():
         # TODO: create budgets for active offices from Open Dental, if not, from previous month
+        # TODO: write unittests
         current_month = Month.from_date(timezone.now().date())
         last_day_of_prev_month = date.today().replace(day=1) - timedelta(days=1)
         start_day_of_prev_month = date.today().replace(day=1) - timedelta(days=last_day_of_prev_month.day)
 
-        offices = Office.objects.annotate(dental_api_key=F("dental_api__key")).exclude(budgets__month=current_month)
+        # TODO: test if the .exclude() really works as expected, use annotate if necessary
+        offices = Office.objects.annotate(dental_api_key=F("dental_api__key")).exclude(
+            budget__set__month=current_month
+        )
 
         opendental_data = {}
         for office in offices:

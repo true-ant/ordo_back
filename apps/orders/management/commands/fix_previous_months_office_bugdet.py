@@ -1,7 +1,8 @@
 from django.core.management import BaseCommand
 from django.db.models import Sum
 
-from apps.accounts.models import OfficeBudget
+from apps.accounts.helper import OfficeBudgetHelper
+from apps.accounts.models import Budget
 from apps.orders.models import VendorOrder, YearMonth
 
 
@@ -20,18 +21,21 @@ class Command(BaseCommand):
             office_id = monthly_budget_by_office["order__office"]
 
             try:
-                offices_first_budgets[office_id] = OfficeBudget.objects.get(
+                offices_first_budgets[office_id] = Budget.objects.get(
                     office_id=office_id, month=monthly_budget_by_office["month"]
                 )
-            except OfficeBudget.DoesNotExist:
+            except Budget.DoesNotExist:
                 if office_id in offices_first_budgets:
-                    office_budget = offices_first_budgets[office_id]
+                    latest_office_budget = offices_first_budgets[office_id]
                 else:
-                    office_budget = OfficeBudget.objects.filter(office_id=office_id).order_by("-month").first()
-                    offices_first_budgets[office_id] = office_budget
-                office_budget.id = None
-                office_budget.month = monthly_budget_by_office["month"]
-                office_budget.dental_spend = monthly_budget_by_office["total_amount"]
-                office_budget.office_spend = 0
-                office_budget.miscellaneous_spend = 0
-                office_budget.save()
+                    latest_office_budget = Budget.objects.filter(office_id=office_id).order_by("-month").first()
+                    offices_first_budgets[office_id] = latest_office_budget
+                OfficeBudgetHelper.clone_budget(
+                    budget=latest_office_budget,
+                    overrides=dict(
+                        month=monthly_budget_by_office["month"],
+                        dental_spend=monthly_budget_by_office["total_amount"],
+                        office_spend=0,
+                        miscellaneous_spend=0,
+                    ),
+                )

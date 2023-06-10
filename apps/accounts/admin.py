@@ -1,12 +1,10 @@
 from decimal import Decimal
 
-from dateutil.relativedelta import relativedelta
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
 from django.db.models import CharField, F, Func, OuterRef, Subquery, Value
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import path, reverse_lazy
-from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
@@ -15,7 +13,6 @@ from apps.accounts.filters import VendorDateFilter
 from apps.accounts.tasks import fetch_order_history
 from apps.common.admins import AdminDynamicPaginationMixin, ReadOnlyAdminMixin
 from apps.common.choices import OrderStatus, OrderType
-from apps.common.month import Month
 from apps.orders import models as om
 
 from . import models as m
@@ -95,25 +92,27 @@ class OfficeVendorInline(ReadOnlyAdminMixin, NestedTabularInline):
         return mark_safe("<a target='_blank' href='{}' class='btn btn-outline-primary'>Vendor Login</a>".format(url))
 
 
-class OfficeBudgetInline(NestedTabularInline):
-    model = m.OfficeBudget
-    fields = readonly_fields = (
-        "month",
-        "dental_budget_type",
-        "dental_budget",
-        "dental_spend",
-        "dental_percentage",
-        "office_budget_type",
-        "office_budget",
-        "office_spend",
-        "office_percentage",
-    )
-
-    def get_queryset(self, request):
-        current_date = timezone.localtime().date()
-        three_months_ago = current_date - relativedelta(months=3)
-        month = Month(year=current_date.year, month=three_months_ago.month)
-        return super().get_queryset(request).filter(month__gte=month).order_by("-month")
+# Deliberately commenting out
+# TODO: convert to BudgetInline
+# class OfficeBudgetInline(NestedTabularInline):
+#     model = m.OfficeBudget
+#     fields = readonly_fields = (
+#         "month",
+#         "dental_budget_type",
+#         "dental_budget",
+#         "dental_spend",
+#         "dental_percentage",
+#         "office_budget_type",
+#         "office_budget",
+#         "office_spend",
+#         "office_percentage",
+#     )
+#
+#     def get_queryset(self, request):
+#         current_date = timezone.localtime().date()
+#         three_months_ago = current_date - relativedelta(months=3)
+#         month = Month(year=current_date.year, month=three_months_ago.month)
+#         return super().get_queryset(request).filter(month__gte=month).order_by("-month")
 
 
 class OfficeOrdersInline(ReadOnlyAdminMixin, NestedTabularInline):
@@ -157,7 +156,14 @@ class SubscriptionInline(NestedTabularInline):
 
 class OfficeInline(NestedTabularInline):
     model = m.Office
-    inlines = [SubscriptionInline, OfficeVendorInline, OfficeBudgetInline, OfficeOrdersInline]
+    inlines = [
+        SubscriptionInline,
+        OfficeVendorInline,
+        # Deliberately commenting out
+        # TODO: convert to BudgetInline
+        # OfficeBudgetInline,
+        OfficeOrdersInline,
+    ]
     can_delete = False
     readonly_fields = ("dental_api", "logo_thumb", "name", "phone_number", "website", "is_active", "practice_software")
     extra = 0
