@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from creditcards.validators import CCNumberValidator, CSCValidator, ExpiryDateValidator
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 from phonenumber_field.serializerfields import PhoneNumberField
 from rest_framework import serializers
@@ -17,6 +18,7 @@ from apps.common.serializers import Base64ImageField, OptionalSchemeURLValidator
 
 from ..utils.misc import normalize_decimal_values
 from . import models as m
+from .models import CATEGORY2BASIS, BudgetType
 
 # from .tasks import fetch_orders_from_vendor
 
@@ -37,6 +39,56 @@ class OpenDentalKeySerializer(serializers.ModelSerializer):
     class Meta:
         model = m.OpenDentalKey
         fields = "__all__"
+
+
+class BaseBudgetSerializerV1(serializers.Serializer):
+    dental_budget_type = serializers.ChoiceField(choices=BudgetType.choices)
+    dental_percentage = serializers.DecimalField(max_digits=10, decimal_places=2)
+    dental_budget = serializers.DecimalField(max_digits=10, decimal_places=2)
+    dental_total_budget = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+    office_budget_type = serializers.ChoiceField(choices=BudgetType.choices)
+    office_percentage = serializers.DecimalField(max_digits=10, decimal_places=2)
+    office_budget = serializers.DecimalField(max_digits=10, decimal_places=2)
+    office_total_budget = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+    # Deliberately commenting out, these fields seem to be sent as 0 values
+    # adjusted_production = serializers.DecimalField(max_digits=10, decimal_places=2)
+    # collection = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+
+class BudgetUpdateSerializerV1(BaseBudgetSerializerV1):
+    def update(self, instance: m.Budget, attrs):
+        subaccounts = {
+            subaccount.slug: subaccount
+            for subaccount in instance.subaccounts.filter(category__slug__in=("office", "dental")).annotate(
+                slug=F("category__slug")
+            )
+        }
+        for prefix in ("office", "dental"):
+            budget_type = attrs[f"{prefix}_budget_type"]
+            percentage = attrs[f"{prefix}_percentage"]
+            subaccount = subaccounts[prefix]
+            subaccount.basis = CATEGORY2BASIS[budget_type]
+            subaccount.percentage = percentage
+        m.Subaccount.objects.bulk_update(subaccounts.values(), fields=("percentage", "basis"))
+        return instance
+
+
+class BudgetCreateSerializerV1(BaseBudgetSerializerV1):
+    def create(self, attrs):
+        office_pk = self.context.get("office_pk")
+        month = self.context.get("month")
+        instance, _ = m.Budget.objects.update_or_create(
+            office_id=office_pk, month=month, defaults={k: attrs.get(k) for k in ("adjusted_production", "collection")}
+        )
+        for prefix in ("office", "dental"):
+            budget_type = attrs[f"{prefix}_budget_type"]
+            m.Subaccount.objects.update_or_create(
+                budget=instance,
+                defaults={"basis": CATEGORY2BASIS[budget_type], "percentage": attrs[f"{prefix}_percentage"]},
+            )
+        return instance
 
 
 class BudgetSerializerV1(serializers.ModelSerializer):

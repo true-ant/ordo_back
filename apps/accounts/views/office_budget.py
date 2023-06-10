@@ -4,6 +4,7 @@ from datetime import datetime
 from _decimal import Decimal
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -25,6 +26,10 @@ class BudgetViewSet(ModelViewSet):
 
     def get_serializer_class(self):
         if self.request.version == "1.0":
+            if self.action in ("update", "partial_update"):
+                return s.BudgetUpdateSerializerV1
+            if self.action == "create":
+                return s.BudgetCreateSerializerV1
             return s.BudgetSerializerV1
         elif self.request.version == "2.0":
             return s.BudgetSerializerV2
@@ -43,7 +48,17 @@ class BudgetViewSet(ModelViewSet):
         now_date = timezone.now().date()
         request.data.setdefault("office", self.kwargs["office_pk"])
         request.data.setdefault("month", now_date)
-        return super().create(request, *args, **kwargs)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = self.perform_create(serializer)
+        if self.request.version == "1.0":
+            serializer_class = s.BudgetSerializerV1
+        elif self.request.version == "2.0":
+            serializer_class = s.BudgetSerializerV2
+        serializer = serializer_class(instance=instance)
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     @action(detail=False, methods=["get"], url_path="charts")
     def get_chart_data(self, request, *args, **kwargs):
@@ -84,7 +99,23 @@ class BudgetViewSet(ModelViewSet):
 
     def update(self, request, *args, **kwargs):
         kwargs.setdefault("partial", True)
-        return super().update(request, *args, **kwargs)
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        if getattr(instance, "_prefetched_objects_cache", None):
+            # If 'prefetch_related' has been applied to a queryset, we need to
+            # forcibly invalidate the prefetch cache on the instance.
+            instance._prefetched_objects_cache = {}
+
+        if self.request.version == "1.0":
+            serializer_class = s.BudgetSerializerV1
+        elif self.request.version == "2.0":
+            serializer_class = s.BudgetSerializerV2
+        serializer = serializer_class(instance=instance)
+        return Response(serializer.data)
 
     @action(detail=False, url_path="stats", methods=["get"])
     def get_current_month_budget(self, request, *args, **kwargs):

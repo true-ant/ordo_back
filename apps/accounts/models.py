@@ -208,6 +208,7 @@ class BasisType(models.IntegerChoices):
 
 
 BASIS2CATEGORY = {BasisType.PRODUCTION: BudgetType.PRODUCTION, BasisType.COLLECTION: BudgetType.COLLECTION}
+CATEGORY2BASIS = {v: k for k, v in BASIS2CATEGORY.items()}
 
 
 class BudgetQuerySet(models.QuerySet):
