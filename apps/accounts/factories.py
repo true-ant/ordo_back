@@ -61,37 +61,19 @@ def get_current_month():
 class BudgetFactory(DjangoModelFactory):
     class Meta:
         model = m.Budget
-        exclude = ["basis"]
 
     office = factory.SubFactory(OfficeFactory)
     month = factory.LazyFunction(get_current_month)
     adjusted_production = factory.Faker("pydecimal", min_value=30, max_value=120)
     collection = factory.Faker("pydecimal", min_value=30, max_value=120)
+    basis = BasisType.PRODUCTION
 
     @factory.post_generation
     def create_subaccounts(obj, create, extracted, **kwargs):
         if not create:
             return
-        basis = random.choice([m.BasisType.PRODUCTION, m.BasisType.COLLECTION])
-        dcat, ocat, mcat = [
-            BudgetCategoryFactory(office=obj.office, slug=category_slug, name=name, is_custom=False)
-            for category_slug, name in [
-                ("dental", "Dental Budget"),
-                ("office", "Office Budget"),
-                ("misc", "Miscellaneous Spend"),
-            ]
-        ]
-        for cat in [dcat, ocat, mcat]:
-            SubaccountFactory(budget=obj, basis=basis, category=cat, percentage=5, spend=0)
-
-
-class BudgetCategoryFactory(DjangoModelFactory):
-    class Meta:
-        model = m.BudgetCategory
-
-    slug = "dental"
-    name = "Dental Budget"
-    is_custom = False
+        for slug in ["dental", "office", "misc"]:
+            SubaccountFactory(budget=obj, slug=slug, percentage=5, spend=0)
 
 
 class SubaccountFactory(DjangoModelFactory):
@@ -99,8 +81,7 @@ class SubaccountFactory(DjangoModelFactory):
         model = m.Subaccount
 
     budget = factory.SubFactory(BudgetFactory)
-    basis = BasisType.PRODUCTION
-    category = factory.LazyAttribute(lambda o: BudgetCategoryFactory(office=o.budget.office))
+    slug = "dental"
     percentage = 5
     spend = 0
 

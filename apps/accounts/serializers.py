@@ -5,7 +5,6 @@ from typing import NamedTuple
 
 from creditcards.validators import CCNumberValidator, CSCValidator, ExpiryDateValidator
 from django.db import transaction
-from django.db.models import F
 from django.utils import timezone
 from phonenumber_field.serializerfields import PhoneNumberField
 from rest_framework import serializers
@@ -64,43 +63,35 @@ class BaseBudgetSerializerV1(serializers.Serializer):
     # collection = serializers.DecimalField(max_digits=10, decimal_places=2)
 
     def get_base_values(self, attrs: dict) -> BaseValues:
-        base_values = {"production": [], "collection": []}
-        for prefix in ("office", "dental"):
-            budget_type = attrs[f"{prefix}_budget_type"]
-            base_values[budget_type].append(attrs[f"{prefix}_total_budget"])
+        budget_type = attrs["dental_budget_type"]
         result = {"adjusted_production": 0, "collection": 0}
-        for k, v in base_values.items():
-            if not v:
-                continue
-            value = v[0]
-            if k == BudgetType.COLLECTION:
-                result["collection"] = value
-            elif k == BudgetType.PRODUCTION:
-                result["adjusted_production"] = value
+        value = attrs["dental_total_budget"]
+        if budget_type == BudgetType.COLLECTION:
+            result["collection"] = value
+        elif budget_type == BudgetType.PRODUCTION:
+            result["adjusted_production"] = value
+
         return BaseValues(**result)
 
 
 class BudgetUpdateSerializerV1(BaseBudgetSerializerV1):
     def update(self, instance: m.Budget, attrs):
         subaccounts = {
-            subaccount.slug: subaccount
-            for subaccount in instance.subaccounts.filter(category__slug__in=("office", "dental")).annotate(
-                slug=F("category__slug")
-            )
+            subaccount.slug: subaccount for subaccount in instance.subaccounts.filter(slug__in=("office", "dental"))
         }
         base_values = self.get_base_values(attrs)
         for prefix in ("office", "dental"):
             budget_type = attrs[f"{prefix}_budget_type"]
             percentage = attrs[f"{prefix}_percentage"]
             subaccount = subaccounts[prefix]
-            subaccount.basis = CATEGORY2BASIS[budget_type]
             subaccount.percentage = percentage
 
         instance.adjusted_production = base_values.adjusted_production
         instance.collection = base_values.collection
-        instance.save(update_fields=("collection", "adjusted_production"))
+        instance.basis = CATEGORY2BASIS[budget_type]
+        instance.save(update_fields=("collection", "adjusted_production", "basis"))
 
-        m.Subaccount.objects.bulk_update(subaccounts.values(), fields=("percentage", "basis"))
+        m.Subaccount.objects.bulk_update(subaccounts.values(), fields=("percentage",))
         instance._prefetched_objects_cache = {}
         return instance
 
@@ -110,21 +101,22 @@ class BudgetCreateSerializerV1(BaseBudgetSerializerV1):
         office_pk = self.context.get("office_pk")
         month = self.context.get("month")
         base_values = self.get_base_values(attrs)
-
+        budget_type = attrs["dental_budget_type"]
         instance, _ = m.Budget.objects.update_or_create(
             office_id=office_pk,
             month=month,
-            defaults={**base_values._asdict(), "office_id": office_pk, "month": month},
+            defaults={
+                **base_values._asdict(),
+                "office_id": office_pk,
+                "month": month,
+                "basis": CATEGORY2BASIS[budget_type],
+            },
         )
         for prefix in ("office", "dental"):
-            budget_category, _ = m.BudgetCategory.objects.get_or_create(
-                office_id=office_pk, slug=prefix, defaults={"name": "", "is_custom": False}  # TODO: generate name
-            )
-            budget_type = attrs[f"{prefix}_budget_type"]
             m.Subaccount.objects.update_or_create(
                 budget=instance,
-                category=budget_category,
-                defaults={"basis": CATEGORY2BASIS[budget_type], "percentage": attrs[f"{prefix}_percentage"]},
+                slug=prefix,
+                defaults={"percentage": attrs[f"{prefix}_percentage"]},
             )
         return instance
 
@@ -150,9 +142,8 @@ class BudgetSerializerV1(serializers.ModelSerializer):
     def to_representation(self, instance: m.Budget):
         result = super().to_representation(instance)
         for subaccount in instance.subaccounts.all():
-            category_slug = subaccount.category.slug
-            if category_slug in ("dental", "office"):
-                key_prefix = f"{category_slug}"
+            key_prefix = subaccount.slug
+            if key_prefix in ("dental", "office"):
                 key_data = {
                     "budget_type": subaccount.budget_type,
                     "total_budget": subaccount.total_budget,
@@ -161,7 +152,7 @@ class BudgetSerializerV1(serializers.ModelSerializer):
                     "spend": subaccount.spend,
                 }
                 result.update({f"{key_prefix}_{key}": value for key, value in key_data.items()})
-            elif category_slug == "misc":
+            elif key_prefix == "misc":
                 result["miscellaneous_spend"] = subaccount.spend
             else:
                 continue

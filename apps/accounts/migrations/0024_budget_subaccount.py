@@ -21,26 +21,13 @@ class Migration(migrations.Migration):
                 ("adjusted_production", models.DecimalField(decimal_places=2, default=0, max_digits=10)),
                 ("collection", models.DecimalField(decimal_places=2, default=0, max_digits=10)),
                 (
-                    "office",
-                    models.ForeignKey(
-                        on_delete=django.db.models.deletion.PROTECT, to="accounts.office", related_name="budget_set"
-                    ),
+                    "basis",
+                    models.IntegerField(choices=[(0, "No basis"), (1, "Adjusted Production"), (2, "Collection")]),
                 ),
-            ],
-        ),
-        migrations.CreateModel(
-            name="BudgetCategory",
-            fields=[
-                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
-                ("slug", models.SlugField(max_length=30)),
-                ("name", models.CharField(max_length=60)),
-                ("is_custom", models.BooleanField(default=False)),
                 (
                     "office",
                     models.ForeignKey(
-                        on_delete=django.db.models.deletion.PROTECT,
-                        related_name="budget_categories",
-                        to="accounts.office",
+                        on_delete=django.db.models.deletion.PROTECT, to="accounts.office", related_name="budget_set"
                     ),
                 ),
             ],
@@ -57,18 +44,7 @@ class Migration(migrations.Migration):
                         on_delete=django.db.models.deletion.PROTECT, related_name="subaccounts", to="accounts.budget"
                     ),
                 ),
-                (
-                    "basis",
-                    models.IntegerField(choices=[(0, "No basis"), (1, "Adjusted Production"), (2, "Collection")]),
-                ),
-                (
-                    "category",
-                    models.ForeignKey(
-                        on_delete=django.db.models.deletion.PROTECT,
-                        related_name="subaccounts",
-                        to="accounts.budgetcategory",
-                    ),
-                ),
+                ("slug", models.SlugField(max_length=30)),
             ],
         ),
     ]

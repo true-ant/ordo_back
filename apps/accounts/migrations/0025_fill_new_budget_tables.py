@@ -16,43 +16,25 @@ BT2BASIS = {
 def fill_budget(apps, schema_editor):
     OfficeBudget = apps.get_model("accounts", "OfficeBudget")
     Budget = apps.get_model("accounts", "Budget")
-    BudgetCategory = apps.get_model("accounts", "BudgetCategory")
     Subaccount = apps.get_model("accounts", "Subaccount")
     office_budgets = defaultdict(defaultdict)
     for ob in OfficeBudget.objects.all():
         office_budgets[ob.office_id][ob.month] = ob
     for office_id, budgets in office_budgets.items():
-        budget_categories = {
-            slug: BudgetCategory.objects.create(
-                office_id=office_id,
-                slug=slug,
-                name=name,
-                is_custom=False
-            )
-            for slug, name, basis in (
-                ("dental", "Dental Budget", PRODUCTION),
-                ("office", "Office Budget", PRODUCTION),
-                ("misc", "Miscellaneous spend", NONE),
-            )
-        }
         for month, ob in budgets.items():
-            dtb = ob.dental_total_budget
-            otb = ob.office_total_budget
+            budget_type = ob.dental_budget_type
+
             if ob.adjusted_production:
                 adjusted_production = ob.adjusted_production
-            elif ob.dental_budget_type == 'production':
-                adjusted_production = dtb
-            elif ob.office_budget_type == 'production':
-                adjusted_production = otb
+            elif budget_type == 'production':
+                adjusted_production = ob.dental_total_budget
             else:
                 adjusted_production = 0
 
             if ob.collection:
                 collection = ob.collection
-            elif ob.dental_budget_type == "collection":
-                collection = dtb
-            elif ob.office_budget_type == "collection":
-                collection = otb
+            elif budget_type == "collection":
+                collection = ob.dental_total_budget
             else:
                 collection = 0
 
@@ -61,27 +43,23 @@ def fill_budget(apps, schema_editor):
                 month=month,
                 adjusted_production=adjusted_production,
                 collection=collection,
+                basis=BT2BASIS[ob.dental_budget_type]
             )
-            dental_basis = BT2BASIS[ob.dental_budget_type]
-            office_basis = BT2BASIS[ob.office_budget_type]
             Subaccount.objects.create(
                 budget=budget,
-                basis=dental_basis,
-                category=budget_categories["dental"],
+                slug="dental",
                 percentage=ob.dental_percentage,
                 spend=ob.dental_spend
             )
             Subaccount.objects.create(
                 budget=budget,
-                basis=office_basis,
-                category=budget_categories["office"],
+                slug="office",
                 percentage=ob.office_percentage,
                 spend=ob.office_spend
             )
             Subaccount.objects.create(
                 budget=budget,
-                basis=NONE,
-                category=budget_categories["misc"],
+                slug="misc",
                 percentage=0,
                 spend=ob.miscellaneous_spend
             )
@@ -91,7 +69,7 @@ def fill_budget(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("accounts", "0024_budget_budgetcategory_subaccount"),
+        ("accounts", "0024_budget_subaccount"),
     ]
 
     operations = [

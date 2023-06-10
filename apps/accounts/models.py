@@ -214,20 +214,14 @@ CATEGORY2BASIS = {v: k for k, v in BASIS2CATEGORY.items()}
 class BudgetQuerySet(models.QuerySet):
     def compatible_with_office_budget(self):
         dental_subaccount, office_subaccount, misc_subaccount = [
-            Subaccount.objects.filter(budget_id=OuterRef("pk"), category__slug=slug).values(
+            Subaccount.objects.filter(budget_id=OuterRef("pk"), slug=slug).values(
                 data=JSONObject(
-                    basis="basis",
                     percentage="percentage",
                     spend="spend",
-                    budget_type=Case(
-                        When(basis=BasisType.PRODUCTION, then=Value(BudgetType.PRODUCTION)),
-                        When(basis=BasisType.COLLECTION, then=Value(BudgetType.COLLECTION)),
-                        output_field=models.CharField(),
-                    ),
                     total_budget=Case(
-                        When(basis=BasisType.PRODUCTION, then=OuterRef("adjusted_production")),
-                        When(basis=BasisType.COLLECTION, then=OuterRef("collection")),
-                        output_field=models.CharField(),
+                        When(budget__basis=BasisType.PRODUCTION, then=OuterRef("adjusted_production")),
+                        When(budget__basis=BasisType.COLLECTION, then=OuterRef("collection")),
+                        output_field=models.DecimalField(),
                     ),
                 )
             )[:1]
@@ -237,6 +231,11 @@ class BudgetQuerySet(models.QuerySet):
             dental_sub=Subquery(dental_subaccount),
             office_sub=Subquery(office_subaccount),
             misc_sub=Subquery(misc_subaccount),
+            budget_type=Case(
+                When(basis=BasisType.PRODUCTION, then=Value(BudgetType.PRODUCTION)),
+                When(basis=BasisType.COLLECTION, then=Value(BudgetType.COLLECTION)),
+                output_field=models.CharField(),
+            ),
         )
 
 
@@ -272,6 +271,7 @@ class CompatibleBudgetMixin:
 class Budget(models.Model, CompatibleBudgetMixin):
     office = models.ForeignKey(Office, on_delete=models.PROTECT, related_name="budget_set")
     month = MonthField()
+    basis = models.IntegerField(choices=BasisType.choices)
 
     adjusted_production = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     collection = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -279,44 +279,22 @@ class Budget(models.Model, CompatibleBudgetMixin):
     objects = BudgetManager()
 
 
-class BudgetCategory(models.Model):
-    office = models.ForeignKey(Office, on_delete=models.PROTECT, related_name="budget_categories")
-
-    # Slug field for the category. It has special meaning and some predefined values
-    # dental - general dental budget category
-    # office - general office budget category
-    # misc - miscelanneous budget category
-    # vendor-<vendor_slug> - vendor specific category
-    slug = models.SlugField(max_length=30)
-
-    name = models.CharField(max_length=60)
-    is_custom = models.BooleanField(default=False)
-
-    def __str__(self):
-        if self.is_custom:
-            name = f"{self.slug}"
-        else:
-            name = f"[{self.slug}]"
-        return name
-
-
 class Subaccount(models.Model):
     budget = models.ForeignKey(Budget, on_delete=models.PROTECT, related_name="subaccounts")
-    basis = models.IntegerField(choices=BasisType.choices)
-    category = models.ForeignKey(BudgetCategory, on_delete=models.PROTECT, related_name="subaccounts")
+    slug = models.SlugField(max_length=30)
     percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
     spend = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     @property
     def budget_type(self):
-        return BASIS2CATEGORY.get(self.basis)
+        return BASIS2CATEGORY.get(self.budget.basis)
 
     @property
     def total_budget(self):
-        if self.basis == BasisType.COLLECTION:
+        if self.budget.basis == BasisType.COLLECTION:
             return self.budget.collection
-        elif self.basis == BasisType.PRODUCTION:
+        elif self.budget.basis == BasisType.PRODUCTION:
             return self.budget.adjusted_production
         return None
 
