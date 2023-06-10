@@ -25,11 +25,14 @@ class BudgetViewSet(ModelViewSet):
     filterset_class = f.BudgetFilter
 
     def get_serializer_class(self):
+        if self.action in ("update", "partial_update"):
+            return s.BudgetUpdateSerializerV1
+        if self.action == "create":
+            return s.BudgetCreateSerializerV1
+        return self.get_response_serializer_class()
+
+    def get_response_serializer_class(self):
         if self.request.version == "1.0":
-            if self.action in ("update", "partial_update"):
-                return s.BudgetUpdateSerializerV1
-            if self.action == "create":
-                return s.BudgetCreateSerializerV1
             return s.BudgetSerializerV1
         elif self.request.version == "2.0":
             return s.BudgetSerializerV2
@@ -51,10 +54,7 @@ class BudgetViewSet(ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         instance = self.perform_create(serializer)
-        if self.request.version == "1.0":
-            serializer_class = s.BudgetSerializerV1
-        elif self.request.version == "2.0":
-            serializer_class = s.BudgetSerializerV2
+        serializer_class = self.get_response_serializer_class()
         serializer = serializer_class(instance=instance)
 
         headers = self.get_success_headers(serializer.data)
@@ -110,10 +110,7 @@ class BudgetViewSet(ModelViewSet):
             # forcibly invalidate the prefetch cache on the instance.
             instance._prefetched_objects_cache = {}
 
-        if self.request.version == "1.0":
-            serializer_class = s.BudgetSerializerV1
-        elif self.request.version == "2.0":
-            serializer_class = s.BudgetSerializerV2
+        serializer_class = self.get_response_serializer_class()
         serializer = serializer_class(instance=instance)
         return Response(serializer.data)
 
