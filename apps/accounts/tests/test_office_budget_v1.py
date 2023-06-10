@@ -151,7 +151,7 @@ class SingleOfficeBudgetTestCase(APITestCase):
             "office_budget": decimal.Decimal("1370.88"),
             "office_total_budget": decimal.Decimal("152319.74"),
         }
-        resp = self.api_client.put(url, data=update_data, format="json")
+        self.api_client.put(url, data=update_data, format="json")
         url = reverse(
             "budgets-detail",
             kwargs={"company_pk": self.company.pk, "office_pk": self.office.pk, "pk": self.office_budget.pk},
