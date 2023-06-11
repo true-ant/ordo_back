@@ -4,8 +4,6 @@ import math
 from typing import Literal
 from unittest.mock import patch
 
-from dateutil.relativedelta import relativedelta
-from django.utils import timezone
 from faker import Faker
 from pydantic import BaseModel, root_validator, validator
 from rest_framework import status
@@ -21,6 +19,7 @@ from apps.accounts.factories import (
     UserFactory,
 )
 from apps.accounts.models import CompanyMember, User
+from apps.accounts.tests.utils import last_year_months
 from apps.common.month import Month
 
 fake = Faker()
@@ -74,15 +73,6 @@ class BudgetOutput(BaseModel):
         assert math.isclose(rb.dental, values["dental_budget"] - values["dental_spend"])
         assert math.isclose(rb.office, values["office_budget"] - values["office_spend"])
         return values
-
-
-def last_year_months():
-    this_month = timezone.now().date().replace(day=1)
-    start_month = this_month - relativedelta(months=11)
-    current = start_month
-    while current <= this_month:
-        yield current
-        current += relativedelta(months=1)
 
 
 class SingleOfficeBudgetTestCase(APITestCase):

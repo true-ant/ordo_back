@@ -35,6 +35,8 @@ class OpenDentalKeyFactory(DjangoModelFactory):
     class Meta:
         model = m.OpenDentalKey
 
+    key = factory.Faker("pystr")
+
 
 class OfficeFactory(DjangoModelFactory):
     class Meta:
@@ -64,8 +66,8 @@ class BudgetFactory(DjangoModelFactory):
 
     office = factory.SubFactory(OfficeFactory)
     month = factory.LazyFunction(get_current_month)
-    adjusted_production = factory.Faker("pydecimal", min_value=30, max_value=120)
-    collection = factory.Faker("pydecimal", min_value=30, max_value=120)
+    adjusted_production = factory.Faker("pydecimal", min_value=30, max_value=120, right_digits=2)
+    collection = factory.Faker("pydecimal", min_value=30, max_value=120, right_digits=2)
     basis = BasisType.PRODUCTION
 
     @factory.post_generation

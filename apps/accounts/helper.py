@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import List, Optional, Union
 
 from django.db import transaction
-from django.db.models import F, Sum
+from django.db.models import F, Prefetch, Sum
 from django.utils import timezone
 
 from apps.accounts.models import Budget, Office
@@ -26,7 +26,6 @@ class BudgetNotFoundError(Exception):
 class OfficeBudgetHelper:
     @staticmethod
     def update_spend(office: Union[int, str, Office], date: datetime.date, amount: Decimal, slug="dental"):
-        # TODO: write unittests
         month = Month(year=date.year, month=date.month)
         Subaccount.objects.filter(budget__office=office, budget__month=month, slug=slug).update(
             spend=F("spend") + amount
@@ -40,7 +39,6 @@ class OfficeBudgetHelper:
         from_category: BUDGET_SPEND_TYPE,
         to_category: BUDGET_SPEND_TYPE,
     ) -> bool:
-        # TODO: write unittests
         """This function will move spend from one category to other category"""
         if not from_category or not to_category or from_category == to_category:
             return False
@@ -113,7 +111,6 @@ class OfficeBudgetHelper:
     @staticmethod
     def update_budget_with_previous_month():
         # TODO: update budget for active offices
-        # TODO: write unittest
         current_month = Month.from_date(timezone.now().date())
         previous_month = current_month.prev_month()
         current_budgets = Budget.objects.filter(month=previous_month).prefetch_related("subaccounts")
@@ -128,8 +125,11 @@ class OfficeBudgetHelper:
         start_day_of_prev_month = date.today().replace(day=1) - timedelta(days=last_day_of_prev_month.day)
 
         # TODO: test if the .exclude() really works as expected, use annotate if necessary
-        offices = Office.objects.annotate(dental_api_key=F("dental_api__key")).exclude(
-            budget__set__month=current_month
+        prev_month_office_budgets = Budget.objects.filter(month=current_month - 1)
+        offices = (
+            Office.objects.annotate(dental_api_key=F("dental_api__key"))
+            .exclude(budget_set__month=current_month)
+            .prefetch_related(Prefetch("budget_set", queryset=prev_month_office_budgets, to_attr="previous_budget"))
         )
 
         opendental_data = {}

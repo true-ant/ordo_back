@@ -65,6 +65,7 @@ dbdump = 'scripts.dbdump:main'
 types-factory-boy = "^0.4.1"
 pydantic = "^1.10.8"
 pytest-env = "^0.8.1"
+unittest-parametrize = "^1.0.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

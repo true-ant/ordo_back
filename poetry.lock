@@ -3102,6 +3102,20 @@ enforce-typing = ">=1.0.0"
 httpx = ">=0.22.0"
 
 [[package]]
+name = "unittest-parametrize"
+version = "1.0.0"
+description = "Parametrize tests within unittest TestCases."
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "unittest_parametrize-1.0.0-py3-none-any.whl", hash = "sha256:b0fc88d4e8f812f862e38235f00b397441f5cc1f322d013d9c652a175874cfa4"},
+    {file = "unittest_parametrize-1.0.0.tar.gz", hash = "sha256:fdc3070c97065dc64d7882fd29eb456744bca726101b2984ed634cf23fce19de"},
+]
+
+[package.dependencies]
+typing-extensions = {version = "*", markers = "python_version < \"3.10\""}
+
+[[package]]
 name = "urllib3"
 version = "1.26.15"
 description = "HTTP library with thread-safe connection pooling, file post, and more."
@@ -3616,4 +3630,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "a602d028cb3235950b0e5bc0f00b95bfb5a31510e675e6387c30bdbea9e1299b"
+content-hash = "d3b761d7d8b8eda43dfa36277bc6cd1436c63cbb60d80f62a88667ce022d1f33"
