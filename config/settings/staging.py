@@ -1,7 +1,8 @@
+from ..utils import get_bool_config
 from . import sentry  # noqa
 from .base import *  # noqa
 
-DEBUG = False
+DEBUG = get_bool_config("DEBUG", False)
 SITE_URL = "https://joinordo.com"
 EMAIL_HOST = "smtp.mailgun.org"
 EMAIL_PORT = 587
