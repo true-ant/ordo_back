@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from dateutil.relativedelta import relativedelta
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DefaultUserAdmin
@@ -11,10 +9,9 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from nested_admin.nested import NestedModelAdmin, NestedTabularInline
 
-from apps.accounts.filters import VendorDateFilter
+from apps.accounts.filters import CompanyDateFilter, VendorDateFilter
 from apps.accounts.tasks import fetch_order_history
 from apps.common.admins import AdminDynamicPaginationMixin, ReadOnlyAdminMixin
-from apps.common.choices import OrderStatus, OrderType
 from apps.common.month import Month
 from apps.orders import models as om
 
@@ -177,6 +174,7 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
         "ordo_order_volume",
         "is_active",
     )
+    list_filter = (CompanyDateFilter,)
     search_fields = ("name",)
     inlines = (
         CompanyMemberInline,
@@ -200,47 +198,6 @@ class CompanyAdmin(AdminDynamicPaginationMixin, NestedModelAdmin):
             office_id=officevendor.office_id,
         )
         return redirect(request.META.get("HTTP_REFERER"))
-
-    def get_queryset(self, request):
-        orders = (
-            om.Order.objects.filter(
-                order_type__in=[OrderType.ORDO_ORDER, OrderType.ORDER_REDUNDANCY], office__company_id=OuterRef("pk")
-            )
-            .order_by()
-            .annotate(count=Func(F("id"), function="Count"))
-            .values("count")
-        )
-
-        vendor_orders = (
-            om.VendorOrder.objects.filter(
-                status__in=[OrderStatus.OPEN, OrderStatus.CLOSED], order__office__company_id=OuterRef("pk")
-            )
-            .order_by()
-            .annotate(count=Func(F("id"), function="Count"))
-            .values("count")
-        )
-
-        total_amount = (
-            om.Order.objects.filter(
-                order_type__in=[OrderType.ORDO_ORDER, OrderType.ORDER_REDUNDANCY], office__company_id=OuterRef("pk")
-            )
-            .order_by()
-            .annotate(
-                sum_total_amount=Func(Func(F("total_amount"), function="Sum"), Decimal(0), function="Coalesce"),
-            )
-            .values("sum_total_amount")
-        )
-
-        qs = m.Company.objects.annotate(
-            order_count=Subquery(orders),
-            vendor_order_count=Subquery(vendor_orders),
-            ordo_order_volume=Subquery(total_amount),
-        )
-
-        ordering = self.get_ordering(request)
-        if ordering:
-            qs = qs.order_by(*ordering)
-        return qs
 
     @admin.display(description="Ordo Order Count")
     def order_count(self, obj):
