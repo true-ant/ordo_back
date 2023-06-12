@@ -198,6 +198,7 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.BasicAuthentication",
     ),
+    "EXCEPTION_HANDLER": "config.exception_handler.custom_exception_handler",
 }
 
 # DRF-JWT
@@ -251,7 +252,7 @@ FORMULA_VENDORS = [
 NON_FORMULA_VENDORS = [
     "net_32",
 ]
-API_AVAILABLE_VENDORS = ["dental_city"]
+API_AVAILABLE_VENDORS = ["dental_city", "dcdental"]
 
 RUNSERVER_PLUS_PRINT_SQL_TRUNCATE = None
 

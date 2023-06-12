@@ -178,3 +178,30 @@ class DentalCityInvoiceDetail:
     tax_amount: Decimal
     shipping_amount: Decimal
     invoice_products: List[DentalCityInvoiceProduct]
+
+
+@dataclass(frozen=True)
+class DCDentalProduct:
+    name: str
+    product_id: str
+    sku: str
+    price: Decimal
+    quantity: Decimal
+    manufacturer: str
+    manufacturer_special: str
+
+    @property
+    def product_identifier(self):
+        return self.product_id
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        return cls(
+            manufacturer=data.pop("Manufacturer"),
+            manufacturer_special=data.pop("Active Promotion"),
+            name=data.pop("Description"),
+            product_id=data.pop("DCD ID"),
+            sku=data.pop("DCD Item"),
+            price=Decimal(data.pop("pricing_unitprice", 0)),
+            quantity=Decimal(data.pop("Availability") if data["Availability"] else 0),
+        )

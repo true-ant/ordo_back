@@ -71,6 +71,11 @@ beat_schedule = {
         "args": ("dental_city",),
         "schedule": crontab(hour="7,11,15", minute=30),
     },
+    "update_vendor_product_prices_for_dcdental": {
+        "task": "apps.accounts.tasks.update_vendor_products_by_api_for_all_offices",
+        "args": ("dcdental",),
+        "schedule": crontab(hour="7,11,15", minute=30),
+    },
     "update_vendor_product_prices_for_edge_endo": {
         "task": "apps.accounts.tasks.update_vendor_product_prices_for_all_offices",
         "args": ("edge_endo",),
@@ -129,6 +134,11 @@ beat_schedule = {
     "update_order_history_for_dental_city": {
         "task": "apps.accounts.tasks.update_order_history_for_all_offices",
         "args": ("dental_city",),
+        "schedule": crontab(day_of_week="1-5", hour=1, minute=0),
+    },
+    "update_order_history_for_dcdental": {
+        "task": "apps.accounts.tasks.update_order_history_for_all_offices",
+        "args": ("dcdental",),
         "schedule": crontab(day_of_week="1-5", hour=1, minute=0),
     },
     "update_order_history_for_implant_direct": {

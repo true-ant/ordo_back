@@ -146,7 +146,22 @@ class OrderViewSet(AsyncMixin, ModelViewSet):
         return self.get_paginated_response(serializer.data)
 
     def get_queryset(self):
-        return super().get_queryset().filter(office__id=self.kwargs["office_pk"])
+        office_pk = self.kwargs["office_pk"]
+        office_product_inventory = OfficeProduct.objects.filter(
+            office_id=office_pk, product_id=OuterRef("product_id")
+        ).values("is_inventory")
+        product_prefetch_queryset = VendorOrderProduct.objects.annotate(
+            item_inventory=Subquery(office_product_inventory[:1])
+        )
+        queryset = (
+            super()
+            .get_queryset()
+            .filter(office__id=office_pk)
+            .prefetch_related(
+                Prefetch("vendor_orders__order_products", product_prefetch_queryset),
+            )
+        )
+        return queryset
 
     @action(detail=True, methods=["get"], url_path="invoice-download")
     async def download_invoice(self, request, *args, **kwargs):

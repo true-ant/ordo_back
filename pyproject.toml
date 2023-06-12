@@ -53,6 +53,7 @@ pysftp = "^0.2.9"
 xmltodict = "^0.13.0"
 aws-secretsmanager-caching = "^1.1.1.5"
 unicaps = "^1.2.1"
+oauthlib = "^3.2.2"
 
 [tool.poetry.dev-dependencies]
 pre-commit = "^2.21.0"

@@ -11,6 +11,15 @@ from dateutil.relativedelta import relativedelta
 from django.db.models import Model
 from django.utils import timezone
 
+CUSTOM_DATE_FILTER = (
+    ("thisMonth", "this month"),
+    ("lastMonth", "last month"),
+    ("thisQuarter", "this quarter"),
+    ("lastQuarter", "last quarter"),
+    ("thisYear", "this year"),
+    ("lastYear", "last year"),
+)
+
 
 def generate_token():
     return uuid.uuid4().hex + uuid.uuid4().hex

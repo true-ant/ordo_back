@@ -1,10 +1,12 @@
 from aiohttp import ClientSession
 
+from apps.api_clients.dc_dental import DCDentalClient
 from apps.api_clients.dental_city import DentalCityClient
 from apps.scrapers.errors import VendorNotSupported
 
 API_CLIENTS = {
     "dental_city": DentalCityClient,
+    "dcdental": DCDentalClient,
 }
 
 
