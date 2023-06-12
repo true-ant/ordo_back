@@ -1,4 +1,3 @@
-from datetime import datetime
 from decimal import Decimal
 
 from django.contrib.admin import SimpleListFilter
@@ -58,19 +57,14 @@ class VendorDateFilter(SimpleListFilter):
         """
         Returns the filtered queryset based on the date range.
         """
+        date_filter = Q(vendororder__status__in=[OrderStatus.OPEN, OrderStatus.CLOSED])
         date_range = get_date_range(self.value())
-        if not date_range:
-            date_range = (datetime.min, datetime.max)
-        return queryset.annotate(
-            _vendor_order_count=Count(
-                "vendororder",
-                filter=Q(
-                    vendororder__order_date__gte=date_range[0],
-                    vendororder__order_date__lte=date_range[1],
-                    vendororder__status__in=[OrderStatus.OPEN, OrderStatus.CLOSED],
-                ),
-            )
-        ).order_by("-_vendor_order_count")
+        if date_range:
+            start_date, end_date = date_range
+            date_filter &= Q(vendororder__order_date__gte=start_date, vendororder__order_date__lte=end_date)
+        return queryset.annotate(_vendor_order_count=Count("vendororder", filter=date_filter)).order_by(
+            "-_vendor_order_count"
+        )
 
 
 class CompanyDateFilter(SimpleListFilter):
@@ -85,40 +79,39 @@ class CompanyDateFilter(SimpleListFilter):
         Returns the filtered queryset based on the date range.
         """
         date_range = get_date_range(self.value())
-        if not date_range:
-            date_range = (datetime.min, datetime.max)
+
+        orders_filter = Q(
+            order_type__in=[OrderType.ORDO_ORDER, OrderType.ORDER_REDUNDANCY], office__company_id=OuterRef("pk")
+        )
+        vendor_orders_filter = Q(
+            status__in=[OrderStatus.OPEN, OrderStatus.CLOSED], order__office__company_id=OuterRef("pk")
+        )
+        total_amount_filter = Q(
+            order_type__in=[OrderType.ORDO_ORDER, OrderType.ORDER_REDUNDANCY], office__company_id=OuterRef("pk")
+        )
+
+        if date_range:
+            start_date, end_date = date_range
+            orders_filter &= Q(order_date__gte=start_date, order_date__lte=end_date)
+            vendor_orders_filter &= Q(order_date__gte=start_date, order_date__lte=end_date)
+            total_amount_filter &= Q(order_date__gte=start_date, order_date__lte=end_date)
 
         orders = (
-            om.Order.objects.filter(
-                order_type__in=[OrderType.ORDO_ORDER, OrderType.ORDER_REDUNDANCY],
-                office__company_id=OuterRef("pk"),
-                order_date__gte=date_range[0],
-                order_date__lte=date_range[1],
-            )
+            om.Order.objects.filter(orders_filter)
             .order_by()
             .annotate(count=Func(F("id"), function="Count"))
             .values("count")
         )
 
         vendor_orders = (
-            om.VendorOrder.objects.filter(
-                status__in=[OrderStatus.OPEN, OrderStatus.CLOSED],
-                order__office__company_id=OuterRef("pk"),
-                order_date__gte=date_range[0],
-                order_date__lte=date_range[1],
-            )
+            om.VendorOrder.objects.filter(vendor_orders_filter)
             .order_by()
             .annotate(count=Func(F("id"), function="Count"))
             .values("count")
         )
 
         total_amount = (
-            om.Order.objects.filter(
-                order_type__in=[OrderType.ORDO_ORDER, OrderType.ORDER_REDUNDANCY],
-                office__company_id=OuterRef("pk"),
-                order_date__gte=date_range[0],
-                order_date__lte=date_range[1],
-            )
+            om.Order.objects.filter(total_amount_filter)
             .order_by()
             .annotate(
                 sum_total_amount=Func(Func(F("total_amount"), function="Sum"), Decimal(0), function="Coalesce"),
