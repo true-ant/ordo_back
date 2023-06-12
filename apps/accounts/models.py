@@ -250,11 +250,11 @@ class CompatibleBudgetMixin:
         if item == "miscellaneous_spend":
             return self.misc_sub["spend"]
         elif item.startswith("dental_"):
-            rest = item.removeprefix("dental_")
+            rest = item[7:]  # .removeprefix("dental_")
             if rest in self.sub_keys:
                 return self.dental_sub[rest]
         elif item.startswith("office_"):
-            rest = item.removeprefix("office_")
+            rest = item[7:]  # .removeprefix("office_")
             if rest in self.sub_keys:
                 return self.office_sub[rest]
         return super().__getattribute__(item)
