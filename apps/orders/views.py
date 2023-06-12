@@ -1193,14 +1193,15 @@ class CartViewSet(AsyncMixin, AsyncCreateModelMixin, ModelViewSet):
             #      vendor != "amazon"]
             # )
 
-            remaining_budget = await sync_to_async(OfficeService.get_office_remaining_budget)(
-                office_pk=self.kwargs["office_pk"]
-            )
+            # TODO: check this logic, should we handle proper budget category instead?
+            remaining_budget = (
+                await sync_to_async(OfficeService.get_office_remaining_budget)(office_pk=self.kwargs["office_pk"])
+            ).get("dental")
             office_setting = await sync_to_async(OfficeService.get_office_setting)(office_pk=self.kwargs["office_pk"])
-            order_approval_needed = (office_setting.requires_approval_notification_for_all_orders is True) or (
-                office_setting.requires_approval_notification_for_all_orders is False
-                and remaining_budget[0] < office_setting.budget_threshold
-            )
+            if office_setting.requires_approval_notification_for_all_orders:
+                order_approval_needed = True
+            else:
+                order_approval_needed = remaining_budget < office_setting.budget_threshold
 
         fake_order = debug or order_approval_needed
 

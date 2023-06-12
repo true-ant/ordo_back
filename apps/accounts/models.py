@@ -282,6 +282,13 @@ class Budget(models.Model, CompatibleBudgetMixin):
     class Meta:
         constraints = [models.UniqueConstraint(fields=("office", "month"), name="budget_office_month_uniq")]
 
+    @property
+    def total_budget(self):
+        if self.basis == BasisType.PRODUCTION:
+            return self.adjusted_production
+        else:
+            return self.collection
+
 
 SLUG_CHOICES = (
     (s, s)

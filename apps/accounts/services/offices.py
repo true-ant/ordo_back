@@ -1,8 +1,9 @@
-from typing import Optional, Tuple
+import decimal
+from typing import Dict, Optional, Tuple
 
 from django.utils import timezone
 
-from apps.accounts.models import Office, OfficeBudget, OfficeSetting, Subscription
+from apps.accounts.models import Budget, Office, OfficeSetting, Subscription
 from apps.accounts.services.stripe import (
     cancel_subscription as stripe_cancel_subscription,
 )
@@ -19,21 +20,22 @@ class OfficeService:
         return Office.objects.get(id=office_pk)
 
     @staticmethod
-    def get_office_budget(office_pk: int, month: Optional[Month] = None):
+    def get_office_budget(office_pk: int, month: Optional[Month] = None) -> Optional[Budget]:
         if month is None:
             current_date = timezone.localtime().date()
             month = Month(year=current_date.year, month=current_date.month)
 
-        return OfficeBudget.objects.filter(office_id=office_pk, month=month).first()
+        return Budget.objects.filter(office_id=office_pk, month=month).prefetch_related("subaccounts").first()
 
     @staticmethod
-    def get_office_remaining_budget(office_pk: int):
+    def get_office_remaining_budget(office_pk: int) -> Dict[str, decimal.Decimal]:
         office_budget = OfficeService.get_office_budget(office_pk)
-        if office_budget:
-            return (
-                office_budget.dental_budget - office_budget.dental_spend,
-                office_budget.office_budget - office_budget.office_spend,
-            )
+        if not office_budget:
+            return {}
+        return {
+            subaccount.slug: office_budget.total_budget * subaccount.percentage - subaccount.spend
+            for subaccount in office_budget.subaccounts.all()
+        }
 
     @staticmethod
     def get_office_setting(office_pk: int):
