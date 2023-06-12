@@ -13,6 +13,7 @@ ALLOWED_HOSTS = [
     "ordo-backend-dev-launch.us-east-1.elasticbeanstalk.com",
     "staging.joinordo.com",
     "api.staging.joinordo.com",
+    "api.test.joinordo.com",
     "joinordo.com",
     "api.joinordo.com",
     "localhost",
