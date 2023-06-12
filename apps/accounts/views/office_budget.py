@@ -26,9 +26,15 @@ class BudgetViewSet(ModelViewSet):
 
     def get_serializer_class(self):
         if self.action in ("update", "partial_update"):
-            return s.BudgetUpdateSerializerV1
+            if self.request.version == "1.0":
+                return s.BudgetUpdateSerializerV1
+            elif self.request.version == "2.0":
+                return s.BudgetUpdateSerializerV2
         if self.action == "create":
-            return s.BudgetCreateSerializerV1
+            if self.request.version == "1.0":
+                return s.BudgetCreateSerializerV1
+            elif self.request.version == "2.0":
+                return s.BudgetCreateSerializerV2
         return self.get_response_serializer_class()
 
     def get_response_serializer_class(self):
@@ -66,8 +72,7 @@ class BudgetViewSet(ModelViewSet):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-    @action(detail=False, methods=["get"], url_path="charts")
-    def get_chart_data(self, request, *args, **kwargs):
+    def get_chart_data_v1(self, request, *args, **kwargs):
         # TODO: rewrite this one
         queryset = self.get_queryset().compatible_with_office_budget()
         this_month = Month.from_date(timezone.now().date().replace(day=1))
@@ -102,6 +107,32 @@ class BudgetViewSet(ModelViewSet):
                 )
         serializer = s.OfficeBudgetChartSerializer(ret, many=True)
         return Response(serializer.data)
+
+    def get_chart_data_v2(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        this_month = Month.from_date(timezone.now().date().replace(day=1))
+        a_year_ago = this_month - 11
+        queryset = list(queryset.filter(month__lte=this_month, month__gte=a_year_ago).order_by("month"))
+        items = {o.month: o for o in queryset}
+
+        ret = []
+        for i in range(12):
+            month = a_year_ago + i
+            if month in items:
+                item = items[month]
+                ret.append(s.BudgetSerializerV2(item).data)
+            else:
+                ret.append({"month": month.strftime("%Y-%m"), "subaccounts": []})
+        return Response(ret)
+
+    @action(detail=False, methods=["get"], url_path="charts")
+    def get_chart_data(self, request, *args, **kwargs):
+        if self.request.version == "1.0":
+            return self.get_chart_data_v1(request, *args, **kwargs)
+        elif self.request.version == "2.0":
+            return self.get_chart_data_v2(request, *args, **kwargs)
+        else:
+            raise ValidationError("Wrong version")
 
     def update(self, request, *args, **kwargs):
         kwargs.setdefault("partial", True)

@@ -118,6 +118,11 @@ class BudgetCreateSerializerV1(BaseBudgetSerializerV1):
                 slug=prefix,
                 defaults={"percentage": attrs[f"{prefix}_percentage"]},
             )
+        m.Subaccount.objects.update_or_create(
+            budget=instance,
+            slug="misc",
+            defaults={"percentage": 0},
+        )
         return instance
 
 
@@ -160,10 +165,76 @@ class BudgetSerializerV1(serializers.ModelSerializer):
         return normalize_decimal_values({**result, "remaining_budget": remaining_budget})
 
 
+class SubaccountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.Subaccount
+        fields = ["slug", "percentage", "spend"]
+
+
+class SubaccountCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.Subaccount
+        fields = ["budget", "slug", "percentage", "spend"]
+
+
+class SubaccountUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = m.Subaccount
+        fields = ["slug", "percentage"]
+
+
 class BudgetSerializerV2(serializers.ModelSerializer):
+    subaccounts = SubaccountSerializer(many=True)
+
     class Meta:
         model = m.Budget
         fields = "__all__"
+
+
+class BudgetChartSerializerV2(serializers.ModelSerializer):
+    subaccounts = SubaccountSerializer(many=True)
+
+    class Meta:
+        model = m.Budget
+        fields = ["month", "subaccounts"]
+
+
+class BudgetUpdateSerializerV2(serializers.ModelSerializer):
+    subaccounts = SubaccountUpdateSerializer(many=True)
+
+    class Meta:
+        model = m.Budget
+        fields = ["basis", "adjusted_production", "collection", "subaccounts"]
+
+    def update(self, instance: m.Budget, attrs):
+        subaccounts = attrs.pop("subaccounts")
+        for subaccount_data in subaccounts:
+            slug = subaccount_data["slug"]
+            if slug == "misc":
+                # We ignore percentage for misc
+                continue
+            percentage = subaccount_data["percentage"]
+            instance.subaccounts.filter(slug=slug).update(percentage=percentage)
+            # TODO: write not found logic and wrap into transaction
+        return super().update(instance, attrs)
+
+
+class BudgetCreateSerializerV2(serializers.ModelSerializer):
+    subaccounts = SubaccountUpdateSerializer(many=True)
+
+    class Meta:
+        model = m.Budget
+        fields = ["office", "month", "basis", "adjusted_production", "collection", "subaccounts"]
+
+    def create(self, attrs):
+        subaccounts = attrs.pop("subaccounts")
+        instance = super().create(attrs)
+        for subaccount_data in subaccounts:
+            ss = SubaccountCreateSerializer(data=subaccount_data)
+            ss.is_valid(raise_exception=True)
+            ss.create(subaccount_data)
+            # TODO: write not found logic and wrap into transaction
+        return instance
 
 
 class OfficeBudgetSerializer(serializers.ModelSerializer):
