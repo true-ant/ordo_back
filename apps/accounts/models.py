@@ -18,6 +18,7 @@ from apps.common.models import FlexibleForeignKey, TimeStampedModel
 from apps.common.month import Month
 from apps.common.month.models import MonthField
 from apps.common.utils import generate_token
+from config.constants import ALL_VENDORS
 
 INVITE_EXPIRES_DAYS = 7
 
@@ -278,13 +279,30 @@ class Budget(models.Model, CompatibleBudgetMixin):
 
     objects = BudgetManager()
 
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("office", "month"), name="budget_office_month_uniq")]
+
+
+SLUG_CHOICES = (
+    (s, s)
+    for s in (
+        "dental",
+        "office",
+        "misc",
+        *[f"vendor-{o}" for o in ALL_VENDORS],
+    )
+)
+
 
 class Subaccount(models.Model):
     budget = models.ForeignKey(Budget, on_delete=models.PROTECT, related_name="subaccounts")
-    slug = models.SlugField(max_length=30)
+    slug = models.SlugField(max_length=30, choices=SLUG_CHOICES)
     percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
     spend = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("budget", "slug"), name="subaccount_budget_slug_uniq")]
 
     @property
     def budget_type(self):

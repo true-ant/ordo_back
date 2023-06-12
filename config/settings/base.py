@@ -222,37 +222,6 @@ STRIPE_SUBSCRIPTION_PRICE_ID = os.getenv("STRIPE_SUBSCRIPTION_PRICE_ID")
 MAKE_FAKE_ORDER = os.getenv("MAKE_FAKE_ORDER", True)
 PRODUCT_PRICE_UPDATE_CYCLE = 14
 NET32_PRODUCT_PRICE_UPDATE_CYCLE = 14
-FORMULA_VENDORS = [
-    "henry_schein",
-    "darby",
-    "patterson",
-    "amazon",
-    "benco",
-    "ultradent",
-    "implant_direct",
-    "edge_endo",
-    "dental_city",
-    "dcdental",
-    "crazy_dental",
-    "purelife",
-    "skydental",
-    "top_glove",
-    "bluesky_bio",
-    "practicon",
-    "midwest_dental",
-    "pearson",
-    "salvin",
-    "bergmand",
-    "biohorizons",
-    "atomo",
-    "orthoarch",
-    "office_depot",
-    "safco",
-]
-NON_FORMULA_VENDORS = [
-    "net_32",
-]
-API_AVAILABLE_VENDORS = ["dental_city", "dcdental"]
 
 RUNSERVER_PLUS_PRINT_SQL_TRUNCATE = None
 

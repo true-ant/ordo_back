@@ -74,6 +74,7 @@ from apps.vendor_clients.async_clients import BaseClient as BaseAsyncClient
 from apps.vendor_clients.errors import VendorAuthenticationFailed
 from apps.vendor_clients.sync_clients import BaseClient as BaseSyncClient
 from apps.vendor_clients.types import Product, ProductPrice, VendorCredential
+from config.constants import API_AVAILABLE_VENDORS, FORMULA_VENDORS, NON_FORMULA_VENDORS
 from config.utils import get_client_session
 from services.opendental import OpenDentalClient
 
@@ -183,7 +184,7 @@ class OfficeProductHelper:
         # update product price
         products_to_be_updated = []
         for product_id, product in products.items():
-            if product.vendor.slug not in settings.NON_FORMULA_VENDORS:
+            if product.vendor.slug not in NON_FORMULA_VENDORS:
                 continue
             product.price = products_prices[product_id]["price"]
             product.product_vendor_status = products_prices[product_id]["product_vendor_status"]
@@ -263,7 +264,7 @@ class OfficeProductHelper:
         product_ids_from_formula_vendors = []
         product_ids_from_non_formula_vendors = []
         for product_id, product in products.items():
-            if product.vendor.slug in settings.FORMULA_VENDORS:
+            if product.vendor.slug in FORMULA_VENDORS:
                 product_ids_from_formula_vendors.append(product_id)
             else:
                 product_ids_from_non_formula_vendors.append(product_id)
@@ -1499,7 +1500,7 @@ class OrderHelper:
         perform_login: bool = True,
     ):
         async with ClientSession(timeout=ClientTimeout(120)) as session:
-            if vendor_order.vendor.slug in settings.API_AVAILABLE_VENDORS:
+            if vendor_order.vendor.slug in API_AVAILABLE_VENDORS:
                 api_client = APIClientFactory.get_api_client(vendor=vendor_order.vendor, session=session)
                 await api_client.place_order(office_vendor, vendor_order, products)
                 return

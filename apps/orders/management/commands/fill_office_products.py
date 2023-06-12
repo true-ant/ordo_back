@@ -1,9 +1,9 @@
-from django.conf import settings
 from django.core.management import BaseCommand
 from django.core.paginator import Paginator
 
 from apps.accounts.models import Office, Vendor
 from apps.orders.models import OfficeProduct, Product
+from config.constants import FORMULA_VENDORS
 
 
 class Command(BaseCommand):
@@ -27,7 +27,7 @@ class Command(BaseCommand):
         batch_size = 1000
 
         # Move products from formular vendors only
-        if vendor_slug not in settings.FORMULA_VENDORS:
+        if vendor_slug not in FORMULA_VENDORS:
             return None
 
         if not Office.objects.filter(id=office_id).exists():

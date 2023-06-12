@@ -22,6 +22,7 @@ from apps.scrapers.schema import Product as ProductDataClass
 from apps.scrapers.schema import ProductImage as ProductImageDataClass
 from apps.scrapers.schema import Vendor as VendorDataClass
 from apps.vendor_clients.types import Product as ProductDict
+from config.constants import NON_FORMULA_VENDORS
 
 
 class ProductCategory(models.Model):
@@ -130,7 +131,7 @@ class Product(TimeStampedModel):
     def recent_price(self):
         # TODO: let's get rid of this code in favor of either cleaning up, updating
         #       more frequently or returning `oudated` flag
-        if self.vendor.slug in settings.NON_FORMULA_VENDORS:
+        if self.vendor.slug in NON_FORMULA_VENDORS:
             if self.vendor.slug == "dental_city" and self.last_price_updated:
                 ages_in_days = (timezone.localtime() - self.last_price_updated).days
                 life_span_in_days = (
