@@ -34,6 +34,10 @@ class UserAdmin(AdminDynamicPaginationMixin, DefaultUserAdmin):
         "role",
         "is_staff",
     )
+    readonly_fields = (
+        "date_joined",
+        "last_login",
+    )
     list_filter = ()
 
     def get_queryset(self, request):
