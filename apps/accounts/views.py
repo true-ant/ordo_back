@@ -342,7 +342,7 @@ class CompanyMemberViewSet(ModelViewSet):
         return queryset
 
     def get_serializer_class(self):
-        if self.action == "update":
+        if self.action == "update" or self.action == "partial_update":
             return s.CompanyMemberUpdateSerializer
         else:
             return s.CompanyMemberSerializer
@@ -372,6 +372,12 @@ class CompanyMemberViewSet(ModelViewSet):
         data["invited_by"] = request.user.id
         serializer = serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
+        if serializer.validated_data["role"] is not m.User.Role.ADMIN:
+            admin_count = m.CompanyMember.objects.filter(
+                company_id=instance.company_id, role=m.User.Role.ADMIN
+            ).count()
+            if admin_count <= 1:
+                return Response({"message": msgs.NO_ADMIN_MEMBER}, status=HTTP_400_BAD_REQUEST)
         instance.role = serializer.validated_data["role"]
         instance.save()
         return Response({"message": ""})
