@@ -6,6 +6,7 @@ from json.decoder import JSONDecodeError
 
 import requests
 
+from promotions.exceptions import VendorSiteNotAvailableError
 from promotions.utils import retry
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ class Net32Spider:
         text = re.sub(r"\s+", " ", " ".join(element.xpath(".//text()").extract()))
         return text.strip() if text else ""
 
-    @retry((JSONDecodeError, Exception), max_attempts=2, wait=10, stall=2)
+    @retry((JSONDecodeError, VendorSiteNotAvailableError), max_attempts=2, wait=10, stall=2)
     def get_product(self, page=1):
         headers = {
             "authority": "www.net32.com",
@@ -73,7 +74,7 @@ class Net32Spider:
             "https://www.net32.com/rest/neo/search/get-search-results", headers=headers, json=json_data
         )
         if response.status_code != 200:
-            raise Exception()
+            raise VendorSiteNotAvailableError()
         return response.json()
 
     def run(self):
